@@ -68,5 +68,18 @@ npm run test:unit        # vitest
 npm run type-check
 npm run lint
 CI=1 npx playwright test --project=chromium   # end to end, against a build
-deploy/deploy.sh         # build and publish to xcom.innonova.ch
+deploy/deploy.sh         # build and publish the staging copy to xcom.innonova.ch
 ```
+
+## Releasing to xcom.aek.dk
+
+The estate (`innonova/iac`) serves https://xcom.aek.dk from signed releases
+of this repository:
+
+1. Tag: `git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`. The release
+   workflow (`.github/workflows/release.yml`) tests, builds, packs `dist/`
+   as `xcom-dist.tar.gz`, signs it keyless with cosign and publishes it.
+2. In `innonova/iac`, set `xcom.aek.dk: vX.Y.Z` under `sites:` in
+   `environments/dev/versions.yml` and `environments/prod/versions.yml`
+   and push: dev serves it at once; production after a person runs the
+   prod workflow.

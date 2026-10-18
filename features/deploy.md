@@ -45,3 +45,28 @@ selects a tech, and logs no console or CSP errors.
 **Left open.** The vhost file in the repository and the one on `www` are
 kept in step by hand (scp + `nginx -t` + reload); `deploy.sh` publishes
 only the site.
+
+## Report (2026-10-18, xcom.aek.dk)
+
+The estate serves the site as `xcom.aek.dk`, a site of kind `release` in
+`innonova/iac` (`sites/xcom.aek.dk.yml`): signed releases of this public
+repository, verified (cosign, this repository's release workflow at the tag)
+and unpacked by the estate's nginx role. Placed on `iac-nginx` in production
+beside aek.dk, rehearsed in dev on `inno-iacsb-app2`; `v1.0.0` in both
+`versions.yml`. The vhost carries the app's own headers (`nginx_extra`): the
+Content-Security-Policy with `connect-src 'self'`, immutable hashed assets,
+everything else revalidated, the single-page fallback. DNS needed nothing
+(`*.aek.dk` points at the ingress).
+
+Verified in dev from the seat: headers, an immutable asset, a picture, the
+fallback, and in a browser through the seat a save loaded and the air war's
+odds from the worker, no errors. Production waits for the person's prod run.
+
+Found on the way: dev's scoped converge for a new site (`--tags sites`)
+does not touch dev's resolver (the resolver role carries no tag), so dev's
+DNS kept answering the new name with the public ingress until the resolver
+host was converged by hand (`scripts/converge-dev.sh --full --limit
+inno-iacsb-ingress-int`). Production resolves through public DNS and is not
+affected.
+
+xcom.innonova.ch (the dev box, `deploy/deploy.sh`) stays as a staging copy.
