@@ -39,7 +39,7 @@ const open = (n: InventoryRow['needs'][number]) =>
   <section class="market" aria-label="Grey market">
     <div class="bar">
       <h2>Grey market</h2>
-      <span v-if="campaign" class="total">Spare worth ${{ fmt(total) }}</span>
+      <span v-if="campaign" class="total">Spare worth §{{ fmt(total) }}</span>
       <span v-else class="muted">Load a save to see your stores.</span>
       <span class="muted">Needed = what remaining research and Foundry projects use.</span>
     </div>
@@ -69,8 +69,8 @@ const open = (n: InventoryRow['needs'][number]) =>
           <td class="n">{{ r.stock ?? (campaign ? '–' : '') }}</td>
           <td class="n">{{ r.needed || '' }}</td>
           <td class="n spare">{{ r.spare || '' }}</td>
-          <td class="n">${{ fmt(r.price) }}</td>
-          <td class="n">{{ value(r) ? `$${fmt(value(r))}` : '' }}</td>
+          <td class="n">§{{ fmt(r.price) }}</td>
+          <td class="n">{{ value(r) ? `§${fmt(value(r))}` : '' }}</td>
           <td class="for">
             <template v-for="(n, i) in r.needs.slice(0, 4)" :key="`${n.for.kind}${n.for.id}`"
               ><button type="button" :class="n.for.kind" @click="open(n)">{{ n.for.name }}</button

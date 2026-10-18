@@ -128,8 +128,8 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
       <dt>Engineers</dt>
       <dd>{{ project.engineers }}</dd>
       <template v-if="project.cost.cash">
-        <dt class="cash">Cash</dt>
-        <dd>${{ project.cost.cash }}</dd>
+        <dt class="cash">Credits</dt>
+        <dd>§{{ project.cost.cash }}</dd>
       </template>
       <template v-if="project.cost.alloys">
         <dt class="res res-alloys">Alloys</dt>

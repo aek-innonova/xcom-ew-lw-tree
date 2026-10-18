@@ -252,7 +252,7 @@ const stateClass = (s: FoundryState | null) =>
               </div>
               <div class="cost">
                 <span class="days">{{ n.days }}d</span>
-                <span v-if="n.cash" class="cash">${{ n.cash }}</span>
+                <span v-if="n.cash" class="cash">§{{ n.cash }}</span>
                 <span v-if="n.alloys" class="res res-alloys">{{ n.alloys }}</span>
                 <span v-if="n.elerium" class="res res-elerium">{{ n.elerium }}</span>
                 <span v-if="n.fragments" class="res res-fragments">{{ n.fragments }}</span>
@@ -280,7 +280,7 @@ const stateClass = (s: FoundryState | null) =>
                 </div>
                 <div class="cost">
                   <span class="days">{{ card.node.days }}d</span>
-                  <span v-if="card.node.cash" class="cash">${{ card.node.cash }}</span>
+                  <span v-if="card.node.cash" class="cash">§{{ card.node.cash }}</span>
                   <span v-if="card.node.alloys" class="res res-alloys">{{ card.node.alloys }}</span>
                   <span v-if="card.node.elerium" class="res res-elerium">{{
                     card.node.elerium

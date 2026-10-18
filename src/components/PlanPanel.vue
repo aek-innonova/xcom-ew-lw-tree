@@ -143,8 +143,8 @@ const removeGoal = (g: { id: number; foundry: boolean }) =>
           </dd>
         </template>
         <template v-if="totals.cash">
-          <dt class="cash">Cash</dt>
-          <dd>${{ totals.cash }}</dd>
+          <dt class="cash">Credits</dt>
+          <dd>§{{ totals.cash }}</dd>
         </template>
         <template v-if="totals.alloys">
           <dt class="res res-alloys">Alloys</dt>

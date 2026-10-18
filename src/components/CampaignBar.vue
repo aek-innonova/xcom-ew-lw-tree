@@ -124,8 +124,8 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
       class="stores"
       aria-label="Money and materials"
     >
-      <span v-if="info.cash !== undefined" class="cash" title="Money"
-        >${{ info.cash.toLocaleString('en-US') }}</span
+      <span v-if="info.cash !== undefined" class="cash" title="Credits"
+        >§{{ info.cash.toLocaleString('en-US') }}</span
       >
       <span
         v-for="m in info.materials"

@@ -84,7 +84,7 @@ and the country usually has a satellite again in the same save.
 
 ## Report (2026-10-18, money and materials)
 
-The campaign bar shows engineers next to scientists, the money in hand
+The campaign bar shows engineers next to scientists, the credits in hand (money; the game names it so and writes it with §)
 (XGHeadQuarters.m_iCash) and the alloys, elerium, Meld and weapon fragments
 in stores (XGStorage.m_arrItems), as coloured squares with numbers like
 costs elsewhere (hover one for its name). Unit test: save1762
