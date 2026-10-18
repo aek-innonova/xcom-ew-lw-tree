@@ -18,6 +18,7 @@ import {
   sequenceOdds,
   toHitFor,
   ufoStats,
+  ufoUpgrades,
   weaponStats,
   type AirSetting,
   type Engagement,
@@ -84,6 +85,13 @@ describe('ships and weapons from the INI', () => {
     expect(
       ufoStats(SCOUT, set({ foundry: new Set([AIR_FOUNDRY.countermeasures]) })).weapons[0]!.toHit,
     ).toBe(18)
+  })
+
+  it('lists a UFO type’s upgrades by the alien research they come at', () => {
+    expect(ufoUpgrades(DESTROYER)).toEqual([
+      { at: 270, category: 9, weapons: [9], hull: false },
+      { at: 570, category: 19, hull: true },
+    ])
   })
 
   it('re-arms and re-builds UFOs past some categories', () => {

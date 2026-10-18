@@ -13,7 +13,7 @@ import {
   STANCE_AIM,
   SIZES,
   SIZE_LABEL,
-  changesAfter,
+  ufoUpgrades,
   ufosBySize,
   air,
   analysisTech,
@@ -338,17 +338,23 @@ function explain(i: number) {
 const gallery = computed(() =>
   ufosBySize(setting.value).map((ship) => {
     const c = fromCampaign.value ? campaign.value! : undefined
-    const next = changesAfter(ship.type, setting.value.category)[0]
     return {
       ship,
       note: UFO_NOTES[ship.type],
       captured: c ? (c.craftEncounters[ship.type] ?? 0) : undefined,
       analysed: c ? !!c.researched[analysisTech(ship.type)] : false,
-      next: next
-        ? `Upgraded at alien research ${(next.above_category + 1) * 30}: ${
-            next.weapons ? weaponList(next.weapons.map(weaponName)) : 'tougher hull'
-          }${next.weapons && next.stats ? ', tougher hull' : ''}`
-        : '',
+      // Upgrades already made at this alien research, and those still to come.
+      upgrades: ufoUpgrades(ship.type).map((u) => ({
+        at: u.at,
+        done: setting.value.category >= u.category,
+        // Non-breaking spaces keep "UFO Weapon I" on one line.
+        what: [
+          u.weapons ? weaponList(u.weapons.map((w) => weaponName(w).replace(/ /g, '\u00a0'))) : '',
+          u.hull ? 'tougher hull' : '',
+        ]
+          .filter(Boolean)
+          .join(', '),
+      })),
     }
   }),
 )
@@ -677,7 +683,14 @@ const USE_HELP: Record<Use, string> = {
                 <span class="nowrap">{{ weaponList(u.ship.weapons.map((w) => w.name)) }}</span>
               </span>
               <span class="about">{{ u.note?.about }}</span>
-              <span v-if="u.next" class="about next">{{ u.next }}</span>
+              <span
+                v-for="g in u.upgrades"
+                :key="g.at"
+                class="about upgrade"
+                :class="{ later: !g.done }"
+                >{{ g.done ? 'Upgraded' : 'Upgrade' }} at alien research {{ g.at }}:
+                {{ g.what }}</span
+              >
             </span>
           </button>
         </template>
@@ -817,8 +830,12 @@ h3 {
   color: var(--muted);
   line-height: 1.35;
 }
-.about.next {
+.about.upgrade {
   color: var(--progress);
+}
+.about.upgrade.later {
+  color: var(--muted);
+  opacity: 0.7;
 }
 .nowrap {
   white-space: nowrap;

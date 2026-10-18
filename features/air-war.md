@@ -204,3 +204,7 @@ and landed-UFO missions only (XGStrategy.PostCombat); it now reads
 research throughout: the campaign line names the save's alien research, a
 UFO's coming change reads "Upgraded at alien research 330: …", and free
 selection sets alien research (in steps of 30, one category each).
+
+Each UFO card lists all of its type's upgrades: those already made at the
+alien research in use in the warning colour ("Upgraded at alien research
+270: UFO Weapon II"), those still to come faded ("Upgrade at …").

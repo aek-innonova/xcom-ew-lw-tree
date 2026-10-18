@@ -83,9 +83,24 @@ export function ufosBySize(set: AirSetting): ShipStats[] {
   )
 }
 
-/** The category changes still to come for a UFO type. */
-export function changesAfter(type: number, category: number) {
-  return air.ufo_changes.filter((c) => c.ship === type && c.above_category >= category)
+/**
+ * A UFO type's upgrades in order: the alien research at which each comes
+ * (the category above which UpdateShips re-builds it, times 30), new weapons
+ * and whether its hull improves.
+ */
+export function ufoUpgrades(type: number) {
+  const byAt = new Map<
+    number,
+    { at: number; category: number; weapons?: number[]; hull: boolean }
+  >()
+  for (const c of air.ufo_changes.filter((x) => x.ship === type)) {
+    const at = (c.above_category + 1) * 30
+    const u = byAt.get(at) ?? { at, category: c.above_category + 1, hull: false }
+    if (c.weapons) u.weapons = c.weapons
+    if (c.stats) u.hull = true
+    byAt.set(at, u)
+  }
+  return [...byAt.values()].sort((a, b) => a.at - b.at)
 }
 export const CRAFT_WEAPONS = air.equipment.map((e) => e.weapon)
 
