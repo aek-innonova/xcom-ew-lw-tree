@@ -6,6 +6,7 @@ import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
 import { loadFile, state } from '@/state/store'
+import { restoreWatch } from '@/state/watch'
 
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
 const dragging = ref(false)
@@ -36,6 +37,7 @@ function onKey(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  void restoreWatch()
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragleave', onDragLeave)
   window.addEventListener('dragover', onDragOver)

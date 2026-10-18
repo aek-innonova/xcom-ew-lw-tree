@@ -6,6 +6,7 @@
 import { computed, reactive, watch } from 'vue'
 import { activeBonuses, parseBonusValues, researchBonuses } from '@/model/bonuses'
 import { applyTechBalance, parseTechBalance, type TechBalance } from '@/model/ini'
+import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
 import { researchContext } from '@/model/research'
 import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
@@ -15,6 +16,8 @@ import { parseSave } from '@/save/parse'
 const INI_KEY = 'lwtree.ini.v1'
 const SAVE_KEY = 'lwtree.save.v1'
 const GOALS_KEY = 'lwtree.goals.v1'
+const CHECKS_KEY = 'lwtree.checks.v1'
+const MAX_CHECKS = 100
 
 export interface LoadedIni {
   fileName: string
@@ -36,6 +39,8 @@ interface State {
   hovered: number | null
   /** Techs the player wants to reach; the plan is everything still needed for them. */
   goals: number[]
+  /** Our figures against the game's, one entry per save loaded, newest first. */
+  checks: SaveCheck[]
   /** The last load's outcome, shown to the player. */
   message: { kind: 'info' | 'error'; text: string } | null
 }
@@ -64,6 +69,7 @@ export const state = reactive<State>({
   selected: null,
   hovered: null,
   goals: restore<number[]>(GOALS_KEY) ?? [],
+  checks: restore<SaveCheck[]>(CHECKS_KEY) ?? [],
   message: null,
 })
 
@@ -74,6 +80,11 @@ watch(
 watch(
   () => state.save,
   (v) => persist(SAVE_KEY, v),
+)
+watch(
+  () => state.checks,
+  (v) => persist(CHECKS_KEY, v.length ? v : null),
+  { deep: true },
 )
 watch(
   () => [...state.goals],
@@ -148,7 +159,10 @@ export async function loadFile(file: File): Promise<void> {
   // A save starts with its version as a little-endian int (0x10 for EW); an INI starts with text.
   const looksLikeSave =
     bytes.length > 1024 && bytes[0]! <= 0x20 && bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0
-  if (looksLikeSave) return loadSave(file.name, bytes)
+  if (looksLikeSave) {
+    loadSave(file.name, bytes)
+    return
+  }
   const text = new TextDecoder('utf-8').decode(bytes)
   if (/^\s*TechBalance\s*=/m.test(text)) return loadIni(file.name, text)
   state.message = {
@@ -182,19 +196,54 @@ export function loadIni(fileName: string, text: string) {
   state.message = { kind: 'info', text: parts.join('; ') + '.' }
 }
 
-export function loadSave(fileName: string, bytes: Uint8Array) {
+/**
+ * Loads a save. Throws nothing; reports in the message line. Returns whether it
+ * worked, so the folder watcher can retry a save the game is still writing.
+ * `live` marks a save picked up from the watched folder.
+ */
+export function loadSave(fileName: string, bytes: Uint8Array, live = false): boolean {
+  let next: Campaign
   try {
-    const campaign = readCampaign(parseSave(bytes))
-    state.save = { fileName, campaign }
-    state.message = campaign.tactical
-      ? {
-          kind: 'info',
-          text: `${fileName} is a mid-mission save; showing the research state the mission started from.`,
-        }
-      : null
+    next = readCampaign(parseSave(bytes))
   } catch (e) {
-    state.message = { kind: 'error', text: `${fileName}: ${(e as Error).message}` }
+    if (!live) state.message = { kind: 'error', text: `${fileName}: ${(e as Error).message}` }
+    return false
   }
+  const prev = state.save?.campaign
+  state.save = { fileName, campaign: next }
+  recordCheck(fileName)
+  state.message = saveMessage(fileName, next, prev, live)
+  return true
+}
+
+function saveMessage(
+  fileName: string,
+  next: Campaign,
+  prev: Campaign | undefined,
+  live: boolean,
+): State['message'] {
+  const parts: string[] = []
+  const change = prev && changesBetween(prev, next)
+  const name = (id: number) => techById.value.get(id)?.name ?? `#${id}`
+  if (change?.researched.length) parts.push(`researched ${change.researched.map(name).join(', ')}`)
+  if (change?.started !== undefined) parts.push(`started ${name(change.started)}`)
+  if (next.tactical)
+    parts.push('a mid-mission save, showing the research state the mission started from')
+  if (!live && !parts.length) return null
+  return {
+    kind: 'info',
+    text: `${live ? 'New save ' : ''}${fileName}${parts.length ? ': ' + parts.join('; ') : ' loaded'}.`,
+  }
+}
+
+function recordCheck(fileName: string) {
+  const c = campaign.value
+  const check = c && checkSave(c, techs.value, research.value, fileName)
+  if (!check) return
+  const others = state.checks.filter(
+    (k) => !(k.fileName === fileName && k.saveNumber === check.saveNumber),
+  )
+  state.checks = [check, ...others].slice(0, MAX_CHECKS)
 }
 
 export function clearIni() {

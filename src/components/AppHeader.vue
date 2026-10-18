@@ -4,6 +4,7 @@
 import { computed, ref } from 'vue'
 import { search, searchIndex, type SearchEntry } from '@/model/unlocks'
 import { clearIni, clearSave, loadFile, state, techs } from '@/state/store'
+import { chooseFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
 
 const emit = defineEmits<{ find: [id: number] }>()
 
@@ -59,6 +60,32 @@ function onSearchKey(e: KeyboardEvent) {
     </div>
 
     <div class="files">
+      <div v-if="watcher.supported" class="file watch">
+        <button v-if="watcher.status === 'off'" type="button" @click="chooseFolder">
+          Watch save folder
+        </button>
+        <button
+          v-else-if="watcher.status === 'needs-permission'"
+          type="button"
+          @click="resumeWatch"
+        >
+          Resume watching {{ watcher.folder }}
+        </button>
+        <span v-else class="watching" role="status">
+          <span class="dot" aria-hidden="true"></span>
+          Watching {{ watcher.folder }}
+        </span>
+        <span v-if="watcher.error" class="watch-error">{{ watcher.error }}</span>
+        <button
+          v-if="watcher.status !== 'off'"
+          type="button"
+          class="clear"
+          aria-label="Stop watching the save folder"
+          @click="stopWatch"
+        >
+          ×
+        </button>
+      </div>
       <div class="file">
         <button type="button" @click="saveInput?.click()">
           {{ state.save ? 'Change save' : 'Load save' }}
@@ -187,6 +214,30 @@ h1 span {
 .clear {
   padding: 0 6px;
   margin-left: 2px;
+}
+.watching {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--done-text);
+  box-shadow: 0 0 6px var(--done-text);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.watch-error {
+  font-size: 12px;
+  color: #ff8a8a;
 }
 .privacy {
   margin: 0 0 0 auto;

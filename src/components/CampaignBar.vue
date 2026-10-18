@@ -36,6 +36,14 @@ const info = computed(() => {
 
 // The campaign's bonuses, opened from the bar.
 const showBonuses = ref(false)
+
+// Our figures against the game's, per save loaded (this campaign first).
+const showChecks = ref(false)
+const checks = computed(() => state.checks)
+const mismatches = computed(
+  () => checks.value.filter((k) => k.etaMatch === false || k.creditMatch === false).length,
+)
+const pct = (v: number | undefined) => (v === undefined ? '–' : `${Math.round(v * 100)}%`)
 const groups = computed(() => {
   const b = bonuses.value
   if (!b) return []
@@ -115,6 +123,61 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         </p>
       </div>
     </span>
+    <span class="bonus-anchor">
+      <button
+        type="button"
+        class="link"
+        :class="{ warn: mismatches }"
+        :aria-expanded="showChecks"
+        @click="showChecks = !showChecks"
+      >
+        {{ mismatches ? `${mismatches} check${mismatches === 1 ? '' : 's'} differ` : 'Checks' }}
+      </button>
+      <div
+        v-if="showChecks"
+        class="bonuses checks"
+        role="dialog"
+        aria-label="Checks against the game"
+      >
+        <button type="button" class="close" aria-label="Close" @click="showChecks = false">
+          ×
+        </button>
+        <h3>Our figures against the game's, per save</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Save</th>
+              <th>Project</th>
+              <th>Days: game / ours</th>
+              <th>Credit: actual / ours</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="k in checks" :key="`${k.fileName}:${k.saveNumber}`">
+              <td>
+                {{ k.fileName }}
+                <div class="sub">{{ k.date }}</div>
+              </td>
+              <td>
+                {{ k.project }}
+                <div v-for="n in k.notes" :key="n" class="sub">{{ n }}</div>
+              </td>
+              <td :class="{ bad: k.etaMatch === false, good: k.etaMatch }">
+                {{ k.gameDays ?? '–' }} / {{ k.formulaDays ?? '–' }}
+              </td>
+              <td :class="{ bad: k.creditMatch === false, good: k.creditMatch }">
+                {{ pct(k.actualReduction) }} / {{ pct(k.expectedCredit) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="foot">
+          Every save loaded is checked: the game's ETA for the current project against ours, and
+          what the project costs against the research credit we expect. A credited project's cost is
+          fixed when it starts, so a credit difference can also mean a bonus changed since.
+        </p>
+      </div>
+    </span>
     <span v-if="info.tactical" class="note"
       >Mid-mission save: research as of the mission's start</span
     >
@@ -128,6 +191,41 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
 <style scoped>
 .bonus-anchor {
   position: relative;
+}
+.link.warn {
+  color: #ff9b6b;
+}
+.checks {
+  width: 560px;
+}
+.checks table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.checks th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.checks td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+.checks .sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+.checks .good {
+  color: var(--done-text);
+}
+.checks .bad {
+  color: #ff8a8a;
+  font-weight: 600;
 }
 .bonuses {
   position: absolute;
