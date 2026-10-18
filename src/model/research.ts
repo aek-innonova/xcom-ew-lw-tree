@@ -181,7 +181,10 @@ export interface Holdings {
   /** XGStorage.m_arrItemArchives: non-zero for every item ever held. */
   everHad?: number[]
   stock?: number[]
-  /** XGGeoscape.m_arrCraftEncounters, by ship type. */
+  /**
+   * XGGeoscape.m_arrCraftEncounters, by ship type: despite the name, a count of
+   * crash-site and landed-UFO missions won (XGStrategy.PostCombat).
+   */
   craftEncounters?: number[]
 }
 

@@ -18,12 +18,13 @@ export interface TechRef {
 /**
  * Something other than research the game checks before a tech or Foundry
  * project can start (data/techtree.json): an item ever held
- * (XGStorage.m_arrItemArchives), one in stores now, or a UFO type encountered.
+ * (XGStorage.m_arrItemArchives), one in stores now, or a UFO of a type captured
+ * (a crash-site or landed-UFO mission won).
  */
 export type Gate =
   | { kind: 'ever_had'; items: number[]; name: string }
   | { kind: 'in_stores'; items: number[]; name: string }
-  | { kind: 'encountered'; ship: number; name: string }
+  | { kind: 'captured'; ship: number; name: string }
 
 interface RuleItem {
   id: number
@@ -35,7 +36,7 @@ interface TechRule {
   any_of?: number[]
   ever_had?: RuleItem
   in_stores?: { any_of: RuleItem[]; name: string }
-  encountered?: RuleItem
+  captured?: RuleItem
   credits: number[]
 }
 
@@ -51,8 +52,7 @@ function gatesOf(r: TechRule | undefined): Gate[] {
       items: r.in_stores.any_of.map((i) => i.id),
       name: r.in_stores.name,
     })
-  if (r.encountered)
-    gates.push({ kind: 'encountered', ship: r.encountered.id, name: r.encountered.name })
+  if (r.captured) gates.push({ kind: 'captured', ship: r.captured.id, name: r.captured.name })
   return withoutImplied(gates)
 }
 

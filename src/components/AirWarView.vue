@@ -335,7 +335,7 @@ const gallery = computed(() =>
     return {
       ship,
       note: UFO_NOTES[ship.type],
-      met: c ? (c.craftEncounters[ship.type] ?? 0) : undefined,
+      captured: c ? (c.craftEncounters[ship.type] ?? 0) : undefined,
       analysed: c ? !!c.researched[analysisTech(ship.type)] : false,
       next: next
         ? `From category ${next.above_category + 1}: ${
@@ -657,8 +657,8 @@ const USE_HELP: Record<Use, string> = {
             <span class="txt">
               <span class="name">
                 {{ u.ship.name }}
-                <span v-if="u.met !== undefined" class="tag" :class="{ dim: !u.met }">{{
-                  u.met ? `met ${u.met}×` : 'not met'
+                <span v-if="u.captured !== undefined" class="tag" :class="{ dim: !u.captured }">{{
+                  u.captured ? `captured ${u.captured}×` : 'not yet captured'
                 }}</span>
                 <span v-if="u.analysed" class="tag done">analysed</span>
               </span>

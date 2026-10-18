@@ -920,7 +920,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 4,
     "name": "Scout"
    },
@@ -935,7 +935,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 5,
     "name": "Destroyer"
    },
@@ -950,7 +950,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 6,
     "name": "Abductor"
    },
@@ -965,7 +965,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 7,
     "name": "Transport"
    },
@@ -980,7 +980,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 8,
     "name": "Battleship"
    },
@@ -995,7 +995,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 9,
     "name": "Overseer"
    },
@@ -1010,7 +1010,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 10,
     "name": "Fighter"
    },
@@ -1025,7 +1025,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 11,
     "name": "Raider"
    },
@@ -1040,7 +1040,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 12,
     "name": "Harvester"
    },
@@ -1055,7 +1055,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 13,
     "name": "Terror Ship"
    },
@@ -1070,7 +1070,7 @@
    "requires": [
     10
    ],
-   "encountered": {
+   "captured": {
     "id": 14,
     "name": "Assault Carrier"
    },

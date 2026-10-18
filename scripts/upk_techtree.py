@@ -155,7 +155,8 @@ def main():
             rest = rest.replace(m.group(0), '')
         if m := re.search(r'\(GEOSCAPE\(\)\.self\.m_arrCraftEncounters\[\(iTech - (\d+)\)\] != 0\)', rest):
             ship = tid - int(m.group(1))
-            e['encountered'] = {'id': ship, 'name': ship_name(ship)}
+            # Counted after a won crash-site or landed-UFO mission (XGStrategy.PostCombat).
+            e['captured'] = {'id': ship, 'name': ship_name(ship)}
             rest = rest.replace(m.group(0), '')
         if re.sub(r'[()&\s]', '', rest):
             sys.exit(f'tech {tid}: unrecognised requirement {cond!r} (left: {rest!r})')

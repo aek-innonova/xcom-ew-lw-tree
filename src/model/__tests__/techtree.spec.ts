@@ -67,7 +67,7 @@ describe('gates', () => {
   it('reads what the save holds', () => {
     const c = campaignOf('save1762')
     expect(c.everHad.length).toBeGreaterThan(200)
-    expect(c.craftEncounters[4]).toBeGreaterThan(0) // a Scout
+    expect(c.craftEncounters[4]).toBeGreaterThan(0) // a Scout captured
   })
 
   it('locks a UFO analysis until that UFO is met', () => {
@@ -86,6 +86,6 @@ describe('gates', () => {
     expect(shown(27).map(gateText)).toEqual(['Alien Rifle']) // kept, not used up
     expect(shown(3).map(gateText)).toEqual(['Outsider Shard in stores'])
     expect(tech(3).gates.map(gateText)).toEqual(['Outsider Shard in stores']) // implies ever held
-    expect(shown(65).map(gateText)).toEqual(['Battleship UFO encountered'])
+    expect(shown(65).map(gateText)).toEqual(['a Battleship captured'])
   })
 })

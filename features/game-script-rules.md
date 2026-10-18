@@ -86,3 +86,11 @@ were checked on screen.
   a plan will need.
 - GetFoundryTech also has a rush option (engineers and costs × 1.5);
   not shown.
+
+## Correction (2026-10-18)
+
+The UFO analysis check is not "that UFO type encountered":
+XGGeoscape.m_arrCraftEncounters is raised only by a won crash-site or
+landed-UFO mission (XGStrategy.PostCombat), never by a sighting or an
+interception. The gate is now "captured" (`data/techtree.json`), and a
+locked analysis reads "Locked: needs a Battleship captured".

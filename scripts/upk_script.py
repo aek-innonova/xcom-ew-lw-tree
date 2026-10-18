@@ -68,6 +68,8 @@ class Script:
         if t == 0x0e: s.obj(); return s.expr()
         if t in (0x0f, 0x14): a = s.expr(); b = s.expr(); return f'{a} = {b}'
         if t in (0x10, 0x1a): i = s.expr(); a = s.expr(); return f'{a}[{i}]'
+        if t == 0x11:  # new(outer, name, flags) class
+            parts = [s.expr() for _ in range(4)]; return f'new({", ".join(parts)})'
         if t == 0x12: c = s.expr(); s.u16(); s.obj(); s.u8(); return f'{c}::{s.expr()}'
         if t == 0x13: c = s.obj(); return f'class<{c}>({s.expr()})'
         if t == 0x15: return ''

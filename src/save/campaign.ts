@@ -88,7 +88,11 @@ export interface Campaign {
   stock: number[]
   /** Non-zero for every item ever held (XGStorage.m_arrItemArchives). */
   everHad: number[]
-  /** UFOs met, by ship type (XGGeoscape.m_arrCraftEncounters); UFO analyses need one. */
+  /**
+   * UFOs captured, by ship type: XGGeoscape.m_arrCraftEncounters, which only a
+   * won crash-site or landed-UFO mission raises (XGStrategy.PostCombat), not a
+   * sighting or an interception. A UFO analysis needs one.
+   */
   craftEncounters: number[]
   interceptors: Interceptor[]
   /** The end-of-campaign statistics, by name without the eRecap_ prefix. */

@@ -144,3 +144,10 @@ moment longer. The game rolls only once per engagement, so a single
   change to come, and with a save how often the campaign has met it and
   whether its analysis is done. `data/airwar.json` now carries each ship's
   size class and picture number.
+
+## Report (2026-10-18, round 3)
+
+The gallery's "met N×" was the same counter, which counts won crash-site
+and landed-UFO missions only (XGStrategy.PostCombat); it now reads
+"captured N×" or "not yet captured". The disassembler reads `new` (token
+0x11), which is what had hidden PostCombat.
