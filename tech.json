@@ -1,0 +1,2690 @@
+{
+  "game": "XCOM: Enemy Within",
+  "mod": "Long War 1.0 (Dec 28 2015)",
+  "generated": "2026-10-18",
+  "sources": {
+    "enum_order": "ETechType enum in XComGame.upk; id = index into XGFacility_Labs.m_arrResearched / m_arrProgress in a save",
+    "costs_and_time": "XEW/XComGame/Config/DefaultGameCore.ini [TechBalance]; base days before scientists and research credits",
+    "names": "XEW/XComGame/Localization/INT/XComStrategyGame.int [TechTypeNames]",
+    "prerequisites_and_unlocks": "https://www.ufopaedia.org/index.php/Research_(Long_War)"
+  },
+  "categories": [
+    "Xenology",
+    "Materials & Aerospace",
+    "Armor & MECs",
+    "Laser & Gauss",
+    "Plasma",
+    "Autopsies",
+    "Interrogations",
+    "UFO Analysis"
+  ],
+  "research_points_per_base_day": 720,
+  "techs": [
+    {
+      "id": 1,
+      "enum": "eTech_Xenobiology",
+      "config_key": "eTech_Xenobiology",
+      "name": "Xenobiology",
+      "category": "Xenology",
+      "base_days": 6,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Sectoid corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 2,
+          "name": "Xenoneurology"
+        },
+        {
+          "id": 13,
+          "name": "Xenogenetics"
+        },
+        {
+          "id": 44,
+          "name": "Sectoid Autopsy"
+        },
+        {
+          "id": 46,
+          "name": "Thin Man Autopsy"
+        },
+        {
+          "id": 47,
+          "name": "Muton Autopsy"
+        }
+      ],
+      "unlocks": [
+        "Alien Containment",
+        "Targeting Module"
+      ]
+    },
+    {
+      "id": 2,
+      "enum": "eTech_ArcThrower",
+      "config_key": "eTech_ArcThrower",
+      "name": "Xenoneurology",
+      "category": "Xenology",
+      "base_days": 8,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 10,
+        "items": "10 Sectoid corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 1,
+          "name": "Xenobiology"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 4,
+          "name": "Xenopsionics"
+        },
+        {
+          "id": 51,
+          "name": "Berserker Autopsy"
+        }
+      ],
+      "unlocks": [
+        "Arc Thrower",
+        "Arc Rifle"
+      ]
+    },
+    {
+      "id": 3,
+      "enum": "eTech_BaseShard",
+      "config_key": "eTech_BaseShard",
+      "name": "Alien Operations",
+      "category": "Xenology",
+      "base_days": 20,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Outsider Shard"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 4,
+          "name": "Xenopsionics"
+        }
+      ],
+      "any_one_of": [
+        {
+          "id": 35,
+          "name": "Interrogate Sectoid"
+        },
+        {
+          "id": 36,
+          "name": "Interrogate Floater"
+        },
+        {
+          "id": 37,
+          "name": "Interrogate Muton"
+        },
+        {
+          "id": 38,
+          "name": "Interrogate Sectoid Commander"
+        },
+        {
+          "id": 39,
+          "name": "Interrogate Berserker"
+        },
+        {
+          "id": 40,
+          "name": "Interrogate Thin Man"
+        },
+        {
+          "id": 41,
+          "name": "Interrogate Heavy Floater"
+        },
+        {
+          "id": 42,
+          "name": "Interrogate Muton Elite"
+        },
+        {
+          "id": 43,
+          "name": "Interrogate Ethereal"
+        }
+      ],
+      "leads_to": [
+        {
+          "id": 7,
+          "name": "Alien Communications"
+        }
+      ],
+      "unlocks": [
+        "Skeleton Key",
+        "locates the alien base"
+      ]
+    },
+    {
+      "id": 4,
+      "enum": "eTech_PsiLabs",
+      "config_key": "eTech_PsiLabs",
+      "name": "Xenopsionics",
+      "category": "Xenology",
+      "base_days": 14,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "15 Meld"
+      },
+      "research_credit": "Psionics",
+      "prerequisites": [
+        {
+          "id": 2,
+          "name": "Xenoneurology"
+        },
+        {
+          "id": 13,
+          "name": "Xenogenetics"
+        },
+        {
+          "id": 44,
+          "name": "Sectoid Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        },
+        {
+          "id": 56,
+          "name": "Ethereal Autopsy"
+        }
+      ],
+      "unlocks": [
+        "Psionic Labs",
+        "Aurora Armor",
+        "Mindfray",
+        "Neural Feedback",
+        "Psi Warfare Systems (Foundry)"
+      ]
+    },
+    {
+      "id": 5,
+      "enum": "eTech_Firestorm",
+      "config_key": "eTech_Firestorm",
+      "name": "Alien Propulsion",
+      "category": "Materials & Aerospace",
+      "base_days": 92,
+      "cost": {
+        "alloys": 20,
+        "elerium": 100,
+        "weapon_fragments": 160,
+        "items": "6 UFO Power Sources"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 33,
+          "name": "Alien Power Systems"
+        },
+        {
+          "id": 59,
+          "name": "Advanced Aerospace Concepts"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 19,
+          "name": "Antigrav Systems"
+        }
+      ],
+      "unlocks": [
+        "Firestorm",
+        "Elerium Afterburners (Foundry)"
+      ]
+    },
+    {
+      "id": 6,
+      "enum": "eTech_AutopsySectoidCommander",
+      "config_key": "eTech_AutopsySectoidCommander",
+      "name": "Sectoid Commander Autopsy",
+      "category": "Autopsies",
+      "base_days": 35,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Sectoid Commander corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 44,
+          "name": "Sectoid Autopsy"
+        },
+        {
+          "id": 13,
+          "name": "Xenogenetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 38,
+          "name": "Interrogate Sectoid Commander"
+        }
+      ],
+      "unlocks": [
+        "Mind Shield",
+        "Mind Merge"
+      ]
+    },
+    {
+      "id": 7,
+      "enum": "eTech_Hyperwave",
+      "config_key": "eTech_Hyperwave",
+      "name": "Alien Communications",
+      "category": "Xenology",
+      "base_days": 60,
+      "cost": {
+        "alloys": 0,
+        "elerium": 100,
+        "weapon_fragments": 0,
+        "items": "Hyperwave Beacon"
+      },
+      "research_credit": "Psionics",
+      "prerequisites": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 8,
+          "name": "Alien Command and Control"
+        },
+        {
+          "id": 18,
+          "name": "Stealth Systems"
+        }
+      ],
+      "unlocks": [
+        "Hyperwave Relay",
+        "Mimic Beacon"
+      ]
+    },
+    {
+      "id": 8,
+      "enum": "eTech_PsiLink",
+      "config_key": "eTech_PsiLink",
+      "name": "Alien Command and Control",
+      "category": "Xenology",
+      "base_days": 150,
+      "cost": {
+        "alloys": 0,
+        "elerium": 100,
+        "weapon_fragments": 0,
+        "items": "Ethereal Device"
+      },
+      "research_credit": "Psionics",
+      "prerequisites": [
+        {
+          "id": 7,
+          "name": "Alien Communications"
+        },
+        {
+          "id": 43,
+          "name": "Interrogate Ethereal"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 14,
+          "name": "Mind and Machine"
+        }
+      ],
+      "unlocks": [
+        "Gollop Chamber"
+      ]
+    },
+    {
+      "id": 9,
+      "enum": "eTech_WeaponFragments",
+      "config_key": "eTech_WeaponFragments",
+      "name": "Alien Weaponry",
+      "category": "Materials & Aerospace",
+      "base_days": 6,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 5,
+        "items": null
+      },
+      "research_credit": "Weapons",
+      "prerequisites": [],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 11,
+          "name": "Experimental Warfare"
+        },
+        {
+          "id": 20,
+          "name": "Beam Lasers"
+        },
+        {
+          "id": 24,
+          "name": "Plasma Weapons"
+        }
+      ],
+      "unlocks": [
+        "SCOPE",
+        "Marksman's Scope",
+        "Mag Pistols, SHIV Suppression (Foundry)"
+      ]
+    },
+    {
+      "id": 10,
+      "enum": "eTech_AlienMaterials",
+      "config_key": "eTech_AlienMaterials",
+      "name": "Alien Materials",
+      "category": "Materials & Aerospace",
+      "base_days": 6,
+      "cost": {
+        "alloys": 4,
+        "elerium": 4,
+        "weapon_fragments": 10,
+        "items": "1 Meld"
+      },
+      "research_credit": null,
+      "prerequisites": [],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        },
+        {
+          "id": 59,
+          "name": "Advanced Aerospace Concepts"
+        },
+        {
+          "id": 12,
+          "name": "Elerium"
+        },
+        {
+          "id": 72,
+          "name": "Improved Body Armor"
+        },
+        {
+          "id": 28,
+          "name": "Gauss Weapons"
+        },
+        {
+          "id": 61,
+          "name": "UFO Analysis: Scout"
+        },
+        {
+          "id": 67,
+          "name": "UFO Analysis: Fighter"
+        },
+        {
+          "id": 68,
+          "name": "UFO Analysis: Raider"
+        },
+        {
+          "id": 62,
+          "name": "UFO Analysis: Destroyer"
+        },
+        {
+          "id": 63,
+          "name": "UFO Analysis: Abductor"
+        },
+        {
+          "id": 69,
+          "name": "UFO Analysis: Harvester"
+        },
+        {
+          "id": 64,
+          "name": "UFO Analysis: Transport"
+        },
+        {
+          "id": 70,
+          "name": "UFO Analysis: Terror Ship"
+        },
+        {
+          "id": 71,
+          "name": "UFO Analysis: Assault Carrier"
+        },
+        {
+          "id": 65,
+          "name": "UFO Analysis: Battleship"
+        },
+        {
+          "id": 66,
+          "name": "UFO Analysis: Overseer"
+        }
+      ],
+      "unlocks": [
+        "Alloy Plating",
+        "HEAT Ammo",
+        "Phoenix Cannon",
+        "Alien Metallurgy, Improved Salvage, Enhanced Ballistics, Aircraft Boosters (Foundry)"
+      ]
+    },
+    {
+      "id": 11,
+      "enum": "eTech_Exp_Warfare",
+      "config_key": "eTech_Exp_Warfare",
+      "name": "Experimental Warfare",
+      "category": "Materials & Aerospace",
+      "base_days": 8,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 20,
+        "items": null
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 9,
+          "name": "Alien Weaponry"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 59,
+          "name": "Advanced Aerospace Concepts"
+        },
+        {
+          "id": 28,
+          "name": "Gauss Weapons"
+        }
+      ],
+      "unlocks": [
+        "Smartshell Pod",
+        "Adaptive Tracking Pod",
+        "SCOPE Upgrade, New Combat Systems (Foundry)"
+      ]
+    },
+    {
+      "id": 12,
+      "enum": "eTech_Elerium",
+      "config_key": "eTech_Elerium",
+      "name": "Elerium",
+      "category": "Materials & Aerospace",
+      "base_days": 30,
+      "cost": {
+        "alloys": 0,
+        "elerium": 60,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 33,
+          "name": "Alien Power Systems"
+        },
+        {
+          "id": 16,
+          "name": "Mobile Power Armor"
+        }
+      ],
+      "unlocks": [
+        "Elerium Turbos",
+        "Jellied Elerium (Foundry)"
+      ]
+    },
+    {
+      "id": 13,
+      "enum": "eTech_Meld",
+      "config_key": "eTech_Meld",
+      "name": "Xenogenetics",
+      "category": "Xenology",
+      "base_days": 10,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "20 Meld"
+      },
+      "research_credit": "Cybernetics",
+      "prerequisites": [
+        {
+          "id": 1,
+          "name": "Xenobiology"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 4,
+          "name": "Xenopsionics"
+        },
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        },
+        {
+          "id": 48,
+          "name": "Chryssalid Autopsy"
+        },
+        {
+          "id": 6,
+          "name": "Sectoid Commander Autopsy"
+        }
+      ],
+      "unlocks": [
+        "Genetics Lab",
+        "Depth Perception",
+        "Hyper-Reactive Pupils"
+      ]
+    },
+    {
+      "id": 14,
+      "enum": "eTech_PsiArmor",
+      "config_key": "eTech_PsiArmor",
+      "name": "Mind and Machine",
+      "category": "Armor & MECs",
+      "base_days": 150,
+      "cost": {
+        "alloys": 20,
+        "elerium": 100,
+        "weapon_fragments": 0,
+        "items": "5 Meld"
+      },
+      "research_credit": "Psionics",
+      "prerequisites": [
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        },
+        {
+          "id": 8,
+          "name": "Alien Command and Control"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Vortex Armor"
+      ]
+    },
+    {
+      "id": 15,
+      "enum": "eTech_Armor_Carapace",
+      "config_key": "eTech_Armor_Carapace",
+      "name": "Advanced Body Armor",
+      "category": "Armor & MECs",
+      "base_days": 20,
+      "cost": {
+        "alloys": 12,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 72,
+          "name": "Improved Body Armor"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 16,
+          "name": "Mobile Power Armor"
+        }
+      ],
+      "unlocks": [
+        "Kestrel Armor",
+        "Carapace Armor",
+        "Mechanized Unit Defenses (Foundry)"
+      ]
+    },
+    {
+      "id": 16,
+      "enum": "eTech_Armor_Skeleton",
+      "config_key": "eTech_Armor_Skeleton",
+      "name": "Mobile Power Armor",
+      "category": "Armor & MECs",
+      "base_days": 40,
+      "cost": {
+        "alloys": 20,
+        "elerium": 20,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 15,
+          "name": "Advanced Body Armor"
+        },
+        {
+          "id": 12,
+          "name": "Elerium"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 73,
+          "name": "Improved Combat Exoskeletons"
+        },
+        {
+          "id": 17,
+          "name": "Advanced Power Armor"
+        }
+      ],
+      "unlocks": [
+        "Banshee Armor",
+        "Aegis Armor",
+        "Impact Vest"
+      ]
+    },
+    {
+      "id": 17,
+      "enum": "eTech_Armor_Titan",
+      "config_key": "eTech_Armor_Titan",
+      "name": "Advanced Power Armor",
+      "category": "Armor & MECs",
+      "base_days": 68,
+      "cost": {
+        "alloys": 20,
+        "elerium": 40,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 16,
+          "name": "Mobile Power Armor"
+        },
+        {
+          "id": 33,
+          "name": "Alien Power Systems"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 74,
+          "name": "Mobile Combat Exoskeletons"
+        },
+        {
+          "id": 75,
+          "name": "Heavy Combat Exoskeletons"
+        },
+        {
+          "id": 19,
+          "name": "Antigrav Systems"
+        },
+        {
+          "id": 18,
+          "name": "Stealth Systems"
+        }
+      ],
+      "unlocks": [
+        "Corsair Armor",
+        "Titan Armor",
+        "Walker Servos"
+      ]
+    },
+    {
+      "id": 18,
+      "enum": "eTech_Armor_Ghost",
+      "config_key": "eTech_Armor_Ghost",
+      "name": "Stealth Systems",
+      "category": "Armor & MECs",
+      "base_days": 70,
+      "cost": {
+        "alloys": 0,
+        "elerium": 100,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 17,
+          "name": "Advanced Power Armor"
+        },
+        {
+          "id": 7,
+          "name": "Alien Communications"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Shadow Armor",
+        "Stealth Satellites (Foundry)"
+      ]
+    },
+    {
+      "id": 19,
+      "enum": "eTech_Armor_ArchAngel",
+      "config_key": "eTech_Armor_ArchAngel",
+      "name": "Antigrav Systems",
+      "category": "Armor & MECs",
+      "base_days": 70,
+      "cost": {
+        "alloys": 5,
+        "elerium": 100,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 17,
+          "name": "Advanced Power Armor"
+        },
+        {
+          "id": 5,
+          "name": "Alien Propulsion"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Seraph Armor",
+        "Archangel Armor",
+        "Fuel Cell",
+        "The Thumper",
+        "Hover SHIV",
+        "Advanced Flight (Foundry)"
+      ]
+    },
+    {
+      "id": 20,
+      "enum": "eTech_LaserWeapons",
+      "config_key": "eTech_LaserWeapons",
+      "name": "Beam Lasers",
+      "category": "Laser & Gauss",
+      "base_days": 8,
+      "cost": {
+        "alloys": 10,
+        "elerium": 0,
+        "weapon_fragments": 40,
+        "items": null
+      },
+      "research_credit": "Laser Weapons",
+      "prerequisites": [
+        {
+          "id": 9,
+          "name": "Alien Weaponry"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 21,
+          "name": "Advanced Beam Lasers"
+        }
+      ],
+      "unlocks": [
+        "Laser Pistol",
+        "Laser Rifle",
+        "Laser Carbine",
+        "Autolaser",
+        "Gatling Laser",
+        "Laser Shatterray",
+        "Heater",
+        "Base Security: Weapons (Foundry)"
+      ]
+    },
+    {
+      "id": 21,
+      "enum": "eTech_PrecisionLasers",
+      "config_key": "eTech_PrecisionLasers",
+      "name": "Advanced Beam Lasers",
+      "category": "Laser & Gauss",
+      "base_days": 14,
+      "cost": {
+        "alloys": 10,
+        "elerium": 0,
+        "weapon_fragments": 50,
+        "items": null
+      },
+      "research_credit": "Laser Weapons",
+      "prerequisites": [
+        {
+          "id": 20,
+          "name": "Beam Lasers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 22,
+          "name": "Pulse Lasers"
+        }
+      ],
+      "unlocks": [
+        "Heavy Laser Rifle",
+        "Scatter Laser",
+        "Laser Strike Rifle",
+        "Laser Sniper Rifle",
+        "Laser Lance",
+        "Superheavy Laser",
+        "Laser Cannon",
+        "Enhanced Lasers (Foundry)"
+      ]
+    },
+    {
+      "id": 22,
+      "enum": "eTech_HeavyLasers",
+      "config_key": "eTech_HeavyLasers",
+      "name": "Pulse Lasers",
+      "category": "Laser & Gauss",
+      "base_days": 60,
+      "cost": {
+        "alloys": 20,
+        "elerium": 40,
+        "weapon_fragments": 125,
+        "items": null
+      },
+      "research_credit": "Laser Weapons",
+      "prerequisites": [
+        {
+          "id": 21,
+          "name": "Advanced Beam Lasers"
+        },
+        {
+          "id": 33,
+          "name": "Alien Power Systems"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 49,
+          "name": "Advanced Pulse Lasers"
+        }
+      ],
+      "unlocks": [
+        "Pulse Rifle family",
+        "Blaster",
+        "Superheavy Pulser"
+      ]
+    },
+    {
+      "id": 23,
+      "enum": "eTech_Plasma_Pistol",
+      "config_key": "eTech_Plasma_Pistol",
+      "name": "Compact Plasma Weapons",
+      "category": "Plasma",
+      "base_days": 50,
+      "cost": {
+        "alloys": 10,
+        "elerium": 40,
+        "weapon_fragments": 150,
+        "items": "2 Alien Pistols"
+      },
+      "research_credit": "Plasma Weapons",
+      "prerequisites": [
+        {
+          "id": 24,
+          "name": "Plasma Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Plasma Pistol",
+        "Plasma Mauler",
+        "Reflex Pistols (Foundry)"
+      ]
+    },
+    {
+      "id": 24,
+      "enum": "eTech_Plasma_Light",
+      "config_key": "eTech_Plasma_Light",
+      "name": "Plasma Weapons",
+      "category": "Plasma",
+      "base_days": 75,
+      "cost": {
+        "alloys": 20,
+        "elerium": 60,
+        "weapon_fragments": 175,
+        "items": "5 Alien Carbines"
+      },
+      "research_credit": "Plasma Weapons",
+      "prerequisites": [
+        {
+          "id": 9,
+          "name": "Alien Weaponry"
+        },
+        {
+          "id": 33,
+          "name": "Alien Power Systems"
+        },
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 23,
+          "name": "Compact Plasma Weapons"
+        },
+        {
+          "id": 25,
+          "name": "Advanced Plasma Weapons"
+        }
+      ],
+      "unlocks": [
+        "Plasma Stormgun",
+        "Plasma Carbine"
+      ]
+    },
+    {
+      "id": 25,
+      "enum": "eTech_Plasma_Rifle",
+      "config_key": "eTech_Plasma_Rifle",
+      "name": "Advanced Plasma Weapons",
+      "category": "Plasma",
+      "base_days": 90,
+      "cost": {
+        "alloys": 20,
+        "elerium": 80,
+        "weapon_fragments": 200,
+        "items": "3 Alien Rifles"
+      },
+      "research_credit": "Plasma Weapons",
+      "prerequisites": [
+        {
+          "id": 24,
+          "name": "Plasma Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 26,
+          "name": "Heavy Plasma Weapons"
+        },
+        {
+          "id": 27,
+          "name": "Precision Plasma Weapons"
+        },
+        {
+          "id": 29,
+          "name": "Vehicular Plasma Weapons"
+        }
+      ],
+      "unlocks": [
+        "Plasma Rifle",
+        "Plasma Novagun",
+        "Reflex Cannon"
+      ]
+    },
+    {
+      "id": 26,
+      "enum": "eTech_Plasma_Heavy",
+      "config_key": "eTech_Plasma_Heavy",
+      "name": "Heavy Plasma Weapons",
+      "category": "Plasma",
+      "base_days": 90,
+      "cost": {
+        "alloys": 20,
+        "elerium": 90,
+        "weapon_fragments": 200,
+        "items": "2 Alien Heavy Weapons"
+      },
+      "research_credit": "Plasma Weapons",
+      "prerequisites": [
+        {
+          "id": 25,
+          "name": "Advanced Plasma Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 30,
+          "name": "Fusion Weapons"
+        }
+      ],
+      "unlocks": [
+        "Heavy Plasma Rifle",
+        "Plasma Dragon",
+        "Particle Cannon"
+      ]
+    },
+    {
+      "id": 27,
+      "enum": "eTech_Plasma_Sniper",
+      "config_key": "eTech_Plasma_Sniper",
+      "name": "Precision Plasma Weapons",
+      "category": "Plasma",
+      "base_days": 90,
+      "cost": {
+        "alloys": 20,
+        "elerium": 90,
+        "weapon_fragments": 200,
+        "items": null
+      },
+      "research_credit": "Plasma Weapons",
+      "prerequisites": [
+        {
+          "id": 25,
+          "name": "Advanced Plasma Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Reflex Rifle",
+        "Plasma Sniper Rifle",
+        "Enhanced Plasma (Foundry)"
+      ]
+    },
+    {
+      "id": 28,
+      "enum": "eTech_Alloy_Cannon",
+      "config_key": "eTech_Alloy_Cannon",
+      "name": "Gauss Weapons",
+      "category": "Laser & Gauss",
+      "base_days": 32,
+      "cost": {
+        "alloys": 20,
+        "elerium": 10,
+        "weapon_fragments": 80,
+        "items": null
+      },
+      "research_credit": "Gauss Weapons",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        },
+        {
+          "id": 11,
+          "name": "Experimental Warfare"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 31,
+          "name": "Advanced Gauss Weapons"
+        }
+      ],
+      "unlocks": [
+        "Gauss Rifle family",
+        "Gauss Autopistol",
+        "Grenade Launcher",
+        "Sentry Gun",
+        "Rail Pistols, Phoenix Coilguns (Foundry)"
+      ]
+    },
+    {
+      "id": 29,
+      "enum": "eTech_Plasma_Cannon",
+      "config_key": "eTech_Plasma_Cannon",
+      "name": "Vehicular Plasma Weapons",
+      "category": "Plasma",
+      "base_days": 90,
+      "cost": {
+        "alloys": 20,
+        "elerium": 90,
+        "weapon_fragments": 200,
+        "items": null
+      },
+      "research_credit": "Plasma Weapons",
+      "prerequisites": [
+        {
+          "id": 25,
+          "name": "Advanced Plasma Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Superheavy Plasma",
+        "Plasma Cannon"
+      ]
+    },
+    {
+      "id": 30,
+      "enum": "eTech_Fusion_Launcher",
+      "config_key": "eTech_Fusion_Launcher",
+      "name": "Fusion Weapons",
+      "category": "Plasma",
+      "base_days": 120,
+      "cost": {
+        "alloys": 40,
+        "elerium": 200,
+        "weapon_fragments": 300,
+        "items": "Fusion Core (kept)"
+      },
+      "research_credit": "Weapons",
+      "prerequisites": [
+        {
+          "id": 26,
+          "name": "Heavy Plasma Weapons"
+        },
+        {
+          "id": 34,
+          "name": "EMP Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Blaster Launcher",
+        "Fusion Lance"
+      ]
+    },
+    {
+      "id": 31,
+      "enum": "eTech_BlasterLauncher",
+      "config_key": "eTech_BlasterLauncher",
+      "name": "Advanced Gauss Weapons",
+      "category": "Laser & Gauss",
+      "base_days": 38,
+      "cost": {
+        "alloys": 20,
+        "elerium": 10,
+        "weapon_fragments": 100,
+        "items": null
+      },
+      "research_credit": "Gauss Weapons",
+      "prerequisites": [
+        {
+          "id": 28,
+          "name": "Gauss Weapons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 34,
+          "name": "EMP Weapons"
+        }
+      ],
+      "unlocks": [
+        "Heavy Gauss Rifle",
+        "Alloy Cannon",
+        "Alloy Strike Rifle",
+        "Gauss Long Rifle",
+        "Recoilless Rifle",
+        "Railgun",
+        "Proximity Mine Launcher",
+        "Quenchguns (Foundry)"
+      ]
+    },
+    {
+      "id": 32,
+      "enum": "eTech_AlienNavigation",
+      "config_key": "eTech_AlienNavigation",
+      "name": "Alien Computers",
+      "category": "Materials & Aerospace",
+      "base_days": 10,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "4 UFO Flight Computers"
+      },
+      "research_credit": null,
+      "prerequisites": [],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        },
+        {
+          "id": 59,
+          "name": "Advanced Aerospace Concepts"
+        },
+        {
+          "id": 54,
+          "name": "Drone Autopsy"
+        },
+        {
+          "id": 58,
+          "name": "Seeker Autopsy"
+        },
+        {
+          "id": 55,
+          "name": "Sectopod Autopsy"
+        }
+      ],
+      "unlocks": [
+        "Satellite Nexus"
+      ]
+    },
+    {
+      "id": 33,
+      "enum": "eTech_UFOPowerSource",
+      "config_key": "eTech_UFOPowerSource",
+      "name": "Alien Power Systems",
+      "category": "Materials & Aerospace",
+      "base_days": 40,
+      "cost": {
+        "alloys": 0,
+        "elerium": 60,
+        "weapon_fragments": 0,
+        "items": "6 UFO Power Sources"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 12,
+          "name": "Elerium"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 5,
+          "name": "Alien Propulsion"
+        },
+        {
+          "id": 17,
+          "name": "Advanced Power Armor"
+        },
+        {
+          "id": 22,
+          "name": "Pulse Lasers"
+        },
+        {
+          "id": 24,
+          "name": "Plasma Weapons"
+        }
+      ],
+      "unlocks": [
+        "Elerium Generator",
+        "Alien Nucleonics, Improved Arc Thrower, UFO Tracking (Foundry)"
+      ]
+    },
+    {
+      "id": 34,
+      "enum": "eTech_EMP",
+      "config_key": "eTech_EMP",
+      "name": "EMP Weapons",
+      "category": "Laser & Gauss",
+      "base_days": 95,
+      "cost": {
+        "alloys": 0,
+        "elerium": 200,
+        "weapon_fragments": 300,
+        "items": "40 Meld"
+      },
+      "research_credit": "Weapons",
+      "prerequisites": [
+        {
+          "id": 31,
+          "name": "Advanced Gauss Weapons"
+        },
+        {
+          "id": 49,
+          "name": "Advanced Pulse Lasers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 30,
+          "name": "Fusion Weapons"
+        }
+      ],
+      "unlocks": [
+        "Electro Pulse",
+        "EMP Cannon",
+        "Drone Capture (Foundry)"
+      ]
+    },
+    {
+      "id": 35,
+      "enum": "eTech_InterrogateSectoid",
+      "config_key": "eTech_InterrogateSectoid",
+      "name": "Interrogate Sectoid",
+      "category": "Interrogations",
+      "base_days": 9,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Sectoid captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 44,
+          "name": "Sectoid Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Psi Inspiration",
+        "Cybernetics research credit"
+      ]
+    },
+    {
+      "id": 36,
+      "enum": "eTech_InterrogateFloater",
+      "config_key": "eTech_InterrogateFloater",
+      "name": "Interrogate Floater",
+      "category": "Interrogations",
+      "base_days": 9,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Floater captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 45,
+          "name": "Floater Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Aerospace research credit"
+      ]
+    },
+    {
+      "id": 37,
+      "enum": "eTech_InterrogateMuton",
+      "config_key": "eTech_InterrogateMuton",
+      "name": "Interrogate Muton",
+      "category": "Interrogations",
+      "base_days": 14,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Muton captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 47,
+          "name": "Muton Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Distortion Field",
+        "Gauss Weapons research credit"
+      ]
+    },
+    {
+      "id": 38,
+      "enum": "eTech_InterrogateSectoidCommander",
+      "config_key": "eTech_InterrogateSectoidCommander",
+      "name": "Interrogate Sectoid Commander",
+      "category": "Interrogations",
+      "base_days": 35,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Sectoid Commander captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 6,
+          "name": "Sectoid Commander Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Psychokinetic Strike",
+        "Psionics research credit"
+      ]
+    },
+    {
+      "id": 39,
+      "enum": "eTech_InterrogateBerserker",
+      "config_key": "eTech_InterrogateBerserker",
+      "name": "Interrogate Berserker",
+      "category": "Interrogations",
+      "base_days": 20,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Berserker captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 51,
+          "name": "Berserker Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Psi Panic",
+        "Armor research credit"
+      ]
+    },
+    {
+      "id": 40,
+      "enum": "eTech_InterrogateThinMan",
+      "config_key": "eTech_InterrogateThinMan",
+      "name": "Interrogate Thin Man",
+      "category": "Interrogations",
+      "base_days": 10,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Thin Man captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 46,
+          "name": "Thin Man Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Regen Biofield",
+        "Laser Weapons research credit"
+      ]
+    },
+    {
+      "id": 41,
+      "enum": "eTech_InterrogateHeavyFloater",
+      "config_key": "eTech_InterrogateHeavyFloater",
+      "name": "Interrogate Heavy Floater",
+      "category": "Interrogations",
+      "base_days": 18,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Heavy Floater captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 52,
+          "name": "Heavy Floater Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Plasma Weapons research credit"
+      ]
+    },
+    {
+      "id": 42,
+      "enum": "eTech_InterrogateMutonElite",
+      "config_key": "eTech_InterrogateMutonElite",
+      "name": "Interrogate Muton Elite",
+      "category": "Interrogations",
+      "base_days": 25,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Muton Elite captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 53,
+          "name": "Muton Elite Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Pyrokinesis",
+        "Weapons research credit (all weapon research)"
+      ]
+    },
+    {
+      "id": 43,
+      "enum": "eTech_InterrogateEthereal",
+      "config_key": "eTech_InterrogateEthereal",
+      "name": "Interrogate Ethereal",
+      "category": "Interrogations",
+      "base_days": 50,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "1 Ethereal captive"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 56,
+          "name": "Ethereal Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 8,
+          "name": "Alien Command and Control"
+        },
+        {
+          "id": 3,
+          "name": "Alien Operations"
+        }
+      ],
+      "unlocks": [
+        "Mind Control",
+        "Rift",
+        "credit for all research and Foundry projects"
+      ]
+    },
+    {
+      "id": 44,
+      "enum": "eTech_AutopsySectoid",
+      "config_key": "eTech_AutopsySectoid",
+      "name": "Sectoid Autopsy",
+      "category": "Autopsies",
+      "base_days": 4,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "10 Sectoid corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 1,
+          "name": "Xenobiology"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 4,
+          "name": "Xenopsionics"
+        },
+        {
+          "id": 6,
+          "name": "Sectoid Commander Autopsy"
+        },
+        {
+          "id": 57,
+          "name": "Mechtoid Autopsy"
+        },
+        {
+          "id": 35,
+          "name": "Interrogate Sectoid"
+        }
+      ],
+      "unlocks": [
+        "Smart Macrophages",
+        "enables Sectoid interrogation"
+      ]
+    },
+    {
+      "id": 45,
+      "enum": "eTech_AutopsyFloater",
+      "config_key": "eTech_AutopsyFloater",
+      "name": "Floater Autopsy",
+      "category": "Autopsies",
+      "base_days": 5,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "10 Floater corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 52,
+          "name": "Heavy Floater Autopsy"
+        },
+        {
+          "id": 36,
+          "name": "Interrogate Floater"
+        }
+      ],
+      "unlocks": [
+        "Shaped Armor",
+        "Kinetic Strike Module",
+        "Flak Ammo",
+        "Uplink Targeting"
+      ]
+    },
+    {
+      "id": 46,
+      "enum": "eTech_AutopsyThinMan",
+      "config_key": "eTech_AutopsyThinMan",
+      "name": "Thin Man Autopsy",
+      "category": "Autopsies",
+      "base_days": 6,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "10 Thin Man corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 1,
+          "name": "Xenobiology"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 40,
+          "name": "Interrogate Thin Man"
+        }
+      ],
+      "unlocks": [
+        "Improved Medikit, Chem Grenade, Restorative Mist",
+        "Muscle Fiber Density"
+      ]
+    },
+    {
+      "id": 47,
+      "enum": "eTech_AutopsyMuton",
+      "config_key": "eTech_AutopsyMuton",
+      "name": "Muton Autopsy",
+      "category": "Autopsies",
+      "base_days": 8,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "10 Muton corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 1,
+          "name": "Xenobiology"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 51,
+          "name": "Berserker Autopsy"
+        },
+        {
+          "id": 53,
+          "name": "Muton Elite Autopsy"
+        },
+        {
+          "id": 37,
+          "name": "Interrogate Muton"
+        }
+      ],
+      "unlocks": [
+        "Ammo Conservation, Alien Grenades",
+        "Adrenal Neurosympathy"
+      ]
+    },
+    {
+      "id": 48,
+      "enum": "eTech_AutopsyCryssalid",
+      "config_key": "eTech_AutopsyCryssalid",
+      "name": "Chryssalid Autopsy",
+      "category": "Autopsies",
+      "base_days": 9,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Chryssalid corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 13,
+          "name": "Xenogenetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Chitin Plating",
+        "Adaptive Bone Marrow"
+      ]
+    },
+    {
+      "id": 49,
+      "enum": "eTech_AutopsyZombie",
+      "config_key": "eTech_AutopsyZombie",
+      "name": "Advanced Pulse Lasers",
+      "category": "Laser & Gauss",
+      "base_days": 65,
+      "cost": {
+        "alloys": 20,
+        "elerium": 40,
+        "weapon_fragments": 150,
+        "items": null
+      },
+      "research_credit": "Laser Weapons",
+      "prerequisites": [
+        {
+          "id": 22,
+          "name": "Pulse Lasers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 34,
+          "name": "EMP Weapons"
+        }
+      ],
+      "unlocks": [
+        "Heavy Pulse Rifle",
+        "Scatter Blaster",
+        "Blaster Rifle",
+        "Pulse Sniper Rifle",
+        "Pulse Lance",
+        "Supercapacitors (Foundry)"
+      ]
+    },
+    {
+      "id": 50,
+      "enum": "eTech_AutopsyCyberdisc",
+      "config_key": "eTech_AutopsyCyberdisc",
+      "name": "Cyberdisc Autopsy",
+      "category": "Autopsies",
+      "base_days": 7,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "3 Cyberdisc wrecks"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Sentinel Drone",
+        "Autosentry Turret",
+        "Iron Skin",
+        "Defensive Matrix"
+      ]
+    },
+    {
+      "id": 51,
+      "enum": "eTech_AutopsyBerserker",
+      "config_key": "eTech_AutopsyBerserker",
+      "name": "Berserker Autopsy",
+      "category": "Autopsies",
+      "base_days": 10,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Berserker corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 47,
+          "name": "Muton Autopsy"
+        },
+        {
+          "id": 2,
+          "name": "Xenoneurology"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 39,
+          "name": "Interrogate Berserker"
+        }
+      ],
+      "unlocks": [
+        "MEC Close Combat",
+        "Combat Stims",
+        "Neural Damping"
+      ]
+    },
+    {
+      "id": 52,
+      "enum": "eTech_AutopsyHeavyFloater",
+      "config_key": "eTech_AutopsyHeavyFloater",
+      "name": "Heavy Floater Autopsy",
+      "category": "Autopsies",
+      "base_days": 10,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Heavy Floater corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 45,
+          "name": "Floater Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 41,
+          "name": "Interrogate Heavy Floater"
+        }
+      ],
+      "unlocks": [
+        "Advanced Repair",
+        "Damage Control Pod"
+      ]
+    },
+    {
+      "id": 53,
+      "enum": "eTech_AutopsyMutonElite",
+      "config_key": "eTech_AutopsyMutonElite",
+      "name": "Muton Elite Autopsy",
+      "category": "Autopsies",
+      "base_days": 10,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Muton Elite corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 47,
+          "name": "Muton Autopsy"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 42,
+          "name": "Interrogate Muton Elite"
+        }
+      ],
+      "unlocks": [
+        "Tactical Rigging",
+        "Secondary Heart"
+      ]
+    },
+    {
+      "id": 54,
+      "enum": "eTech_AutopsyDrone",
+      "config_key": "eTech_AutopsyDrone",
+      "name": "Drone Autopsy",
+      "category": "Autopsies",
+      "base_days": 3,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Drone wrecks"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 32,
+          "name": "Alien Computers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Field Repairs",
+        "Holo-Targeter"
+      ]
+    },
+    {
+      "id": 55,
+      "enum": "eTech_AutopsySectopod",
+      "config_key": "eTech_AutopsySectopod",
+      "name": "Sectopod Autopsy",
+      "category": "Autopsies",
+      "base_days": 25,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "3 Sectopod wrecks"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 32,
+          "name": "Alien Computers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Battle Computer",
+        "Weapon Supercooler"
+      ]
+    },
+    {
+      "id": 56,
+      "enum": "eTech_AutopsyEthereal",
+      "config_key": "eTech_AutopsyEthereal",
+      "name": "Ethereal Autopsy",
+      "category": "Autopsies",
+      "base_days": 50,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "3 Ethereal corpses"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 4,
+          "name": "Xenopsionics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 43,
+          "name": "Interrogate Ethereal"
+        }
+      ],
+      "unlocks": [
+        "Telekinetic Field"
+      ]
+    },
+    {
+      "id": 57,
+      "enum": "eTech_AutopsyMechtoid",
+      "config_key": "eTech_AutopsyMechtoid",
+      "name": "Mechtoid Autopsy",
+      "category": "Autopsies",
+      "base_days": 18,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "3 Mechtoid wrecks"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 44,
+          "name": "Sectoid Autopsy"
+        },
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "Advanced Servomotors",
+        "Psi Screen",
+        "Tactical Sensors"
+      ]
+    },
+    {
+      "id": 58,
+      "enum": "eTech_AutopsySeeker",
+      "config_key": "eTech_AutopsySeeker",
+      "name": "Seeker Autopsy",
+      "category": "Autopsies",
+      "base_days": 6,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "5 Seeker wrecks"
+      },
+      "research_credit": null,
+      "prerequisites": [
+        {
+          "id": 32,
+          "name": "Alien Computers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "UFO Countermeasures",
+        "Respirator Implant",
+        "Chameleon Suit",
+        "Shadow Device",
+        "Bioelectric Skin"
+      ]
+    },
+    {
+      "id": 59,
+      "enum": "eTech_Autopsy_END",
+      "config_key": "eTech_Autopsy_END",
+      "name": "Advanced Aerospace Concepts",
+      "category": "Materials & Aerospace",
+      "base_days": 22,
+      "cost": {
+        "alloys": 10,
+        "elerium": 0,
+        "weapon_fragments": 50,
+        "items": null
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        },
+        {
+          "id": 32,
+          "name": "Alien Computers"
+        },
+        {
+          "id": 11,
+          "name": "Experimental Warfare"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 5,
+          "name": "Alien Propulsion"
+        }
+      ],
+      "unlocks": [
+        "Super Skyranger, Armored Fighters, Improved Avionics, Penetrator Weapons, Wingtip Sparrowhawks, UFO Scanners (Foundry)"
+      ]
+    },
+    {
+      "id": 60,
+      "enum": "eTech_Placeholder",
+      "config_key": 60,
+      "name": "Alien Biocybernetics",
+      "category": "Xenology",
+      "base_days": 25,
+      "cost": {
+        "alloys": 5,
+        "elerium": 30,
+        "weapon_fragments": 50,
+        "items": "20 Meld"
+      },
+      "research_credit": "Cybernetics",
+      "prerequisites": [
+        {
+          "id": 13,
+          "name": "Xenogenetics"
+        },
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        },
+        {
+          "id": 32,
+          "name": "Alien Computers"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 14,
+          "name": "Mind and Machine"
+        },
+        {
+          "id": 73,
+          "name": "Improved Combat Exoskeletons"
+        },
+        {
+          "id": 24,
+          "name": "Plasma Weapons"
+        },
+        {
+          "id": 45,
+          "name": "Floater Autopsy"
+        },
+        {
+          "id": 50,
+          "name": "Cyberdisc Autopsy"
+        },
+        {
+          "id": 57,
+          "name": "Mechtoid Autopsy"
+        }
+      ],
+      "unlocks": [
+        "MEC-1 Paladin",
+        "Neural Gunlink",
+        "Incinerator Module",
+        "Flamethrower",
+        "Advanced Surgery, MEC Warfare Systems (Foundry)"
+      ]
+    },
+    {
+      "id": 61,
+      "enum": "eTech_Placeholder",
+      "config_key": 61,
+      "name": "UFO Analysis: Scout",
+      "category": "UFO Analysis",
+      "base_days": 3,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Scout crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Scouts",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 62,
+      "enum": "eTech_Placeholder",
+      "config_key": 62,
+      "name": "UFO Analysis: Destroyer",
+      "category": "UFO Analysis",
+      "base_days": 4,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Destroyer crash mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Destroyers",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 63,
+      "enum": "eTech_Placeholder",
+      "config_key": 63,
+      "name": "UFO Analysis: Abductor",
+      "category": "UFO Analysis",
+      "base_days": 5,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Abductor crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Abductors",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 64,
+      "enum": "eTech_Placeholder",
+      "config_key": 64,
+      "name": "UFO Analysis: Transport",
+      "category": "UFO Analysis",
+      "base_days": 6,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Transport crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Transports",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 65,
+      "enum": "eTech_Placeholder",
+      "config_key": 65,
+      "name": "UFO Analysis: Battleship",
+      "category": "UFO Analysis",
+      "base_days": 7,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Battleship crash mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Battleships",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 66,
+      "enum": "eTech_Placeholder",
+      "config_key": 66,
+      "name": "UFO Analysis: Overseer",
+      "category": "UFO Analysis",
+      "base_days": 7,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Overseer crash mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Overseers",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 67,
+      "enum": "eTech_Placeholder",
+      "config_key": 67,
+      "name": "UFO Analysis: Fighter",
+      "category": "UFO Analysis",
+      "base_days": 3,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Fighter crash mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Fighters",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 68,
+      "enum": "eTech_Placeholder",
+      "config_key": 68,
+      "name": "UFO Analysis: Raider",
+      "category": "UFO Analysis",
+      "base_days": 4,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Raider crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Raiders",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 69,
+      "enum": "eTech_Placeholder",
+      "config_key": 69,
+      "name": "UFO Analysis: Harvester",
+      "category": "UFO Analysis",
+      "base_days": 5,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Harvester crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Harvesters",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 70,
+      "enum": "eTech_Placeholder",
+      "config_key": 70,
+      "name": "UFO Analysis: Terror Ship",
+      "category": "UFO Analysis",
+      "base_days": 6,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Terror Ship crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Terror Ships",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 71,
+      "enum": "eTech_Placeholder",
+      "config_key": 71,
+      "name": "UFO Analysis: Assault Carrier",
+      "category": "UFO Analysis",
+      "base_days": 7,
+      "cost": {
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": "Assault Carrier crash or landing mission"
+      },
+      "research_credit": "Aerospace",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "+10% damage vs Assault Carriers",
+        "+20% salvage"
+      ]
+    },
+    {
+      "id": 72,
+      "enum": "eTech_Placeholder",
+      "config_key": 72,
+      "name": "Improved Body Armor",
+      "category": "Armor & MECs",
+      "base_days": 8,
+      "cost": {
+        "alloys": 8,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "items": null
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 10,
+          "name": "Alien Materials"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 15,
+          "name": "Advanced Body Armor"
+        }
+      ],
+      "unlocks": [
+        "Phalanx Armor",
+        "Reinforced Armor",
+        "Armor Piercing Ammo",
+        "Alloy SHIV",
+        "Base Security: Armor (Foundry)"
+      ]
+    },
+    {
+      "id": 73,
+      "enum": "eTech_Placeholder",
+      "config_key": 73,
+      "name": "Improved Combat Exoskeletons",
+      "category": "Armor & MECs",
+      "base_days": 40,
+      "cost": {
+        "alloys": 10,
+        "elerium": 100,
+        "weapon_fragments": 50,
+        "items": "10 Meld"
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 16,
+          "name": "Mobile Power Armor"
+        },
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [
+        {
+          "id": 74,
+          "name": "Mobile Combat Exoskeletons"
+        },
+        {
+          "id": 75,
+          "name": "Heavy Combat Exoskeletons"
+        }
+      ],
+      "unlocks": [
+        "MEC-2 Defender",
+        "MEC-3 Valiant"
+      ]
+    },
+    {
+      "id": 74,
+      "enum": "eTech_Placeholder",
+      "config_key": 74,
+      "name": "Mobile Combat Exoskeletons",
+      "category": "Armor & MECs",
+      "base_days": 90,
+      "cost": {
+        "alloys": 15,
+        "elerium": 100,
+        "weapon_fragments": 50,
+        "items": "10 Meld"
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 17,
+          "name": "Advanced Power Armor"
+        },
+        {
+          "id": 73,
+          "name": "Improved Combat Exoskeletons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "MEC-6 Vanguard",
+        "MEC-7 Vindicator"
+      ]
+    },
+    {
+      "id": 75,
+      "enum": "eTech_Placeholder",
+      "config_key": 75,
+      "name": "Heavy Combat Exoskeletons",
+      "category": "Armor & MECs",
+      "base_days": 90,
+      "cost": {
+        "alloys": 20,
+        "elerium": 75,
+        "weapon_fragments": 50,
+        "items": "10 Meld"
+      },
+      "research_credit": "Armor",
+      "prerequisites": [
+        {
+          "id": 17,
+          "name": "Advanced Power Armor"
+        },
+        {
+          "id": 73,
+          "name": "Improved Combat Exoskeletons"
+        }
+      ],
+      "any_one_of": [],
+      "leads_to": [],
+      "unlocks": [
+        "MEC-4 Dauntless",
+        "MEC-5 Devastator"
+      ]
+    }
+  ]
+}
