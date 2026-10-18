@@ -6,6 +6,10 @@
 // - "Score" starts at −90 in every campaign, the INI's "initial alien bonus
 //   research", and climbs about a point every two days: alien bonus research,
 //   which starts to count once it is above zero.
+// - "Days" is alien research itself: it runs with the calendar until Score
+//   turns positive, then ahead of it by Score (in all 600 saves with a
+//   positive Score). The game reads it as STAT_GetStat(eRecap_Days) wherever
+//   alien research decides something, such as how strong UFOs are (airwar.ts).
 // - "FundingCountries" rises at each month start and drops by 5–6 with every
 //   UFO shot down or mission won: alien resources.
 // - "ContinentBonuses" resets to zero at each month start and climbs with each
@@ -18,7 +22,7 @@ export interface CampaignStats {
   alienResources?: number
   xcomThreat?: number
   alienBonusResearch?: number
-  /** Days plus bonus research once it is above zero, as the INI describes alien research. */
+  /** The "Days" statistic: days plus bonus research once that is above zero. */
   alienResearch?: number
   missions?: number
   missionsWon?: number
@@ -37,7 +41,7 @@ export function campaignStats(c: Campaign): CampaignStats {
     alienResources: r.FundingCountries,
     xcomThreat: r.ContinentBonuses,
     alienBonusResearch: r.Score,
-    alienResearch: r.Days === undefined ? undefined : r.Days + Math.max(0, r.Score ?? 0),
+    alienResearch: r.Days,
     missions: r.Missions,
     missionsWon: r.MissionsWon,
     aliensKilled: r.AliensKilled,

@@ -6,8 +6,8 @@ expressions, enough to see what a function decides. Used by upk_techtree.py.
 
 Covers the tokens Enemy Within's strategy code uses for its rules; anything
 else ends the listing with a '??' line. Jump targets are memory offsets (object
-references take 8 bytes there, 4 in the file), so they do not match the
-statement offsets printed, which are file offsets.
+references take 8 bytes there, 4 in the file); the listing prints both the
+file and the memory offset of each statement.
 """
 import os
 import struct
@@ -32,7 +32,7 @@ NATIVE = {
 
 class Script:
     def __init__(s, pk, code):
-        s.pk = pk; s.b = code; s.o = 0
+        s.pk = pk; s.b = code; s.o = 0; s.refs = 0
 
     def u8(s): v = s.b[s.o]; s.o += 1; return v
     def u16(s): v = struct.unpack_from('<H', s.b, s.o)[0]; s.o += 2; return v
@@ -40,6 +40,7 @@ class Script:
     def f32(s): v = struct.unpack_from('<f', s.b, s.o)[0]; s.o += 4; return v
 
     def obj(s):
+        s.refs += 1  # 4 bytes in the file, 8 in memory, where jump targets point
         i = s.i32()
         return class_name(s.pk, i) if i else 'none'
 
@@ -96,12 +97,22 @@ class Script:
         if t == 0x38: s.u8(); return s.expr()
         if t == 0x3a: s.obj(); return 'return'
         if t == 0x45: c = s.expr(); s.u16(); a = s.expr(); s.u16(); b = s.expr(); return f'({c} ? {a} : {b})'
-        if t == 0x46: a = s.expr(); s.u16(); v = s.expr(); return f'{a}.Find({v})'
+        if t == 0x40: a = s.expr(); i = s.expr(); n = s.expr(); s.u8(); return f'{a}.Remove({i}, {n})'
+        if t == 0x46: a = s.expr(); s.u16(); v = s.expr(); s.u8(); return f'{a}.Find({v})'
+        if t == 0x47: a = s.expr(); s.u16(); f = s.expr(); v = s.expr(); s.u8(); return f'{a}.Find({f}, {v})'
         if t == 0x48: return 'out ' + s.obj()
         if t == 0x49: s.u16(); e = s.expr(); s.u8(); return f'default {e}'
         if t == 0x4a: return ''
         if t == 0x53: return 'END'
         if t == 0x54: a = s.expr(); n = s.expr(); s.u8(); return f'{a}.Add({n})'
+        if t == 0x55: a = s.expr(); s.u16(); v = s.expr(); s.u8(); return f'{a}.AddItem({v})'
+        if t == 0x56: a = s.expr(); s.u16(); v = s.expr(); s.u8(); return f'{a}.RemoveItem({v})'
+        if t == 0x57: a = s.expr(); s.u16(); i = s.expr(); v = s.expr(); s.u8(); return f'{a}.InsertItem({i}, {v})'
+        if t == 0x58:
+            a = s.expr(); v = s.expr(); has = s.u8(); i = s.expr() if has else ''; s.u16()
+            return f'foreach {a}({v}{", " + i if has else ""})'
+        if t == 0x31: return 'iterator next'
+        if t == 0x32: return 'iterator pop'
         if 0x60 <= t <= 0x6f:
             idx = ((t - 0x60) << 8) + s.u8(); return f'native{idx}({", ".join(s.params())})'
         if t >= 0x70:
@@ -111,16 +122,18 @@ class Script:
             return f'{op}({", ".join(ps)})'
         raise ValueError(f'token {t:#x} at {s.o - 1}')
 
-    def statements(s):
-        """[(file offset, text)], ending at the function's END or at a token not covered."""
+    def statements(s, mem=False):
+        """[(file offset, text)], ending at the function's END or at a token not
+        covered; with mem, [(file offset, memory offset, text)]."""
         out = []
         while s.o < len(s.b):
             at = s.o
+            m = at + 4 * s.refs
             try:
                 e = s.expr()
             except Exception as ex:  # an uncovered token: stop here, say where
-                out.append((at, f'?? {ex}')); break
-            out.append((at, e))
+                out.append((at, m, f'?? {ex}') if mem else (at, f'?? {ex}')); break
+            out.append((at, m, e) if mem else (at, e))
             if e == 'END': break
         return out
 
@@ -143,11 +156,11 @@ def function_code(pk, full):
     raise KeyError(full)
 
 
-def statements(pk, full):
-    return Script(pk, function_code(pk, full)).statements()
+def statements(pk, full, mem=False):
+    return Script(pk, function_code(pk, full)).statements(mem)
 
 
 if __name__ == '__main__':
     _, pk = load(sys.argv[1])
-    for at, s in statements(pk, sys.argv[2]):
-        print(f'{at:5}: {s}')
+    for at, m, s in statements(pk, sys.argv[2], mem=True):
+        print(f'{at:5} {m:5}: {s}')

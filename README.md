@@ -17,6 +17,9 @@ allow it).
   available and locked; days left at the campaign's research speed, with
   research credits and campaign bonuses; Foundry projects done and being
   built; the aliens' hidden counters (Stats).
+- **Air war:** a UFO against your jets in turn, from the save's hangar or
+  anything you pick: the odds under each stance, what every number does,
+  and the fight to play, with Aim, Dodge and Boost.
 - **Planner:** pick techs or Foundry projects; get the research still needed,
   in order, with time and costs.
 - **Live:** in Chromium browsers, point the page at your SaveData folder
@@ -32,6 +35,8 @@ allow it).
   `scripts/upk_techtree.py` (with `scripts/upk_script.py`).
 - `ufopaedia.json`: where UFOpaedia links each unlock, extracted from its
   Long War Research and Foundry pages by `scripts/ufopaedia_links.py`.
+- `data/airwar.json`: ships, weapons and how UFOs grow, from the game's
+  script and INI by `scripts/upk_airwar.py`.
 - `data/enums.json`: Enemy Within's item, tech, Foundry, facility and
   research-credit numbering, read from the game's own script packages by
   `scripts/upk_enums.py` (the packages are not committed).

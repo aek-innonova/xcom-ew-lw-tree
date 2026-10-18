@@ -426,6 +426,24 @@
    "eResearchCredit_Psionics",
    "eResearchCredit_AllTech",
    "eResearchCredit_MAX"
+  ],
+  "EShipType": [
+   "eShip_None",
+   "eShip_Interceptor",
+   "eShip_Skyranger",
+   "eShip_Firestorm",
+   "eShip_UFOSmallScout",
+   "eShip_UFOLargeScout",
+   "eShip_UFOAbductor",
+   "eShip_UFOSupply",
+   "eShip_UFOBattle",
+   "eShip_UFOEthereal",
+   "eMPT_SniperSquaddie",
+   "eMPT_HeavySquaddie",
+   "eMPT_SupportSquaddie",
+   "eMPT_AssaultSquaddie",
+   "eMPT_AssaultColonel",
+   "eShip_MAX"
   ]
  }
 }

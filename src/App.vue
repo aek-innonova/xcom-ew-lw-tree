@@ -6,6 +6,7 @@ import FoundryDetail from '@/components/FoundryDetail.vue'
 import FoundryTree from '@/components/FoundryTree.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import GreyMarketView from '@/components/GreyMarketView.vue'
+import AirWarView from '@/components/AirWarView.vue'
 import HistoryView from '@/components/HistoryView.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
@@ -60,9 +61,9 @@ function onKey(e: KeyboardEvent) {
 const sideOpen = computed(
   () =>
     (state.view !== 'history' &&
+      state.view !== 'air' &&
       (state.view === 'research' ? state.selected !== null : state.selectedFoundry !== null)) ||
-    state.goals.length > 0 ||
-    state.foundryGoals.length > 0,
+    (state.view !== 'air' && (state.goals.length > 0 || state.foundryGoals.length > 0)),
 )
 
 /** Search picked something: centre it on its board once that board is showing. */
@@ -102,7 +103,8 @@ onBeforeUnmount(() => {
       <TechTree v-if="state.view === 'research'" ref="tree" />
       <FoundryTree v-else-if="state.view === 'foundry'" ref="foundryTree" />
       <HistoryView v-else-if="state.view === 'history'" />
-      <GreyMarketView v-else />
+      <GreyMarketView v-else-if="state.view === 'market'" />
+      <AirWarView v-else />
       <aside v-if="sideOpen" class="side">
         <TechDetail v-if="state.view === 'research'" />
         <FoundryDetail v-else />

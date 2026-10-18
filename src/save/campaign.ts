@@ -1,6 +1,7 @@
 // What the tech tree needs from a parsed save, pulled out of the checkpoints
 // by class name so the rest of the app never touches the raw property tree.
 
+import enumData from '../../data/enums.json'
 import type { Checkpoint, CheckpointChunk, Property, SaveFile } from './types'
 
 export interface ResearchProject {
@@ -25,6 +26,21 @@ export interface FoundryInProgress {
    * something (workshops?) not yet known.
    */
   workLeft: number
+}
+
+/** A jet in the hangar (XGFacility_Hangar.m_arrInts → XGShip_Interceptor). */
+export interface Interceptor {
+  callsign: string
+  /** EShipType: 1 Interceptor, 3 Firestorm. */
+  type: number
+  /** Ship weapon ids (TShip.arrWeapons; a second one with Wingtip Sparrowhawks). */
+  weapons: number[]
+  hp: number
+  maxHp: number
+  kills: number
+  /** TShip.iRange, which Long War uses for the stance: 0 balanced, 1 aggressive, 2 defensive. */
+  stance: number
+  continent: number
 }
 
 export interface Campaign {
@@ -74,6 +90,7 @@ export interface Campaign {
   everHad: number[]
   /** UFOs met, by ship type (XGGeoscape.m_arrCraftEncounters); UFO analyses need one. */
   craftEncounters: number[]
+  interceptors: Interceptor[]
   /** The end-of-campaign statistics, by name without the eRecap_ prefix. */
   recap: Record<string, number>
 }
@@ -136,6 +153,34 @@ function foundryProjects(p: Property | undefined): FoundryInProgress[] {
         engineers: get('iEngineers') ?? 0,
         maxEngineers: get('iMaxEngineers') ?? 0,
         workLeft: get('iHoursLeft') ?? 0,
+      },
+    ]
+  })
+}
+
+const SHIP_TYPES: string[] = (enumData as { enums: Record<string, string[]> }).enums.EShipType!
+
+function interceptors(
+  list: Property | undefined,
+  deref: (p: Property) => Checkpoint | undefined,
+): Interceptor[] {
+  if (list?.kind !== 'ArrayProperty' || !('actors' in list)) return []
+  return list.actors.flatMap((actor) => {
+    const cp = deref({ name: '', kind: 'ObjectProperty', actor })
+    const ship = prop(cp, 'm_kTShip')
+    if (!cp || ship?.kind !== 'StructProperty') return []
+    const type = structField(ship, 'eType')
+    const callsign = prop(cp, 'm_strCallsign')
+    return [
+      {
+        callsign: callsign?.kind === 'StrProperty' ? callsign.value.str : '',
+        type: type?.kind === 'ByteProperty' ? SHIP_TYPES.indexOf(type.value) : 0,
+        weapons: numbers(structField(ship, 'arrWeapons')).filter((w) => w > 0),
+        hp: int(prop(cp, 'm_iHP')) ?? 0,
+        maxHp: int(structField(ship, 'iHP')) ?? 0,
+        kills: int(prop(cp, 'm_iConfirmedKills')) ?? 0,
+        stance: int(structField(ship, 'iRange')) ?? 0,
+        continent: int(prop(cp, 'm_iHomeContinent')) ?? 0,
       },
     ]
   })
@@ -259,5 +304,6 @@ export function readCampaign(save: SaveFile): Campaign {
     stock: numbers(prop(byClass('XGStorage'), 'm_arrItems')),
     everHad: numbers(prop(byClass('XGStorage'), 'm_arrItemArchives')),
     craftEncounters: numbers(prop(byClass('XGGeoscape'), 'm_arrCraftEncounters')),
+    interceptors: interceptors(prop(byClass('XGFacility_Hangar'), 'm_arrInts'), deref),
   }
 }

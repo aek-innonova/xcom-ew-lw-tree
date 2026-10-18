@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from upk import enum_values, enums, load  # noqa: E402
 
 WANTED = {
-    'XComGame.upk': ['EItemType', 'ETechType', 'EFoundryTech', 'EFacilityType', 'EResearchCredits'],
+    'XComGame.upk': ['EItemType', 'ETechType', 'EFoundryTech', 'EFacilityType', 'EResearchCredits', 'EShipType'],
 }
 
 

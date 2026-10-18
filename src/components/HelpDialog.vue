@@ -61,6 +61,10 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       data/techtree.json, features/game-script-rules.md); research time,
       credits and bonuses also verified against the game's own figures
       (features/history-verification.md); Checks keeps verifying per save.
+    - Air war: XGInterceptionEngagement's rules (model/airwar.ts,
+      features/air-war.md), ships and weapons from the INI via
+      scripts/upk_airwar.py; odds are thousands of simulated fights. No save
+      records a fight, so they are checked against the script, not history.
   -->
   <dialog
     ref="dialog"
@@ -116,8 +120,8 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
     </section>
 
     <p class="small">
-      Prerequisites and credits are read from the game's own script. Times are checked against the
-      game's own: see <strong>Checks</strong>.
+      Prerequisites, credits and the air war's rules are read from the game's own script. Times are
+      checked against the game's own: see <strong>Checks</strong>.
     </p>
   </dialog>
 </template>

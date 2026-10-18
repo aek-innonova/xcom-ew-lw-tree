@@ -87,6 +87,11 @@ what will it cost me" and "how long will that take with my labs".
   app merges it into tech.json and longwar_foundry.json at load. Where a
   game rule only names an item, the tree keeps the tech that leads to it
   as a marked step (features/game-script-rules.md).
+- 2026-10-18: Air war: the game's engagement (precomputed shots, then a
+  playback with consumables) is reimplemented in `src/model/airwar.ts`;
+  odds are Monte Carlo in a Web Worker; ships and weapons come from
+  `data/airwar.json` (scripts/upk_airwar.py). One jet per engagement, as
+  Long War allows; a sequence is successive engagements (features/air-war.md).
 - 2026-10-18: Tactical saves are read through the strategy state they
   embed (see the save-parser report).
 - 2026-10-18: What persists in localStorage is what was extracted (costs,

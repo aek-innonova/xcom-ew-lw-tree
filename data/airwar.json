@@ -1,0 +1,831 @@
+{
+ "source": "Long War 1.0 XComStrategyGame.upk (XGItemTree, XGInterceptionEngagement), ContBalance_Classic in DefaultGameCore.ini, names from the INT localization; read by scripts/upk_airwar.py",
+ "ships": [
+  {
+   "id": 1,
+   "name": "Interceptor",
+   "weapons": [
+    3
+   ],
+   "speed": {
+    "base": 1500
+   },
+   "battle_speed": {
+    "base": 10,
+    "foundry": {
+     "33": 5
+    }
+   },
+   "hp": {
+    "base": 2500,
+    "foundry": {
+     "12": 1000
+    }
+   },
+   "armor": {
+    "base": 5
+   },
+   "ap": {
+    "base": 0,
+    "foundry": {
+     "28": 5
+    }
+   }
+  },
+  {
+   "id": 2,
+   "name": "Skyranger",
+   "weapons": [],
+   "speed": {
+    "base": 2000
+   },
+   "battle_speed": {
+    "base": 10
+   },
+   "hp": {
+    "base": 8
+   },
+   "armor": {
+    "base": 0
+   },
+   "ap": {
+    "base": 0
+   }
+  },
+  {
+   "id": 3,
+   "name": "Firestorm",
+   "weapons": [
+    3
+   ],
+   "speed": {
+    "base": 3500
+   },
+   "battle_speed": {
+    "base": 15,
+    "foundry": {
+     "33": 5
+    }
+   },
+   "hp": {
+    "base": 4000,
+    "foundry": {
+     "12": 1000
+    }
+   },
+   "armor": {
+    "base": 25
+   },
+   "ap": {
+    "base": 5,
+    "foundry": {
+     "28": 5
+    }
+   }
+  },
+  {
+   "id": 4,
+   "name": "Scout",
+   "weapons": [
+    8
+   ],
+   "speed": {
+    "base": 3000
+   },
+   "battle_speed": {
+    "base": 42
+   },
+   "hp": {
+    "base": 750,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 0
+   },
+   "ap": {
+    "base": 3
+   }
+  },
+  {
+   "id": 5,
+   "name": "Destroyer",
+   "weapons": [
+    8
+   ],
+   "speed": {
+    "base": 2250
+   },
+   "battle_speed": {
+    "base": 30
+   },
+   "hp": {
+    "base": 1600,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 18
+   },
+   "ap": {
+    "base": 15
+   }
+  },
+  {
+   "id": 6,
+   "name": "Abductor",
+   "weapons": [
+    9
+   ],
+   "speed": {
+    "base": 1700
+   },
+   "battle_speed": {
+    "base": 25
+   },
+   "hp": {
+    "base": 4000,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 30
+   },
+   "ap": {
+    "base": 2
+   }
+  },
+  {
+   "id": 7,
+   "name": "Transport",
+   "weapons": [
+    9
+   ],
+   "speed": {
+    "base": 1200
+   },
+   "battle_speed": {
+    "base": 18
+   },
+   "hp": {
+    "base": 5000,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 32
+   },
+   "ap": {
+    "base": 0
+   }
+  },
+  {
+   "id": 8,
+   "name": "Battleship",
+   "weapons": [
+    10
+   ],
+   "speed": {
+    "base": 2000
+   },
+   "battle_speed": {
+    "base": 35
+   },
+   "hp": {
+    "base": 9000,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 36
+   },
+   "ap": {
+    "base": 20
+   }
+  },
+  {
+   "id": 9,
+   "name": "Overseer",
+   "weapons": [
+    9,
+    8
+   ],
+   "speed": {
+    "base": 3500
+   },
+   "battle_speed": {
+    "base": 60
+   },
+   "hp": {
+    "base": 2500,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 40
+   },
+   "ap": {
+    "base": 25
+   }
+  },
+  {
+   "id": 10,
+   "name": "Fighter",
+   "weapons": [
+    8
+   ],
+   "speed": {
+    "base": 2500
+   },
+   "battle_speed": {
+    "base": 40
+   },
+   "hp": {
+    "base": 850,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 12
+   },
+   "ap": {
+    "base": 7
+   }
+  },
+  {
+   "id": 11,
+   "name": "Raider",
+   "weapons": [
+    8
+   ],
+   "speed": {
+    "base": 2600
+   },
+   "battle_speed": {
+    "base": 32
+   },
+   "hp": {
+    "base": 1500,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 5
+   },
+   "ap": {
+    "base": 7
+   }
+  },
+  {
+   "id": 12,
+   "name": "Harvester",
+   "weapons": [
+    9
+   ],
+   "speed": {
+    "base": 1500
+   },
+   "battle_speed": {
+    "base": 24
+   },
+   "hp": {
+    "base": 3500,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 20
+   },
+   "ap": {
+    "base": 3
+   }
+  },
+  {
+   "id": 13,
+   "name": "Terror Ship",
+   "weapons": [
+    9
+   ],
+   "speed": {
+    "base": 1300
+   },
+   "battle_speed": {
+    "base": 20
+   },
+   "hp": {
+    "base": 6000,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 25
+   },
+   "ap": {
+    "base": 0
+   }
+  },
+  {
+   "id": 14,
+   "name": "Assault Carrier",
+   "weapons": [
+    9,
+    8
+   ],
+   "speed": {
+    "base": 1400
+   },
+   "battle_speed": {
+    "base": 35
+   },
+   "hp": {
+    "base": 8000,
+    "per_category": 75
+   },
+   "armor": {
+    "base": 28
+   },
+   "ap": {
+    "base": 18
+   }
+  }
+ ],
+ "weapons": [
+  {
+   "id": 1,
+   "name": "Phoenix Cannon",
+   "ammo": {
+    "base": -1
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 0.75
+   },
+   "damage": {
+    "base": 140
+   },
+   "ap": {
+    "base": 5
+   },
+   "to_hit": {
+    "base": 40,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 2,
+   "name": "Stingray Missiles",
+   "ammo": {
+    "base": 3
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 1.5
+   },
+   "damage": {
+    "base": 200
+   },
+   "ap": {
+    "base": 10
+   },
+   "to_hit": {
+    "base": 40,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 3,
+   "name": "Avalanche Missiles",
+   "ammo": {
+    "base": 3
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 2
+   },
+   "damage": {
+    "base": 340
+   },
+   "ap": {
+    "base": 0
+   },
+   "to_hit": {
+    "base": 40,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 4,
+   "name": "Laser Cannon",
+   "ammo": {
+    "base": -1
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 1
+   },
+   "damage": {
+    "base": 290
+   },
+   "ap": {
+    "base": 5
+   },
+   "to_hit": {
+    "base": 55,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 5,
+   "name": "Plasma Cannon",
+   "ammo": {
+    "base": 10
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 1
+   },
+   "damage": {
+    "base": 650
+   },
+   "ap": {
+    "base": 22
+   },
+   "to_hit": {
+    "base": 40,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 6,
+   "name": "EMP Cannon",
+   "ammo": {
+    "base": -1
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 0.55
+   },
+   "damage": {
+    "base": 310
+   },
+   "ap": {
+    "base": 30
+   },
+   "to_hit": {
+    "base": 30,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 7,
+   "name": "Fusion Lance",
+   "ammo": {
+    "base": 10
+   },
+   "range": {
+    "base": 100
+   },
+   "firing_time": {
+    "base": 1.25
+   },
+   "damage": {
+    "base": 1200
+   },
+   "ap": {
+    "base": 26
+   },
+   "to_hit": {
+    "base": 30,
+    "foundry": {
+     "31": 10
+    },
+    "option": {
+     "24": 15
+    }
+   }
+  },
+  {
+   "id": 8,
+   "name": "UFO Weapon I",
+   "ammo": {
+    "base": -1
+   },
+   "range": {
+    "base": 101
+   },
+   "firing_time": {
+    "base": 1.15
+   },
+   "damage": {
+    "base": 450,
+    "per_category": 8
+   },
+   "ap": {
+    "base": 0
+   },
+   "to_hit": {
+    "base": 33,
+    "foundry": {
+     "32": -15
+    },
+    "per_category": 2
+   }
+  },
+  {
+   "id": 9,
+   "name": "UFO Weapon II",
+   "ammo": {
+    "base": -1
+   },
+   "range": {
+    "base": 101
+   },
+   "firing_time": {
+    "base": 1.25
+   },
+   "damage": {
+    "base": 800,
+    "per_category": 8
+   },
+   "ap": {
+    "base": 20
+   },
+   "to_hit": {
+    "base": 40,
+    "foundry": {
+     "32": -15
+    },
+    "per_category": 2
+   }
+  },
+  {
+   "id": 10,
+   "name": "UFO Fusion Lance",
+   "ammo": {
+    "base": -1
+   },
+   "range": {
+    "base": 101
+   },
+   "firing_time": {
+    "base": 1.25
+   },
+   "damage": {
+    "base": 1300,
+    "per_category": 8
+   },
+   "ap": {
+    "base": 50
+   },
+   "to_hit": {
+    "base": 45,
+    "foundry": {
+     "32": -15
+    },
+    "per_category": 2
+   }
+  }
+ ],
+ "ufo_changes": [
+  {
+   "above_category": 8,
+   "ship": 5,
+   "weapons": [
+    9
+   ]
+  },
+  {
+   "above_category": 10,
+   "ship": 10,
+   "weapons": [
+    8,
+    8
+   ]
+  },
+  {
+   "above_category": 12,
+   "ship": 6,
+   "weapons": [
+    9,
+    8
+   ]
+  },
+  {
+   "above_category": 12,
+   "ship": 13,
+   "weapons": [
+    9,
+    8
+   ]
+  },
+  {
+   "above_category": 18,
+   "ship": 11,
+   "weapons": [
+    8,
+    8
+   ]
+  },
+  {
+   "above_category": 18,
+   "ship": 14,
+   "weapons": [
+    9,
+    9
+   ]
+  },
+  {
+   "above_category": 18,
+   "ship": 5,
+   "stats": {
+    "speed": {
+     "base": 2250
+    },
+    "battle_speed": {
+     "base": 30
+    },
+    "hp": {
+     "base": 1600,
+     "per_category": 75
+    },
+    "armor": {
+     "base": 32
+    },
+    "ap": {
+     "base": 20
+    }
+   }
+  }
+ ],
+ "foundry_variants": [
+  {
+   "weapon": 1,
+   "foundry": 44,
+   "stats": {
+    "ammo": {
+     "base": -1
+    },
+    "range": {
+     "base": 100
+    },
+    "firing_time": {
+     "base": 0.75
+    },
+    "damage": {
+     "base": 230
+    },
+    "ap": {
+     "base": 18
+    },
+    "to_hit": {
+     "base": 40,
+     "foundry": {
+      "31": 10
+     },
+     "option": {
+      "24": 15
+     }
+    }
+   }
+  },
+  {
+   "weapon": 4,
+   "foundry": 34,
+   "stats": {
+    "ammo": {
+     "base": -1
+    },
+    "range": {
+     "base": 100
+    },
+    "firing_time": {
+     "base": 0.75
+    },
+    "damage": {
+     "base": 300
+    },
+    "ap": {
+     "base": 11
+    },
+    "to_hit": {
+     "base": 55,
+     "foundry": {
+      "31": 10
+     },
+     "option": {
+      "24": 15
+     }
+    }
+   }
+  },
+  {
+   "ship": 1,
+   "foundry": 27,
+   "weapons": [
+    3,
+    2
+   ]
+  },
+  {
+   "ship": 3,
+   "foundry": 27,
+   "weapons": [
+    3,
+    2
+   ]
+  }
+ ],
+ "destroy_divisor": {
+  "4": 5,
+  "5": 6,
+  "6": 7,
+  "7": 8,
+  "8": 15,
+  "10": 5,
+  "11": 6,
+  "12": 7,
+  "13": 8,
+  "14": 15
+ },
+ "always_crash": [
+  9
+ ],
+ "consumables": {
+  "hit": {
+   "item": 127,
+   "name": "Uplink Targeting (Aim)"
+  },
+  "dodge": {
+   "item": 125,
+   "name": "Defense Matrix (Dodge)"
+  },
+  "boost": {
+   "item": 126,
+   "name": "UFO Tracking (Boost)"
+  }
+ },
+ "equipment": [
+  {
+   "item": 117,
+   "name": "Phoenix Cannon",
+   "weapon": 1
+  },
+  {
+   "item": 118,
+   "name": "Avalanche Missiles",
+   "weapon": 3
+  },
+  {
+   "item": 119,
+   "name": "Laser Cannon",
+   "weapon": 4
+  },
+  {
+   "item": 120,
+   "name": "Plasma Cannon",
+   "weapon": 5
+  },
+  {
+   "item": 121,
+   "name": "EMP Cannon",
+   "weapon": 6
+  },
+  {
+   "item": 122,
+   "name": "Fusion Lance",
+   "weapon": 7
+  }
+ ]
+}

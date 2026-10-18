@@ -13,6 +13,7 @@ import {
 import { pointsPerHour, projectEtaDays } from '@/model/research'
 import { campaignStats } from '@/model/stats'
 import { bonuses, campaign, credits, state, techById, techs } from '@/state/store'
+import { categoryFor } from '@/model/airwar'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -164,8 +165,12 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         <dl>
           <dt>Alien research</dt>
           <dd>
-            ≈ {{ stats.alienResearch ?? '–' }}
-            <span class="where">days + bonus research above zero</span>
+            {{ stats.alienResearch ?? '–' }}
+            <span class="where"
+              >days + bonus research above zero<template v-if="stats.alienResearch !== undefined">
+                · UFO category {{ categoryFor(stats.alienResearch) }}</template
+              ></span
+            >
           </dd>
           <dt>Alien resources</dt>
           <dd>{{ stats.alienResources ?? '–' }}</dd>

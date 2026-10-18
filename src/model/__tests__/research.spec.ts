@@ -26,6 +26,7 @@ function campaign(over: Partial<Campaign>): Campaign {
     stock: [],
     everHad: [],
     craftEncounters: [],
+    interceptors: [],
     scientists: 100,
     labBonus: 0.2,
     adjacentLabBonus: 0.3,

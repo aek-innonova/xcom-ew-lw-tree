@@ -94,6 +94,15 @@ function onSearchKey(e: KeyboardEvent) {
       >
         Grey market
       </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="state.view === 'air'"
+        :class="{ on: state.view === 'air' }"
+        @click="state.view = 'air'"
+      >
+        Air war
+      </button>
     </div>
 
     <div class="search">
