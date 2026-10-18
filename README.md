@@ -1,7 +1,8 @@
 # Long War Tech Tree
 
 The XCOM: Enemy Within Long War 1.0 research tree and Foundry on one screen,
-at **https://xcom.innonova.ch**. Load a save to see where a campaign stands;
+at **https://xcom.innonova.ch**, and those of Long War Rebalanced 2.06 (LWR)
+beside them. Load a save to see where a campaign stands;
 load a `DefaultGameCore.ini` to use your own costs. Everything is read in the
 browser; nothing is uploaded (the site's Content-Security-Policy does not even
 allow it).
@@ -19,7 +20,11 @@ allow it).
   built; the aliens' hidden counters (Stats).
 - **Air war:** a UFO against your jets in turn, from the save's hangar or
   anything you pick: the odds under each stance, what every number does,
-  and the fight to play, with Aim, Dodge and Boost.
+  and the fight to play, with Aim, Dodge and Boost. In LWR the jets fly
+  together as a squadron, by its own rules.
+- **Two versions:** Long War 1.0 and LWR 2.06, switched in the header. LWR's
+  tree, Foundry, research speed, costs, bonuses and air war are read from its
+  own files the same way as Long War 1.0's.
 - **Planner:** pick techs or Foundry projects; get the research still needed,
   in order, with time and costs.
 - **Live:** in Chromium browsers, point the page at your SaveData folder
@@ -37,6 +42,9 @@ allow it).
   Long War Research and Foundry pages by `scripts/ufopaedia_links.py`.
 - `data/airwar.json`: ships, weapons and how UFOs grow, from the game's
   script and INI by `scripts/upk_airwar.py`.
+- `data/lwr/`: the same for LWR 2.06, all generated from its files: techs,
+  Foundry, prices and bonuses by `scripts/game_data.py`, the rules by
+  `upk_techtree.py` and `upk_airwar.py`.
 - `public/ships/`: pictures of the UFOs and our jets, our own models
   rendered in Blender by `scripts/ufo_art.py`.
 - `data/enums.json`: Enemy Within's item, tech, Foundry, facility and

@@ -69,3 +69,20 @@ export const UFO_NOTES: Record<number, UfoNote> = {
     about: 'A Battleship hull with less firepower, sent only against high-value targets.',
   },
 }
+
+/**
+ * What a UFO type is for in a version: LWR's armor differs (the Overseer's is
+ * light, the Assault Carrier's the heaviest), so the analysis reports' armor
+ * labels are Long War 1.0's only, and LWR's Fighters and Destroyers leave no
+ * crash site (UpdateEngagementResult).
+ */
+export function ufoNote(type: number, rules: 'lw' | 'lwr'): UfoNote | undefined {
+  const note = UFO_NOTES[type]
+  if (!note || rules === 'lw') return note
+  const about: Record<number, string> = {
+    9: 'The Ethereals’ flying command post. Carries the Ethereal Device.',
+    14: 'Sent only against high-value targets; the most heavily armored UFO.',
+  }
+  const destroyed = [5, 10].includes(type) ? ' Shot down, it is destroyed: no crash site.' : ''
+  return { ...note, armor: '', about: (about[type] ?? note.about) + destroyed }
+}

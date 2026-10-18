@@ -17,8 +17,11 @@ interface Stat {
   base: number
   foundry?: Record<string, number>
   option?: Record<string, number>
+  /** Starting or continent bonuses (HQ.HasBonus), LWR. */
+  bonus?: Record<string, number>
   per_category?: number
 }
+type ShipStatsData = Pick<ShipData, 'battle_speed' | 'hp' | 'armor' | 'ap'>
 interface ShipData {
   id: number
   name: string
@@ -29,6 +32,8 @@ interface ShipData {
   hp: Stat
   armor: Stat
   ap: Stat
+  /** LWR: the stats per difficulty (UFO hulls scale with it). */
+  by_difficulty?: Record<string, ShipStatsData>
 }
 interface WeaponData {
   id: number
@@ -38,7 +43,7 @@ interface WeaponData {
   ap: Stat
   to_hit: Stat
 }
-interface AirData {
+export interface AirData {
   ships: ShipData[]
   weapons: WeaponData[]
   ufo_changes: {
@@ -47,6 +52,8 @@ interface AirData {
     weapons?: number[]
     size?: string
     stats?: Partial<ShipData>
+    /** Only at this difficulty (LWR). */
+    difficulty?: number
   }[]
   foundry_variants: {
     weapon?: number
@@ -57,6 +64,12 @@ interface AirData {
   }[]
   destroy_divisor: Record<string, number>
   always_crash: number[]
+  /** UFO types that are always destroyed when downed (LWR). */
+  always_destroyed?: number[]
+  /** A UFO shot down counts towards its analysis (LWR), not only a crash site won. */
+  analysis_on_shootdown?: boolean
+  /** Alien research per UFO category, and the highest category. */
+  category: { per: number; max: number }
   consumables: Record<'hit' | 'dodge' | 'boost', { item: number; name: string }>
   equipment: { item: number; name: string; weapon: number }[]
 }
@@ -76,25 +89,34 @@ export const SIZE_LABEL: Record<string, string> = {
   very_large: 'Very large',
 }
 
+/** Whose rules fight: Long War 1.0's one jet at a time, or LWR's squadrons (airwar-lwr.ts). */
+export type AirRules = 'lw' | 'lwr'
+
+/** The setting's data: its version's, Long War 1.0's when it names none. */
+const dataOf = (set?: AirSetting): AirData => set?.air ?? air
+
 /** UFO types smallest first: by size class, then by hull points (at the given setting). */
 export function ufosBySize(set: AirSetting): ShipStats[] {
-  return UFO_TYPES.map((t) => ufoStats(t, set)).sort(
-    (a, b) => SIZES.indexOf(a.size) - SIZES.indexOf(b.size) || a.maxHp - b.maxHp,
-  )
+  return dataOf(set)
+    .ships.filter((s) => s.id >= 4)
+    .map((s) => ufoStats(s.id, set))
+    .sort((a, b) => SIZES.indexOf(a.size) - SIZES.indexOf(b.size) || a.maxHp - b.maxHp)
 }
 
 /**
  * A UFO type's upgrades in order: the alien research at which each comes
- * (the category above which UpdateShips re-builds it, times 30), new weapons
- * and whether its hull improves.
+ * (the category above which UpdateShips re-builds it, times the research per
+ * category), new weapons and whether its hull improves.
  */
-export function ufoUpgrades(type: number) {
+export function ufoUpgrades(type: number, set?: AirSetting) {
+  const data = dataOf(set)
   const byAt = new Map<
     number,
     { at: number; category: number; weapons?: number[]; hull: boolean }
   >()
-  for (const c of air.ufo_changes.filter((x) => x.ship === type)) {
-    const at = (c.above_category + 1) * 30
+  for (const c of data.ufo_changes.filter((x) => x.ship === type)) {
+    if (c.difficulty !== undefined && c.difficulty !== difficultyOf(set)) continue
+    const at = (c.above_category + 1) * data.category.per
     const u = byAt.get(at) ?? { at, category: c.above_category + 1, hull: false }
     if (c.weapons) u.weapons = c.weapons
     if (c.stats) u.hull = true
@@ -103,6 +125,7 @@ export function ufoUpgrades(type: number) {
   return [...byAt.values()].sort((a, b) => a.at - b.at)
 }
 export const CRAFT_WEAPONS = air.equipment.map((e) => e.weapon)
+export const craftWeapons = (data: AirData) => data.equipment.map((e) => e.weapon)
 
 /** Foundry projects that change the air war (longwar_foundry.json ids). */
 export const AIR_FOUNDRY = {
@@ -121,9 +144,10 @@ export const AIR_FOUNDRY = {
 /** Second wave "Friendly Skies" (m_arrSecondWave index): XCOM aircraft aim. */
 export const FRIENDLY_SKIES = 24
 
-export const shipName = (id: number) => air.ships.find((s) => s.id === id)?.name ?? `Ship ${id}`
-export const weaponName = (id: number) =>
-  air.weapons.find((w) => w.id === id)?.name ?? `Weapon ${id}`
+export const shipName = (id: number, data: AirData = air) =>
+  data.ships.find((s) => s.id === id)?.name ?? `Ship ${id}`
+export const weaponName = (id: number, data: AirData = air) =>
+  data.weapons.find((w) => w.id === id)?.name ?? `Weapon ${id}`
 
 // --- Settings: what the campaign has, or anything -------------------------------
 
@@ -131,12 +155,20 @@ export interface AirSetting {
   /** Foundry projects done. */
   foundry: Set<number>
   friendlySkies: boolean
-  /** Alien research / 30, at most 32: how far UFOs have grown. */
+  /** Alien research / 30, at most 32 (LWR: / 50, at most 14): how far UFOs have grown. */
   category: number
+  /** The version's ships and weapons; Long War 1.0's when left out. */
+  air?: AirData
+  /** Game difficulty, 0–3 (LWR's UFO hulls depend on it); Classic (1) when left out. */
+  difficulty?: number
+  /** Starting and continent bonuses in effect (LWR's air war reads several). */
+  bonuses?: ReadonlySet<number>
 }
 
-export function categoryFor(alienResearch: number): number {
-  return Math.max(0, Math.min(32, Math.trunc(alienResearch / 30)))
+const difficultyOf = (set?: AirSetting) => set?.difficulty ?? 1
+
+export function categoryFor(alienResearch: number, cat = air.category): number {
+  return Math.max(0, Math.min(cat.max, Math.trunc(alienResearch / cat.per)))
 }
 
 function value(s: Stat | undefined, set: AirSetting): number {
@@ -144,6 +176,7 @@ function value(s: Stat | undefined, set: AirSetting): number {
   let v = s.base
   for (const [id, add] of Object.entries(s.foundry ?? {})) if (set.foundry.has(Number(id))) v += add
   for (const [, add] of Object.entries(s.option ?? {})) if (set.friendlySkies) v += add
+  for (const [id, add] of Object.entries(s.bonus ?? {})) if (set.bonuses?.has(Number(id))) v += add
   return v + (s.per_category ?? 0) * set.category
 }
 
@@ -157,8 +190,9 @@ export interface WeaponStats {
 }
 
 export function weaponStats(id: number, set: AirSetting): WeaponStats {
-  let w = air.weapons.find((x) => x.id === id)!
-  for (const v of air.foundry_variants)
+  const data = dataOf(set)
+  let w = data.weapons.find((x) => x.id === id)!
+  for (const v of data.foundry_variants)
     if (v.weapon === id && set.foundry.has(v.foundry) && v.stats) w = { ...w, ...v.stats }
   return {
     id,
@@ -194,25 +228,39 @@ function shipStats(ship: ShipData, weapons: number[], set: AirSetting): ShipStat
   }
 }
 
-/** An interceptor or Firestorm; with Wingtip Sparrowhawks it carries a Stingray too (EquipWeapon). */
+/**
+ * An interceptor or Firestorm; in Long War 1.0, with Wingtip Sparrowhawks it
+ * carries a Stingray too (EquipWeapon; the version's data has the Foundry
+ * project re-building the jet with a second weapon). LWR's jets carry one.
+ */
 export function craftStats(
   type: number,
   weapon: number,
   set: AirSetting,
   weapons?: number[],
 ): ShipStats {
-  const ship = air.ships.find((s) => s.id === type)!
-  const list =
-    weapons ?? (set.foundry.has(AIR_FOUNDRY.sparrowhawks) ? [weapon, STINGRAY] : [weapon])
+  const data = dataOf(set)
+  const ship = data.ships.find((s) => s.id === type)!
+  const wingtip = data.foundry_variants.some(
+    (v) => v.ship === type && v.weapons && set.foundry.has(v.foundry),
+  )
+  const list = weapons ?? (wingtip ? [weapon, STINGRAY] : [weapon])
   return shipStats(ship, list, set)
 }
 
-/** A UFO as the month makes it: grown per category, re-armed past some categories. */
+/**
+ * A UFO as the month makes it: grown per category, re-armed past some
+ * categories; in LWR its hull also by difficulty.
+ */
 export function ufoStats(type: number, set: AirSetting): ShipStats {
-  let ship = air.ships.find((s) => s.id === type)!
+  const data = dataOf(set)
+  let ship = data.ships.find((s) => s.id === type)!
+  const byDifficulty = ship.by_difficulty?.[String(difficultyOf(set))]
+  if (byDifficulty) ship = { ...ship, ...byDifficulty }
   let weapons = ship.weapons
-  for (const c of air.ufo_changes) {
+  for (const c of data.ufo_changes) {
     if (c.ship !== type || set.category <= c.above_category) continue
+    if (c.difficulty !== undefined && c.difficulty !== difficultyOf(set)) continue
     if (c.weapons) weapons = c.weapons
     if (c.size) ship = { ...ship, size: c.size }
     if (c.stats) ship = { ...ship, ...c.stats }
@@ -643,6 +691,7 @@ export function exchanges(e: Engagement, source: 0 | 1): Exchange[] {
 // --- From a save -------------------------------------------------------------------
 
 export interface AirCampaign {
+  difficulty?: number
   foundryHistory: number[]
   secondWave: number[]
   researched: boolean[]
@@ -650,26 +699,55 @@ export interface AirCampaign {
   stock: number[]
 }
 
-/** What a campaign has: its Foundry projects, Friendly Skies, the UFOs' category (recap "Days"). */
-export function campaignSetting(c: AirCampaign): AirSetting {
+/**
+ * What a campaign has: its Foundry projects, Friendly Skies, the UFOs'
+ * category (recap "Days"), its difficulty; bonuses come from the caller (the
+ * store works out which are in effect).
+ */
+export function campaignSetting(
+  c: AirCampaign,
+  data: AirData = air,
+  bonuses?: ReadonlySet<number>,
+): AirSetting {
   return {
     foundry: new Set(c.foundryHistory.flatMap((v, id) => (v && id > 0 ? [id] : []))),
     friendlySkies: (c.secondWave[FRIENDLY_SKIES] ?? 0) !== 0,
-    category: categoryFor(c.recap.Days ?? 0),
+    category: categoryFor(c.recap.Days ?? 0, data.category),
+    air: data,
+    difficulty: c.difficulty,
+    bonuses,
   }
 }
 
-/** UFO analysis techs are 61–71, one per UFO type (type + 57). */
-export const analysisTech = (ufoType: number) => ufoType + 57
+/** LWR's analyses are by size class (XGInterceptionEngagement.UpdateWeapons). */
+const LWR_ANALYSIS: Record<number, number> = Object.fromEntries(
+  (
+    [
+      [61, [4, 10]],
+      [62, [5, 11, 9]],
+      [63, [6, 12, 7, 13]],
+      [64, [8, 14]],
+    ] as const
+  ).flatMap(([tech, types]) => types.map((t) => [t, tech])),
+)
+/**
+ * The UFO analysis tech for a UFO type: Long War 1.0's 61–71 are one per type
+ * (type + 57); LWR's 61–64 one per size class.
+ */
+export const analysisTech = (ufoType: number, rules: AirRules = 'lw') =>
+  rules === 'lwr' ? (LWR_ANALYSIS[ufoType] ?? 0) : ufoType + 57
 
 /** Consumables the campaign can use: Aircraft Boosters done, and how many in stores. */
-export function consumablesHeld(c: AirCampaign): Record<'aim' | 'dodge' | 'boost', number> {
+export function consumablesHeld(
+  c: AirCampaign,
+  data: AirData = air,
+): Record<'aim' | 'dodge' | 'boost', number> {
   const boosters = (c.foundryHistory[AIR_FOUNDRY.boosters] ?? 0) !== 0
   const n = (item: number) => (boosters ? (c.stock[item] ?? 0) : 0)
   return {
-    aim: n(air.consumables.hit.item),
-    dodge: n(air.consumables.dodge.item),
-    boost: n(air.consumables.boost.item),
+    aim: n(data.consumables.hit.item),
+    dodge: n(data.consumables.dodge.item),
+    boost: n(data.consumables.boost.item),
   }
 }
 

@@ -30,9 +30,9 @@ describe('game versions', () => {
     expect(lwr.techs.some((t) => t.id === 65)).toBe(false)
   })
 
-  it('groups LWR’s UFO analyses by size: any one of the types captured', () => {
+  it('groups LWR’s UFO analyses by size: any one of the types shot down or captured', () => {
     expect(tech(61).name).toBe('UFO Analysis: Small UFOs')
-    expect(tech(61).gates.map(gateText)).toEqual(['a Scout or Fighter captured'])
+    expect(tech(61).gates.map(gateText)).toEqual(['a Scout or Fighter shot down or captured'])
   })
 
   it('works out LWR’s Foundry by its formula (days × engineers² / 3)', () => {

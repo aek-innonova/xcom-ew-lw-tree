@@ -104,11 +104,15 @@ export interface Campaign {
 export class NotACampaignError extends Error {}
 
 // Long War renames the four levels (the INI's per-difficulty lines say so, and a
-// save's journal records "Difficulty: Classic" where m_iDifficulty is 1).
+// save's journal records "Difficulty: Classic" where m_iDifficulty is 1); each
+// game version brings its names (game.ts).
 const DIFFICULTY_NAMES = ['Normal', 'Classic', 'Brutal', 'Impossible']
 
-export function difficultyName(d: number | undefined): string | undefined {
-  return d === undefined ? undefined : (DIFFICULTY_NAMES[d] ?? `Difficulty ${d}`)
+export function difficultyName(
+  d: number | undefined,
+  names: string[] = DIFFICULTY_NAMES,
+): string | undefined {
+  return d === undefined ? undefined : (names[d] ?? `Difficulty ${d}`)
 }
 
 function prop(cp: Checkpoint | undefined, name: string): Property | undefined {

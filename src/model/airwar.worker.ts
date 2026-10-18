@@ -2,7 +2,8 @@
 // fights per change would otherwise stall the screen for a moment.
 
 import { runJobs, type OddsRequest } from './airwar'
+import { runSquadJobs, type SquadRequest } from './airwar-lwr'
 
-self.onmessage = (e: MessageEvent<OddsRequest>) => {
-  self.postMessage(runJobs(e.data))
+self.onmessage = (e: MessageEvent<OddsRequest | SquadRequest>) => {
+  self.postMessage('squads' in e.data ? runSquadJobs(e.data) : runJobs(e.data))
 }

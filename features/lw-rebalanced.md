@@ -1,6 +1,6 @@
 ---
 title: Long War Rebalanced (LWR) alongside Long War 1.0
-status: planned
+status: review
 priority: 3
 dependsOn: [game-script-rules, air-war]
 ---
@@ -123,3 +123,88 @@ XGInterception and XGItemTree; ships and weapons in `data/lwr/airwar.json`.
 - **UFOs** grow per 50 alien research (at most category 14); their hull
   points are multiplied by difficulty (4×, 7×, 10×, 12×, 13× the INI's
   value); UFO weapons get − 10 aim with bonus 26.
+
+## Report (2026-10-18)
+
+All three phases are done and on staging (https://xcom.innonova.ch). The
+production site (xcom.aek.dk) is unchanged, as asked: no change to the
+estate, no release.
+
+**Phase 1: tree, Foundry, version switch** (c0a2b57). `scripts/game_data.py`
+generates a version's techs, Foundry projects and grey-market prices from its
+own files. Run on Long War 1.0's files it reproduces the hand-checked data
+exactly (every time and cost), which is the check that it reads LWR's
+correctly too. `data/lwr/` holds LWR 2.06's data. The header has a version
+switch, and the choice is remembered. LWR's tree is deeper, so the layout
+grows columns. Foundry work, credit shares and INI days follow the version.
+UFOpaedia links are shown only for Long War 1.0, since the wiki's pages
+describe that version.
+
+**Phase 2: research speed, bonuses, Foundry rules** (cd16c21). LWR's
+research speed is 0.5 × (50 + scientists) × the lab factors, and Jai Vidwan
+and Architects of the Future each add 10 %. LWR's bonuses are generated from
+its INI and localization; the same generator reproduces Long War 1.0's bonus
+file exactly. LWR's Foundry asks for no item in stores, and some projects
+need another one built first.
+
+**Phase 3: the air war** (this round). The rules are decoded in the section
+above.
+- `data/lwr/airwar.json` holds the ships and weapons. UFO hulls are kept per
+  difficulty, and UFOs grow per 50 alien research, up to category 14.
+- `model/airwar.ts` now takes its data, difficulty and bonuses from the
+  setting. Long War 1.0's engine is unchanged.
+- LWR's engine is `model/airwar-lwr.ts`:
+  - squadrons of up to five jets, the UFO's target, the wingman draw;
+  - the UFO's shots rolled again against each jet's stance;
+  - criticals at playback, fire-rate bonuses, the escape from the squadron's
+    average speed;
+  - consumables decided by the first jet's stance;
+  - jets leaving, the lead handed on, Fighters and Destroyers destroyed.
+- The Air war tab, in LWR:
+  - the jets form one squadron, sized by the best pilot's kills;
+  - jets under half health stay home;
+  - consumables are set once for the squadron;
+  - every jet shows its odds under each stance, as the UFO's first target,
+    and what its numbers do;
+  - free selection adds a difficulty and LWR's five air-war bonuses;
+  - "Fly it" plays the squadron's fight with Aim, Dodge, Boost and
+    Break off (which sends the lead home).
+- The UFO gallery for LWR:
+  - it counts UFOs downed;
+  - it leaves out Long War 1.0's armor labels, which do not fit LWR's armor;
+  - it notes that Fighters and Destroyers leave no crash site.
+- LWR's UFO analyses now read "a Scout or Fighter shot down or captured".
+- The campaign bar names LWR's difficulties and UFO category.
+
+Verified:
+- 152 unit tests: 17 new ones for LWR's air war, with scripted dice for
+  the playback's rules.
+- Every Chromium browser test, including a new LWR air-war one.
+- The screens, by looking at screenshots.
+- LW 1.0's data regenerates unchanged.
+- Odds for a five-jet squadron take about 0.5 s in the worker.
+
+Open:
+- **No LWR save yet.** The campaign mode for LWR (your hangar, kills,
+  stances, bonuses in effect, difficulty) is wired up but untested. Nothing
+  in a save tells the versions apart, so the switch stays manual until a
+  save shows otherwise.
+- **A game quirk, modelled as the code has it.** The playback stores its
+  wingman draw in the array that held the rolled hull points, and
+  AnyInterceptorsChasing reads that array when the lead goes down. With a
+  balanced or defensive wingman behind the lead, the read usually lands
+  past the end of the array; UnrealScript returns 0 for that, which counts
+  as shot down, so the game ends the fight as "UFO escaped" while the
+  wingman is still flying. The "How LWR's air war works" note says so. I
+  am reading UnrealScript's out-of-range read from the engine's documented
+  behaviour; it is worth a look in the game.
+- **Born to Fly.** Its description says 0.5 aim per kill (2.5 with the
+  bonus); LWR's code gives kills ÷ 4 × SW_MARATHON. SW_MARATHON is 1.0 in
+  LWR's INI, so that is 0.25 per kill (1.25 with the bonus). The code is
+  what the site uses.
+- **Difficulty levels.** LWR's script and localization also have a fifth
+  level ("Pain", m_iDifficulty 4). The site offers the four the
+  difficulty screen is known to list.
+- **Harpoon Missile.** Its firing time is 90 s (INI `9000/100`), so it
+  fires once a fight.
+- **Gene mods and psi abilities** are not in the generated unlocks.

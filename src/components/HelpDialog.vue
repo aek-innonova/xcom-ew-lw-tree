@@ -3,6 +3,7 @@
 // Opens by itself on a first visit, then from the header's Help button.
 
 import { onMounted, ref, watch } from 'vue'
+import { game } from '@/state/store'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -65,6 +66,10 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       features/air-war.md), ships and weapons from the INI via
       scripts/upk_airwar.py; odds are thousands of simulated fights. No save
       records a fight, so they are checked against the script, not history.
+    - LWR: its own files read the same way (scripts/game_data.py, data/lwr/,
+      features/lw-rebalanced.md); its air war, squadrons flying together, is
+      model/airwar-lwr.ts. A save does not say which version made it, so the
+      person picks it in the header.
   -->
   <dialog
     ref="dialog"
@@ -79,6 +84,14 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
     </header>
 
     <p class="lead">Your files are read in this browser. Nothing is uploaded.</p>
+
+    <section>
+      <h3>Version</h3>
+      <p>
+        Long War 1.0 or Long War Rebalanced: pick yours at the top left. A save does not say which
+        one it was played with.
+      </p>
+    </section>
 
     <section>
       <h3>Saves</h3>
@@ -102,7 +115,7 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
           {{ copied === INI_WINDOWS ? 'Copied' : 'Copy' }}
         </button>
       </p>
-      <p>Built-in costs are an unmodified Long War 1.0 install's. Load yours if it differs.</p>
+      <p>Built-in costs are an unmodified {{ game.name }} install's. Load yours if it differs.</p>
     </section>
 
     <section>

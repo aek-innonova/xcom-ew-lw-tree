@@ -17,6 +17,9 @@ import lwrFoundry from '../../data/lwr/foundry.json'
 import lwrPrices from '../../data/lwr/prices.json'
 import lwBonuses from '../../longwar_bonuses.json'
 import lwrBonuses from '../../data/lwr/bonuses.json'
+import lwAir from '../../data/airwar.json'
+import lwrAir from '../../data/lwr/airwar.json'
+import type { AirData, AirRules } from './airwar'
 import type { BonusData } from './bonuses'
 import { creditShares } from './credits'
 import {
@@ -53,6 +56,11 @@ export interface Game {
   prices?: Record<string, number>
   /** Starting, country and continent bonuses. */
   bonuses: BonusData
+  /** The air war: ships and weapons, and whose rules fight (airwar.ts, airwar-lwr.ts). */
+  air: AirData
+  airRules: AirRules
+  /** The difficulty levels by m_iDifficulty, as the version's localization names them. */
+  difficulties: string[]
 }
 
 function game(
@@ -64,13 +72,14 @@ function game(
   foundryData: FoundryData,
   ufopaedia: boolean,
   bonuses: BonusData,
+  air: { data: AirData; rules: AirRules; difficulties: string[] },
   prices?: Record<string, number>,
 ): Game {
   return {
     id,
     name,
     short,
-    techs: buildTechs(techData, rules.techs),
+    techs: buildTechs(techData, rules.techs, !!air.data.analysis_on_shootdown),
     categories: techData.categories,
     foundry: buildFoundry(foundryData, rules.foundry),
     foundryCategories: foundryData.categories,
@@ -81,6 +90,9 @@ function game(
     ufopaedia,
     prices,
     bonuses,
+    air: air.data,
+    airRules: air.rules,
+    difficulties: air.difficulties,
   }
 }
 
@@ -94,6 +106,14 @@ export const GAMES: Record<GameId, Game> = {
     lwFoundry as unknown as FoundryData,
     true,
     lwBonuses as unknown as BonusData,
+    {
+      data: lwAir as unknown as AirData,
+      rules: 'lw',
+      // Long War renames the four levels (the INI's per-difficulty lines say
+      // so, and a save's journal records "Difficulty: Classic" where
+      // m_iDifficulty is 1).
+      difficulties: ['Normal', 'Classic', 'Brutal', 'Impossible'],
+    },
   ),
   lwr: game(
     'lwr',
@@ -104,6 +124,12 @@ export const GAMES: Record<GameId, Game> = {
     lwrFoundry as unknown as FoundryData,
     false,
     lwrBonuses as unknown as BonusData,
+    {
+      data: lwrAir as unknown as AirData,
+      rules: 'lwr',
+      // LWR's XComGame.int (m_arrDifficultyTypeStrings).
+      difficulties: ['Easy', 'Classic', 'Brutal', 'Impossible'],
+    },
     lwrPrices.prices,
   ),
 }

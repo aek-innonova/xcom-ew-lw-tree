@@ -41,7 +41,7 @@ const info = computed(() => {
   const days = projectEtaDays(c, game.value.research, bonusIds.value)
   return {
     date: c.date ? `${c.date.day} ${MONTHS[c.date.month - 1]} ${c.date.year}` : undefined,
-    difficulty: difficultyName(c.difficulty),
+    difficulty: difficultyName(c.difficulty, game.value.difficulties),
     game: c.gameNumber,
     done,
     total: techs.value.length,
@@ -210,7 +210,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
             {{ stats.alienResearch ?? '–' }}
             <span class="where"
               >days + bonus research above zero<template v-if="stats.alienResearch !== undefined">
-                · UFO category {{ categoryFor(stats.alienResearch) }}</template
+                · UFO category {{ categoryFor(stats.alienResearch, game.air.category) }}</template
               ></span
             >
           </dd>

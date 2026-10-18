@@ -314,7 +314,8 @@ def main():
     consumables = {n: item_enum.index(n) for n in
                    ('eItem_IntConsumable_Hit', 'eItem_IntConsumable_Dodge', 'eItem_IntConsumable_Boost')}
     out = {
-        'source': 'Long War 1.0 XComStrategyGame.upk (XGItemTree, XGInterceptionEngagement), '
+        'source': ('LW Rebalance' if 'Rebalance' in os.path.realpath(cooked) else 'Long War 1.0')
+                  + ' XComStrategyGame.upk (XGItemTree, XGInterceptionEngagement), '
                   'ContBalance_Classic in DefaultGameCore.ini, names from the INT localization; '
                   'read by scripts/upk_airwar.py',
         'ships': [{'id': t, 'name': ship_name(t), **v} for t, v in sorted(ships.items()) if 'hp' in v],

@@ -1,5 +1,5 @@
 {
- "source": "Long War 1.0 XComStrategyGame.upk (XGItemTree, XGInterceptionEngagement), ContBalance_Classic in DefaultGameCore.ini, names from the INT localization; read by scripts/upk_airwar.py",
+ "source": "LW Rebalance XComStrategyGame.upk (XGItemTree, XGInterceptionEngagement), ContBalance_Classic in DefaultGameCore.ini, names from the INT localization; read by scripts/upk_airwar.py",
  "ships": [
   {
    "id": 1,

@@ -26,7 +26,8 @@ export interface TechRef {
 export type Gate =
   | { kind: 'ever_had'; items: number[]; name: string }
   | { kind: 'in_stores'; items: number[]; name: string }
-  | { kind: 'captured'; ships: number[]; name: string }
+  /** LWR also counts a UFO shot down (`shotDown`), not only one captured. */
+  | { kind: 'captured'; ships: number[]; name: string; shotDown?: boolean }
   /** LWR: a Foundry project that needs another built first. */
   | { kind: 'foundry'; projects: number[]; name: string }
 
@@ -48,7 +49,7 @@ export interface TechRule {
 
 export const techRules = techtree.techs as TechRule[]
 
-function gatesOf(r: TechRule | undefined): Gate[] {
+function gatesOf(r: TechRule | undefined, shotDown = false): Gate[] {
   if (!r) return []
   const gates: Gate[] = []
   if (r.ever_had) gates.push({ kind: 'ever_had', items: [r.ever_had.id], name: r.ever_had.name })
@@ -64,6 +65,7 @@ function gatesOf(r: TechRule | undefined): Gate[] {
       kind: 'captured',
       ships: ships.map((s) => s.id),
       name: ships.map((s) => s.name).join(' or '),
+      ...(shotDown ? { shotDown } : {}),
     })
   }
   return withoutImplied(gates)
@@ -107,12 +109,13 @@ export interface TechData {
 }
 
 /** A version's techs with its rules attached: covering credits and gates. */
-export function buildTechs(raw: TechData, techRules: TechRule[]): Tech[] {
+/** `shotDown`: the version counts a UFO shot down towards its analysis (LWR). */
+export function buildTechs(raw: TechData, techRules: TechRule[], shotDown = false): Tech[] {
   const rules = new Map(techRules.map((r) => [r.id, r]))
   return raw.techs.map((t) => ({
     ...t,
     credits: creditNames(rules.get(t.id)?.credits ?? []),
-    gates: gatesOf(rules.get(t.id)),
+    gates: gatesOf(rules.get(t.id), shotDown),
   }))
 }
 

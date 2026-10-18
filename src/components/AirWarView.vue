@@ -1,12 +1,14 @@
 <script setup lang="ts">
-// Air war: a UFO against one jet or several in turn, with the odds under each
-// stance, what every number does, and a playable fight. Rules and sources:
-// model/airwar.ts and features/air-war.md.
+// Air war: a UFO against one jet or several in turn (Long War 1.0), or
+// against a squadron flying together (LWR), with the odds under each stance,
+// what every number does, and a playable fight. Rules and sources:
+// model/airwar.ts, model/airwar-lwr.ts, features/air-war.md and
+// features/lw-rebalanced.md.
 
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import {
   AIR_FOUNDRY,
-  CRAFT_WEAPONS,
+  craftWeapons,
   FIRESTORM,
   INTERCEPTOR,
   STANCES,
@@ -37,10 +39,32 @@ import {
   type SequenceOdds,
   type Stance,
 } from '@/model/airwar'
-import { campaign, foundryById } from '@/state/store'
+import {
+  CONSUMABLE_STANCE,
+  LWR_BONUS,
+  LWR_FOUNDRY,
+  canLaunch,
+  consumableAllowed as squadAllowed,
+  critChance,
+  escapeTime as squadEscape,
+  fireRate,
+  jetToHit,
+  runSquadJobs,
+  sizeFactor,
+  squadronSize,
+  ufoToHit,
+  type Jet,
+  type SquadJob,
+  type SquadReply,
+  type SquadRequest,
+  type SquadronFight,
+  type SquadronOdds,
+} from '@/model/airwar-lwr'
+import { bonusIds, campaign, foundryById, game } from '@/state/store'
 import AirFight from './AirFight.vue'
+import AirSquadronFight from './AirSquadronFight.vue'
 import ShipPicture from './ShipPicture.vue'
-import { UFO_NOTES } from '@/model/ufos'
+import { ufoNote } from '@/model/ufos'
 
 type Use = 'aim' | 'dodge' | 'boost'
 interface LegSetup {
@@ -64,6 +88,10 @@ interface Setup {
   friendlySkies: boolean
   analysis: boolean
   legs: LegSetup[]
+  /** LWR: difficulty (UFO hulls), bonuses in effect, the squadron's consumables. */
+  difficulty: number
+  bonuses: number[]
+  use: Record<Use, boolean>
 }
 
 const KEY = 'lwtree.air.v1'
@@ -78,26 +106,28 @@ const newLeg = (jet = 0): LegSetup => ({
   dodge: false,
   boost: false,
 })
+const DEFAULT: Setup = {
+  mode: 'campaign',
+  ufo: 4,
+  ufoHpPct: 100,
+  category: 0,
+  foundry: [],
+  friendlySkies: false,
+  analysis: false,
+  legs: [newLeg()],
+  difficulty: 1,
+  bonuses: [],
+  use: { aim: false, dodge: false, boost: false },
+}
 function restore(): Setup | undefined {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Setup | null
-    return s && Array.isArray(s.legs) ? s : undefined
+    return s && Array.isArray(s.legs) ? { ...DEFAULT, ...s } : undefined
   } catch {
     return undefined
   }
 }
-const setup = reactive<Setup>(
-  restore() ?? {
-    mode: 'campaign',
-    ufo: 4,
-    ufoHpPct: 100,
-    category: 0,
-    foundry: [],
-    friendlySkies: false,
-    analysis: false,
-    legs: [newLeg()],
-  },
-)
+const setup = reactive<Setup>(restore() ?? DEFAULT)
 watch(setup, () => localStorage.setItem(KEY, JSON.stringify(setup)), { deep: true })
 
 const STANCE_OF_CODE: Stance[] = ['balanced', 'aggressive', 'defensive']
@@ -109,40 +139,53 @@ function addLeg() {
   setup.legs.push({ ...newLeg(jet), stance: fromCampaign.value ? savedStance(jet) : 'balanced' })
 }
 
-/** Free selection sets alien research; UFOs grow per 30 of it (the category). */
+/** The version's ships and weapons, and whether LWR's squadrons fight. */
+const data = computed(() => game.value.air)
+const lwr = computed(() => game.value.airRules === 'lwr')
+const rules = computed(() => game.value.airRules)
+const shipLabel = (id: number) => shipName(id, data.value)
+const weaponLabel = (id: number) => weaponName(id, data.value)
+
+/** Free selection sets alien research; UFOs grow per 30 of it (LWR: 50), the category. */
 const alienResearch = computed({
-  get: () => setup.category * 30,
-  set: (v: number) => (setup.category = categoryFor(Number(v) || 0)),
+  get: () => Math.min(setup.category, data.value.category.max) * data.value.category.per,
+  set: (v: number) => (setup.category = categoryFor(Number(v) || 0, data.value.category)),
 })
 
 const fromCampaign = computed(() => setup.mode === 'campaign' && !!campaign.value)
 const hangar = computed(() => campaign.value?.interceptors ?? [])
 
+/** LWR's bonuses that change the air war, among those in effect. */
+const AIR_BONUSES: number[] = Object.values(LWR_BONUS)
 const setting = computed<AirSetting>(() =>
   fromCampaign.value
-    ? campaignSetting(campaign.value!)
+    ? campaignSetting(campaign.value!, data.value, bonusIds.value)
     : {
         foundry: new Set(setup.foundry),
         friendlySkies: setup.friendlySkies,
-        category: setup.category,
+        category: Math.min(setup.category, data.value.category.max),
+        air: data.value,
+        difficulty: setup.difficulty,
+        bonuses: new Set(setup.bonuses),
       },
 )
-const analysis = computed(() =>
-  fromCampaign.value ? !!campaign.value!.researched[analysisTech(setup.ufo)] : setup.analysis,
+const analysisOf = (type: number) => !!campaign.value?.researched[analysisTech(type, rules.value)]
+const analysis = computed(() => (fromCampaign.value ? analysisOf(setup.ufo) : setup.analysis))
+const held = computed(() =>
+  fromCampaign.value ? consumablesHeld(campaign.value!, data.value) : null,
 )
-const held = computed(() => (fromCampaign.value ? consumablesHeld(campaign.value!) : null))
 const boosters = computed(() => !!campaign.value?.foundryHistory[AIR_FOUNDRY.boosters])
 
 /** Switching to "Anything" starts from what the campaign has. */
 function setMode(mode: Setup['mode']) {
   if (mode === 'free' && setup.mode === 'campaign' && campaign.value) {
-    const s = campaignSetting(campaign.value)
-    setup.foundry = [...s.foundry].filter((id) =>
-      (Object.values(AIR_FOUNDRY) as number[]).includes(id),
-    )
+    const s = campaignSetting(campaign.value, data.value, bonusIds.value)
+    setup.foundry = [...s.foundry].filter((id) => FOUNDRY_TOGGLES.value.includes(id))
     setup.friendlySkies = s.friendlySkies
     setup.category = s.category
-    setup.analysis = !!campaign.value.researched[analysisTech(setup.ufo)]
+    setup.analysis = analysisOf(setup.ufo)
+    setup.difficulty = Math.min(3, s.difficulty ?? 1)
+    setup.bonuses = [...(s.bonuses ?? [])].filter((id) => AIR_BONUSES.includes(id))
     for (const leg of setup.legs) {
       const jet = hangar.value[leg.jet]
       if (!jet) continue
@@ -173,11 +216,11 @@ function craftFor(leg: LegSetup) {
     ...c,
     hp: Math.max(1, Math.round((c.maxHp * leg.hpPct) / 100)),
     kills: leg.kills,
-    label: `${c.name}, ${weaponName(leg.weapon)}`,
+    label: `${c.name}, ${weaponLabel(leg.weapon)}`,
   }
 }
 
-/** Why a consumable cannot be used on this leg, or '' if it can. */
+/** Why a consumable cannot be used on this leg, or '' if it can (Long War 1.0). */
 function blocked(i: number, kind: Use): string {
   const leg = setup.legs[i]!
   if (!consumableAllowed(kind, leg.stance))
@@ -207,6 +250,86 @@ const legs = computed<(Leg & { label: string })[]>(() =>
   }),
 )
 
+// --- LWR: the jets fly together ----------------------------------------------
+
+/**
+ * The squadron as it launches: jets under half health and a jet picked twice
+ * stay home, and the list is cut to the size the best pilot's kills allow.
+ */
+const squadInfo = computed(() => {
+  const why: string[] = []
+  const flying: number[] = []
+  const seen = new Set<number>()
+  setup.legs.forEach((l, i) => {
+    const c = legs.value[i]!.craft
+    if (fromCampaign.value && seen.has(l.jet)) why[i] = 'already in the squadron'
+    else if (!canLaunch(c)) why[i] = 'under half health: cannot launch'
+    else flying.push(i)
+    seen.add(l.jet)
+  })
+  const size = squadronSize(flying.map((i) => legs.value[i]!.craft.kills))
+  for (const i of flying.splice(size)) why[i] = `the squadron is ${size} jets`
+  return { flying, why, size }
+})
+const squadJets = computed<Jet[]>(() =>
+  squadInfo.value.flying.map((i) => ({ ...legs.value[i]!.craft, stance: setup.legs[i]!.stance })),
+)
+const firstStance = computed<Stance>(() => squadJets.value[0]?.stance ?? 'balanced')
+/** Why the squadron cannot use a consumable, or '' (by the first jet's stance; stores). */
+function squadBlocked(kind: Use, stance = firstStance.value): string {
+  if (!squadAllowed(kind, stance)) return `first jet not ${CONSUMABLE_STANCE[kind]}`
+  if (held.value && held.value[kind] <= 0)
+    return boosters.value ? 'none in stores' : 'needs Aircraft Boosters'
+  return ''
+}
+const squadUse = (stance = firstStance.value) => ({
+  aim: setup.use.aim && !squadBlocked('aim', stance),
+  dodge: setup.use.dodge && !squadBlocked('dodge', stance),
+  boost: setup.use.boost && !squadBlocked('boost', stance),
+})
+const squad = computed<SquadronFight>(() => ({
+  ufo: { ...ufo.value },
+  jets: squadJets.value,
+  analysis: analysis.value,
+  bonuses: [...(setting.value.bonuses ?? [])],
+  foundry: [...setting.value.foundry],
+}))
+/** Odds for the squadron as set, and with each jet's stance changed in turn. */
+const squadOdds = ref<SquadronOdds | null>(null)
+const squadByStance = ref<Record<Stance, SquadronOdds>[]>([])
+function receiveSquads(reply: SquadReply) {
+  if (reply.id !== requestId) return
+  const [main, ...rest] = reply.squads
+  squadOdds.value = main!
+  squadByStance.value = squadJets.value.map(
+    (_, i) =>
+      Object.fromEntries(STANCES.map((st, k) => [st, rest[i * STANCES.length + k]!])) as Record<
+        Stance,
+        SquadronOdds
+      >,
+  )
+}
+function requestSquads() {
+  const fight: SquadronFight = JSON.parse(JSON.stringify(squad.value))
+  if (!fight.jets.length) {
+    squadOdds.value = null
+    squadByStance.value = []
+    return
+  }
+  const jobs: SquadJob[] = [{ fight, use: squadUse(), runs: 2000, seed: 1 }]
+  fight.jets.forEach((_, i) => {
+    for (const st of STANCES) {
+      const jets = fight.jets.map((j, k) => (k === i ? { ...j, stance: st } : j))
+      jobs.push({ fight: { ...fight, jets }, use: squadUse(jets[0]!.stance), runs: 600, seed: 7 })
+    }
+  })
+  const req: SquadRequest = { id: ++requestId, squads: jobs }
+  if (worker) worker.postMessage(req)
+  else receiveSquads(runSquadJobs(req))
+}
+/** Where squadron jet k sits in the list of legs. */
+const legOfJet = (k: number) => squadInfo.value.flying[k]!
+
 // Odds: the sequence as set, and each leg under each stance (the rest as set),
 // worked out in a worker so the page stays responsive.
 const odds = ref<SequenceOdds | null>(null)
@@ -228,15 +351,18 @@ function receive(reply: OddsReply) {
       >,
   )
 }
-if (worker) worker.onmessage = (e: MessageEvent<OddsReply>) => receive(e.data)
+if (worker)
+  worker.onmessage = (e: MessageEvent<OddsReply | SquadReply>) =>
+    'squads' in e.data ? receiveSquads(e.data) : receive(e.data)
 onBeforeUnmount(() => worker?.terminate())
 
 let timer: ReturnType<typeof setTimeout> | undefined
 watch(
-  [ufo, legs, analysis],
+  [ufo, legs, analysis, lwr, squad, () => setup.use],
   () => {
     clearTimeout(timer)
     timer = setTimeout(() => {
+      if (lwr.value) return requestSquads()
       const ls: Leg[] = legs.value.map((l) => ({ craft: l.craft, stance: l.stance, use: l.use }))
       const jobs: OddsJob[] = [{ legs: ls, runs: 3000, seed: 1 }]
       ls.forEach((_, i) => {
@@ -289,6 +415,8 @@ function blockedStock(i: number, kind: Use): boolean {
 const downBy = (o: SequenceOdds, i: number) =>
   o.legs.slice(0, i + 1).reduce((n, l) => n + l.reached * (l.crashed + l.destroyed), 0)
 
+const jetLabel = (k: number) => legs.value[legOfJet(k)]?.label ?? ''
+
 const engagementFor = (i: number): Engagement => ({
   craft: { ...legs.value[i]!.craft },
   ufo: { ...ufo.value },
@@ -340,16 +468,16 @@ const gallery = computed(() =>
     const c = fromCampaign.value ? campaign.value! : undefined
     return {
       ship,
-      note: UFO_NOTES[ship.type],
+      note: ufoNote(ship.type, rules.value),
       captured: c ? (c.craftEncounters[ship.type] ?? 0) : undefined,
-      analysed: c ? !!c.researched[analysisTech(ship.type)] : false,
+      analysed: c ? analysisOf(ship.type) : false,
       // Upgrades already made at this alien research, and those still to come.
-      upgrades: ufoUpgrades(ship.type).map((u) => ({
+      upgrades: ufoUpgrades(ship.type, setting.value).map((u) => ({
         at: u.at,
         done: setting.value.category >= u.category,
         // Non-breaking spaces keep "UFO Weapon I" on one line.
         what: [
-          u.weapons ? weaponList(u.weapons.map((w) => weaponName(w).replace(/ /g, '\u00a0'))) : '',
+          u.weapons ? weaponList(u.weapons.map((w) => weaponLabel(w).replace(/ /g, '\u00a0'))) : '',
           u.hull ? 'tougher hull' : '',
         ]
           .filter(Boolean)
@@ -367,16 +495,40 @@ function weaponList(names: string[]): string {
 
 const fighting = ref(false)
 const foundryName = (id: number) => foundryById.value.get(id)?.name ?? `Foundry ${id}`
-const FOUNDRY_TOGGLES = [
-  AIR_FOUNDRY.armoredFighters,
-  AIR_FOUNDRY.afterburners,
-  AIR_FOUNDRY.penetrator,
-  AIR_FOUNDRY.avionics,
-  AIR_FOUNDRY.coilguns,
-  AIR_FOUNDRY.supercapacitors,
-  AIR_FOUNDRY.sparrowhawks,
-  AIR_FOUNDRY.countermeasures,
-]
+const FOUNDRY_TOGGLES = computed<number[]>(() =>
+  lwr.value
+    ? [
+        LWR_FOUNDRY.armoredFighters,
+        LWR_FOUNDRY.afterburners,
+        LWR_FOUNDRY.coolingCoils,
+        LWR_FOUNDRY.avionics,
+        LWR_FOUNDRY.coilguns,
+        LWR_FOUNDRY.supercapacitors,
+        LWR_FOUNDRY.countermeasures,
+        LWR_FOUNDRY.scanners,
+        LWR_FOUNDRY.tracking,
+      ]
+    : [
+        AIR_FOUNDRY.armoredFighters,
+        AIR_FOUNDRY.afterburners,
+        AIR_FOUNDRY.penetrator,
+        AIR_FOUNDRY.avionics,
+        AIR_FOUNDRY.coilguns,
+        AIR_FOUNDRY.supercapacitors,
+        AIR_FOUNDRY.sparrowhawks,
+        AIR_FOUNDRY.countermeasures,
+      ],
+)
+/** LWR's air war bonuses, named as the version names them. */
+const bonusName = (id: number) =>
+  [...game.value.bonuses.starting_bonuses, ...game.value.bonuses.continent_bonuses].find(
+    (b) => b.bonus_id === id,
+  )?.name ?? `Bonus ${id}`
+function toggleBonus(id: number) {
+  const i = setup.bonuses.indexOf(id)
+  if (i >= 0) setup.bonuses.splice(i, 1)
+  else setup.bonuses.push(id)
+}
 function toggleFoundry(id: number) {
   const i = setup.foundry.indexOf(id)
   if (i >= 0) setup.foundry.splice(i, 1)
@@ -393,6 +545,66 @@ const USE_HELP: Record<Use, string> = {
   dodge: 'next 2 hits on you cancelled',
   boost: '+50 % speed: the UFO escapes later',
 }
+const SQUAD_USE_HELP: Record<Use, string> = {
+  aim: 'the lead’s next 2 misses hit; and a Boost',
+  dodge: 'the next 2 hits on the squadron cancelled; and a Boost',
+  boost: '+50 % speed: the UFO escapes later',
+}
+/** What a stance does in LWR, beside its button. */
+const LWR_STANCE_NOTE: Record<Stance, string> = {
+  defensive: '−10',
+  balanced: '',
+  aggressive: '+10',
+}
+
+/** LWR: the sums behind one squadron jet, in words. */
+function explainJet(k: number) {
+  const f = squad.value
+  const j = f.jets[k]!
+  const perKill = f.bonuses.includes(LWR_BONUS.bornToFly) ? 5 : 1
+  const kills = Math.min(100, Math.trunc((perKill * j.kills) / 4))
+  const size = sizeFactor(f.ufo.type)
+  const rate = fireRate(f, j)
+  const mine = j.weapons.map((w) => {
+    const mit = Math.max(0, Math.min(0.95, 0.05 * (f.ufo.armor - (w.ap + j.ap))))
+    return {
+      w,
+      parts: [
+        `${w.toHit}`,
+        kills ? `+${kills} kills` : '',
+        j.stance === 'aggressive'
+          ? '+10 aggressive'
+          : j.stance === 'defensive'
+            ? '−10 defensive'
+            : '',
+        j.hp !== j.maxHp && !f.bonuses.includes(LWR_BONUS.theirFinestHour) ? '−10 damaged' : '',
+        size !== 1 ? `× ${size} ${SIZE_LABEL[f.ufo.size]?.toLowerCase()} UFO` : '',
+      ].filter(Boolean),
+      hit: jetToHit(f, j, w),
+      mit,
+      damage: Math.trunc(w.damage * (1 - mit)),
+      crit: critChance(f, w, j, f.ufo, true),
+      every: w.firingTime / rate,
+      rate,
+    }
+  })
+  const theirs = f.ufo.weapons.map((w) => {
+    const mit = Math.max(0, Math.min(0.95, 0.05 * (j.armor - (w.ap + f.ufo.ap))))
+    return {
+      w,
+      hit: Math.min(100, ufoToHit(w, j.stance)),
+      mit,
+      damage: Math.trunc(w.damage * (1 - mit)),
+      crit: critChance(f, w, f.ufo, j, false),
+    }
+  })
+  return { mine, theirs }
+}
+const squadEscapes = computed(() => ({
+  escape: squadEscape(squad.value),
+  boost: squadEscape(squad.value, true),
+}))
+const DIFFICULTIES = computed(() => game.value.difficulties)
 </script>
 
 <template>
@@ -424,7 +636,7 @@ const USE_HELP: Record<Use, string> = {
       <div class="setup">
         <h3>UFO</h3>
         <div class="row">
-          <strong class="ufo-name">{{ shipName(setup.ufo) }}</strong>
+          <strong class="ufo-name">{{ shipLabel(setup.ufo) }}</strong>
           <label class="field">
             starts at
             <input v-model.number="setup.ufoHpPct" type="number" min="1" max="100" class="num" />%
@@ -438,20 +650,34 @@ const USE_HELP: Record<Use, string> = {
               v-model.number="alienResearch"
               type="number"
               min="0"
-              max="990"
-              step="30"
+              :max="data.category.per * data.category.max"
+              :step="data.category.per"
               class="num wide"
             />
+          </label>
+          <label v-if="!fromCampaign && lwr" class="field">
+            difficulty
+            <select v-model.number="setup.difficulty" aria-label="Difficulty">
+              <option v-for="(d, k) in DIFFICULTIES" :key="k" :value="k">{{ d }}</option>
+            </select>
           </label>
           <label v-if="!fromCampaign" class="field">
             <input v-model="setup.analysis" type="checkbox" /> analysis done
           </label>
-          <span v-else-if="analysis" class="muted">analysed: +10 % damage</span>
+          <span v-else-if="analysis" class="muted">{{
+            lwr ? 'analysed: jets fire 30 % faster' : 'analysed: +10 % damage'
+          }}</span>
         </div>
 
-        <h3>Jets, one after another</h3>
+        <h3 v-if="lwr">Squadron: up to {{ squadInfo.size }} jets, flying together</h3>
+        <h3 v-else>Jets, one after another</h3>
         <ol class="legs">
-          <li v-for="(l, i) in setup.legs" :key="i" class="leg">
+          <li
+            v-for="(l, i) in setup.legs"
+            :key="i"
+            class="leg"
+            :class="{ home: lwr && squadInfo.why[i] }"
+          >
             <div class="row">
               <span class="n">{{ i + 1 }}</span>
               <span class="jet-pic"><ShipPicture :type="legs[i]?.craft.type ?? l.type" /></span>
@@ -462,8 +688,10 @@ const USE_HELP: Record<Use, string> = {
                   @change="l.stance = savedStance(l.jet)"
                 >
                   <option v-for="(j, k) in hangar" :key="k" :value="k">
-                    {{ j.callsign }} · {{ shipName(j.type) }}, {{ weaponName(j.weapons[0] ?? 0) }} ·
-                    {{ num(j.hp) }} HP{{ j.kills ? ` · ${j.kills} kills` : '' }}
+                    {{ j.callsign }} · {{ shipLabel(j.type) }},
+                    {{ weaponLabel(j.weapons[0] ?? 0) }} · {{ num(j.hp) }} HP{{
+                      j.kills ? ` · ${j.kills} kills` : ''
+                    }}
                   </option>
                 </select>
               </template>
@@ -473,8 +701,8 @@ const USE_HELP: Record<Use, string> = {
                   <option :value="FIRESTORM">Firestorm</option>
                 </select>
                 <select v-model.number="l.weapon" aria-label="Weapon">
-                  <option v-for="w in CRAFT_WEAPONS" :key="w" :value="w">
-                    {{ weaponName(w) }}
+                  <option v-for="w in craftWeapons(data)" :key="w" :value="w">
+                    {{ weaponLabel(w) }}
                   </option>
                 </select>
                 <label class="field"
@@ -511,11 +739,19 @@ const USE_HELP: Record<Use, string> = {
                   @click="l.stance = st"
                 >
                   {{ STANCE_LABEL[st] }}
-                  <span v-if="STANCE_AIM[st]" class="aim">{{ signed(STANCE_AIM[st]) }}</span>
+                  <span v-if="lwr && LWR_STANCE_NOTE[st]" class="aim">{{
+                    LWR_STANCE_NOTE[st]
+                  }}</span>
+                  <span v-else-if="!lwr && STANCE_AIM[st]" class="aim">{{
+                    signed(STANCE_AIM[st])
+                  }}</span>
                 </button>
               </div>
+              <span v-if="lwr && squadInfo.why[i]" class="muted small">
+                Stays home: {{ squadInfo.why[i] }}
+              </span>
               <label
-                v-for="u in ['aim', 'dodge', 'boost'] as const"
+                v-for="u in lwr ? [] : (['aim', 'dodge', 'boost'] as const)"
                 :key="u"
                 class="field use"
                 :class="{ off: !!blocked(i, u) }"
@@ -528,15 +764,37 @@ const USE_HELP: Record<Use, string> = {
             </div>
           </li>
         </ol>
+        <div v-if="lwr" class="row">
+          <label
+            v-for="u in ['aim', 'dodge', 'boost'] as const"
+            :key="u"
+            class="field use"
+            :class="{ off: !!squadBlocked(u) }"
+            :aria-label="`${USE_LABEL[u]}: ${squadBlocked(u) || SQUAD_USE_HELP[u]}`"
+          >
+            <input v-model="setup.use[u]" type="checkbox" :disabled="!!squadBlocked(u)" />
+            {{ USE_LABEL[u] }}
+            <span class="muted small">{{ squadBlocked(u) || SQUAD_USE_HELP[u] }}</span>
+          </label>
+        </div>
         <button
           type="button"
           class="add"
-          :disabled="fromCampaign && !hangar.length"
+          :disabled="(fromCampaign && !hangar.length) || (lwr && setup.legs.length >= 5)"
           @click="addLeg()"
         >
           + Another jet
         </button>
-        <p class="muted small">
+        <p v-if="lwr" class="muted small">
+          Two jets fly together, three once one of them has 8 kills, four at 16, five at 32. The
+          first jet's stance decides which consumable the squadron can use: Aim when aggressive,
+          Boost balanced, Dodge defensive; each once.
+          <template v-if="held"
+            >In stores: Aim {{ held.aim }}, Dodge {{ held.dodge }}, Boost
+            {{ held.boost }}.</template
+          >
+        </p>
+        <p v-else class="muted small">
           One jet per engagement; the UFO keeps its damage for the next.
           <template v-if="held"
             >In stores: Aim {{ held.aim }}, Dodge {{ held.dodge }}, Boost
@@ -559,11 +817,133 @@ const USE_HELP: Record<Use, string> = {
               ><input v-model="setup.friendlySkies" type="checkbox" /> Friendly Skies (second
               wave)</label
             >
+            <template v-if="lwr">
+              <label v-for="id in AIR_BONUSES" :key="`b${id}`" class="field">
+                <input
+                  type="checkbox"
+                  :checked="setup.bonuses.includes(id)"
+                  @change="toggleBonus(id)"
+                />
+                {{ bonusName(id) }} (bonus)
+              </label>
+            </template>
           </div>
         </template>
       </div>
 
-      <div class="results" aria-live="polite">
+      <div v-if="lwr" class="results" aria-live="polite">
+        <div v-if="squadOdds" class="headline">
+          <span class="big">{{ pct(squadOdds.down) }}</span>
+          <span>UFO down</span>
+          <span class="muted"
+            >crashed {{ pct(squadOdds.crashed) }} · destroyed {{ pct(squadOdds.destroyed) }} ·
+            escapes {{ pct(squadOdds.escaped)
+            }}<template v-if="squadOdds.disengaged">
+              · break off {{ pct(squadOdds.disengaged) }}</template
+            ></span
+          >
+          <button type="button" class="fight" @click="fighting = true">Fly it</button>
+        </div>
+        <p v-else class="muted">No jet can fly.</p>
+
+        <section v-for="(j, k) in squadJets" :key="k" class="leg-odds">
+          <h3>
+            {{ legOfJet(k) + 1 }}. {{ jetLabel(k) }}
+            <span v-if="squadOdds" class="muted"
+              >· the UFO's first target {{ pct(squadOdds.firstLead[k] ?? 0) }} of the time</span
+            >
+          </h3>
+          <p v-if="squadOdds" class="line">
+            shot down {{ pct(squadOdds.lost[k] ?? 0) }} · deals {{ num(squadOdds.dealt[k] ?? 0) }} ·
+            takes {{ num(squadOdds.taken[k] ?? 0) }}
+          </p>
+          <table
+            v-if="squadByStance[k]"
+            class="stances"
+            :aria-label="`Stances for jet ${legOfJet(k) + 1}`"
+          >
+            <tbody>
+              <tr
+                v-for="st in STANCES"
+                :key="st"
+                :class="{ on: j.stance === st }"
+                @click="setup.legs[legOfJet(k)]!.stance = st"
+              >
+                <th>{{ STANCE_LABEL[st] }}</th>
+                <td class="bars">
+                  <div class="bar-row">
+                    <span class="track"
+                      ><span class="fill down" :style="{ width: pct(squadByStance[k]![st].down) }"
+                    /></span>
+                    <span class="v">{{ pct(squadByStance[k]![st].down) }} down</span>
+                  </div>
+                  <div class="bar-row">
+                    <span class="track"
+                      ><span
+                        class="fill lost"
+                        :style="{ width: pct(squadByStance[k]![st].lost[k] ?? 0) }"
+                    /></span>
+                    <span class="v">{{ pct(squadByStance[k]![st].lost[k] ?? 0) }} jet lost</span>
+                  </div>
+                </td>
+                <td class="v small muted">takes {{ num(squadByStance[k]![st].taken[k] ?? 0) }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <details class="explain">
+            <summary>What the numbers do</summary>
+            <ul>
+              <li v-for="m in explainJet(k).mine" :key="`m${m.w.id}`">
+                <strong>{{ m.w.name }}:</strong> to hit {{ m.parts.join(' ') }} → {{ m.hit }}% a
+                shot · {{ num(m.w.damage) }} damage<template v-if="m.mit > 0"
+                  >, armor takes {{ pct(m.mit) }} → {{ num(m.damage) }}</template
+                >, ± 20 %; {{ m.crit }}% crits × 1.5 · every {{ m.w.firingTime
+                }}<template v-if="m.rate !== 1"> ÷ {{ m.rate.toFixed(2) }}</template> =
+                {{ sec(m.every) }}
+              </li>
+              <li v-for="m in explainJet(k).theirs" :key="`t${m.w.id}${m.w.firingTime}`">
+                <strong>{{ shipLabel(setup.ufo) }}, {{ m.w.name }}</strong
+                >, at this jet: to hit {{ m.w.toHit
+                }}<template v-if="j.stance === 'defensive'"> × 2/3 (defensive)</template
+                ><template v-else-if="j.stance === 'aggressive'"> × 3/2 (aggressive)</template> →
+                {{ m.hit }}% · {{ num(m.w.damage) }} damage<template v-if="m.mit > 0"
+                  >, armor takes {{ pct(m.mit) }} → {{ num(m.damage) }}</template
+                >, ± 20 %; {{ m.crit }}% crits · every {{ m.w.firingTime }} s
+              </li>
+            </ul>
+          </details>
+        </section>
+
+        <details v-if="squadJets.length" class="explain">
+          <summary>How LWR's air war works</summary>
+          <ul>
+            <li>
+              The UFO goes for one jet, the lead: each jet scores 2, +1 per weapon when aggressive,
+              −1 when defensive; the highest leads (all equal: a random one). Each UFO shot then has
+              a 49 % chance to go to a jet behind the lead instead, drawn 1 : 2 : 3 for defensive,
+              balanced, aggressive; it is rolled again against that jet's stance.
+            </li>
+            <li>
+              Escapes after 30 × the squadron's average speed ÷ {{ ufo.battleSpeed }} =
+              {{ sec(squadEscapes.escape) }} (with Boost {{ sec(squadEscapes.boost) }}). A hit lands
+              0.3 s after the shot.
+            </li>
+            <li>
+              A wingman under a quarter of its hull leaves. When the lead goes down the next jet
+              takes over, if the game still counts one as chasing; it often does not, because the
+              wingman draw overwrites the list it checks, and then the UFO gets away. Break off
+              sends the lead home in the same way.
+            </li>
+            <li>
+              Down, a Fighter or a Destroyer is destroyed, any other UFO crashes; either way it
+              counts towards its analysis.
+            </li>
+          </ul>
+        </details>
+      </div>
+
+      <div v-else class="results" aria-live="polite">
         <div v-if="odds" class="headline">
           <span class="big">{{ pct(odds.down) }}</span>
           <span>UFO down</span>
@@ -633,7 +1013,7 @@ const USE_HELP: Record<Use, string> = {
                 {{ m.x.weapon.firingTime }} s, about {{ m.x.shots }} shots before it escapes
               </li>
               <li v-for="m in explain(i).theirs" :key="`t${m.x.weapon.id}${m.x.weapon.firingTime}`">
-                <strong>{{ shipName(setup.ufo) }}, {{ m.x.weapon.name }}:</strong> to hit
+                <strong>{{ shipLabel(setup.ufo) }}, {{ m.x.weapon.name }}:</strong> to hit
                 {{ m.parts.join(' ') }} → {{ pct(m.x.hitChance) }} ·
                 {{ num(m.x.weapon.damage) }} damage<template v-if="m.x.mitigation > 0"
                   >, your armor takes {{ pct(m.x.mitigation) }} → {{ num(m.x.damage) }}</template
@@ -672,13 +1052,20 @@ const USE_HELP: Record<Use, string> = {
               <span class="name">
                 {{ u.ship.name }}
                 <span v-if="u.captured !== undefined" class="tag" :class="{ dim: !u.captured }">{{
-                  u.captured ? `captured ${u.captured}×` : 'not yet captured'
+                  lwr
+                    ? u.captured
+                      ? `downed ${u.captured}×`
+                      : 'not yet downed'
+                    : u.captured
+                      ? `captured ${u.captured}×`
+                      : 'not yet captured'
                 }}</span>
                 <span v-if="u.analysed" class="tag done">analysed</span>
               </span>
               <span class="nums">
                 {{ num(u.ship.maxHp) }} HP · armor {{ u.ship.armor }}
-                <span class="muted">({{ u.note?.armor.toLowerCase() }})</span> · speed
+                <span v-if="u.note?.armor" class="muted">({{ u.note.armor.toLowerCase() }})</span>
+                · speed
                 {{ u.ship.battleSpeed }} ·
                 <span class="nowrap">{{ weaponList(u.ship.weapons.map((w) => w.name)) }}</span>
               </span>
@@ -697,8 +1084,16 @@ const USE_HELP: Record<Use, string> = {
       </div>
     </div>
 
+    <AirSquadronFight
+      v-if="fighting && lwr && squadJets.length"
+      :fight="squad"
+      :labels="squadJets.map((_, k) => `${legOfJet(k) + 1}. ${jetLabel(k)}`)"
+      :held="held"
+      :none-reason="boosters ? 'none in stores' : 'needs Aircraft Boosters'"
+      @close="fighting = false"
+    />
     <AirFight
-      v-if="fighting"
+      v-else-if="fighting && !lwr"
       :legs="legs"
       :ufo="ufo"
       :analysis="analysis"
@@ -935,6 +1330,9 @@ input.num {
 }
 .use.off {
   color: var(--muted);
+}
+.leg.home {
+  opacity: 0.6;
 }
 .remove {
   margin-left: auto;
