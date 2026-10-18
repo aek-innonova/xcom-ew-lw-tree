@@ -154,6 +154,7 @@ onBeforeUnmount(() => {
 watch(legIndex, () => (last = 0))
 
 // The scene: the jet left, the UFO right; a shot flies for 0.3 s.
+const ufoPicture = `${import.meta.env.BASE_URL}ufos/${props.ufo.type}.webp`
 const W = 640
 const H = 190
 const JET = { x: 90, y: 95 }
@@ -287,8 +288,7 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
           <circle v-if="charges.dodge > 0" r="30" class="shield" />
         </g>
         <g :transform="`translate(${UFO.x} ${UFO.y})`" :class="{ down: hpAt(0) <= 0 }">
-          <ellipse rx="34" ry="11" class="ufo-shape" />
-          <ellipse cy="-8" rx="14" ry="9" class="ufo-dome" />
+          <image :href="ufoPicture" x="-70" y="-35" width="140" height="70" />
         </g>
         <circle
           v-for="s in inFlight"
@@ -462,12 +462,6 @@ h3 {
 }
 .jet-shape {
   fill: var(--accent);
-}
-.ufo-shape {
-  fill: var(--enables);
-}
-.ufo-dome {
-  fill: #f6b6de;
 }
 .down {
   opacity: 0.25;

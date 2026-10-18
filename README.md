@@ -37,6 +37,8 @@ allow it).
   Long War Research and Foundry pages by `scripts/ufopaedia_links.py`.
 - `data/airwar.json`: ships, weapons and how UFOs grow, from the game's
   script and INI by `scripts/upk_airwar.py`.
+- `public/ufos/`: UFO pictures, our own models rendered in Blender by
+  `scripts/ufo_art.py`.
 - `data/enums.json`: Enemy Within's item, tech, Foundry, facility and
   research-credit numbering, read from the game's own script packages by
   `scripts/upk_enums.py` (the packages are not committed).

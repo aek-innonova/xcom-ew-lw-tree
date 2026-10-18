@@ -151,3 +151,19 @@ The gallery's "met N×" was the same counter, which counts won crash-site
 and landed-UFO missions only (XGStrategy.PostCombat); it now reads
 "captured N×" or "not yet captured". The disassembler reads `new` (token
 0x11), which is what had hidden PostCombat.
+
+## Report (2026-10-18, round 4)
+
+- The UFO pictures are renders of our own models: `scripts/ufo_art.py`
+  builds all eleven in Blender from simple shapes (revolved hulls, boxes,
+  fins, glowing lights), each type with its own features (the Destroyer's
+  prow and cannons, the Abductor's tower and beam emitter, the Harvester's
+  arms, the Transport's ribbed hull, the Terror Ship's spikes, the
+  Battleship's spire and turrets, the Assault Carrier's hangar bay), and
+  renders them with Cycles on the CPU (this machine has no GPU; about 24 s
+  for all) to `public/ufos/<type>.webp`, 400 × 200, about 10 KB each.
+  `blender -b -P scripts/ufo_art.py -- public/ufos [type …]` redraws them.
+  They show in the gallery, scaled by size class, and in the fight.
+- The UFO block on the left keeps only its controls (name, starting HP,
+  and in free selection the category and analysis); the gallery carries the
+  numbers.

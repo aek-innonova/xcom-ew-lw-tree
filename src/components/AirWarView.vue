@@ -38,7 +38,7 @@ import {
 } from '@/model/airwar'
 import { campaign, foundryById } from '@/state/store'
 import AirFight from './AirFight.vue'
-import UfoSilhouette from './UfoSilhouette.vue'
+import UfoPicture from './UfoPicture.vue'
 import { UFO_NOTES } from '@/model/ufos'
 
 type Use = 'aim' | 'dodge' | 'boost'
@@ -644,7 +644,7 @@ const USE_HELP: Record<Use, string> = {
             :aria-selected="setup.ufo === u.ship.type"
             @click="setup.ufo = u.ship.type"
           >
-            <span class="pic"><UfoSilhouette :type="u.ship.type" :size="u.ship.size" /></span>
+            <span class="pic"><UfoPicture :type="u.ship.type" :size="u.ship.size" /></span>
             <span class="txt">
               <span class="name">
                 {{ u.ship.name }}
@@ -766,8 +766,8 @@ h3 {
   background: var(--node);
 }
 .pic {
-  flex: 0 0 84px;
-  height: 44px;
+  flex: 0 0 112px;
+  height: 56px;
 }
 .txt {
   display: flex;
