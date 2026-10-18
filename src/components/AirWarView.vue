@@ -410,31 +410,22 @@ const USE_HELP: Record<Use, string> = {
         <h3>UFO</h3>
         <div class="row">
           <strong class="ufo-name">{{ shipName(setup.ufo) }}</strong>
-          <span class="muted small">pick one on the right</span>
+          <label class="field">
+            starts at
+            <input v-model.number="setup.ufoHpPct" type="number" min="1" max="100" class="num" />%
+            HP<span v-if="ufo.hp !== ufo.maxHp" class="muted">
+              ({{ num(ufo.hp) }} of {{ num(ufo.maxHp) }})</span
+            >
+          </label>
           <label v-if="!fromCampaign" class="field">
             category
             <input v-model.number="setup.category" type="number" min="0" max="32" class="num" />
           </label>
-          <label class="field">
-            HP
-            <input v-model.number="setup.ufoHpPct" type="number" min="1" max="100" class="num" />%
-          </label>
           <label v-if="!fromCampaign" class="field">
             <input v-model="setup.analysis" type="checkbox" /> analysis done
           </label>
-          <span v-else class="muted"
-            >analysis {{ analysis ? 'done (+10 % damage)' : 'not done' }}</span
-          >
+          <span v-else-if="analysis" class="muted">analysed: +10 % damage</span>
         </div>
-        <p class="stats">
-          {{ num(ufo.hp)
-          }}<span v-if="ufo.hp !== ufo.maxHp" class="muted"> / {{ num(ufo.maxHp) }}</span> HP ·
-          armor {{ ufo.armor }} · penetration {{ ufo.ap }} · speed {{ ufo.battleSpeed }} ·
-          <template v-for="(w, i) in ufo.weapons" :key="i"
-            >{{ w.name }} ({{ num(w.damage) }} dmg, {{ w.toHit }} aim, every
-            {{ w.firingTime }} s)<span v-if="i < ufo.weapons.length - 1">, </span></template
-          >
-        </p>
 
         <h3>Jets, one after another</h3>
         <ol class="legs">
