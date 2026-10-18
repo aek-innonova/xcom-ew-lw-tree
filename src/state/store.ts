@@ -5,12 +5,14 @@
 
 import { computed, reactive, watch } from 'vue'
 import { applyTechBalance, parseTechBalance, type TechBalance } from '@/model/ini'
+import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
 import { readCampaign, type Campaign } from '@/save/campaign'
 import { parseSave } from '@/save/parse'
 
 const INI_KEY = 'lwtree.ini.v1'
 const SAVE_KEY = 'lwtree.save.v1'
+const GOALS_KEY = 'lwtree.goals.v1'
 
 export interface LoadedIni {
   fileName: string
@@ -28,6 +30,8 @@ interface State {
   save: LoadedSave | null
   selected: number | null
   hovered: number | null
+  /** Techs the player wants to reach; the plan is everything still needed for them. */
+  goals: number[]
   /** The last load's outcome, shown to the player. */
   message: { kind: 'info' | 'error'; text: string } | null
 }
@@ -55,6 +59,7 @@ export const state = reactive<State>({
   save: restore<LoadedSave>(SAVE_KEY),
   selected: null,
   hovered: null,
+  goals: restore<number[]>(GOALS_KEY) ?? [],
   message: null,
 })
 
@@ -65,6 +70,10 @@ watch(
 watch(
   () => state.save,
   (v) => persist(SAVE_KEY, v),
+)
+watch(
+  () => [...state.goals],
+  (v) => persist(GOALS_KEY, v.length ? v : null),
 )
 
 const applied = computed(() =>
@@ -82,6 +91,31 @@ export const techById = computed(() => new Map(techs.value.map((t) => [t.id, t])
 /** Ids whose cost the loaded INI changed from stock Long War 1.0. */
 export const changedByIni = computed(() => new Set(applied.value?.changed ?? []))
 export const campaign = computed(() => state.save?.campaign ?? null)
+
+/** What is still needed for the goals, from the loaded campaign or from scratch. */
+export const plan = computed<Plan | null>(() => {
+  const goals = state.goals.filter((g) => techById.value.has(g))
+  if (!goals.length) return null
+  return planResearch(
+    goals,
+    techs.value,
+    campaign.value?.researched ?? [true],
+    campaign.value?.project?.tech,
+  )
+})
+export const planSteps = computed(
+  () => new Map((plan.value?.steps ?? []).map((id, i) => [id, i + 1])),
+)
+
+export function planTo(id: number) {
+  state.goals = [id]
+}
+
+export function toggleGoal(id: number) {
+  state.goals = state.goals.includes(id)
+    ? state.goals.filter((g) => g !== id)
+    : [...state.goals, id]
+}
 
 /** Loads a dropped or picked file, deciding by content whether it is a save or an INI. */
 export async function loadFile(file: File): Promise<void> {

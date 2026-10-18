@@ -26,7 +26,10 @@ describe('layoutTechs', () => {
       expect(p.column).toBeGreaterThanOrEqual(depth.get(t.id)!)
       for (const pre of t.prerequisites)
         expect(layout.placed.get(pre.id)!.column).toBeLessThan(p.column)
-      const earliest = Math.min(Infinity, ...t.any_one_of.map((a) => layout.placed.get(a.id)!.column))
+      const earliest = Math.min(
+        Infinity,
+        ...t.any_one_of.map((a) => layout.placed.get(a.id)!.column),
+      )
       expect(t.any_one_of.length === 0 || earliest < p.column).toBe(true)
     }
   })

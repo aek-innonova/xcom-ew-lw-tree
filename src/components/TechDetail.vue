@@ -3,7 +3,7 @@
 
 import { computed } from 'vue'
 import { estimate, researchContext, techState } from '@/model/research'
-import { campaign, changedByIni, state, techById, techs } from '@/state/store'
+import { campaign, changedByIni, planTo, state, techById, techs, toggleGoal } from '@/state/store'
 
 const tech = computed(() =>
   state.selected === null ? undefined : techById.value.get(state.selected),
@@ -45,7 +45,7 @@ const select = (id: number) => (state.selected = id)
 </script>
 
 <template>
-  <aside v-if="tech" class="detail" aria-label="Selected tech">
+  <section v-if="tech" class="detail" aria-label="Selected tech">
     <header>
       <div>
         <p class="category">{{ tech.category }}</p>
@@ -67,6 +67,19 @@ const select = (id: number) => (state.selected = id)
         >
       </template>
     </p>
+
+    <div v-if="!isResearched(tech.id)" class="plan-actions">
+      <button v-if="!state.goals.length" type="button" @click="planTo(tech.id)">
+        Plan research to here
+      </button>
+      <template v-else-if="state.goals.includes(tech.id)">
+        <button type="button" @click="toggleGoal(tech.id)">Remove from plan</button>
+      </template>
+      <template v-else>
+        <button type="button" @click="toggleGoal(tech.id)">Add to plan</button>
+        <button type="button" @click="planTo(tech.id)">Plan only this</button>
+      </template>
+    </div>
 
     <dl class="costs">
       <dt>Base time</dt>
@@ -148,17 +161,17 @@ const select = (id: number) => (state.selected = id)
         <li v-for="u in tech.unlocks" :key="u">{{ u }}</li>
       </ul>
     </section>
-  </aside>
+  </section>
 </template>
 
 <style scoped>
 .detail {
-  width: 340px;
-  flex: none;
-  overflow-y: auto;
-  padding: 16px 18px 24px;
-  background: var(--panel);
-  border-left: 1px solid var(--border);
+  padding: 16px 18px 20px;
+}
+.plan-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
 }
 header {
   display: flex;

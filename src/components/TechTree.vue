@@ -7,7 +7,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { layoutTechs } from '@/model/layout'
 import { categories } from '@/model/techs'
 import { estimate, researchContext, techState, type TechState } from '@/model/research'
-import { campaign, changedByIni, state, techs } from '@/state/store'
+import { campaign, changedByIni, plan, planSteps, state, techs } from '@/state/store'
 import { edgePath, geometry, labelLines, NODE_H, NODE_W, LABEL_W } from './geometry'
 
 const layout = computed(() => layoutTechs(techs.value, categories))
@@ -31,6 +31,9 @@ interface NodeView {
   items: string | null
   progress: number
   changed: boolean
+  /** Position in the research plan, if the tech is in it. */
+  step?: number
+  goal: boolean
 }
 
 const nodes = computed<NodeView[]>(() =>
@@ -70,6 +73,8 @@ const nodes = computed<NodeView[]>(() =>
       items: t.cost.items,
       progress,
       changed: changedByIni.value.has(t.id),
+      step: planSteps.value.get(t.id),
+      goal: state.goals.includes(t.id),
     }
   }),
 )
@@ -101,6 +106,13 @@ function edgesOf(filter: (from: number, to: number) => boolean): EdgeView[] {
 const sameLane = computed(() => {
   const placed = layout.value.placed
   return edgesOf((a, b) => placed.get(a)?.lane === placed.get(b)?.lane)
+})
+
+// Edges along the plan, between its steps.
+const planEdges = computed(() => {
+  const steps = planSteps.value
+  if (!plan.value || !steps.size) return []
+  return edgesOf((a, b) => steps.has(a) && steps.has(b))
 })
 
 const focus = computed(() => state.hovered ?? state.selected)
@@ -333,6 +345,15 @@ const laneLabelX = LABEL_W - 14
             marker-end="url(#arrow)"
           />
         </g>
+        <g v-if="focus === null" class="edges plan">
+          <path
+            v-for="e in planEdges"
+            :key="e.key"
+            :d="e.d"
+            :class="{ any: e.any }"
+            marker-end="url(#arrow-hot)"
+          />
+        </g>
         <g class="edges hot">
           <path
             v-for="e in focusEdges"
@@ -364,6 +385,15 @@ const laneLabelX = LABEL_W - 14
           @keydown="onKey($event, n.id)"
         >
           <title>{{ n.name }}</title>
+          <rect
+            v-if="n.step || n.goal"
+            class="planned"
+            :x="n.x - 4"
+            :y="n.y - 4"
+            :width="NODE_W + 8"
+            :height="NODE_H + 8"
+            rx="8"
+          />
           <rect class="box" :x="n.x" :y="n.y" :width="NODE_W" :height="NODE_H" rx="5" />
           <rect
             v-if="n.progress > 0"
@@ -396,6 +426,11 @@ const laneLabelX = LABEL_W - 14
               </div>
             </div>
           </foreignObject>
+          <g v-if="n.step" class="step">
+            <circle :cx="n.x + NODE_W" :cy="n.y" r="10" />
+            <text :x="n.x + NODE_W" :y="n.y">{{ n.step }}</text>
+          </g>
+          <text v-else-if="n.goal" class="goal-star" :x="n.x + NODE_W" :y="n.y">★</text>
         </g>
       </g>
     </svg>
@@ -454,6 +489,11 @@ const laneLabelX = LABEL_W - 14
 .edges.dimmed path {
   opacity: 0.25;
 }
+.edges.plan path {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  opacity: 0.8;
+}
 .edges.hot path {
   stroke: var(--accent);
   stroke-width: 2;
@@ -509,6 +549,29 @@ const laneLabelX = LABEL_W - 14
 }
 .bar {
   fill: var(--progress);
+}
+.planned {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.step circle {
+  fill: var(--accent);
+}
+.step text,
+.goal-star {
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.step text {
+  fill: var(--bg);
+}
+.goal-star {
+  font-size: 16px;
+  fill: var(--accent);
 }
 
 .content {

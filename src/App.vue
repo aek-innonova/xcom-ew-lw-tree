@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CampaignBar from '@/components/CampaignBar.vue'
+import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
 import { loadFile, state } from '@/state/store'
@@ -60,7 +61,10 @@ onBeforeUnmount(() => {
     </p>
     <main class="main">
       <TechTree ref="tree" />
-      <TechDetail />
+      <aside v-if="state.selected !== null || state.goals.length" class="side">
+        <TechDetail />
+        <PlanPanel />
+      </aside>
     </main>
     <footer class="foot">
       Long War 1.0 research tree. Costs from DefaultGameCore.ini; prerequisites from
@@ -162,6 +166,13 @@ a {
   flex: 1;
   display: flex;
   min-height: 0;
+}
+.side {
+  width: 340px;
+  flex: none;
+  overflow-y: auto;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
 }
 .message {
   margin: 0;
