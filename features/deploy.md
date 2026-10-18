@@ -60,7 +60,8 @@ everything else revalidated, the single-page fallback. DNS needed nothing
 
 Verified in dev from the seat: headers, an immutable asset, a picture, the
 fallback, and in a browser through the seat a save loaded and the air war's
-odds from the worker, no errors. Production waits for the person's prod run.
+odds from the worker, no errors. Production is asked for in change request innonova/iac#179
+(`scripts/change-request.sh`, approved in the estate console).
 
 Found on the way: dev's scoped converge for a new site (`--tags sites`)
 does not touch dev's resolver (the resolver role carries no tag), so dev's

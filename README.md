@@ -81,5 +81,6 @@ of this repository:
    as `xcom-dist.tar.gz`, signs it keyless with cosign and publishes it.
 2. In `innonova/iac`, set `xcom.aek.dk: vX.Y.Z` under `sites:` in
    `environments/dev/versions.yml` and `environments/prod/versions.yml`
-   and push: dev serves it at once; production after a person runs the
-   prod workflow.
+   and push: dev serves it at once. Production: once the push run has
+   planned, `scripts/change-request.sh` in `innonova/iac` asks for it (the
+   howto's "A change into production"); a person approves in the console.
