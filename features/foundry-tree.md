@@ -87,7 +87,7 @@ by both boards.
 
 **Found and fixed along the way.**
 - Continent bonuses counted every country on the continent; only council
-  members can have satellites, so Asia, Europe and Africa could never
+  members can have satellites, so South America, Europe and Asia could never
   qualify. Now council countries only (`bonuses.ts`).
 - `longwar_foundry.json`'s `save_fields` calls `m_arrFoundryHistory` a
   list of ids; it is a flag per id.
