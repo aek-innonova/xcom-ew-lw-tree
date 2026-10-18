@@ -72,3 +72,45 @@ describe('Long War details', () => {
     expect(readCampaign(parseSave(load('save1762'))).cash).toBe(87)
   })
 })
+
+describe('LWR saves', async () => {
+  const { saveVersion } = await import('../campaign')
+  const { GAMES } = await import('@/model/game')
+  const { campaignSetting, craftStats } = await import('@/model/airwar')
+
+  it('are told apart by the tag LWR writes into the description', () => {
+    expect(saveVersion('Classic Game 58 [LWR v2.06.00] - Geoscape')).toEqual({
+      game: 'lwr',
+      version: '2.06.00',
+    })
+    expect(saveVersion('Game 56 - Geoscape - 2:22 am   March 25 2016')).toEqual({ game: 'lw' })
+    for (const f of saveFiles) expect(readCampaign(parseSave(load(f))).game).toBe('lw')
+  })
+
+  it.each(['lwr-save1779', 'lwr-save1740'])('%s reads as an LWR campaign', (f) => {
+    const c = readCampaign(parseSave(load(f)))
+    expect(c.game).toBe('lwr')
+    expect(c.description).toContain('Classic Game 58 [LWR v2.06.00]')
+    expect(c.description).not.toContain('<font')
+    expect(c.date?.year).toBe(2030)
+    expect(c.difficulty).toBe(1)
+  })
+
+  it('reproduces the game’s ETA with LWR’s research formula', () => {
+    const c = readCampaign(parseSave(load('lwr-save1779')))
+    // Xenobiology, 3,600 points left, 10 scientists, no labs: 0.5 × (50 + 10) = 30 an hour.
+    expect(c.project).toEqual({ tech: 1, pointsLeft: 3600, eta: '5 days' })
+    expect(projectDaysLeft(c, 'lwr')).toBe(5)
+  })
+
+  it('gives the air war the campaign’s jets, by LWR’s numbers', () => {
+    const c = readCampaign(parseSave(load('lwr-save1779')))
+    const set = campaignSetting(c, GAMES.lwr.air)
+    expect(c.interceptors.map((j) => [j.callsign, j.type, j.weapons, j.hp])).toEqual([
+      ['RAVEN-1', 1, [3], 4000],
+      ['RAVEN-2', 1, [3], 4000],
+      ['RAVEN-3', 1, [3], 4000],
+    ])
+    expect(craftStats(1, 3, set).weapons[0]!.damage).toBe(160) // LWR's Avalanche, not Long War 1.0's 340
+  })
+})

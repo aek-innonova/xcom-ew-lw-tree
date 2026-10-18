@@ -44,14 +44,20 @@ export interface Interceptor {
 }
 
 export interface Campaign {
+  /** The save's description, without the colour markup LWR puts in it. */
   description: string
+  /** The game version that made the save (saveVersion). */
+  game: 'lw' | 'lwr'
   gameNumber: number
   saveNumber: number
   /** Saved during a mission; the research state is the one the mission started from. */
   tactical: boolean
   ironman: boolean
   date?: { year: number; month: number; day: number }
-  /** Days since the campaign began (1 March 2016), with the time of day. */
+  /**
+   * Days since 1 March 2016, with the time of day: Long War's start. LWR's
+   * campaigns begin in 2030; the count is only ever turned back into dates.
+   */
   campaignDay?: number
   /** Per tech id: the campaign day it was finished, or undefined. */
   researchedOn: (number | undefined)[]
@@ -102,6 +108,19 @@ export interface Campaign {
 }
 
 export class NotACampaignError extends Error {}
+
+/**
+ * The version a save was made with. LWR writes itself into every save's
+ * description ("Game 58 [LWR v2.06.00] - Geoscape …"); Long War 1.0 writes no
+ * version, so a save without the tag is taken as Long War 1.0's.
+ */
+export function saveVersion(description: string): { game: 'lw' | 'lwr'; version?: string } {
+  const m = /\[LWR v([\d.]+)\]/.exec(description)
+  return m ? { game: 'lwr', version: m[1] } : { game: 'lw' }
+}
+
+/** "<font color='#ffd138'>Classic</font> Game 58" → "Classic Game 58". */
+const stripMarkup = (s: string) => s.replace(/<[^>]*>/g, '')
 
 // Long War renames the four levels (the INI's per-difficulty lines say so, and a
 // save's journal records "Difficulty: Classic" where m_iDifficulty is 1); each
@@ -183,7 +202,7 @@ function interceptors(
     const callsign = prop(cp, 'm_strCallsign')
     return [
       {
-        callsign: callsign?.kind === 'StrProperty' ? callsign.value.str : '',
+        callsign: callsign?.kind === 'StrProperty' ? callsign.value.str.trim() : '',
         type: type?.kind === 'ByteProperty' ? SHIP_TYPES.indexOf(type.value) : 0,
         weapons: numbers(structField(ship, 'arrWeapons')).filter((w) => w > 0),
         hp: int(prop(cp, 'm_iHP')) ?? 0,
@@ -274,7 +293,8 @@ export function readCampaign(save: SaveFile): Campaign {
   const etaProp = structField(projectProp, 'strETA')
 
   return {
-    description: save.header.save_description.str,
+    description: stripMarkup(save.header.save_description.str),
+    game: saveVersion(save.header.save_description.str).game,
     gameNumber: save.header.game_number,
     saveNumber: save.header.save_number,
     tactical: save.header.tactical_save,

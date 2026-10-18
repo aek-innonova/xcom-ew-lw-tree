@@ -433,11 +433,24 @@ export function loadSave(fileName: string, bytes: Uint8Array, live = false): boo
     if (!live) state.message = { kind: 'error', text: `${fileName}: ${(e as Error).message}` }
     return false
   }
+  // A save says which version made it: the site follows (LWR tags its saves).
+  const switched = next.game !== state.game
+  if (switched) {
+    state.message = null
+    setGame(next.game)
+  }
   const prev = state.save?.campaign
   state.save = { fileName, campaign: next, loadedAt: Date.now() }
   recordCheck(fileName, changeText(next, prev))
   recordSnapshot(next, fileName)
   if (state.message?.kind === 'error') state.message = null
+  if (switched) {
+    const setAside = state.message?.text.replace(/^Now [^.]*\. /, '')
+    state.message = {
+      kind: 'info',
+      text: `${fileName} is a ${GAMES[next.game].name} save: the site now shows that version.${setAside ? ` ${setAside}` : ''}`,
+    }
+  }
   return true
 }
 

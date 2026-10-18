@@ -8,6 +8,7 @@ const tech = (id: number) => defaultTechs.find((t) => t.id === id)!
 function campaign(over: Partial<Campaign>): Campaign {
   return {
     description: '',
+    game: 'lw',
     gameNumber: 1,
     saveNumber: 1,
     tactical: false,

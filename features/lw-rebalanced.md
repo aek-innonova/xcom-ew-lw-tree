@@ -208,3 +208,25 @@ Open:
 - **Harpoon Missile.** Its firing time is 90 s (INI `9000/100`), so it
   fires once a fight.
 - **Gene mods and psi abilities** are not in the generated unlocks.
+
+## Report (2026-10-18): LWR saves
+
+The person's first LWR saves (campaign 58, Classic, its first day; two kept
+as fixtures `lwr-save1740` and `lwr-save1779`):
+
+- They read with the existing save reader; nothing in the format differs.
+- **A save tells its version after all**: LWR writes "[LWR v2.06.00]" into
+  every save's description; Long War 1.0 writes none. Loading a save now
+  switches the site to its version, with a note. The colour markup LWR puts
+  in descriptions is stripped; callsigns lose the leading space the game
+  stores.
+- **LWR's research formula checks out against the game**: Xenobiology,
+  3,600 points left, 10 scientists, no labs: 0.5 × (50 + 10) = 30 an hour,
+  120 hours, the game's "5 days".
+- The air war's campaign mode works on an LWR hangar (three Interceptors
+  with Avalanche Missiles at LWR's 160 damage).
+- LWR's campaigns start in 2030; dates come out right (campaign days are
+  counted from 1 March 2016 and only ever turned back into dates).
+
+Still open: later LWR saves would check the credits, Foundry and air war
+against a campaign with some history.
