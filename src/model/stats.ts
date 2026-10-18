@@ -26,6 +26,7 @@ export interface CampaignStats {
   ufosShotDown?: number
   soldiersLost?: number
   satellites: number
+  lost: number[]
   foundryDone: number
 }
 
@@ -43,6 +44,7 @@ export function campaignStats(c: Campaign): CampaignStats {
     ufosShotDown: r.UFOsShotDown,
     soldiersLost: r.SoldiersLost,
     satellites: (c.satelliteCountries ?? []).length,
+    lost: c.lostCountries ?? [],
     foundryDone: (c.foundryHistory ?? []).filter((v, i) => i > 0 && v).length,
   }
 }

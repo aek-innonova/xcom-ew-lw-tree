@@ -148,6 +148,24 @@ export function activeBonuses(c: Campaign, values?: Map<string, number>): Active
   return { starting: s, countries: co, continents: cn, all: [...(s ? [s] : []), ...co, ...cn] }
 }
 
+/**
+ * Continent bonuses a lost council country has put out of reach: it can never
+ * have a satellite again. Seen in the save history: campaign 21 lost all of
+ * Asia's council and never had New Warfare.
+ */
+export function blockedContinents(c: Campaign): { bonus: Bonus; lost: string[] }[] {
+  const lost = new Set(c.lostCountries ?? [])
+  return data.continent_bonuses
+    .filter((b) => b.enabled)
+    .map((bonus) => ({
+      bonus,
+      lost: data.countries
+        .filter((k) => k.continent_id === bonus.continent_id && k.council_member && lost.has(k.id))
+        .map((k) => k.name),
+    }))
+    .filter((x) => x.lost.length > 0)
+}
+
 export interface ResearchBonuses {
   /** Added to the research credit reduction (0.10 for +10 %). */
   creditBonus: number

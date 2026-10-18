@@ -54,8 +54,18 @@ describe('the game ETA lagging its points', () => {
     const c = campaignOf('save1762')
     const ctx = researchContext(c, defaultTechs, researchBonuses(activeBonuses(c)))!
     // 10 points/hour: 470 points is 47 h (1 h short of 2 days); 400 is 40 h.
-    const near = checkSave({ ...c, project: { tech: 1, pointsLeft: 470, eta: '3 days' } }, defaultTechs, ctx, 'x')!
-    const far = checkSave({ ...c, project: { tech: 1, pointsLeft: 400, eta: '3 days' } }, defaultTechs, ctx, 'x')!
+    const near = checkSave(
+      { ...c, project: { tech: 1, pointsLeft: 470, eta: '3 days' } },
+      defaultTechs,
+      ctx,
+      'x',
+    )!
+    const far = checkSave(
+      { ...c, project: { tech: 1, pointsLeft: 400, eta: '3 days' } },
+      defaultTechs,
+      ctx,
+      'x',
+    )!
     expect(near.etaMatch).toBe(true)
     expect(far.etaMatch).toBe(false)
   })

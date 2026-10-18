@@ -54,3 +54,14 @@ said in the INI's comments to be "roughly days passed" plus bonus
 research; how they combine is not confirmed, so the panel shows the
 parts. A history across saves (a chart of these counters) would come
 naturally from the folder watcher; not built.
+
+## Report (2026-10-18, round 2: lost countries)
+
+A council country that has left XCOM has `XGCountry.m_bSecretPact` set
+(campaign 56: Australia, which the person confirms leaves in the first
+month of most Long War campaigns). Stats lists the countries lost. The
+bonus list gains "Out of reach": a continent bonus whose continent has
+lost a council member, since that member can never have a satellite
+again. The save history agrees, though thinly: Asia's New Warfare shows
+in Foundry costs exactly when every Asian council country is covered,
+and campaign 21, which lost all four, never had it. Tests on save1762.

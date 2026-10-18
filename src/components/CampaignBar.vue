@@ -3,7 +3,13 @@
 
 import { computed, ref } from 'vue'
 import { difficultyName } from '@/save/campaign'
-import { countryName, EXPERTISE, WE_HAVE_WAYS, type Bonus } from '@/model/bonuses'
+import {
+  blockedContinents,
+  countryName,
+  EXPERTISE,
+  WE_HAVE_WAYS,
+  type Bonus,
+} from '@/model/bonuses'
 import { pointsPerHour, projectEtaDays } from '@/model/research'
 import { campaignStats } from '@/model/stats'
 import { bonuses, campaign, state, techById, techs } from '@/state/store'
@@ -62,6 +68,10 @@ const groups = computed(() => {
   ].filter((g) => g.items.length)
 })
 const JAI_VIDWAN = 46
+const blocked = computed(() => (campaign.value ? blockedContinents(campaign.value) : []))
+const lostNames = computed(() =>
+  (stats.value?.lost ?? []).map((id) => countryName(id) ?? `#${id}`).join(', '),
+)
 const affectsResearch = (b: Bonus) => b.bonus_id === EXPERTISE || b.bonus_id === WE_HAVE_WAYS
 /** How a bonus reaches the research numbers, if it does. */
 const researchTag = (b: Bonus) =>
@@ -125,6 +135,18 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
             </li>
           </ul>
         </section>
+        <section v-if="blocked.length">
+          <h3>Out of reach</h3>
+          <ul>
+            <li v-for="x in blocked" :key="x.bonus.bonus_id">
+              <strong>{{ x.bonus.name }}</strong> <span class="where">{{ x.bonus.continent }}</span>
+              <div class="desc">
+                {{ x.lost.join(', ') }} left the council, so the continent can no longer be fully
+                covered.
+              </div>
+            </li>
+          </ul>
+        </section>
         <p class="foot">
           A country's bonus counts while it has a satellite, except the starting country's. Values
           come from your DefaultGameCore.ini when loaded.
@@ -169,7 +191,9 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
           <dt>Soldiers lost</dt>
           <dd>{{ stats.soldiersLost ?? 0 }}</dd>
           <dt>Satellites</dt>
-          <dd>{{ stats.satellites }} countries</dd>
+          <dd>{{ stats.satellites === 1 ? '1 country' : `${stats.satellites} countries` }}</dd>
+          <dt>Countries lost</dt>
+          <dd>{{ lostNames || 'none' }}</dd>
           <dt>Foundry projects done</dt>
           <dd>{{ stats.foundryDone }}</dd>
         </dl>

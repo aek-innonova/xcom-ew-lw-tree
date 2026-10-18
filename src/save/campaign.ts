@@ -62,6 +62,8 @@ export interface Campaign {
   startingBonusIndex?: number
   /** Country ids with a satellite over them. */
   satelliteCountries: number[]
+  /** Council countries that have left XCOM (XGCountry.m_bSecretPact). */
+  lostCountries: number[]
   /** The end-of-campaign statistics, by name without the eRecap_ prefix. */
   recap: Record<string, number>
 }
@@ -159,6 +161,15 @@ export function readCampaign(save: SaveFile): Campaign {
   // country: 0x260000 is the United States (0) with starting bonus 38 (We Have
   // Ways). Verified against both sample campaigns.
   const hqCountry = int(prop(byClass('XGHeadQuarters'), 'm_iCountry'))
+  const countryId = (cp: Checkpoint) => int(structField(prop(cp, 'm_kTCountry'), 'iEnum'))
+  const lostCountries = table
+    .filter((cp) => cp.class_name.endsWith('.XGCountry'))
+    .filter((cp) => {
+      const pact = prop(cp, 'm_bSecretPact')
+      return pact?.kind === 'BoolProperty' && pact.value
+    })
+    .map(countryId)
+    .filter((id): id is number => id !== undefined)
   const satelliteCountries = table
     .filter((cp) => cp.class_name.endsWith('.XGCountry'))
     .filter((cp) => {
@@ -214,6 +225,7 @@ export function readCampaign(save: SaveFile): Campaign {
     startCountry: hqCountry === undefined ? undefined : hqCountry & 0xffff,
     startingBonusIndex: hqCountry === undefined ? undefined : hqCountry >>> 16,
     satelliteCountries,
+    lostCountries,
     recap: recapStats(save),
   }
 }
