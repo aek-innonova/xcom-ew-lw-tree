@@ -52,8 +52,9 @@ what will it cost me" and "how long will that take with my labs".
   a node. A first version that compacted harder (14 rows) made edges run
   backwards and hid skipping edges behind nodes; readability won.
 - 2026-10-18: Research time: speed = scientists × (1 + lab bonus +
-  adjacency bonus) points/hour; a tech costs base days × 720 less 25 %
-  per held credit (35 % seen once, likely the Expertise bonus); the
+  adjacency bonus) points/hour; a tech costs base days × 720, less 25 %
+  when a credit covering it is held (35 % seen once, likely the
+  Expertise bonus; stacking of two credits is not known); the
   current project's remaining points come from the save. Verified
   against the game's ETA in every sample; see `src/model/research.ts`.
 - 2026-10-18: Tactical saves are read through the strategy state they
