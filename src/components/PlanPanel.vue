@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // The research plan: what is still needed for the goals, in order, and what it costs.
 
+import { foundryBaseDays } from '@/model/foundry'
 import { computed } from 'vue'
 import { planTotals } from '@/model/plan'
-import { daysFor, estimate, techState } from '@/model/research'
+import { daysFor, estimate, techState, baseDays } from '@/model/research'
 import {
   campaign,
   clearPlan,
@@ -55,7 +56,7 @@ const steps = computed(() => {
     return {
       id,
       name: t.name,
-      days: est ? est.days : t.base_days,
+      days: est ? est.days : baseDays(t.base_days),
       approx: est ? !est.exact : false,
       state: st,
       points: est?.pointsLeft,
@@ -139,7 +140,7 @@ const removeGoal = (g: { id: number; foundry: boolean }) =>
             <template v-if="estimatedDays !== undefined"
               >≈ {{ estimatedDays }} days at your research speed</template
             >
-            <template v-else>{{ totals.baseDays }} base days</template>
+            <template v-else>{{ baseDays(totals.baseDays) }} base days</template>
           </dd>
         </template>
         <template v-if="totals.cash">
@@ -182,7 +183,7 @@ const removeGoal = (g: { id: number; foundry: boolean }) =>
         <li v-for="p in foundrySteps" :key="`f:${p!.id}`" class="foundry">
           <span class="n">F</span>
           <button type="button" @click="showFoundry(p!.id)">{{ p!.name }}</button>
-          <span class="d">{{ p!.base_days }}d</span>
+          <span class="d">{{ Math.round(foundryBaseDays(p!)) }}d</span>
         </li>
       </ol>
     </template>

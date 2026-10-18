@@ -1,4 +1,6 @@
-// The tech tree data (tech.json) and the costs that apply to it.
+// The tech tree data and the rules that go with it: Long War 1.0's tech.json
+// (with data/techtree.json) by default, and a builder for any version's
+// (model/game.ts).
 
 import data from '../../tech.json'
 import techtree from '../../data/techtree.json'
@@ -24,20 +26,22 @@ export interface TechRef {
 export type Gate =
   | { kind: 'ever_had'; items: number[]; name: string }
   | { kind: 'in_stores'; items: number[]; name: string }
-  | { kind: 'captured'; ship: number; name: string }
+  | { kind: 'captured'; ships: number[]; name: string }
 
 interface RuleItem {
   id: number
   name: string
 }
-interface TechRule {
+export interface TechRule {
   id: number
   requires: number[]
   any_of?: number[]
   ever_had?: RuleItem
   in_stores?: { any_of: RuleItem[]; name: string }
-  captured?: RuleItem
+  /** Long War 1.0: one type; LWR: any of several (`any_of`). */
+  captured?: RuleItem | { any_of: RuleItem[] }
   credits: number[]
+  grants_credit?: number
 }
 
 export const techRules = techtree.techs as TechRule[]
@@ -52,7 +56,14 @@ function gatesOf(r: TechRule | undefined): Gate[] {
       items: r.in_stores.any_of.map((i) => i.id),
       name: r.in_stores.name,
     })
-  if (r.captured) gates.push({ kind: 'captured', ship: r.captured.id, name: r.captured.name })
+  if (r.captured) {
+    const ships = 'any_of' in r.captured ? r.captured.any_of : [r.captured]
+    gates.push({
+      kind: 'captured',
+      ships: ships.map((s) => s.id),
+      name: ships.map((s) => s.name).join(' or '),
+    })
+  }
   return withoutImplied(gates)
 }
 
@@ -93,12 +104,16 @@ export interface TechData {
   techs: Tech[]
 }
 
-const rules = new Map(techRules.map((r) => [r.id, r]))
+/** A version's techs with its rules attached: covering credits and gates. */
+export function buildTechs(raw: TechData, techRules: TechRule[]): Tech[] {
+  const rules = new Map(techRules.map((r) => [r.id, r]))
+  return raw.techs.map((t) => ({
+    ...t,
+    credits: creditNames(rules.get(t.id)?.credits ?? []),
+    gates: gatesOf(rules.get(t.id)),
+  }))
+}
 
 export const techData = data as unknown as TechData
-export const defaultTechs: Tech[] = techData.techs.map((t) => ({
-  ...t,
-  credits: creditNames(rules.get(t.id)?.credits ?? []),
-  gates: gatesOf(rules.get(t.id)),
-}))
+export const defaultTechs: Tech[] = buildTechs(techData, techRules)
 export const categories: string[] = techData.categories

@@ -21,3 +21,17 @@ test('help opens on a first visit, closes, and stays closed after a reload', asy
   await page.getByRole('button', { name: 'Help', exact: true }).click()
   await expect(help).toBeVisible()
 })
+
+test('switches to Long War Rebalanced: its tree, and back', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
+  await page.goto('/')
+  await expect(page.locator('[data-tech]')).toHaveCount(75)
+  await page.getByLabel('Game version').selectOption('lwr')
+  await expect(page.locator('[data-tech]')).toHaveCount(68)
+  await expect(page.getByText('Light Plasma Weapons')).toBeVisible()
+  await expect(page.locator('footer')).toContainText('Long War Rebalanced')
+  await page.reload()
+  await expect(page.locator('[data-tech]')).toHaveCount(68)
+  await page.getByLabel('Game version').selectOption('lw')
+  await expect(page.locator('[data-tech]')).toHaveCount(75)
+})

@@ -16,6 +16,14 @@ import type { Gate, Tech } from './techs'
 
 export const POINTS_PER_BASE_DAY = 720
 
+/**
+ * Base days as shown: whole days, at least one. LWR's are its INI days
+ * converted to Long War 1.0's 720-point days, so they come out fractional.
+ */
+export function baseDays(n: number): number {
+  return n > 0 ? Math.max(1, Math.round(n)) : 0
+}
+
 export function pointsPerHour(
   c: Pick<Campaign, 'scientists' | 'labBonus' | 'adjacentLabBonus'>,
 ): number | undefined {
@@ -90,16 +98,16 @@ export function creditApplies(tech: Tech, held: Set<string>): boolean {
 /** A tech's cost in research points after its held credits, as the game computes it. */
 export function creditedPoints(
   tech: Tech,
-  ctx: Pick<ResearchContext, 'held' | 'expertise'>,
+  ctx: Pick<ResearchContext, 'held' | 'expertise'> & { shares?: Record<string, number> },
 ): number {
-  const cuts = applicableCredits(tech, ctx.held).map((c) => creditCut(c, ctx.expertise))
+  const cuts = applicableCredits(tech, ctx.held).map((c) => creditCut(c, ctx.expertise, ctx.shares))
   return applyCredits(tech.base_days * POINTS_PER_BASE_DAY, cuts, true)
 }
 
 /** The fraction of base cost a tech's held credits take off together. */
 export function creditReductionFor(
   tech: Tech,
-  ctx: Pick<ResearchContext, 'held' | 'expertise'>,
+  ctx: Pick<ResearchContext, 'held' | 'expertise'> & { shares?: Record<string, number> },
 ): number {
   const base = tech.base_days * POINTS_PER_BASE_DAY
   return base > 0 ? 1 - creditedPoints(tech, ctx) / base : 0
@@ -115,6 +123,8 @@ export interface ResearchContext {
   held: Set<string>
   /** What Expertise adds to each credit's share. */
   expertise: number
+  /** Each credit's share in this game version (credits.ts creditShares). */
+  shares?: Record<string, number>
   /** Fraction a field's credit takes off: 25 % plus Expertise. */
   creditReduction: number
   /** Fraction We Have Ways takes off autopsies and interrogations. */
@@ -128,6 +138,7 @@ export function researchContext(
   c: Campaign,
   techs: Tech[],
   bonuses: ResearchBonuses = NO_BONUSES,
+  shares?: Record<string, number>,
 ): ResearchContext | undefined {
   const perHour = pointsPerHour(c)
   if (!perHour) return undefined
@@ -135,6 +146,7 @@ export function researchContext(
     perHour,
     held: heldCredits(techs, c.researched, c.credits),
     expertise: bonuses.creditBonus,
+    shares,
     creditReduction: BASE_CREDIT_REDUCTION + bonuses.creditBonus,
     autopsyTimeReduction: bonuses.autopsyTimeReduction,
     bonuses,
@@ -194,7 +206,7 @@ export function gateMet(g: Gate, h: Holdings): boolean {
     !list?.length || ids.some((i) => (list[i] ?? 0) > 0)
   if (g.kind === 'ever_had') return any(h.everHad, g.items)
   if (g.kind === 'in_stores') return any(h.stock, g.items)
-  return any(h.craftEncounters, [g.ship])
+  return any(h.craftEncounters, g.ships)
 }
 
 export function unmetGates(gates: Gate[], h: Holdings | undefined): Gate[] {

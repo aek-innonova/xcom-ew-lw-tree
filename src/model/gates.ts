@@ -10,7 +10,7 @@ export function withoutImplied(gates: Gate[]): Gate[] {
 
 export function gateText(g: Gate): string {
   if (g.kind === 'in_stores') return `${g.name} in stores`
-  if (g.kind === 'captured') return `a ${g.name} captured`
+  if (g.kind === 'captured') return `${/^[AEIOU]/.test(g.name) ? 'an' : 'a'} ${g.name} captured`
   return g.name
 }
 

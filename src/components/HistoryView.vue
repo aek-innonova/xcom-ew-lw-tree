@@ -4,8 +4,15 @@
 
 import { computed, ref } from 'vue'
 import { formatCampaignDay, type Snapshot } from '@/model/history'
-import { categories } from '@/model/techs'
-import { campaign, campaignHistory, clearHistory, importSaves, state, techs } from '@/state/store'
+import {
+  campaign,
+  campaignHistory,
+  clearHistory,
+  importSaves,
+  state,
+  techs,
+  categories,
+} from '@/state/store'
 import { importCampaignFromFolder, watcher } from '@/state/watch'
 import LineChart, { type Series } from './charts/LineChart.vue'
 import ResearchTimeline from './charts/ResearchTimeline.vue'

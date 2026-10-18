@@ -36,14 +36,31 @@ export interface FoundryProject {
   gates: Gate[]
   base_days: number
   engineers: number
+  /** Total work in engineer-hours, by the version's FoundryDaysToHours. */
+  hours: number
   cost: FoundryCost
   requires_tech: { id: number; name: string } | null
   effect: string
 }
 
-const data = foundryData as unknown as { categories: string[]; projects: FoundryProject[] }
+/** XGTechTree.FoundryDaysToHours: Long War 1.0 days × 24 × engineers; LWR days × engineers² / 3. */
+export type FoundryWorkFormula = 'days*24*engineers' | 'days*engineers*engineers/3'
 
-interface FoundryRule {
+export function workHours(formula: FoundryWorkFormula, days: number, engineers: number): number {
+  return formula === 'days*engineers*engineers/3'
+    ? Math.trunc((days * engineers * engineers) / 3)
+    : days * 24 * engineers
+}
+
+export interface FoundryData {
+  categories: string[]
+  work?: FoundryWorkFormula
+  projects: Omit<FoundryProject, 'credits' | 'gates' | 'hours'>[]
+}
+
+const data = foundryData as unknown as FoundryData
+
+export interface FoundryRule {
   id: number
   requires: number
   in_stores?: { id: number; name: string }
@@ -51,7 +68,6 @@ interface FoundryRule {
   credits: number[]
 }
 export const foundryRules = techtree.foundry as FoundryRule[]
-const rules = new Map(foundryRules.map((r) => [r.id, r]))
 
 function gatesOf(r: FoundryRule | undefined): Gate[] {
   const gates: Gate[] = []
@@ -61,11 +77,19 @@ function gatesOf(r: FoundryRule | undefined): Gate[] {
   return withoutImplied(gates)
 }
 
-export const defaultFoundry: FoundryProject[] = data.projects.map((p) => ({
-  ...p,
-  credits: creditNames(rules.get(p.id)?.credits ?? []),
-  gates: gatesOf(rules.get(p.id)),
-}))
+/** A version's Foundry projects with its rules attached: credits, gates and total work. */
+export function buildFoundry(raw: FoundryData, foundryRules: FoundryRule[]): FoundryProject[] {
+  const byId = new Map(foundryRules.map((r) => [r.id, r]))
+  const work = raw.work ?? 'days*24*engineers'
+  return raw.projects.map((p) => ({
+    ...p,
+    credits: creditNames(byId.get(p.id)?.credits ?? []),
+    gates: gatesOf(byId.get(p.id)),
+    hours: workHours(work, p.base_days, p.engineers),
+  }))
+}
+
+export const defaultFoundry: FoundryProject[] = buildFoundry(data, foundryRules)
 export const foundryCategories: string[] = data.categories
 
 // --- INI ----------------------------------------------------------------------
@@ -135,6 +159,7 @@ function withItemCount(items: string[], count: number): string[] {
 export function applyFoundryBalance(
   projects: FoundryProject[],
   balance: Map<number, FoundryBalance>,
+  work: FoundryWorkFormula = 'days*24*engineers',
 ): { projects: FoundryProject[]; changed: number[] } {
   const changed: number[] = []
   const out = projects.map((p) => {
@@ -144,6 +169,7 @@ export function applyFoundryBalance(
       ...p,
       base_days: b.days,
       engineers: b.engineers,
+      hours: workHours(work, b.days, b.engineers),
       cost: {
         cash: b.cash,
         alloys: b.alloys,
@@ -177,12 +203,13 @@ export function withCostReduction(p: FoundryProject, reduction: number): Foundry
  * A lane per Foundry category. A project sits right of the tech it needs (one
  * column after the tech's column on the research tree), moving further right
  * into free space where a column is full; each lane gets the fewest rows that
- * fit in COLUMNS columns.
+ * fit in the research tree's columns.
  */
 export function layoutFoundry(
   projects: FoundryProject[],
   categories: string[],
   techColumn: (techId: number) => number,
+  columns = COLUMNS,
 ): Layout {
   const placed = new Map<number, Placed>()
   const lanes: Layout['lanes'] = []
@@ -191,17 +218,17 @@ export function layoutFoundry(
       .filter((p) => p.category === category)
       .map((p) => ({
         p,
-        from: Math.min(COLUMNS - 1, (p.requires_tech ? techColumn(p.requires_tech.id) : -1) + 1),
+        from: Math.min(columns - 1, (p.requires_tech ? techColumn(p.requires_tech.id) : -1) + 1),
       }))
       .sort((a, b) => a.from - b.from || a.p.id - b.p.id)
     for (let rows = 1; ; rows++) {
-      const used = Array.from({ length: COLUMNS }, () => 0)
+      const used = Array.from({ length: columns }, () => 0)
       const attempt: Placed[] = []
       let ok = true
       for (const { p, from } of members) {
         let c = from
-        while (c < COLUMNS && used[c]! >= rows) c++
-        if (c >= COLUMNS) {
+        while (c < columns && used[c]! >= rows) c++
+        if (c >= columns) {
           ok = false
           break
         }
@@ -215,18 +242,23 @@ export function layoutFoundry(
       }
     }
   })
-  return { placed, lanes, totalRows: lanes.reduce((n, l) => n + l.rows, 0) }
+  return { placed, lanes, totalRows: lanes.reduce((n, l) => n + l.rows, 0), columns }
 }
 
 // --- Progress -------------------------------------------------------------------
 
 /**
- * A project's total work is base days × 24 × its required engineers
- * (engineer-hours): several projects show exactly that on their first day in
- * the person's saves. The game's iHoursLeft is what is left of it.
+ * A project's total work in engineer-hours (`hours`; in Long War 1.0 base days
+ * × 24 × its required engineers: several projects show exactly that on their
+ * first day in the person's saves). The game's iHoursLeft is what is left of it.
  */
 export function foundryWork(p: FoundryProject, creditReduction = 0): number {
-  return Math.round(p.base_days * 24 * p.engineers * (1 - creditReduction))
+  return Math.round(p.hours * (1 - creditReduction))
+}
+
+/** Days at the required engineers' pace, one engineer-hour per engineer an hour. */
+export function foundryBaseDays(p: FoundryProject): number {
+  return p.engineers > 0 ? p.hours / 24 / p.engineers : 0
 }
 
 export interface FoundryProgress {
@@ -259,9 +291,10 @@ export function foundryCreditReduction(
   p: FoundryProject,
   held: Set<string>,
   expertise: number,
+  shares?: Record<string, number>,
 ): number {
-  const base = p.base_days * 24 * p.engineers
-  const cuts = coveringCredits(p.credits, held).map((c) => creditCut(c, expertise))
+  const base = p.hours
+  const cuts = coveringCredits(p.credits, held).map((c) => creditCut(c, expertise, shares))
   return base > 0 ? 1 - applyCredits(base, cuts, false) / base : 0
 }
 

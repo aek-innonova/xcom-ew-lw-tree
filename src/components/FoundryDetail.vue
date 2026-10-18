@@ -2,7 +2,12 @@
 // The panel for the selected Foundry project.
 
 import { computed } from 'vue'
-import { foundryCreditReduction, foundryProgress, foundryState } from '@/model/foundry'
+import {
+  foundryCreditReduction,
+  foundryProgress,
+  foundryState,
+  foundryBaseDays,
+} from '@/model/foundry'
 import { creditSources } from '@/model/credits'
 import { gateText } from '@/model/gates'
 import { unmetGates } from '@/model/research'
@@ -18,6 +23,7 @@ import {
   showTech,
   state,
   toggleFoundryGoal,
+  game,
 } from '@/state/store'
 
 const project = computed(() =>
@@ -57,7 +63,7 @@ const status = computed(() => {
 const creditCut = computed(() => {
   const p = project.value
   const c = credits.value
-  return p && c ? foundryCreditReduction(p, c.held, c.expertise) : 0
+  return p && c ? foundryCreditReduction(p, c.held, c.expertise, c.shares) : 0
 })
 
 /** The credits that can cover this project, where they come from, held or not. */
@@ -83,7 +89,12 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
       <div>
         <p class="category">
           Foundry · {{ project.category }} ·
-          <a :href="foundryLink(project)" target="_blank" rel="noopener" class="wiki"
+          <a
+            v-if="game.ufopaedia"
+            :href="foundryLink(project)"
+            target="_blank"
+            rel="noopener"
+            class="wiki"
             >UFOpaedia ↗</a
           >
         </p>
@@ -124,7 +135,7 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
 
     <dl class="costs">
       <dt>Base time</dt>
-      <dd>{{ project.base_days }} days</dd>
+      <dd>{{ Math.round(foundryBaseDays(project)) }} days</dd>
       <dt>Engineers</dt>
       <dd>{{ project.engineers }}</dd>
       <template v-if="project.cost.cash">
@@ -172,7 +183,7 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
           </div>
           <div v-if="creditCut" class="muted">
             {{ Math.round(creditCut * 100) }}% less work: about
-            {{ Math.ceil(project.base_days * (1 - creditCut)) }} days at base speed
+            {{ Math.ceil(foundryBaseDays(project) * (1 - creditCut)) }} days at base speed
           </div>
         </dd>
       </template>

@@ -8,7 +8,6 @@ import { activeBonuses, parseBonusValues, researchBonuses } from '@/model/bonuse
 import { applyTechBalance, parseTechBalance, type TechBalance } from '@/model/ini'
 import {
   applyFoundryBalance,
-  defaultFoundry,
   parseFoundryBalance,
   withCostReduction,
   type FoundryBalance,
@@ -18,9 +17,9 @@ import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
 import { peekGameNumber, snapshotOf, withSnapshot, type Snapshot } from '@/model/history'
 import { CATALOG, needs, parsePrices, type CatalogItem, type Need } from '@/model/inventory'
 import { BASE_CREDIT_REDUCTION, heldCredits, researchContext } from '@/model/research'
-import { CREDIT_SHARE } from '@/model/credits'
 import { planResearch, type Plan } from '@/model/plan'
-import { defaultTechs, type Tech } from '@/model/techs'
+import type { Tech } from '@/model/techs'
+import { GAMES, type GameId } from '@/model/game'
 import { readCampaign, type Campaign } from '@/save/campaign'
 import { parseSave } from '@/save/parse'
 
@@ -31,6 +30,7 @@ const CHECKS_KEY = 'lwtree.checks.v1'
 const VIEW_KEY = 'lwtree.view.v1'
 const HISTORY_KEY = 'lwtree.history.v1'
 const FOUNDRY_GOALS_KEY = 'lwtree.foundryGoals.v1'
+const GAME_KEY = 'lwtree.game.v1'
 const MAX_CHECKS = 100
 
 export interface LoadedIni {
@@ -53,6 +53,8 @@ export interface LoadedSave {
 }
 
 interface State {
+  /** Which game version the tree, numbers and rules are for. */
+  game: GameId
   ini: LoadedIni | null
   save: LoadedSave | null
   selected: number | null
@@ -94,6 +96,7 @@ function persist(key: string, value: unknown) {
 }
 
 export const state = reactive<State>({
+  game: restore<GameId>(GAME_KEY) === 'lwr' ? 'lwr' : 'lw',
   ini: restore<LoadedIni>(INI_KEY),
   save: restore<LoadedSave>(SAVE_KEY),
   selected: null,
@@ -112,6 +115,10 @@ export const state = reactive<State>({
 watch(
   () => state.ini,
   (v) => persist(INI_KEY, v),
+)
+watch(
+  () => state.game,
+  (v) => persist(GAME_KEY, v),
 )
 watch(
   () => state.save,
@@ -140,17 +147,23 @@ watch(
   (v) => persist(GOALS_KEY, v.length ? v : null),
 )
 
+/** The game version in force, with its tree, Foundry and numbers. */
+export const game = computed(() => GAMES[state.game])
+export const categories = computed(() => game.value.categories)
+export const foundryCategories = computed(() => game.value.foundryCategories)
+
 const applied = computed(() =>
   state.ini
-    ? applyTechBalance(defaultTechs, {
-        balance: new Map(state.ini.balance),
-        unmatched: state.ini.unmatched,
-      })
+    ? applyTechBalance(
+        game.value.techs,
+        { balance: new Map(state.ini.balance), unmatched: state.ini.unmatched },
+        game.value.iniPointsPerDay,
+      )
     : null,
 )
 
 /** The techs with the costs in force. */
-export const techs = computed<Tech[]>(() => applied.value?.techs ?? defaultTechs)
+export const techs = computed<Tech[]>(() => applied.value?.techs ?? game.value.techs)
 export const techById = computed(() => new Map(techs.value.map((t) => [t.id, t])))
 /** Ids whose cost the loaded INI sets differently from the built-in data. */
 export const changedByIni = computed(() => new Set(applied.value?.changed ?? []))
@@ -175,7 +188,8 @@ export const credits = computed(() => {
     held: heldCredits(techs.value, c.researched, c.credits),
     expertise: bonus,
     each: BASE_CREDIT_REDUCTION + bonus,
-    all: (CREDIT_SHARE.All ?? 0.2) + bonus,
+    all: (game.value.creditShares.All ?? 0.2) + bonus,
+    shares: game.value.creditShares,
   }
 })
 
@@ -186,6 +200,7 @@ export const research = computed(() =>
         campaign.value,
         techs.value,
         bonuses.value ? researchBonuses(bonuses.value) : undefined,
+        game.value.creditShares,
       )
     : undefined,
 )
@@ -196,8 +211,12 @@ const NEW_WARFARE = 4
 
 const foundryApplied = computed(() =>
   state.ini?.foundryBalance
-    ? applyFoundryBalance(defaultFoundry, new Map(state.ini.foundryBalance))
-    : { projects: defaultFoundry, changed: [] as number[] },
+    ? applyFoundryBalance(
+        game.value.foundry,
+        new Map(state.ini.foundryBalance),
+        game.value.foundryWork,
+      )
+    : { projects: game.value.foundry, changed: [] as number[] },
 )
 
 /** Asia's New Warfare bonus, if the campaign has it: the fraction off Foundry cash, alloys and elerium. */
@@ -212,6 +231,26 @@ export const foundry = computed<FoundryProject[]>(() =>
 )
 export const foundryById = computed(() => new Map(foundry.value.map((p) => [p.id, p])))
 export const changedFoundryByIni = computed(() => new Set(foundryApplied.value.changed))
+
+/**
+ * Switches the game version. A loaded DefaultGameCore.ini belongs to one
+ * install, so it is dropped (with a note) rather than applied to the other's
+ * tree.
+ */
+export function setGame(id: GameId) {
+  if (id === state.game) return
+  const ini = state.ini?.fileName
+  state.game = id
+  state.selected = null
+  state.selectedFoundry = null
+  if (ini) {
+    state.ini = null
+    state.message = {
+      kind: 'info',
+      text: `Now ${GAMES[id].name}. ${ini} was set aside: load the INI of a ${GAMES[id].name} install if yours differs from the built-in numbers.`,
+    }
+  }
+}
 
 /** Shows a Foundry project: switches to the Foundry board and selects it. */
 export function showFoundry(id: number) {
@@ -262,7 +301,7 @@ export const inventory = computed<InventoryRow[]>(() => {
     const list = need.get(item.key) ?? []
     const needed = list.reduce((n, x) => n + x.count, 0)
     const stock = c ? (c.stock?.[item.slot] ?? 0) : undefined
-    const base = prices.get(item.key) ?? item.price
+    const base = prices.get(item.key) ?? game.value.prices?.[item.key] ?? item.price
     const price =
       item.corpse && remedies ? Math.round(base * (1 + remedies.value / 100) * 10) / 10 : base
     return {
@@ -342,7 +381,7 @@ export async function loadFile(file: File): Promise<void> {
 }
 
 export function loadIni(fileName: string, text: string) {
-  const parsed = parseTechBalance(text, defaultTechs)
+  const parsed = parseTechBalance(text, game.value.techs)
   if (parsed.balance.size === 0) {
     state.message = { kind: 'error', text: `${fileName} has no TechBalance lines.` }
     return
@@ -352,7 +391,7 @@ export function loadIni(fileName: string, text: string) {
     balance: [...parsed.balance],
     unmatched: parsed.unmatched,
     bonusValues: [...parseBonusValues(text)],
-    foundryBalance: [...parseFoundryBalance(text, defaultFoundry)],
+    foundryBalance: [...parseFoundryBalance(text, game.value.foundry)],
     prices: [...parsePrices(text)],
   }
   const changed = changedByIni.value.size

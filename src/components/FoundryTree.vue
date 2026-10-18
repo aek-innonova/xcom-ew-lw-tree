@@ -6,19 +6,20 @@
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
-  foundryCategories,
   foundryCreditReduction,
   foundryProgress,
   foundryState,
   layoutFoundry,
   type FoundryState,
+  foundryBaseDays,
 } from '@/model/foundry'
 import { layoutTechs } from '@/model/layout'
-import { categories } from '@/model/techs'
 import {
   campaign,
+  categories,
   credits,
   changedFoundryByIni,
+  foundryCategories,
   foundry,
   foundryReduction,
   state,
@@ -28,12 +29,13 @@ import {
 import { geometry, labelLines, LABEL_W, NODE_H, NODE_W } from './geometry'
 import { usePanZoom } from './usePanZoom'
 
-const techLayout = computed(() => layoutTechs(techs.value, categories))
+const techLayout = computed(() => layoutTechs(techs.value, categories.value))
 const layout = computed(() =>
   layoutFoundry(
     foundry.value,
-    foundryCategories,
+    foundryCategories.value,
     (id) => techLayout.value.placed.get(id)?.column ?? 0,
+    techLayout.value.columns,
   ),
 )
 const geo = computed(() => geometry(layout.value))
@@ -78,7 +80,7 @@ const projects = computed<ProjectView[]>(() => {
       y: box.y,
       name: p.name,
       state: st,
-      days: p.base_days,
+      days: Math.round(foundryBaseDays(p)),
       engineers: p.engineers,
       cash: p.cost.cash,
       alloys: p.cost.alloys,
@@ -96,14 +98,19 @@ const projects = computed<ProjectView[]>(() => {
           p,
           building.get(p.id)!.workLeft,
           credits.value
-            ? foundryCreditReduction(p, credits.value.held, credits.value.expertise)
+            ? foundryCreditReduction(
+                p,
+                credits.value.held,
+                credits.value.expertise,
+                credits.value.shares,
+              )
             : 0,
         ),
       },
       label: [
         p.name,
         st === 'building' ? 'being built' : st,
-        `${p.base_days} days base time`,
+        `${Math.round(foundryBaseDays(p))} days base time`,
         `${p.engineers} engineers`,
         p.cost.cash && `${p.cost.cash} cash`,
         p.cost.alloys && `${p.cost.alloys} alloys`,

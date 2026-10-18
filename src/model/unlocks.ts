@@ -10,17 +10,20 @@ export const foundryProjects = defaultFoundry
 
 const FOUNDRY_SUFFIX = /\s*\(Foundry\)$/
 
-/** Foundry projects that need this tech. */
-export function foundryFor(techId: number): FoundryProject[] {
-  return foundryProjects.filter((p) => p.requires_tech?.id === techId)
+/** Foundry projects that need this tech (of the version's projects, Long War 1.0's by default). */
+export function foundryFor(
+  techId: number,
+  projects: FoundryProject[] = foundryProjects,
+): FoundryProject[] {
+  return projects.filter((p) => p.requires_tech?.id === techId)
 }
 
 /**
  * The tech's unlocks other than Foundry projects, one entry per item (tech.json
  * packs several into one text: "Improved Medikit, Chem Grenade, Restorative Mist").
  */
-export function itemUnlocks(tech: Tech): string[] {
-  const foundryNames = new Set(foundryFor(tech.id).map((p) => p.name.toLowerCase()))
+export function itemUnlocks(tech: Tech, projects: FoundryProject[] = foundryProjects): string[] {
+  const foundryNames = new Set(foundryFor(tech.id, projects).map((p) => p.name.toLowerCase()))
   return tech.unlocks
     .filter((u) => !FOUNDRY_SUFFIX.test(u))
     .flatMap((u) => u.split(/,\s+/))
@@ -39,13 +42,16 @@ export interface SearchEntry {
   foundryId?: number
 }
 
-export function searchIndex(techs: Tech[]): SearchEntry[] {
+export function searchIndex(
+  techs: Tech[],
+  projects: FoundryProject[] = foundryProjects,
+): SearchEntry[] {
   const out: SearchEntry[] = []
   for (const t of techs) {
     out.push({ label: t.name, kind: 'tech', techId: t.id, techName: t.name })
-    for (const u of itemUnlocks(t))
+    for (const u of itemUnlocks(t, projects))
       out.push({ label: u, kind: 'unlock', techId: t.id, techName: t.name })
-    for (const p of foundryFor(t.id))
+    for (const p of foundryFor(t.id, projects))
       out.push({ label: p.name, kind: 'foundry', techId: t.id, techName: t.name, foundryId: p.id })
   }
   return out

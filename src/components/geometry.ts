@@ -1,7 +1,6 @@
 // Pixel geometry of the tree, in SVG user units, and edge routing.
 
 import type { Layout } from '@/model/layout'
-import { COLUMNS } from '@/model/layout'
 
 export const NODE_W = 192
 export const NODE_H = 46
@@ -48,7 +47,7 @@ export function geometry(layout: Layout): Geometry {
       above: p.row === 0 ? LANE_PAD : ROW_H - NODE_H,
     })
   }
-  return { nodes, lanes, width: LABEL_W + COLUMNS * COL_W - GUTTER, height: y - LANE_GAP }
+  return { nodes, lanes, width: LABEL_W + layout.columns * COL_W - GUTTER, height: y - LANE_GAP }
 }
 
 /**

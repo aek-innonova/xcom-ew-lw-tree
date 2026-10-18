@@ -3,8 +3,19 @@
 
 import { computed, ref } from 'vue'
 import { search, searchIndex, type SearchEntry } from '@/model/unlocks'
-import { clearIni, clearSave, loadFile, showFoundry, showTech, state, techs } from '@/state/store'
+import {
+  clearIni,
+  clearSave,
+  loadFile,
+  setGame,
+  showFoundry,
+  showTech,
+  state,
+  techs,
+  foundry,
+} from '@/state/store'
 import { chooseFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
+import { GAMES, type GameId } from '@/model/game'
 
 const emit = defineEmits<{
   find: [hit: { view: 'research' | 'foundry'; id: number }]
@@ -23,7 +34,7 @@ async function onPick(e: Event) {
 const query = ref('')
 // Techs, what they unlock, and the Foundry projects they open: finding any of
 // them selects the tech.
-const index = computed(() => searchIndex(techs.value))
+const index = computed(() => searchIndex(techs.value, foundry.value))
 const matches = computed<SearchEntry[]>(() => search(index.value, query.value))
 
 /** A Foundry hit opens the project on the Foundry board; anything else, the tech. */
@@ -56,6 +67,15 @@ function onSearchKey(e: KeyboardEvent) {
 <template>
   <header class="bar">
     <h1>Long War <span>Tech Tree</span></h1>
+    <select
+      class="game"
+      :value="state.game"
+      aria-label="Game version"
+      title="Which game the tree, numbers and rules are for"
+      @change="setGame(($event.target as HTMLSelectElement).value as GameId)"
+    >
+      <option v-for="g in Object.values(GAMES)" :key="g.id" :value="g.id">{{ g.short }}</option>
+    </select>
 
     <div class="views" role="tablist" aria-label="Board">
       <button
@@ -193,6 +213,15 @@ function onSearchKey(e: KeyboardEvent) {
   padding: 10px 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+}
+.game {
+  background: var(--node);
+  color: var(--text);
+  border: 1px solid var(--node-border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 12.5px;
 }
 h1 {
   margin: 0;

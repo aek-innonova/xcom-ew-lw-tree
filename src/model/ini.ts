@@ -90,7 +90,12 @@ export interface AppliedIni {
   missing: number[]
 }
 
-export function applyTechBalance(techs: Tech[], ini: IniTechBalance): AppliedIni {
+/**
+ * `perDay`: the research points one INI day is worth in this version
+ * (XGTechTree.TechCost: Long War 1.0 720, LWR 240); base days are kept in
+ * Long War 1.0's 720-point days so both versions share one scale.
+ */
+export function applyTechBalance(techs: Tech[], ini: IniTechBalance, perDay = 720): AppliedIni {
   const changed: number[] = []
   const missing: number[] = []
   const out = techs.map((t) => {
@@ -101,7 +106,7 @@ export function applyTechBalance(techs: Tech[], ini: IniTechBalance): AppliedIni
     }
     const next: Tech = {
       ...t,
-      base_days: b.days,
+      base_days: Math.round(((b.days * perDay) / 720) * 100) / 100,
       cost: {
         alloys: b.alloys,
         elerium: b.elerium,

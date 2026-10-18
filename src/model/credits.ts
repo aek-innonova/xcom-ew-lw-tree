@@ -71,13 +71,15 @@ export function creditsFromSlots(slots: number[]): string[] {
     .map(([, name]) => name)
 }
 
-/** Each credit's share off, from the game (BuildResearchCredits). */
-export const CREDIT_SHARE: Record<string, number> = Object.fromEntries(
-  Object.entries(techtree.credit_bonus).map(([slot, pct]) => [
-    CREDIT_SLOTS[Number(slot)]!,
-    pct / 100,
-  ]),
-)
+/** Each credit's share off from a version's BuildResearchCredits (techtree.json `credit_bonus`). */
+export function creditShares(bonus: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(bonus).map(([slot, pct]) => [CREDIT_SLOTS[Number(slot)]!, pct / 100]),
+  )
+}
+
+/** Long War 1.0's: 25 % each, the Ethereal's "All" 20 %. */
+export const CREDIT_SHARE: Record<string, number> = creditShares(techtree.credit_bonus)
 
 const SLOT_OF = new Map(Object.entries(CREDIT_SLOTS).map(([slot, name]) => [name, Number(slot)]))
 
@@ -99,8 +101,12 @@ export function coveringCredits(credits: string[], held: Set<string>): string[] 
 }
 
 /** One credit's share with Expertise added, as the game computes it (in single precision). */
-export function creditCut(credit: string, expertise: number): number {
-  const share = Math.fround(CREDIT_SHARE[credit] ?? 0.25)
+export function creditCut(
+  credit: string,
+  expertise: number,
+  shares: Record<string, number> = CREDIT_SHARE,
+): number {
+  const share = Math.fround(shares[credit] ?? 0.25)
   return expertise > 0 ? Math.fround(share + Math.fround(expertise)) : share
 }
 

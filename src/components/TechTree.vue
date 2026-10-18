@@ -9,15 +9,24 @@
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { layoutTechs } from '@/model/layout'
-import { categories } from '@/model/techs'
 import { planResearch } from '@/model/plan'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
-import { estimate, techState, type TechState } from '@/model/research'
-import { campaign, changedByIni, plan, planSteps, state, techs, research } from '@/state/store'
+import { estimate, techState, type TechState, baseDays } from '@/model/research'
+import {
+  campaign,
+  changedByIni,
+  plan,
+  planSteps,
+  state,
+  techs,
+  research,
+  categories,
+  foundry,
+} from '@/state/store'
 import { edgePath, geometry, labelLines, NODE_H, NODE_W, LABEL_W } from './geometry'
 import { usePanZoom } from './usePanZoom'
 
-const layout = computed(() => layoutTechs(techs.value, categories))
+const layout = computed(() => layoutTechs(techs.value, categories.value))
 const geo = computed(() => geometry(layout.value))
 
 const ctx = research
@@ -48,9 +57,9 @@ const nodes = computed<NodeView[]>(() =>
     const box = geo.value.nodes.get(t.id)!
     const c = campaign.value
     const st = c ? techState(t, c.researched, c.project?.tech, c) : null
-    let days = `${t.base_days}d`
+    let days = `${baseDays(t.base_days)}d`
     const dayWord = (n: number) => (n === 1 ? '1 day' : `${n} days`)
-    let daysTitle = `${dayWord(t.base_days)} base time`
+    let daysTitle = `${dayWord(baseDays(t.base_days))} base time`
     let progress = 0
     if (c && ctx.value) {
       const est = estimate(t, c, ctx.value)
@@ -60,7 +69,7 @@ const nodes = computed<NodeView[]>(() =>
           ? `${dayWord(est.days)} left (the game's own figure)`
           : `about ${dayWord(est.days)} at your current research speed${est.credited ? ', with research credit' : ''}`
       }
-      const cost = t.base_days * 720
+      const cost = Math.round(t.base_days * 720)
       const done = c.progress[t.id] ?? 0
       if (!c.researched[t.id] && done > 0) {
         const total = c.project?.tech === t.id ? done + c.project.pointsLeft : cost
@@ -244,8 +253,8 @@ const card = computed(() => {
   const up = n.y + NODE_H / 2 > geo.value.height * 0.6
   return {
     node: n,
-    unlocks: itemUnlocks(t),
-    foundry: foundryFor(t.id).map((p) => p.name),
+    unlocks: itemUnlocks(t, foundry.value),
+    foundry: foundryFor(t.id, foundry.value).map((p) => p.name),
     credit: t.credits.join(', '),
     x: n.x - CARD_PAD,
     y: up ? n.y + NODE_H - CARD_MAX_H : n.y,

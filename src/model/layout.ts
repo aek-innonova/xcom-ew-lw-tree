@@ -6,7 +6,8 @@
 // depth to share space: UFO Analysis has eleven techs one step from the start
 // and would otherwise be eleven rows tall. Each lane starts with rows enough
 // for every tech at its depth, then gives rows back while the whole layout
-// still fits in COLUMNS columns.
+// still fits in its columns: COLUMNS, or more for a deeper tree (LWR's is
+// twelve steps deep).
 
 import type { Tech } from './techs'
 
@@ -28,6 +29,7 @@ export interface Layout {
   placed: Map<number, Placed>
   lanes: Lane[]
   totalRows: number
+  columns: number
 }
 
 /** Steps from the start: all prerequisites, plus the cheapest of an "any one of" group. */
@@ -56,6 +58,7 @@ function assignColumns(
   order: Tech[],
   laneOf: Map<string, number>,
   rows: number[],
+  columns: number,
 ): Map<number, number> | undefined {
   const column = new Map<number, number>()
   const used = new Map<string, number>()
@@ -67,8 +70,8 @@ function assignColumns(
       .filter((v): v is number => v !== undefined)
     if (placedAny.length) c = Math.max(c, Math.min(...placedAny) + 1)
     const lane = laneOf.get(t.category)!
-    while (c < COLUMNS && (used.get(`${lane}:${c}`) ?? 0) >= rows[lane]!) c++
-    if (c >= COLUMNS) return undefined
+    while (c < columns && (used.get(`${lane}:${c}`) ?? 0) >= rows[lane]!) c++
+    if (c >= columns) return undefined
     used.set(`${lane}:${c}`, (used.get(`${lane}:${c}`) ?? 0) + 1)
     column.set(t.id, c)
   }
@@ -79,6 +82,7 @@ export function layoutTechs(techs: Tech[], categories: string[]): Layout {
   const depth = depths(techs)
   const order = [...techs].sort((a, b) => depth.get(a.id)! - depth.get(b.id)! || a.id - b.id)
   const laneOf = new Map(categories.map((c, i) => [c, i]))
+  const columns = Math.max(COLUMNS, Math.max(0, ...depth.values()) + 1)
 
   // Start with rows enough to hold every tech at its own depth...
   const rows = categories.map((c) => {
@@ -88,7 +92,7 @@ export function layoutTechs(techs: Tech[], categories: string[]): Layout {
         perDepth.set(depth.get(t.id)!, (perDepth.get(depth.get(t.id)!) ?? 0) + 1)
     return Math.max(1, ...perDepth.values())
   })
-  let column = assignColumns(order, laneOf, rows)
+  let column = assignColumns(order, laneOf, rows, columns)
   if (!column) throw new Error('tech tree is deeper than the layout has columns')
 
   // ...then give rows back, tallest lanes first, while everything still fits.
@@ -98,7 +102,7 @@ export function layoutTechs(techs: Tech[], categories: string[]): Layout {
     for (const lane of tallestFirst) {
       if (rows[lane]! <= 1) continue
       rows[lane]!--
-      const attempt = assignColumns(order, laneOf, rows)
+      const attempt = assignColumns(order, laneOf, rows, columns)
       if (attempt) {
         column = attempt
         changed = true
@@ -131,5 +135,5 @@ export function layoutTechs(techs: Tech[], categories: string[]): Layout {
   }
 
   const lanes = categories.map((category, i) => ({ category, rows: rows[i]! }))
-  return { placed, lanes, totalRows: rows.reduce((a, b) => a + b, 0) }
+  return { placed, lanes, totalRows: rows.reduce((a, b) => a + b, 0), columns }
 }

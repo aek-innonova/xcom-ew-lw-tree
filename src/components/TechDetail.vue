@@ -9,10 +9,11 @@ import {
   gateMet,
   techState,
   unmetGates,
+  baseDays,
 } from '@/model/research'
 import { gateText, gateShown } from '@/model/gates'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
-import { CREDIT_SHARE, covers, creditGivenBy, creditSources } from '@/model/credits'
+import { covers, creditGivenBy, creditSources } from '@/model/credits'
 import { itemLink, techLink } from '@/model/ufopaedia'
 import {
   campaign,
@@ -26,6 +27,7 @@ import {
   toggleGoal,
   research,
   showFoundry,
+  game,
 } from '@/state/store'
 
 const tech = computed(() =>
@@ -76,8 +78,8 @@ const leadsTo = computed(() => {
   )
 })
 
-const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
-const foundryUnlocks = computed(() => (tech.value ? foundryFor(tech.value.id) : []))
+const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value, foundry.value) : []))
+const foundryUnlocks = computed(() => (tech.value ? foundryFor(tech.value.id, foundry.value) : []))
 
 /**
  * "35% off: 25% credit + 10% Expertise (Brazil)"; for two credits "58% off:
@@ -95,7 +97,7 @@ const creditText = computed(() => {
         `${b.value}% ${b.name}${b.country ? ` (${b.type === 'starting' ? 'start' : b.country})` : ''}`,
     )
   const plus = expertise.length ? ` + ${expertise.join(' + ')}` : ''
-  const share = (n: string) => Math.round((CREDIT_SHARE[n] ?? 0.25) * 100)
+  const share = (n: string) => Math.round((game.value.creditShares[n] ?? 0.25) * 100)
   const label = (n: string) => (n === 'All' ? 'All research' : n)
   const credits = applicableCredits(t, c.held)
   const total = Math.round(creditReductionFor(t, c) * 100)
@@ -135,7 +137,7 @@ const gives = computed(() => {
     foundry: foundry.value.filter((p) => covers(credit, p.credits)),
     each: Math.round(
       ((credit === 'All' ? credits.value?.all : credits.value?.each) ??
-        CREDIT_SHARE[credit] ??
+        game.value.creditShares[credit] ??
         0.25) * 100,
     ),
   }
@@ -161,7 +163,14 @@ const select = (id: number) => (state.selected = id)
       <div>
         <p class="category">
           {{ tech.category }} ·
-          <a :href="techLink(tech)" target="_blank" rel="noopener" class="wiki">UFOpaedia ↗</a>
+          <a
+            v-if="game.ufopaedia"
+            :href="techLink(tech)"
+            target="_blank"
+            rel="noopener"
+            class="wiki"
+            >UFOpaedia ↗</a
+          >
         </p>
         <h2>{{ tech.name }}</h2>
       </div>
@@ -198,8 +207,10 @@ const select = (id: number) => (state.selected = id)
     <dl class="costs">
       <dt>Base time</dt>
       <dd>
-        {{ tech.base_days }} days
-        <span class="muted">({{ tech.base_days * 720 }} research points)</span>
+        {{ baseDays(tech.base_days) }} days
+        <span class="muted"
+          >({{ Math.round(tech.base_days * 720).toLocaleString('en-US') }} research points)</span
+        >
       </dd>
       <template v-if="tech.cost.alloys">
         <dt class="res res-alloys">Alloys</dt>
@@ -309,7 +320,7 @@ const select = (id: number) => (state.selected = id)
       <ul class="unlocks">
         <li v-for="u in unlocks" :key="u">
           <a
-            v-if="itemLink(u)"
+            v-if="game.ufopaedia && itemLink(u)"
             :href="itemLink(u)"
             target="_blank"
             rel="noopener"

@@ -11,7 +11,7 @@ import HistoryView from '@/components/HistoryView.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
-import { loadFile, state } from '@/state/store'
+import { loadFile, state, game } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
 
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
       </aside>
     </main>
     <footer class="foot">
-      Long War 1.0. Prerequisites and credits from the game's own script.
+      {{ game.name }}. Prerequisites and credits from the game's own script.
       <button type="button" class="link" @click="helpOpen = true">
         Where are my files? How does this work?
       </button>
