@@ -125,3 +125,26 @@ target's row, which in a lane's top row is 5 px above the boxes it
 passes, so it can read as an outline on them (Xenobiology → Xenogenetics
 passes over Xenoneurology). More padding would fix it at the cost of
 about 10 % scale.
+
+## Response (2026-10-18, round 3)
+
+The person: the glow is too subtle; stronger, or tint the border too.
+Resting on a tech could expand its card, without moving anything, to
+show its unlocks. The edge-over-top-row quirk is not a problem.
+
+## Report (2026-10-18, round 4)
+
+- Highlights: direct prerequisites and enabled techs get a tinted,
+  thicker border and a double glow; the rest of the chain a softer
+  tinted border and glow.
+- Hover card: resting on a tech for 280 ms opens a 270 px card over it
+  with name, cost, full item text, research credit and unlocks. It is a
+  layer above the tree that ignores the pointer, so nothing moves and the
+  tech underneath keeps the hover; it grows upwards in the lower part of
+  the tree and stays inside it horizontally; it closes on leave and
+  while panning. The delay is there so a mouse passing through does not
+  pop cards, the same reason the fading went.
+
+Checked in Chromium with save1738: a quick sweep opens no card, resting
+does; cards in the top lane (Advanced Aerospace Concepts, long unlock
+list), the middle (Plasma Weapons) and the bottom lane (grows up).

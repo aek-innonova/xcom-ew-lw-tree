@@ -228,6 +228,7 @@ function zoomBy(factor: number) {
 
 let drag: { id: number; sx: number; sy: number; vx: number; vy: number; moved: boolean } | null =
   null
+const panning = ref(false)
 
 function onPointerDown(e: PointerEvent) {
   if (e.button !== 0) return
@@ -248,6 +249,7 @@ function onPointerMove(e: PointerEvent) {
   if (!drag.moved && Math.hypot(dx, dy) < 4) return
   if (!drag.moved) svg.value?.setPointerCapture(e.pointerId)
   drag.moved = true
+  panning.value = true
   autoFit = false
   view.value = { ...view.value, x: drag.vx + dx, y: drag.vy + dy }
 }
@@ -256,6 +258,7 @@ function onPointerUp(e: PointerEvent) {
   if (!drag || drag.id !== e.pointerId) return
   const wasDrag = drag.moved
   drag = null
+  panning.value = false
   if (wasDrag) return
   // A click: on a node selects it, on empty space clears the selection.
   const node = (e.target as Element).closest('[data-tech]')
@@ -308,6 +311,48 @@ onMounted(() => {
   if (svg.value) resizeObserver.observe(svg.value)
 })
 onBeforeUnmount(() => resizeObserver?.disconnect())
+
+// --- Hover card -----------------------------------------------------------------
+//
+// Resting on a tech opens a larger card over it with the full cost and what it
+// unlocks. It is drawn above the tree (nothing moves) and ignores the pointer, so
+// the tech underneath keeps the hover. The short delay keeps cards from popping
+// up under a mouse that is only passing through.
+
+const CARD_W = 270
+const CARD_MAX_H = 420
+const CARD_DELAY_MS = 280
+const cardId = ref<number | null>(null)
+let cardTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(
+  () => state.hovered,
+  (id) => {
+    clearTimeout(cardTimer)
+    cardId.value = null
+    if (id !== null) cardTimer = setTimeout(() => (cardId.value = id), CARD_DELAY_MS)
+  },
+)
+onBeforeUnmount(() => clearTimeout(cardTimer))
+
+const card = computed(() => {
+  const id = cardId.value
+  if (id === null || panning.value) return null
+  const n = nodes.value.find((v) => v.id === id)
+  const t = techs.value.find((v) => v.id === id)
+  if (!n || !t) return null
+  // Centred on the tech, kept inside the tree; low in the tree it grows upwards.
+  const x = Math.min(Math.max(0, n.x - (CARD_W - NODE_W) / 2), geo.value.width - CARD_W)
+  const up = n.y + NODE_H / 2 > geo.value.height * 0.6
+  return {
+    node: n,
+    unlocks: t.unlocks,
+    credit: t.research_credit,
+    x,
+    y: up ? n.y + NODE_H - CARD_MAX_H : n.y,
+    up,
+  }
+})
 
 defineExpose({ fit, centerOn })
 
@@ -501,6 +546,41 @@ const laneLabelX = LABEL_W - 14
           </g>
           <text v-else-if="n.goal" class="goal-star" :x="n.x + NODE_W" :y="n.y">★</text>
         </g>
+
+        <foreignObject
+          v-if="card"
+          class="card-layer"
+          :x="card.x"
+          :y="card.y"
+          :width="CARD_W"
+          :height="CARD_MAX_H"
+        >
+          <div class="card-wrap" :class="{ up: card.up }">
+            <div class="card" :class="card.node.state ?? 'neutral'">
+              <div class="card-name">
+                <span v-if="card.node.state === 'researched'" class="tick">✓</span
+                >{{ card.node.name }}
+              </div>
+              <div class="card-cost">
+                <span class="days" :title="card.node.daysTitle">{{ card.node.days }}</span>
+                <span v-if="card.node.alloys" class="res res-alloys">{{ card.node.alloys }}</span>
+                <span v-if="card.node.elerium" class="res res-elerium">{{
+                  card.node.elerium
+                }}</span>
+                <span v-if="card.node.fragments" class="res res-fragments">{{
+                  card.node.fragments
+                }}</span>
+              </div>
+              <div v-if="card.node.items" class="res res-items card-items">
+                {{ card.node.items }}
+              </div>
+              <div v-if="card.credit" class="card-credit">Credit: {{ card.credit }}</div>
+              <ul v-if="card.unlocks.length" class="card-unlocks">
+                <li v-for="u in card.unlocks" :key="u">{{ u }}</li>
+              </ul>
+            </div>
+          </div>
+        </foreignObject>
       </g>
     </svg>
 
@@ -626,14 +706,18 @@ const laneLabelX = LABEL_W - 14
    carries the tech's state (available is blue too). After the state rules. */
 .node.needs-direct .box {
   stroke: var(--accent);
-  filter: drop-shadow(0 0 5px var(--accent));
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 7px var(--accent)) drop-shadow(0 0 2px var(--accent));
 }
 .node.needs-chain .box {
-  filter: drop-shadow(0 0 4px rgb(76 195 239 / 0.6));
+  stroke: rgb(76 195 239 / 0.75);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 6px rgb(76 195 239 / 0.75));
 }
 .node.enables .box {
   stroke: var(--enables);
-  filter: drop-shadow(0 0 5px var(--enables));
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 7px var(--enables)) drop-shadow(0 0 2px var(--enables));
 }
 .planned {
   fill: none;
@@ -707,6 +791,62 @@ const laneLabelX = LABEL_W - 14
   padding: 0 3px;
 }
 
+.card-layer {
+  pointer-events: none;
+  overflow: visible;
+}
+.card-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.card-wrap.up {
+  justify-content: flex-end;
+}
+.card {
+  box-sizing: border-box;
+  padding: 7px 11px 9px;
+  border-radius: 6px;
+  background: #18304a;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 8px 26px rgb(0 0 0 / 0.55);
+  font-size: 12px;
+  color: var(--text);
+}
+.card.researched {
+  background: #163a27;
+  border-color: var(--done-text);
+}
+.card.researching {
+  border-color: var(--progress);
+}
+.card-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.card-cost {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  margin-top: 3px;
+  color: var(--muted);
+}
+.card-items,
+.card-credit {
+  margin-top: 3px;
+}
+.card-credit {
+  color: var(--muted);
+}
+.card-unlocks {
+  margin: 6px 0 0;
+  padding: 6px 0 0 14px;
+  border-top: 1px solid var(--border);
+}
+.card-unlocks li {
+  margin: 1px 0;
+}
 .zoom {
   position: absolute;
   right: 12px;
