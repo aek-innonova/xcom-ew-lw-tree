@@ -169,3 +169,18 @@ look like the box just opened up. As it was, it felt in the way.
 
 Checked in Chromium with save1738: top lane, middle (Plasma Weapons),
 bottom lane opening upwards.
+
+## Response (2026-10-18, round 5)
+
+The person: the hover card shows the border of a tech that is not
+hovered; it should have the hover border.
+
+## Report (2026-10-18, round 6)
+
+The card's border is now the hover border (2 px, accent) on every state;
+its fill still follows the state. Found on the way: the hover and
+selection borders were declared before the state rules, so on
+researched, researching and available techs they never showed. They
+now come after the state rules, so hovering or selecting any tech shows
+the accent border. Checked in Chromium on a researched tech (top lane)
+and an available one (bottom lane).

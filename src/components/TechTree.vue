@@ -679,14 +679,6 @@ const laneLabelX = LABEL_W - 14
   stroke: var(--node-border);
   stroke-width: 1.2;
 }
-.node:hover .box,
-.node:focus-visible .box {
-  stroke: var(--accent);
-}
-.node.selected .box {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-}
 
 .node.researched .box {
   fill: var(--done);
@@ -705,6 +697,16 @@ const laneLabelX = LABEL_W - 14
 }
 .node.locked .content {
   opacity: 0.65;
+}
+/* Hover and selection after the state rules, so they show on every state. */
+.node:hover .box,
+.node:focus-visible .box {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.node.selected .box {
+  stroke: var(--accent);
+  stroke-width: 2.5;
 }
 .bar {
   fill: var(--progress);
@@ -820,8 +822,10 @@ const laneLabelX = LABEL_W - 14
   flex-direction: column;
   border-radius: 5px;
   background: var(--node);
-  outline: 1.2px solid var(--accent);
-  outline-offset: -0.6px;
+  /* The hovered box's border (an outline, like the SVG stroke, so the top
+     row sits exactly where it was); the fill keeps the tech's state. */
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
   box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
 }
 .card.up {
@@ -829,19 +833,9 @@ const laneLabelX = LABEL_W - 14
 }
 .card.researched {
   background: var(--done);
-  outline-color: var(--done-border);
-}
-.card.researching {
-  outline: 2.2px solid var(--progress);
-  outline-offset: -1.1px;
-}
-.card.available {
-  outline-width: 1.8px;
-  outline-offset: -0.9px;
 }
 .card.locked {
   background: var(--locked);
-  outline-color: var(--node-border);
 }
 .card-head {
   height: 46px;
