@@ -62,7 +62,8 @@ The zip ships whole `XComGame.upk` and `XComStrategyGame.upk`, its
   65–71 are gone; 61–64 are now Small, Medium, Large and Very Large UFOs,
   each needing any one of its types captured); prerequisites differ for
   about 30 techs (most autopsies need only Xenobiology; Plasma Weapons needs
-  EMP Weapons, Interrogate Muton Elite and the Sectopod autopsy's line …);
+  EMP Weapons, Interrogate Muton Elite and Advanced Pulse Lasers; many
+  techs need an interrogation …);
   every research credit is 20 %.
 - Of the strategy functions this site models, LWR changed 132, among them
   research speed (GetResearchPerHour, UpdateLabBonus), tech cost (TechCost),
