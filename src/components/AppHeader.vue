@@ -2,6 +2,7 @@
 // Title, the two file loaders, search, and the privacy promise.
 
 import { computed, ref } from 'vue'
+import { search, searchIndex, type SearchEntry } from '@/model/unlocks'
 import { clearIni, clearSave, loadFile, state, techs } from '@/state/store'
 
 const emit = defineEmits<{ find: [id: number] }>()
@@ -16,11 +17,10 @@ async function onPick(e: Event) {
 }
 
 const query = ref('')
-const matches = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return []
-  return techs.value.filter((t) => t.name.toLowerCase().includes(q)).slice(0, 8)
-})
+// Techs, what they unlock, and the Foundry projects they open: finding any of
+// them selects the tech.
+const index = computed(() => searchIndex(techs.value))
+const matches = computed<SearchEntry[]>(() => search(index.value, query.value))
 
 function find(id: number) {
   state.selected = id
@@ -29,7 +29,7 @@ function find(id: number) {
 }
 
 function onSearchKey(e: KeyboardEvent) {
-  if (e.key === 'Enter' && matches.value[0]) find(matches.value[0].id)
+  if (e.key === 'Enter' && matches.value[0]) find(matches.value[0].techId)
   if (e.key === 'Escape') query.value = ''
 }
 </script>
@@ -42,13 +42,18 @@ function onSearchKey(e: KeyboardEvent) {
       <input
         v-model="query"
         type="search"
-        placeholder="Find a tech…"
-        aria-label="Find a tech"
+        placeholder="Find a tech, item or Foundry project…"
+        aria-label="Find a tech, item or Foundry project"
         @keydown="onSearchKey"
       />
       <ul v-if="matches.length" class="matches" role="listbox">
-        <li v-for="m in matches" :key="m.id">
-          <button type="button" @mousedown.prevent="find(m.id)">{{ m.name }}</button>
+        <li v-for="m in matches" :key="`${m.kind}:${m.techId}:${m.label}`">
+          <button type="button" @mousedown.prevent="find(m.techId)">
+            <span class="label" :class="m.kind">{{ m.label }}</span>
+            <span v-if="m.kind !== 'tech'" class="via">
+              <span v-if="m.kind === 'foundry'" class="foundry-tag">Foundry</span>{{ m.techName }}
+            </span>
+          </button>
         </li>
       </ul>
     </div>
@@ -111,7 +116,7 @@ h1 span {
   position: relative;
 }
 .search input {
-  width: 220px;
+  width: 300px;
 }
 .matches {
   position: absolute;
@@ -127,11 +132,36 @@ h1 span {
   border-radius: 5px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
 }
+.matches {
+  width: 380px;
+}
 .matches button {
   width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
   text-align: left;
   border: none;
   background: none;
+}
+.label.foundry {
+  color: var(--foundry);
+}
+.via {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.via::before {
+  content: '→ ';
+}
+.via .foundry-tag {
+  color: var(--foundry);
 }
 .matches button:hover {
   background: var(--node);

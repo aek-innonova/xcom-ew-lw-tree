@@ -106,6 +106,7 @@ onBeforeUnmount(() => {
   --fragments: #f39a4c;
   --items: #8fd0a8;
   --enables: #f07cc4;
+  --foundry: #e3d26f;
   color-scheme: dark;
 }
 * {
@@ -155,6 +156,23 @@ input[type='search']:focus {
 }
 a {
   color: var(--accent);
+}
+
+/* Foundry projects a tech opens, on one line in their own colour. */
+.foundry-line {
+  color: var(--foundry);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.foundry-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--foundry);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-right: 4px;
 }
 
 /* Resource markers, the same wherever a cost appears: a coloured square

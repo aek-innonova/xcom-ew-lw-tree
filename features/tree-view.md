@@ -202,3 +202,31 @@ badge, and its plan step, e.g. "Plasma Weapons, researching, 2 days left
 5 Alien Carbines". The icon-only buttons (zoom, close, clear) keep their
 titles, since they have no text otherwise. Checked in Chromium: no title
 elements or attributes left in the tree.
+
+## Response (2026-10-18, round 7)
+
+The person: put the Foundry items on a single line, maybe in a different
+colour. Search should find items and Foundry projects too, and lead to
+the tech behind them, not only tech names.
+
+## Report (2026-10-18, round 8)
+
+- `src/model/unlocks.ts`: a tech's Foundry projects come from
+  `longwar_foundry.json` (from the game's files), its other unlocks from
+  tech.json, split one per entry. The two sources disagree in two ways,
+  both settled in favour of the game data: tech.json lists ten Foundry
+  projects as plain unlocks of autopsies ("Improved Medikit", "Shaped
+  Armor", ...), and names two "Base Security: Weapons/Armor" where the
+  game says "Security Training: …". Those no longer appear twice.
+- Card and detail panel: the item unlocks as a list, then one line in
+  yellow (`--foundry`) tagged FOUNDRY with the projects separated by
+  dots.
+- Search covers techs, unlocks and Foundry projects; a non-tech result
+  shows "→ the tech" (Foundry ones tagged), and choosing it selects and
+  centres that tech. Names starting with the query rank first, then
+  techs before unlocks before Foundry.
+
+Verified: unit tests (splitting, the Foundry/unlock split, all 46
+projects tied to existing techs, search hits and ranking). In Chromium:
+the Alien Materials card, a search for "gren" (an item from each of two
+techs and a Foundry project), Enter selecting Gauss Weapons, its panel.

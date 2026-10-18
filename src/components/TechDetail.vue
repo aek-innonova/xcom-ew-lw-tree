@@ -3,6 +3,7 @@
 
 import { computed } from 'vue'
 import { estimate, researchContext, techState } from '@/model/research'
+import { foundryFor, itemUnlocks } from '@/model/unlocks'
 import { campaign, changedByIni, planTo, state, techById, techs, toggleGoal } from '@/state/store'
 
 const tech = computed(() =>
@@ -39,6 +40,9 @@ const leadsTo = computed(() => {
     (o) => o.prerequisites.some((p) => p.id === t.id) || o.any_one_of.some((p) => p.id === t.id),
   )
 })
+
+const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
+const foundry = computed(() => (tech.value ? foundryFor(tech.value.id).map((p) => p.name) : []))
 
 const isResearched = (id: number) => campaign.value?.researched[id] ?? false
 const select = (id: number) => (state.selected = id)
@@ -155,11 +159,14 @@ const select = (id: number) => (state.selected = id)
         </li>
       </ul>
     </section>
-    <section v-if="tech.unlocks.length">
+    <section v-if="unlocks.length || foundry.length">
       <h3>Unlocks</h3>
-      <ul class="unlocks">
-        <li v-for="u in tech.unlocks" :key="u">{{ u }}</li>
+      <ul v-if="unlocks.length" class="unlocks">
+        <li v-for="u in unlocks" :key="u">{{ u }}</li>
       </ul>
+      <p v-if="foundry.length" class="foundry-line">
+        <span class="foundry-tag">Foundry</span> {{ foundry.join(' · ') }}
+      </p>
     </section>
   </section>
 </template>

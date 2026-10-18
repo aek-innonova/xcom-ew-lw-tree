@@ -11,6 +11,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { layoutTechs } from '@/model/layout'
 import { categories } from '@/model/techs'
 import { planResearch } from '@/model/plan'
+import { foundryFor, itemUnlocks } from '@/model/unlocks'
 import { estimate, researchContext, techState, type TechState } from '@/model/research'
 import { campaign, changedByIni, plan, planSteps, state, techs } from '@/state/store'
 import { edgePath, geometry, labelLines, NODE_H, NODE_W, LABEL_W } from './geometry'
@@ -362,7 +363,8 @@ const card = computed(() => {
   const up = n.y + NODE_H / 2 > geo.value.height * 0.6
   return {
     node: n,
-    unlocks: t.unlocks,
+    unlocks: itemUnlocks(t),
+    foundry: foundryFor(t.id).map((p) => p.name),
     credit: t.research_credit,
     x: n.x - CARD_PAD,
     y: up ? n.y + NODE_H - CARD_MAX_H : n.y,
@@ -584,9 +586,14 @@ const laneLabelX = LABEL_W - 14
                   {{ card.node.items }}
                 </div>
                 <div v-if="card.credit" class="card-credit">Credit: {{ card.credit }}</div>
-                <ul v-if="card.unlocks.length" class="card-unlocks">
-                  <li v-for="u in card.unlocks" :key="u">{{ u }}</li>
-                </ul>
+                <div v-if="card.unlocks.length || card.foundry.length" class="card-unlocks">
+                  <ul v-if="card.unlocks.length">
+                    <li v-for="u in card.unlocks" :key="u">{{ u }}</li>
+                  </ul>
+                  <p v-if="card.foundry.length" class="foundry-line">
+                    <span class="foundry-tag">Foundry</span> {{ card.foundry.join(' · ') }}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -862,8 +869,15 @@ const laneLabelX = LABEL_W - 14
 }
 .card-unlocks {
   margin: 5px 0 0;
-  padding: 5px 0 0 14px;
+  padding: 5px 0 0;
   border-top: 1px solid var(--border);
+}
+.card-unlocks ul {
+  margin: 0;
+  padding-left: 14px;
+}
+.card-unlocks .foundry-line {
+  margin: 3px 0 0;
 }
 .card.up .card-unlocks {
   padding-bottom: 5px;
