@@ -42,3 +42,10 @@ interrogations; sources; coverage; Foundry reduction. Checked on screen.
 **Left open.** The "All" credit's slot; whether the Weapons credit
 stacks on Foundry weapon projects as it does on research (one case in
 the history, inconclusive).
+
+## Report (2026-10-18, round 2)
+
+The game's EResearchCredits enum (data/enums.json) confirms the slot
+map and names slot 9 (AllTech) as the Ethereal's "All" credit; it is
+read from the save now too. The "All" credit is no longer listed out in
+panels (one line on Interrogate Ethereal; "All research" in Stats).

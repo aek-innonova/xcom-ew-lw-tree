@@ -228,7 +228,7 @@ const XENOLOGICAL_REMEDIES = 47
 
 export interface InventoryRow {
   item: CatalogItem
-  /** In stores; undefined where the item's stock slot is not known. */
+  /** In stores; undefined without a save. */
   stock?: number
   needed: number
   needs: Need[]
@@ -258,7 +258,7 @@ export const inventory = computed<InventoryRow[]>(() => {
   return CATALOG.map((item) => {
     const list = need.get(item.key) ?? []
     const needed = list.reduce((n, x) => n + x.count, 0)
-    const stock = c && item.slot !== undefined ? (c.stock?.[item.slot] ?? 0) : undefined
+    const stock = c ? (c.stock?.[item.slot] ?? 0) : undefined
     const base = prices.get(item.key) ?? item.price
     const price =
       item.corpse && remedies ? Math.round(base * (1 + remedies.value / 100) * 10) / 10 : base

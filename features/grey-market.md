@@ -49,3 +49,26 @@ with save1738.
 
 **Left open.** The unmapped artifacts; item builds (weapons, armour) are
 not counted in "needed" for resources.
+
+## Report (2026-10-18, round 2)
+
+The person added their install's Config, CookedPCConsole and engine INT
+folders to `samples/` (git-ignored). The game's localization (.int under
+XComGame) was not among them and turned out not to be needed.
+
+`scripts/upk.py` reads uncompressed Unreal Engine 3 packages (Long War
+ships its script packages decompressed); `scripts/upk_enums.py` writes
+`data/enums.json` with EItemType, ETechType, EFoundryTech, EFacilityType
+and EResearchCredits from XComGame.upk. Results:
+- Every slot found from the save history matched EItemType; the rest are
+  now known (Alien Entertainment 165, Food 166, damaged artifacts
+  172–178, Fusion Core 179, alien heavy weapon 47). The catalog takes its
+  slots from the enum by name; no item is left without a stock count.
+- ETechType and EFoundryTech match tech.json's and longwar_foundry.json's
+  ids; EFacilityType matches the facility numbers recovered earlier.
+- EResearchCredits has the ten credit slots under vanilla names; slot 9
+  (AllTech) is the Ethereal's credit, closing that question.
+- Fusion Core now counts as needed for Fusion Weapons (kept, not
+  consumed, but selling it would block the research).
+
+Tests: enum slots agree with the history-derived ones; credit slot 9.

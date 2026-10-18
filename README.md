@@ -30,6 +30,9 @@ allow it).
   (prerequisites and items cross-checked with UFOpaedia).
 - `ufopaedia.json`: where UFOpaedia links each unlock, extracted from its
   Long War Research and Foundry pages by `scripts/ufopaedia_links.py`.
+- `data/enums.json`: Enemy Within's item, tech, Foundry, facility and
+  research-credit numbering, read from the game's own script packages by
+  `scripts/upk_enums.py` (the packages are not committed).
 - Saves are read by a TypeScript port of
   [xcomsave](https://github.com/tracktwo/xcomsave)'s reader (`src/save/`).
 - How the numbers were worked out, and what is still unconfirmed:

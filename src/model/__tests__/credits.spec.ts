@@ -53,3 +53,9 @@ describe('research credits', () => {
     expect(foundryCreditReduction(surgery, new Set(['Armor']), 0.25)).toBe(0)
   })
 })
+
+describe('the credit slots against the game enum', () => {
+  it('slot 9 is the all-research credit (EResearchCredits.AllTech)', () => {
+    expect(creditsFromSlots([0, 0, 0, 0, 0, 0, 0, 0, 0, 1])).toEqual(['All'])
+  })
+})

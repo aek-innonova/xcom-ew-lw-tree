@@ -6,8 +6,10 @@
 // - XGFacility_Labs.m_arrCredits holds a flag per credit; slot ↔ credit matched
 //   held interrogations in all 1,651 saves of 33 campaigns: 1 Laser Weapons,
 //   2 Plasma Weapons, 3 Weapons, 4 Aerospace, 5 Armor, 6 Cybernetics, 7 Gauss
-//   Weapons, 8 Psionics. The Ethereal's "All" credit was never earned, so its
-//   slot is unknown (0 and 9 are never set); it is read from the interrogation.
+//   Weapons, 8 Psionics. The game's EResearchCredits (data/enums.json) has the
+//   same ten slots under vanilla names (Weapons_I, PlasmaWeapons, AllWeapons,
+//   Armor_I, AllArmor, UFOTech, Flight, Psionics, AllTech): Long War reuses
+//   them for its own fields. Slot 9, AllTech, is the Ethereal's "All" credit.
 // - Foundry projects: a held credit makes a project start with 75 % of its work
 //   (65 % with Brazil's Expertise), the same rule as research.
 
@@ -22,6 +24,7 @@ export const CREDIT_SLOTS: Record<number, string> = {
   6: 'Cybernetics',
   7: 'Gauss Weapons',
   8: 'Psionics',
+  9: 'All',
 }
 
 /** Credit name → the interrogation that gives it, from tech.json's unlock texts. */

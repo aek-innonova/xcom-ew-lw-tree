@@ -3,17 +3,17 @@
 //
 // Prices are the iCash of the INI's loot ItemBalance_Normal lines
 // (DefaultGameCore.ini, "; Loot"). Stock is XGStorage.m_arrItems, indexed by
-// Enemy Within's EItemType. No published list of those indices exists for EW,
-// so each slot below was found in the person's 1,711 saves (2026-10-18):
-// - Foundry projects record the items they were charged by index
-//   (kOriginalCost.arrItems), and the INI names the item each needs;
-// - starting a research project removes its items from stock, so a count that
-//   drops by exactly the tech's item cost names that slot.
-// "inferred" slots follow the INI's own item order between confirmed ones.
-// Items without a slot are listed, without a stock count.
+// Enemy Within's EItemType, read from the game's own XComGame.upk into
+// data/enums.json (scripts/upk_enums.py). Before the packages were available,
+// the slots had been worked out from the person's 1,711 saves (Foundry
+// kOriginalCost.arrItems, and stock falling when research starts); every one
+// of those matched the enum.
 
 import type { FoundryProject } from './foundry'
+import enumData from '../../data/enums.json'
 import type { Tech } from './techs'
+
+const ITEM_TYPES: string[] = (enumData as { enums: Record<string, string[]> }).enums.EItemType!
 
 export type ItemGroup =
   'Corpses and wrecks' | 'Captives' | 'Artifacts' | 'Alien weapons' | 'Resources'
@@ -22,10 +22,8 @@ export interface CatalogItem {
   key: string
   name: string
   group: ItemGroup
-  /** Index into XGStorage.m_arrItems, where known. */
-  slot?: number
-  /** How the slot is known. */
-  slotFrom?: 'saves' | 'inferred'
+  /** Index into XGStorage.m_arrItems (the item's EItemType value). */
+  slot: number
   /** Grey market price from the INI (stock Long War 1.0). */
   price: number
   /** Finds this item in tech.json and longwar_foundry.json cost texts. */
@@ -34,14 +32,12 @@ export interface CatalogItem {
   corpse?: boolean
 }
 
-export const CATALOG: CatalogItem[] = [
-  // Corpses and wrecks (all slots confirmed from research starts and Foundry costs)
+const ITEMS: Omit<CatalogItem, 'slot'>[] = [
+  // Corpses and wrecks
   {
     key: 'eItem_SectoidCorpse',
     name: 'Sectoid corpse',
     group: 'Corpses and wrecks',
-    slot: 134,
-    slotFrom: 'saves',
     price: 2,
     match: /\bSectoid corpse/i,
     corpse: true,
@@ -50,8 +46,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_SectoidCommanderCorpse',
     name: 'Sectoid Commander corpse',
     group: 'Corpses and wrecks',
-    slot: 135,
-    slotFrom: 'saves',
     price: 10,
     match: /Sectoid Commander corpse/i,
     corpse: true,
@@ -60,8 +54,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_FloaterCorpse',
     name: 'Floater corpse',
     group: 'Corpses and wrecks',
-    slot: 136,
-    slotFrom: 'saves',
     price: 3,
     match: /(?<!Heavy )Floater corpse/i,
     corpse: true,
@@ -70,8 +62,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_FloaterHeavyCorpse',
     name: 'Heavy Floater corpse',
     group: 'Corpses and wrecks',
-    slot: 137,
-    slotFrom: 'saves',
     price: 5,
     match: /Heavy Floater corpse/i,
     corpse: true,
@@ -80,8 +70,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_ThinManCorpse',
     name: 'Thin Man corpse',
     group: 'Corpses and wrecks',
-    slot: 138,
-    slotFrom: 'saves',
     price: 3,
     match: /Thin Man corpse/i,
     corpse: true,
@@ -90,8 +78,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_MutonCorpse',
     name: 'Muton corpse',
     group: 'Corpses and wrecks',
-    slot: 139,
-    slotFrom: 'saves',
     price: 4,
     match: /\bMuton corpse/i,
     corpse: true,
@@ -100,8 +86,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_MutonEliteCorpse',
     name: 'Muton Elite corpse',
     group: 'Corpses and wrecks',
-    slot: 140,
-    slotFrom: 'saves',
     price: 8,
     match: /Muton Elite corpse/i,
     corpse: true,
@@ -110,8 +94,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_BerserkerCorpse',
     name: 'Berserker corpse',
     group: 'Corpses and wrecks',
-    slot: 141,
-    slotFrom: 'saves',
     price: 5,
     match: /Berserker corpse/i,
     corpse: true,
@@ -120,8 +102,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_CyberdiscCorpse',
     name: 'Cyberdisc wreck',
     group: 'Corpses and wrecks',
-    slot: 142,
-    slotFrom: 'saves',
     price: 10,
     match: /Cyberdisc wreck/i,
     corpse: true,
@@ -130,8 +110,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_EtherealCorpse',
     name: 'Ethereal corpse',
     group: 'Corpses and wrecks',
-    slot: 143,
-    slotFrom: 'saves',
     price: 20,
     match: /Ethereal corpse/i,
     corpse: true,
@@ -140,8 +118,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_CryssalidCorpse',
     name: 'Chryssalid corpse',
     group: 'Corpses and wrecks',
-    slot: 144,
-    slotFrom: 'saves',
     price: 7,
     match: /Chryssalid corpse/i,
     corpse: true,
@@ -150,8 +126,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_SectopodCorpse',
     name: 'Sectopod wreck',
     group: 'Corpses and wrecks',
-    slot: 146,
-    slotFrom: 'saves',
     price: 15,
     match: /Sectopod wreck/i,
     corpse: true,
@@ -160,8 +134,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_DroneCorpse',
     name: 'Drone wreck',
     group: 'Corpses and wrecks',
-    slot: 147,
-    slotFrom: 'saves',
     price: 2,
     match: /Drone wreck/i,
     corpse: true,
@@ -170,8 +142,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_MechtoidCore',
     name: 'Mechtoid core',
     group: 'Corpses and wrecks',
-    slot: 187,
-    slotFrom: 'saves',
     price: 10,
     match: /Mechtoid (wreck|core)/i,
     corpse: true,
@@ -180,8 +150,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_SeekerCorpse',
     name: 'Seeker wreck',
     group: 'Corpses and wrecks',
-    slot: 188,
-    slotFrom: 'saves',
     price: 3,
     match: /Seeker wreck/i,
     corpse: true,
@@ -191,8 +159,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_SectoidCaptive',
     name: 'Sectoid captive',
     group: 'Captives',
-    slot: 150,
-    slotFrom: 'saves',
     price: 10,
     match: /\bSectoid captive/i,
   },
@@ -200,8 +166,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_SectoidCommanderCaptive',
     name: 'Sectoid Commander captive',
     group: 'Captives',
-    slot: 151,
-    slotFrom: 'saves',
     price: 40,
     match: /Sectoid Commander captive/i,
   },
@@ -209,8 +173,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_FloaterCaptive',
     name: 'Floater captive',
     group: 'Captives',
-    slot: 152,
-    slotFrom: 'saves',
     price: 10,
     match: /(?<!Heavy )Floater captive/i,
   },
@@ -218,8 +180,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_FloaterHeavyCaptive',
     name: 'Heavy Floater captive',
     group: 'Captives',
-    slot: 153,
-    slotFrom: 'inferred',
     price: 20,
     match: /Heavy Floater captive/i,
   },
@@ -227,8 +187,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_ThinManCaptive',
     name: 'Thin Man captive',
     group: 'Captives',
-    slot: 154,
-    slotFrom: 'saves',
     price: 10,
     match: /Thin Man captive/i,
   },
@@ -236,8 +194,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_MutonCaptive',
     name: 'Muton captive',
     group: 'Captives',
-    slot: 155,
-    slotFrom: 'saves',
     price: 10,
     match: /\bMuton captive/i,
   },
@@ -245,8 +201,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_MutonEliteCaptive',
     name: 'Muton Elite captive',
     group: 'Captives',
-    slot: 156,
-    slotFrom: 'inferred',
     price: 30,
     match: /Muton Elite captive/i,
   },
@@ -254,8 +208,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_BerserkerCaptive',
     name: 'Berserker captive',
     group: 'Captives',
-    slot: 157,
-    slotFrom: 'saves',
     price: 20,
     match: /Berserker captive/i,
   },
@@ -263,8 +215,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_EtherealCaptive',
     name: 'Ethereal captive',
     group: 'Captives',
-    slot: 158,
-    slotFrom: 'inferred',
     price: 50,
     match: /Ethereal captive/i,
   },
@@ -273,8 +223,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_UFOPowerSource',
     name: 'UFO Power Source',
     group: 'Artifacts',
-    slot: 170,
-    slotFrom: 'saves',
     price: 60,
     match: /(?<!Damaged )UFO Power Source/i,
   },
@@ -282,8 +230,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_UFONavigation',
     name: 'UFO Flight Computer',
     group: 'Artifacts',
-    slot: 168,
-    slotFrom: 'saves',
     price: 30,
     match: /(?<!Damaged )UFO Flight Computer/i,
   },
@@ -291,8 +237,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_AlienSurgery',
     name: 'Alien Surgery',
     group: 'Artifacts',
-    slot: 169,
-    slotFrom: 'saves',
     price: 45,
     match: /(?<!Damaged )Alien Surgery/i,
   },
@@ -300,8 +244,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_AlienStasisTank',
     name: 'Alien Stasis Tank',
     group: 'Artifacts',
-    slot: 167,
-    slotFrom: 'saves',
     price: 15,
     match: /(?<!Damaged )Stasis Tank/i,
   },
@@ -344,8 +286,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_SectoidPlasmaPistol',
     name: 'Alien pistol',
     group: 'Alien weapons',
-    slot: 41,
-    slotFrom: 'saves',
     price: 20,
     match: /Alien Pistol/i,
   },
@@ -353,8 +293,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_PlasmaLightRifle_ThinMan',
     name: 'Alien carbine',
     group: 'Alien weapons',
-    slot: 42,
-    slotFrom: 'saves',
     price: 30,
     match: /Alien Carbine/i,
   },
@@ -362,8 +300,6 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_PlasmaAssaultRifle_Muton',
     name: 'Alien rifle',
     group: 'Alien weapons',
-    slot: 45,
-    slotFrom: 'saves',
     price: 40,
     match: /Alien Rifle/i,
   },
@@ -379,36 +315,34 @@ export const CATALOG: CatalogItem[] = [
     key: 'eItem_Elerium115',
     name: 'Elerium',
     group: 'Resources',
-    slot: 161,
-    slotFrom: 'saves',
     price: 3,
   },
   {
     key: 'eItem_AlienAlloys',
     name: 'Alien alloys',
     group: 'Resources',
-    slot: 162,
-    slotFrom: 'saves',
     price: 3,
   },
   {
     key: 'eItem_WeaponFragment',
     name: 'Weapon fragments',
     group: 'Resources',
-    slot: 163,
-    slotFrom: 'saves',
     price: 1,
   },
   {
     key: 'eItem_Meld',
     name: 'Meld',
     group: 'Resources',
-    slot: 164,
-    slotFrom: 'saves',
     price: 4,
     match: /\bMeld\b/i,
   },
 ]
+
+export const CATALOG: CatalogItem[] = ITEMS.map((item) => {
+  const slot = ITEM_TYPES.indexOf(item.key)
+  if (slot < 0) throw new Error(`${item.key} is not in EItemType`)
+  return { ...item, slot }
+})
 
 /** The leading count of a cost text: "10 Sectoid corpses" → 10, "20x Thin Man Corpse" → 20, "Outsider Shard" → 1. */
 function countOf(text: string): number {

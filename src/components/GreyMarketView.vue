@@ -30,9 +30,6 @@ const value = (r: InventoryRow) => (r.spare ?? 0) * r.price
 const total = computed(() =>
   inventory.value.filter((r) => r.item.group !== 'Resources').reduce((n, r) => n + value(r), 0),
 )
-const unknown = computed(
-  () => inventory.value.filter((r) => campaign.value && r.stock === undefined).length,
-)
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 const open = (n: InventoryRow['needs'][number]) =>
   n.for.kind === 'tech' ? showTech(n.for.id) : showFoundry(n.for.id)
@@ -45,7 +42,6 @@ const open = (n: InventoryRow['needs'][number]) =>
       <span v-if="campaign" class="total">Spare worth ${{ fmt(total) }}</span>
       <span v-else class="muted">Load a save to see your stores.</span>
       <span class="muted">Needed = what remaining research and Foundry projects use.</span>
-      <span v-if="unknown" class="muted">– = stock not readable from saves yet.</span>
     </div>
 
     <table>

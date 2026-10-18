@@ -72,6 +72,10 @@ what will it cost me" and "how long will that take with my labs".
 - 2026-10-18: Held research credits are read from the save
   (`m_arrCredits` slots, mapped in `src/model/credits.ts`); credits cut
   Foundry work by the same rule as research (features/research-credits.md).
+- 2026-10-18: Game numbering (items, techs, Foundry, facilities, credits)
+  comes from the game's own script packages via scripts/upk_enums.py into
+  data/enums.json; Firaxis's files stay in samples/, only the extracted
+  names are committed.
 - 2026-10-18: Tactical saves are read through the strategy state they
   embed (see the save-parser report).
 - 2026-10-18: What persists in localStorage is what was extracted (costs,

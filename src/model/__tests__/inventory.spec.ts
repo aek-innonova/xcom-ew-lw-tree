@@ -8,7 +8,9 @@ import { defaultFoundry } from '../foundry'
 import { defaultTechs } from '../techs'
 
 const campaignOf = (f: string) =>
-  readCampaign(parseSave(new Uint8Array(readFileSync(resolve(__dirname, '../../../fixtures/saves', f)))))
+  readCampaign(
+    parseSave(new Uint8Array(readFileSync(resolve(__dirname, '../../../fixtures/saves', f)))),
+  )
 const item = (key: string) => CATALOG.find((c) => c.key === key)!
 
 describe('grey market inventory', () => {
@@ -36,7 +38,9 @@ describe('grey market inventory', () => {
     // Sectoid corpses: every tech that uses them is researched.
     expect((n.get('eItem_SectoidCorpse') ?? []).filter((x) => x.for.kind === 'tech')).toEqual([])
     // Plasma Weapons is in progress, so its alien carbines are paid.
-    expect((n.get('eItem_PlasmaLightRifle_ThinMan') ?? []).map((x) => x.for.name)).not.toContain('Plasma Weapons')
+    expect((n.get('eItem_PlasmaLightRifle_ThinMan') ?? []).map((x) => x.for.name)).not.toContain(
+      'Plasma Weapons',
+    )
   })
 
   it('reads the stores from the save', () => {
@@ -51,5 +55,30 @@ describe.skipIf(!existsSync(sampleIni))('the sample DefaultGameCore.ini', () => 
   it('prices every catalog item as the catalog does', () => {
     const prices = parsePrices(readFileSync(sampleIni, 'utf8'))
     for (const c of CATALOG) expect([c.key, prices.get(c.key)]).toEqual([c.key, c.price])
+  })
+})
+
+describe('item slots from the game enum', () => {
+  it('agree with the slots found in the save history', () => {
+    const fromHistory: Record<string, number> = {
+      eItem_SectoidCorpse: 134,
+      eItem_DroneCorpse: 147,
+      eItem_SectoidCaptive: 150,
+      eItem_BerserkerCaptive: 157,
+      eItem_Elerium115: 161,
+      eItem_Meld: 164,
+      eItem_UFONavigation: 168,
+      eItem_UFOPowerSource: 170,
+      eItem_MechtoidCore: 187,
+      eItem_SeekerCorpse: 188,
+      eItem_SectoidPlasmaPistol: 41,
+    }
+    for (const [key, slot] of Object.entries(fromHistory))
+      expect([key, item(key).slot]).toEqual([key, slot])
+  })
+
+  it('cover every catalog item, the ones the saves could not reveal included', () => {
+    expect(item('eItem_AlienEntertainment').slot).toBe(165)
+    expect(item('eItem_UFOFusionLauncher').slot).toBe(179)
   })
 })
