@@ -49,3 +49,9 @@ The game's EResearchCredits enum (data/enums.json) confirms the slot
 map and names slot 9 (AllTech) as the Ethereal's "All" credit; it is
 read from the save now too. The "All" credit is no longer listed out in
 panels (one line on Interrogate Ethereal; "All research" in Stats).
+
+The game's localization (XComStrategyGame.int, ResearchCreditNames)
+names the slots as Long War uses them, matching the map exactly: 1 Laser
+Weaponry, 2 Plasma Weaponry, 3 Weapons Technology, 4 Aerospace
+Technology, 5 Armor Technology, 6 Cybernetics, 7 Gauss Weaponry,
+8 Psionics, 9 All Technology.
