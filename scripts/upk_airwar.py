@@ -253,6 +253,18 @@ def main():
     def ship_name(t):
         return ship_names.get(ship_enum[t]) or ship_names.get(str(t)) or ship_enum[t]
 
+    equipment, pending = [], []
+    for _, st in statements(pk, 'XGFacility_Hangar.ItemTypeToShipWeapon'):
+        if m := re.fullmatch(r'case b?(\d+):', st):
+            pending.append(int(m.group(1)))
+        elif (m := re.fullmatch(r'return b?(\d+)', st)) and pending:
+            for item in pending:
+                key = item_enum[item]
+                equipment.append({'item': item, 'name': item_names.get(key) or item_names.get(str(item), key),
+                                  'weapon': int(m.group(1))})
+            pending = []
+    equipment.sort(key=lambda e: e['weapon'])
+
     consumables = {n: item_enum.index(n) for n in
                    ('eItem_IntConsumable_Hit', 'eItem_IntConsumable_Dodge', 'eItem_IntConsumable_Boost')}
     out = {
@@ -268,11 +280,9 @@ def main():
         'always_crash': sorted(set(always_crash)),
         'consumables': {k.removeprefix('eItem_IntConsumable_').lower(): {'item': v, 'name': item_names.get(k, k)}
                         for k, v in consumables.items()},
-        # Interceptor weapons as items in stores, and the ship weapon each one is.
-        'equipment': [{'item': item_enum.index(f'eItem_IntWeap_{r}'), 'name': item_names.get(f'eItem_IntWeap_{r}'),
-                       'weapon': next(t for t, n in enumerate(weapon_enum, 1)
-                                      if weapon_names[n] == item_names.get(f'eItem_IntWeap_{r}'))}
-                      for r in ('I', 'II', 'III', 'IV', 'V', 'VI')],
+        # Interceptor weapons as items, and the ship weapon each one is
+        # (XGFacility_Hangar.ItemTypeToShipWeapon; Long War's Stingray is item 116).
+        'equipment': equipment,
     }
     json.dump(out, sys.stdout, indent=1)
     print()

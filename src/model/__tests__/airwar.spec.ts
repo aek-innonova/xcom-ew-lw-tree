@@ -5,6 +5,7 @@ import { parseSave } from '@/save/parse'
 import { readCampaign } from '@/save/campaign'
 import {
   AIR_FOUNDRY,
+  CRAFT_WEAPONS,
   INTERCEPTOR,
   categoryFor,
   craftStats,
@@ -17,6 +18,7 @@ import {
   sequenceOdds,
   toHitFor,
   ufoStats,
+  weaponStats,
   type AirSetting,
   type Engagement,
   type Shot,
@@ -59,6 +61,18 @@ describe('ships and weapons from the INI', () => {
       ['Stingray Missiles', 65], // Wingtip Sparrowhawks
     ])
     expect(craftStats(INTERCEPTOR, 1, set({ foundry: all })).weapons[0]!.damage).toBe(230) // Coilguns
+  })
+
+  it('offers every weapon the hangar can mount, Stingray included (item 116)', () => {
+    expect(CRAFT_WEAPONS.map((w) => weaponStats(w, set()).name)).toEqual([
+      'Phoenix Cannon',
+      'Stingray Missiles',
+      'Avalanche Missiles',
+      'Laser Cannon',
+      'Plasma Cannon',
+      'EMP Cannon',
+      'Fusion Lance',
+    ])
   })
 
   it('grows UFOs with alien research', () => {

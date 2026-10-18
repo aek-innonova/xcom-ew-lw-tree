@@ -187,3 +187,13 @@ and landed-UFO missions only (XGStrategy.PostCombat); it now reads
   canards, the Firestorm a crescent with forward-curving wings and a
   glowing engine ring. They fly in the fight instead of the triangle and
   sit on each jet's card. All pictures are now `public/ships/<EShipType>.webp`.
+
+## Report (2026-10-18, round 6)
+
+- Stingray Missiles can be picked: Long War keeps them in item 116 (the
+  enum's BEGIN_SHIP_WEAPONS marker), so the equipment list is now read from
+  the game's own XGFacility_Hangar.ItemTypeToShipWeapon instead of the
+  IntWeap item names.
+- The pictures are rougher: dark, matte, worn gunmetal with uneven plating
+  (two skewed panel grids), grime and scuffed roughness, dimmer glows, and
+  seeded clutter on the hulls (plates, vents, blisters, antennae).

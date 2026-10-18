@@ -18,6 +18,7 @@ fight). Cycles on the CPU, a few seconds each.
 """
 import math
 import os
+import random
 import sys
 
 import bpy
@@ -51,12 +52,12 @@ def reset():
     sky.sky_type = 'HOSEK_WILKIE'
     sky.sun_direction = (0.4, -0.6, 0.7)
     world.node_tree.links.new(sky.outputs['Color'], nodes['Background'].inputs['Color'])
-    nodes['Background'].inputs['Strength'].default_value = 0.35
+    nodes['Background'].inputs['Strength'].default_value = 0.2
     sc.world = world
     for name, loc, energy, size, color in (
-        ('key', (3, -4, 4), 900, 4, (1.0, 0.96, 0.9)),
-        ('rim', (-4, 4, 2), 800, 4, (0.55, 0.8, 1.0)),
-        ('fill', (-1, -5, -1.5), 140, 6, (0.8, 0.85, 1.0)),
+        ('key', (3, -4, 4), 700, 3, (1.0, 0.94, 0.86)),
+        ('rim', (-4, 4, 2), 900, 3, (0.55, 0.8, 1.0)),
+        ('fill', (-1, -5, -1.5), 60, 6, (0.8, 0.85, 1.0)),
     ):
         light = bpy.data.lights.new(name, 'AREA')
         light.energy, light.size, light.color = energy, size, color
@@ -69,18 +70,19 @@ def reset():
 
 SPECS = {
     # Hulls carry a panel grid (a brick texture as bump), Enemy Unknown's look.
-    'hull': dict(color=(0.30, 0.32, 0.36), metal=0.9, rough=0.32, panels=3),
-    'hull_light': dict(color=(0.55, 0.57, 0.61), metal=0.9, rough=0.28, panels=3),
-    'hull_dark': dict(color=(0.10, 0.10, 0.13), metal=0.85, rough=0.38, panels=3),
-    'ethereal': dict(color=(0.20, 0.12, 0.30), metal=0.9, rough=0.2, panels=3),
-    'xcom': dict(color=(0.62, 0.65, 0.68), metal=0.7, rough=0.3, panels=0),
-    'xcom_dark': dict(color=(0.16, 0.18, 0.2), metal=0.6, rough=0.4, panels=0),
+    # Worn: uneven plates, grime, scuffed roughness; Enemy Unknown is not polished.
+    'hull': dict(color=(0.12, 0.125, 0.135), metal=0.6, rough=0.6, panels=3, grime=0.85),
+    'hull_light': dict(color=(0.2, 0.205, 0.21), metal=0.6, rough=0.56, panels=3, grime=0.8),
+    'hull_dark': dict(color=(0.05, 0.05, 0.055), metal=0.55, rough=0.64, panels=3, grime=0.7),
+    'ethereal': dict(color=(0.11, 0.06, 0.16), metal=0.6, rough=0.45, panels=3, grime=0.5),
+    'xcom': dict(color=(0.3, 0.31, 0.32), metal=0.45, rough=0.52, panels=9, grime=0.5),
+    'xcom_dark': dict(color=(0.08, 0.085, 0.09), metal=0.4, rough=0.6, panels=0, grime=0.4),
     'panel': dict(color=(0.04, 0.04, 0.05), metal=0.4, rough=0.6),
     'glass': dict(color=(0.03, 0.06, 0.08), metal=0.2, rough=0.03, emit=(0.25, 0.85, 1.0), strength=0.6),
-    'cyan': dict(color=(0.2, 0.8, 1.0), metal=0, rough=0.4, emit=(0.25, 0.85, 1.0), strength=9),
-    'violet': dict(color=(0.7, 0.3, 1.0), metal=0, rough=0.4, emit=(0.72, 0.35, 1.0), strength=9),
-    'amber': dict(color=(1.0, 0.6, 0.2), metal=0, rough=0.4, emit=(1.0, 0.55, 0.15), strength=9),
-    'red': dict(color=(1.0, 0.25, 0.15), metal=0, rough=0.4, emit=(1.0, 0.22, 0.1), strength=9),
+    'cyan': dict(color=(0.2, 0.8, 1.0), metal=0, rough=0.4, emit=(0.25, 0.85, 1.0), strength=6),
+    'violet': dict(color=(0.7, 0.3, 1.0), metal=0, rough=0.4, emit=(0.72, 0.35, 1.0), strength=6),
+    'amber': dict(color=(1.0, 0.6, 0.2), metal=0, rough=0.4, emit=(1.0, 0.55, 0.15), strength=6),
+    'red': dict(color=(1.0, 0.25, 0.15), metal=0, rough=0.4, emit=(1.0, 0.22, 0.1), strength=6),
     'green': dict(color=(0.4, 1.0, 0.5), metal=0, rough=0.4, emit=(0.4, 1.0, 0.5), strength=8),
 }
 MATS = {}
@@ -100,19 +102,76 @@ def mat(name):
     if 'emit' in spec:
         b.inputs['Emission Color'].default_value = (*spec['emit'], 1)
         b.inputs['Emission Strength'].default_value = spec['strength']
-    if spec.get('panels'):
-        coord = nt.nodes.new('ShaderNodeTexCoord')
-        brick = nt.nodes.new('ShaderNodeTexBrick')
-        brick.inputs['Scale'].default_value = spec['panels']
-        brick.inputs['Mortar Size'].default_value = 0.008
-        brick.inputs['Color1'].default_value = (1, 1, 1, 1)
-        brick.inputs['Color2'].default_value = (0.85, 0.85, 0.85, 1)
-        brick.inputs['Mortar'].default_value = (0, 0, 0, 1)
-        bump = nt.nodes.new('ShaderNodeBump')
-        bump.inputs['Strength'].default_value = 0.15
-        nt.links.new(coord.outputs['Object'], brick.inputs['Vector'])
-        nt.links.new(brick.outputs['Fac'], bump.inputs['Height'])
-        nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+    if spec.get('panels') or spec.get('grime'):
+        coord = nt.nodes.new('ShaderNodeTexCoord').outputs['Object']
+        normal = None
+        if spec.get('panels'):
+            # Plates: a brick grid for seams and tone, a second, skewed one so
+            # the plating is uneven.
+            for scale, strength, skew in ((spec['panels'], 0.3, 0.0), (spec['panels'] * 2.3, 0.12, 0.6)):
+                mapping = nt.nodes.new('ShaderNodeMapping')
+                mapping.inputs['Rotation'].default_value = (skew, skew * 0.7, skew * 1.3)
+                nt.links.new(coord, mapping.inputs['Vector'])
+                brick = nt.nodes.new('ShaderNodeTexBrick')
+                brick.inputs['Scale'].default_value = scale
+                brick.inputs['Mortar Size'].default_value = 0.01
+                brick.inputs['Color1'].default_value = (1, 1, 1, 1)
+                brick.inputs['Color2'].default_value = (0.7, 0.7, 0.7, 1)
+                brick.inputs['Mortar'].default_value = (0, 0, 0, 1)
+                nt.links.new(mapping.outputs['Vector'], brick.inputs['Vector'])
+                bump = nt.nodes.new('ShaderNodeBump')
+                bump.inputs['Strength'].default_value = strength
+                nt.links.new(brick.outputs['Fac'], bump.inputs['Height'])
+                if normal:
+                    nt.links.new(normal, bump.inputs['Normal'])
+                normal = bump.outputs['Normal']
+                if strength > 0.2:
+                    tone = brick.outputs['Color']
+        # Grime: large blotches darken the base colour; fine noise scuffs
+        # the surface and its roughness.
+        dirt = nt.nodes.new('ShaderNodeTexNoise')
+        dirt.inputs['Scale'].default_value = 3.5
+        dirt.inputs['Detail'].default_value = 8
+        nt.links.new(coord, dirt.inputs['Vector'])
+        ramp = nt.nodes.new('ShaderNodeValToRGB')
+        ramp.color_ramp.elements[0].position, ramp.color_ramp.elements[1].position = 0.35, 0.7
+        nt.links.new(dirt.outputs['Fac'], ramp.inputs['Fac'])
+        base = nt.nodes.new('ShaderNodeMix')
+        base.data_type = 'RGBA'
+        base.inputs['Factor'].default_value = spec.get('grime', 0.4)
+        c = spec['color']
+        base.inputs['A'].default_value = (*c, 1)
+        base.inputs['B'].default_value = (c[0] * 0.35, c[1] * 0.33, c[2] * 0.3, 1)
+        mixf = nt.nodes.new('ShaderNodeMath')
+        mixf.operation = 'MULTIPLY'
+        mixf.inputs[1].default_value = spec.get('grime', 0.4)
+        nt.links.new(ramp.outputs['Color'], mixf.inputs[0])
+        nt.links.new(mixf.outputs['Value'], base.inputs['Factor'])
+        colour = base.outputs['Result']
+        if spec.get('panels'):
+            tint = nt.nodes.new('ShaderNodeMix')
+            tint.data_type = 'RGBA'
+            tint.blend_type = 'MULTIPLY'
+            tint.inputs['Factor'].default_value = 0.35
+            nt.links.new(colour, tint.inputs['A'])
+            nt.links.new(tone, tint.inputs['B'])
+            colour = tint.outputs['Result']
+        nt.links.new(colour, b.inputs['Base Color'])
+        scuff = nt.nodes.new('ShaderNodeTexNoise')
+        scuff.inputs['Scale'].default_value = 40
+        scuff.inputs['Detail'].default_value = 4
+        nt.links.new(coord, scuff.inputs['Vector'])
+        rough = nt.nodes.new('ShaderNodeMapRange')
+        rough.inputs['To Min'].default_value = spec['rough'] - 0.1
+        rough.inputs['To Max'].default_value = min(1.0, spec['rough'] + 0.25)
+        nt.links.new(scuff.outputs['Fac'], rough.inputs['Value'])
+        nt.links.new(rough.outputs['Result'], b.inputs['Roughness'])
+        fine = nt.nodes.new('ShaderNodeBump')
+        fine.inputs['Strength'].default_value = 0.06
+        nt.links.new(scuff.outputs['Fac'], fine.inputs['Height'])
+        if normal:
+            nt.links.new(normal, fine.inputs['Normal'])
+        nt.links.new(fine.outputs['Normal'], b.inputs['Normal'])
     MATS[name] = m
     return m
 
@@ -227,6 +286,54 @@ def carve(target, cutter):
     bpy.data.objects.remove(cutter)
 
 
+def greebles(count, seed, place, size=(0.03, 0.1), material='hull_dark'):
+    """Small plates, vents and blisters scattered by `place(rng)`, which gives
+    a point and a direction to face along: the clutter that makes a hull
+    look built rather than turned."""
+    rng = random.Random(seed)
+    for _ in range(count):
+        (x, y, z), heading = place(rng)
+        w = rng.uniform(*size)
+        kind = rng.random()
+        if kind < 0.55:
+            box((w * rng.uniform(1, 2.5), w, w * 0.35), (x, y, z), material, bevel=0.004, rot=(0, 0, heading))
+        elif kind < 0.85:
+            ball((x, y, z), w * 0.6, material, scale=(1.4, 1, 0.45), segments=12)
+        else:
+            rod((x, y, z), (x, y, z + w * 2.5), w * 0.08, material, vertices=8)
+
+
+def on_lathe(profile, sx=1.0, sy=1.0, square=2.0, lo=0.25, hi=0.9, arc=(0, 2 * math.pi)):
+    """Points on the upper surface of a revolved hull, between `lo` and `hi`
+    of its radius, for greebles()."""
+    rs = [r for r, _ in profile]
+    top = [(r, h) for r, h in profile if h >= 0]
+
+    def height(r):
+        pts = sorted(top)
+        for (r0, h0), (r1, h1) in zip(pts, pts[1:]):
+            if r0 <= r <= r1:
+                return h0 + (h1 - h0) * (r - r0) / max(1e-6, r1 - r0)
+        return pts[-1][1]
+
+    def place(rng):
+        a = rng.uniform(*arc)
+        f = rng.uniform(lo, hi) * max(rs)
+        c, d = math.cos(a), math.sin(a)
+        k = (abs(c) ** square + abs(d) ** square) ** (-1 / square)
+        return (f * c * k * sx, f * d * k * sy, height(f) + 0.005), a + math.pi / 2
+    return place
+
+
+def on_box(size, centre, lo=0.1, hi=0.9):
+    """Points on the top face of a box, for greebles()."""
+    def place(rng):
+        x = centre[0] + (rng.uniform(lo, hi) - 0.5) * size[0]
+        y = centre[1] + (rng.uniform(lo, hi) - 0.5) * size[1]
+        return (x, y, centre[2] + size[2] / 2), rng.choice((0, math.pi / 2))
+    return place
+
+
 def scoop(target, loc, size, glow):
     """Enemy Unknown's arched intake in a saucer's front: carved, lit inside."""
     cutter = ball(loc, 1.0, 'panel', scale=size)
@@ -254,6 +361,7 @@ def scout_hull(scale=1.0):
         ball((0.88 * s * scale, 0.05, 0.03), 0.2 * scale, 'hull', scale=(0.55, 1.3, 0.75))
         ball((1.0 * s * scale, -0.12 * scale, 0.03), 0.03, 'cyan')
     lights(0.99, -0.02, 7, 0.022, 'cyan', arc=(math.pi * 1.2, math.pi * 1.8), **kw)
+    greebles(26, 4, on_lathe([(r * scale, h * scale) for r, h in PILLOW], lo=0.3, hi=0.85, **kw), size=(0.025, 0.07))
 
 
 def scout():
@@ -278,6 +386,7 @@ def oval_hull(sx=1.35, sy=1.0, material='hull', glow='cyan', scale=1.0):
     scoop(hull, (0, -1.0 * sy * scale, 0.0), (0.42 * scale, 0.2 * scale, 0.11 * scale), glow)
     band(0.72, 0.13, 'panel', **kw)
     band(0.98, 0.04, glow, w=0.012, t=0.008, **kw)
+    greebles(30, 5, on_lathe([(r * scale, h * scale) for r, h in OVAL], lo=0.52, hi=0.9, **kw), size=(0.025, 0.07))
     return kw
 
 
@@ -302,6 +411,8 @@ def overseer():
     band(0.55, 0.13, 'violet', w=0.015, t=0.008, **kw)
     band(0.86, 0.075, 'violet', w=0.015, t=0.008, **kw)
     lathe([(0, 0.22), (0.25, 0.2), (0.32, 0.15), (0, 0.15)], 'ethereal', sx=1.2, sy=0.8)
+    greebles(18, 9, on_lathe([(0, 0.17), (0.5, 0.15), (0.85, 0.08), (1.0, 0.0)], lo=0.4, hi=0.8, **kw),
+             size=(0.02, 0.05), material='ethereal')
     lathe([(0, -0.12), (0.3, -0.12), (0.18, -0.2), (0, -0.2)], 'violet', sx=1.3)
 
 
@@ -313,6 +424,8 @@ def abductor(harvester=False):
     lathe([(0, 0.32), (0.6, 0.31), (0.88, 0.25), (0.98, 0.12), (1.0, 0.0), (0.97, -0.14), (0.85, -0.22), (0, -0.24)],
           hull, **kw)
     band(0.75, 0.27, 'panel', **kw)
+    greebles(30, 6, on_lathe([(0, 0.32), (0.6, 0.31), (0.88, 0.25), (0.98, 0.12), (1.0, 0.0)], lo=0.6, hi=0.9, **kw),
+             size=(0.03, 0.07))
     band(0.99, 0.02, glow, w=0.012, t=0.008, **kw)
     # Rounded humps across the top, in a shallow arc.
     for i, x in enumerate((-0.66, -0.22, 0.22, 0.66)):
@@ -347,6 +460,8 @@ def transport(terror=False):
             ring((1.26, y, z), 0.12, 0.035, glow)
             ball((1.2, y, z), 0.1, glow, scale=(0.4, 1, 1))
     box((1.6, 0.02, 0.05), (-0.2, -0.61, 0.2), glow, bevel=0)
+    greebles(22, 7, on_box((1.4, 0.9, 0.3), (-0.3, 0, 0.5)), size=(0.03, 0.08))
+    greebles(16, 8, on_box((2.0, 1.1, 0.8), (0, 0, 0), lo=0.05, hi=0.95), size=(0.03, 0.07))
     if terror:
         for x, h in ((-0.8, 0.4), (-0.3, 0.55), (0.2, 0.4)):
             cone((x, 0, 0.65 + h / 2), 0.07, h, 'hull_dark')
@@ -374,6 +489,8 @@ def battleship(carrier=False):
         rod((-1.3, 0.2 * s, 0.0), (-1.45, 0.2 * s, 0.0), 0.12, 'hull_dark')
         ball((-1.46, 0.2 * s, 0.0), 0.1, 'cyan', scale=(0.4, 1, 1))
     box((2.2, 0.02, 0.04), (0, -0.36, 0.05), trim, bevel=0)
+    greebles(26, 10, on_box((1.8, 0.4, 0.26), (-0.2, 0, 0.32)), size=(0.025, 0.06))
+    greebles(20, 11, on_box((2.5, 0.7, 0.42), (0, 0, 0), lo=0.05, hi=0.95), size=(0.025, 0.06))
     if carrier:
         # A long flight deck and an open hangar bay under the prow.
         box((1.9, 0.6, 0.04), (-0.1, 0, 0.47), 'hull_light', bevel=0.02)

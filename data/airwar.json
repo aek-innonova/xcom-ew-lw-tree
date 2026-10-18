@@ -843,6 +843,11 @@
    "weapon": 1
   },
   {
+   "item": 116,
+   "name": "Stingray Missiles",
+   "weapon": 2
+  },
+  {
    "item": 118,
    "name": "Avalanche Missiles",
    "weapon": 3
