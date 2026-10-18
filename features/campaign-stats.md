@@ -87,5 +87,5 @@ and the country usually has a satellite again in the same save.
 The campaign bar shows engineers next to scientists, the money in hand
 (XGHeadQuarters.m_iCash) and the alloys, elerium, Meld and weapon fragments
 in stores (XGStorage.m_arrItems), as coloured squares with numbers like
-costs elsewhere (the names are there for screen readers). Unit test: save1762
+costs elsewhere (hover one for its name). Unit test: save1762
 holds $87.

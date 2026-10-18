@@ -54,8 +54,8 @@ const info = computed(() => {
     materials: [
       { key: 'alloys', name: 'alloys', n: c.stock[ITEM.alloys] },
       { key: 'elerium', name: 'elerium', n: c.stock[ITEM.elerium] },
-      { key: 'meld', name: 'meld', n: c.stock[ITEM.meld] },
-      { key: 'fragments', name: 'fragments', n: c.stock[ITEM.fragments] },
+      { key: 'meld', name: 'Meld', n: c.stock[ITEM.meld] },
+      { key: 'fragments', name: 'weapon fragments', n: c.stock[ITEM.fragments] },
     ].filter((m) => m.n !== undefined),
   }
 })
@@ -124,7 +124,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
       class="stores"
       aria-label="Money and materials"
     >
-      <span v-if="info.cash !== undefined" class="cash"
+      <span v-if="info.cash !== undefined" class="cash" title="Money"
         >${{ info.cash.toLocaleString('en-US') }}</span
       >
       <span
@@ -132,7 +132,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         :key="m.key"
         class="res"
         :class="`res-${m.key}`"
-        :aria-label="`${m.n} ${m.name}`"
+        :title="`${m.n!.toLocaleString('en-US')} ${m.name}`"
         >{{ m.n!.toLocaleString('en-US') }}</span
       >
     </span>
