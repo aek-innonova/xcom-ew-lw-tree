@@ -4,6 +4,7 @@
 import { computed } from 'vue'
 import { applicableCredits, creditReductionFor, estimate, techState } from '@/model/research'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
+import { itemLink, techLink } from '@/model/ufopaedia'
 import {
   campaign,
   changedByIni,
@@ -92,7 +93,10 @@ const select = (id: number) => (state.selected = id)
   <section v-if="tech" class="detail" aria-label="Selected tech">
     <header>
       <div>
-        <p class="category">{{ tech.category }}</p>
+        <p class="category">
+          {{ tech.category }} ·
+          <a :href="techLink(tech)" target="_blank" rel="noopener" class="wiki">UFOpaedia ↗</a>
+        </p>
         <h2>{{ tech.name }}</h2>
       </div>
       <button type="button" class="close" title="Close" @click="state.selected = null">×</button>
@@ -199,7 +203,17 @@ const select = (id: number) => (state.selected = id)
     <section v-if="unlocks.length || foundry.length">
       <h3>Unlocks</h3>
       <ul class="unlocks">
-        <li v-for="u in unlocks" :key="u">{{ u }}</li>
+        <li v-for="u in unlocks" :key="u">
+          <a
+            v-if="itemLink(u)"
+            :href="itemLink(u)"
+            target="_blank"
+            rel="noopener"
+            class="item-link"
+            >{{ u }}</a
+          >
+          <template v-else>{{ u }}</template>
+        </li>
         <li v-for="f in foundry" :key="`foundry:${f.id}`" class="foundry-item">
           <button type="button" class="foundry-link" @click="showFoundry(f.id)">
             {{ f.name }}
@@ -302,6 +316,24 @@ ul {
 .links button.done::before {
   content: '✓ ';
   color: var(--done-text);
+}
+.wiki {
+  color: var(--muted);
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.wiki:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.item-link {
+  color: inherit;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+}
+.item-link:hover {
+  color: var(--accent);
 }
 .foundry-link {
   border: none;

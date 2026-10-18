@@ -3,6 +3,7 @@
 
 import { computed } from 'vue'
 import { foundryProgress, foundryState } from '@/model/foundry'
+import { foundryLink } from '@/model/ufopaedia'
 import {
   campaign,
   changedFoundryByIni,
@@ -47,7 +48,12 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
   <section v-if="project" class="detail" aria-label="Selected Foundry project">
     <header>
       <div>
-        <p class="category">Foundry · {{ project.category }}</p>
+        <p class="category">
+          Foundry · {{ project.category }} ·
+          <a :href="foundryLink(project)" target="_blank" rel="noopener" class="wiki"
+            >UFOpaedia ↗</a
+          >
+        </p>
         <h2>{{ project.name }}</h2>
       </div>
       <button type="button" class="close" title="Close" @click="state.selectedFoundry = null">
@@ -169,6 +175,16 @@ h2 {
   font-size: 18px;
   line-height: 1;
   padding: 2px 8px;
+}
+.wiki {
+  color: var(--muted);
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.wiki:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 .status {
   margin: 12px 0 0;

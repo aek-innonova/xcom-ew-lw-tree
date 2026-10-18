@@ -28,6 +28,8 @@ allow it).
 - `tech.json`, `longwar_foundry.json`, `longwar_bonuses.json`: the techs,
   Foundry projects and bonuses, from the game's config and localization
   (prerequisites and items cross-checked with UFOpaedia).
+- `ufopaedia.json`: where UFOpaedia links each unlock, extracted from its
+  Long War Research and Foundry pages by `scripts/ufopaedia_links.py`.
 - Saves are read by a TypeScript port of
   [xcomsave](https://github.com/tracktwo/xcomsave)'s reader (`src/save/`).
 - How the numbers were worked out, and what is still unconfirmed:
