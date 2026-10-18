@@ -1,6 +1,6 @@
 ---
 title: Plan the research path to a goal
-status: planned
+status: in-progress
 priority: 5
 dependsOn: [progress-overlay]
 ---
