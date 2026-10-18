@@ -3,12 +3,10 @@
 
 import { computed } from 'vue'
 import { planTotals } from '@/model/plan'
-import { daysFor, estimate, researchContext, techState } from '@/model/research'
-import { campaign, plan, state, techById, techs, toggleGoal } from '@/state/store'
+import { daysFor, estimate, techState } from '@/model/research'
+import { campaign, plan, state, techById, techs, toggleGoal, research } from '@/state/store'
 
-const ctx = computed(() =>
-  campaign.value ? researchContext(campaign.value, techs.value) : undefined,
-)
+const ctx = research
 const totals = computed(() => (plan.value ? planTotals(plan.value, techs.value) : undefined))
 
 const steps = computed(() => {

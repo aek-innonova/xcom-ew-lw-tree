@@ -4,7 +4,9 @@
 // from it is a few kilobytes), so a reload does not lose them.
 
 import { computed, reactive, watch } from 'vue'
+import { activeBonuses, parseBonusValues, researchBonuses } from '@/model/bonuses'
 import { applyTechBalance, parseTechBalance, type TechBalance } from '@/model/ini'
+import { researchContext } from '@/model/research'
 import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
 import { readCampaign, type Campaign } from '@/save/campaign'
@@ -18,6 +20,8 @@ export interface LoadedIni {
   fileName: string
   balance: [number, TechBalance][]
   unmatched: string[]
+  /** Starting, country and continent bonus values from the INI, by bonus key. */
+  bonusValues?: [string, number][]
 }
 
 export interface LoadedSave {
@@ -92,6 +96,27 @@ export const techById = computed(() => new Map(techs.value.map((t) => [t.id, t])
 export const changedByIni = computed(() => new Set(applied.value?.changed ?? []))
 export const campaign = computed(() => state.save?.campaign ?? null)
 
+/** The campaign's starting, country and continent bonuses, with the INI's values if loaded. */
+export const bonuses = computed(() =>
+  campaign.value
+    ? activeBonuses(
+        campaign.value,
+        state.ini?.bonusValues ? new Map(state.ini.bonusValues) : undefined,
+      )
+    : null,
+)
+
+/** Research speed, credits and bonuses for estimates; undefined without a save. */
+export const research = computed(() =>
+  campaign.value
+    ? researchContext(
+        campaign.value,
+        techs.value,
+        bonuses.value ? researchBonuses(bonuses.value) : undefined,
+      )
+    : undefined,
+)
+
 /** What is still needed for the goals, from the loaded campaign or from scratch. */
 export const plan = computed<Plan | null>(() => {
   const goals = state.goals.filter((g) => techById.value.has(g))
@@ -138,7 +163,12 @@ export function loadIni(fileName: string, text: string) {
     state.message = { kind: 'error', text: `${fileName} has no TechBalance lines.` }
     return
   }
-  state.ini = { fileName, balance: [...parsed.balance], unmatched: parsed.unmatched }
+  state.ini = {
+    fileName,
+    balance: [...parsed.balance],
+    unmatched: parsed.unmatched,
+    bonusValues: [...parseBonusValues(text)],
+  }
   const changed = changedByIni.value.size
   const missing = applied.value?.missing.length ?? 0
   const parts = [`${fileName}: costs for ${parsed.balance.size} techs`]

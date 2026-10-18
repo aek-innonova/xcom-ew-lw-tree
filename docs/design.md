@@ -53,10 +53,14 @@ what will it cost me" and "how long will that take with my labs".
   backwards and hid skipping edges behind nodes; readability won.
 - 2026-10-18: Research time: speed = scientists × (1 + lab bonus +
   adjacency bonus) points/hour; a tech costs base days × 720, less 25 %
-  when a credit covering it is held (35 % seen once, likely the
-  Expertise bonus; stacking of two credits is not known); the
+  plus Expertise when a credit covering it is held (stacking of two
+  credits is not known), fixed when the project starts; We Have Ways
+  shortens autopsies and interrogations (unconfirmed); the
   current project's remaining points come from the save. Verified
   against the game's ETA in every sample; see `src/model/research.ts`.
+- 2026-10-18: Campaign bonuses: starting bonus from the save, country
+  bonuses for covered countries except the starting country, continent
+  bonuses for fully covered continents (see features/campaign-bonuses.md).
 - 2026-10-18: Tactical saves are read through the strategy state they
   embed (see the save-parser report).
 - 2026-10-18: What persists in localStorage is what was extracted (costs,

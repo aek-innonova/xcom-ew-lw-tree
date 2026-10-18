@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // One line about the loaded campaign: where it stands and how fast it researches.
 
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { difficultyName } from '@/save/campaign'
-import { pointsPerHour, projectDaysLeft } from '@/model/research'
-import { campaign, state, techById, techs } from '@/state/store'
+import { countryName, EXPERTISE, WE_HAVE_WAYS, type Bonus } from '@/model/bonuses'
+import { pointsPerHour, projectEtaDays } from '@/model/research'
+import { bonuses, campaign, state, techById, techs } from '@/state/store'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -14,7 +15,7 @@ const info = computed(() => {
   const done = techs.value.filter((t) => c.researched[t.id]).length
   const bonus = Math.round(((c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0)) * 100)
   const project = c.project ? techById.value.get(c.project.tech) : undefined
-  const days = projectDaysLeft(c)
+  const days = projectEtaDays(c)
   return {
     date: c.date ? `${c.date.day} ${MONTHS[c.date.month - 1]} ${c.date.year}` : undefined,
     difficulty: difficultyName(c.difficulty),
@@ -29,8 +30,29 @@ const info = computed(() => {
     days,
     tactical: c.tactical,
     ironman: c.ironman,
+    start: countryName(c.startCountry),
   }
 })
+
+// The campaign's bonuses, opened from the bar.
+const showBonuses = ref(false)
+const groups = computed(() => {
+  const b = bonuses.value
+  if (!b) return []
+  return [
+    { title: 'Starting bonus', items: b.starting ? [b.starting] : [] },
+    { title: 'Country bonuses (satellite coverage)', items: researchFirst(b.countries) },
+    { title: 'Continent bonuses (every country covered)', items: researchFirst(b.continents) },
+  ].filter((g) => g.items.length)
+})
+const JAI_VIDWAN = 46
+const affectsResearch = (b: Bonus) => b.bonus_id === EXPERTISE || b.bonus_id === WE_HAVE_WAYS
+/** How a bonus reaches the research numbers, if it does. */
+const researchTag = (b: Bonus) =>
+  affectsResearch(b) ? 'in estimates' : b.bonus_id === JAI_VIDWAN ? "in the save's lab bonus" : ''
+const researchFirst = (items: Bonus[]) =>
+  [...items].sort((a, b) => Number(!researchTag(a)) - Number(!researchTag(b)))
+const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
 </script>
 
 <template>
@@ -63,6 +85,36 @@ const info = computed(() => {
       >
     </span>
     <span v-else>No research in progress</span>
+    <span v-if="info.start" class="bonus-anchor">
+      Started in {{ info.start }}
+      <button
+        type="button"
+        class="link"
+        :aria-expanded="showBonuses"
+        @click="showBonuses = !showBonuses"
+      >
+        {{ bonuses?.all.length === 1 ? '1 bonus' : `${bonuses?.all.length ?? 0} bonuses` }}
+      </button>
+      <div v-if="showBonuses" class="bonuses" role="dialog" aria-label="Campaign bonuses">
+        <button type="button" class="close" aria-label="Close" @click="showBonuses = false">
+          ×
+        </button>
+        <section v-for="g in groups" :key="g.title">
+          <h3>{{ g.title }}</h3>
+          <ul>
+            <li v-for="b in g.items" :key="`${b.type}:${b.bonus_id}:${where(b)}`">
+              <strong>{{ b.name }}</strong> <span class="where">{{ where(b) }}</span>
+              <span v-if="researchTag(b)" class="research">{{ researchTag(b) }}</span>
+              <div class="desc">{{ b.description }}</div>
+            </li>
+          </ul>
+        </section>
+        <p class="foot">
+          A country's bonus counts while it has a satellite, except the starting country's. Values
+          come from your DefaultGameCore.ini when loaded.
+        </p>
+      </div>
+    </span>
     <span v-if="info.tactical" class="note"
       >Mid-mission save: research as of the mission's start</span
     >
@@ -74,6 +126,65 @@ const info = computed(() => {
 </template>
 
 <style scoped>
+.bonus-anchor {
+  position: relative;
+}
+.bonuses {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+.bonuses .close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0 7px;
+}
+.bonuses h3 {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.bonuses ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bonuses li {
+  padding: 4px 0;
+}
+.where {
+  color: var(--muted);
+  font-size: 12px;
+}
+.research {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.desc {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.bonuses .foot {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
 .campaign {
   display: flex;
   flex-wrap: wrap;

@@ -1,0 +1,1605 @@
+{
+  "game": "XCOM: Enemy Within",
+  "mod": "Long War 1.0 (Dec 28 2015)",
+  "generated": "2026-10-18",
+  "sources": {
+    "bonus_mapping": "XEW/XComGame/Config/DefaultGameCore.ini, ItemBalance_Classic block under \"Starter, Country and Continent bonuses\". eItem 0 = starting bonus, 1 = country bonus (active while that country has satellite coverage), 2 = continent bonus (needs full coverage). iTime is the bonus id, iEng its value. The same block applies at every difficulty.",
+    "names_and_descriptions": "XEW/XComGame/Localization/INT/XComStrategyGame.int, ContinentBonusNames[id] and ContinentBonusDesc[id]; <XGParam:IntValue0> in the description is filled with the config value.",
+    "countries": "TCountry structs on XGCountry actors in the save (iEnum is the country id used by the config). Starting cash per country from the \"Initial Cash Amounts\" block of the ini, before the difficulty multiplier.",
+    "effects": "Bonus effects are implemented in the game scripts; the description text is what the game shows."
+  },
+  "save_fields": {
+    "continent_bonus": "XGContinent.m_eBonus (vanilla EContinentBonus enum name, one per continent; Long War reuses these slots for its own bonuses)",
+    "starting_bonus": "not stored by name; the game keeps the starting country and derives the bonus from the config",
+    "country_bonus": "not stored; a country bonus is active while XGCountry has a satellite"
+  },
+  "continents": [
+    {
+      "id": 0,
+      "enum": "eContinent_NorthAmerica",
+      "name": "North America",
+      "bonus": {
+        "type": "continent",
+        "bonus_id": 2,
+        "name": "Air Superiority",
+        "description": "Aircraft and aircraft weapons cost 25% less to purchase and maintain.",
+        "value": 25,
+        "config_comment": "% reduction in aerospace costs",
+        "enabled": true,
+        "continent_id": 0,
+        "continent": "North America"
+      },
+      "countries": [
+        "United States",
+        "Canada",
+        "Mexico"
+      ]
+    },
+    {
+      "id": 1,
+      "enum": "eContinent_SouthAmerica",
+      "name": "South America",
+      "bonus": {
+        "type": "continent",
+        "bonus_id": 3,
+        "name": "Power to the People",
+        "description": "Power facilities cost 30% less to build and maintain.",
+        "value": 30,
+        "config_comment": "% reduction in power facility costs",
+        "enabled": true,
+        "continent_id": 1,
+        "continent": "South America"
+      },
+      "countries": [
+        "Brazil",
+        "Argentina",
+        "Venezuela",
+        "Colombia"
+      ]
+    },
+    {
+      "id": 2,
+      "enum": "eContinent_Europe",
+      "name": "Europe",
+      "bonus": {
+        "type": "continent",
+        "bonus_id": 6,
+        "name": "Wealth of Nations",
+        "description": "Monthly XCOM funding increased by 20%.",
+        "value": 20,
+        "config_comment": "% bonus in monthly satellite-based funding",
+        "enabled": true,
+        "continent_id": 2,
+        "continent": "Europe"
+      },
+      "countries": [
+        "Russia",
+        "United Kingdom",
+        "Germany",
+        "France",
+        "Italy",
+        "Turkey",
+        "Spain",
+        "Poland",
+        "Ukraine",
+        "Greece",
+        "Portugal",
+        "Sweden",
+        "Ireland",
+        "Scotland",
+        "Norway",
+        "Netherlands",
+        "Belgium"
+      ]
+    },
+    {
+      "id": 3,
+      "enum": "eContinent_Asia",
+      "name": "Asia",
+      "bonus": {
+        "type": "continent",
+        "bonus_id": 4,
+        "name": "New Warfare",
+        "description": "Foundry projects have cash, alloy and elerium cost reduced by 25% percent.",
+        "value": 25,
+        "config_comment": "% reduction in foundry project costs",
+        "enabled": true,
+        "continent_id": 3,
+        "continent": "Asia"
+      },
+      "countries": [
+        "China",
+        "Japan",
+        "India",
+        "Australia",
+        "South Korea",
+        "Indonesia",
+        "Pakistan",
+        "Iran",
+        "Israel"
+      ]
+    },
+    {
+      "id": 4,
+      "enum": "eContinent_Africa",
+      "name": "Africa",
+      "bonus": {
+        "type": "continent",
+        "bonus_id": 5,
+        "name": "Architects of the Future",
+        "description": "Laboratories and Workshops cost 30% less to build and maintain.",
+        "value": 30,
+        "config_comment": "% reduction in lab and workshop cost",
+        "enabled": true,
+        "continent_id": 4,
+        "continent": "Africa"
+      },
+      "countries": [
+        "Egypt",
+        "South Africa",
+        "Nigeria"
+      ]
+    }
+  ],
+  "countries": [
+    {
+      "id": 0,
+      "name": "United States",
+      "adjective": "American",
+      "continent_id": 0,
+      "continent": "North America",
+      "council_member": true,
+      "monthly_funding": 160,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Special Warfare School",
+        "Cheyenne Mountain",
+        "We Have Ways",
+        "On Our Own"
+      ],
+      "country_bonus": [
+        "We Have Ways"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Russia",
+      "adjective": "Russian",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": true,
+      "monthly_funding": 100,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Sukhoi Company",
+        "Roscosmos"
+      ],
+      "country_bonus": [
+        "Spetznaz"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "China",
+      "adjective": "Chinese",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": true,
+      "monthly_funding": 130,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Wei Renmin Fuwu",
+        "Xenological Remedies",
+        "Deus Ex"
+      ],
+      "country_bonus": [
+        "Xenological Remedies"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "United Kingdom",
+      "adjective": "British",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": true,
+      "monthly_funding": 110,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Special Air Service",
+        "Their Finest Hour",
+        "Sandhurst"
+      ],
+      "country_bonus": [
+        "Sandhurst"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Germany",
+      "adjective": "German",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": true,
+      "monthly_funding": 140,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Skunkworks",
+        "Baumeister",
+        "NeoPanzers",
+        "On Our Own"
+      ],
+      "country_bonus": [
+        "NeoPanzers"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "France",
+      "adjective": "French",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": true,
+      "monthly_funding": 120,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Quai d'Orsay",
+        "Foreign Legion"
+      ],
+      "country_bonus": [
+        "Cyberware"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Japan",
+      "adjective": "Japanese",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": true,
+      "monthly_funding": 150,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Ring of Fire",
+        "Ghost In the Machine",
+        "Kiryu-Kai Commander",
+        "Robotics",
+        "On Our Own"
+      ],
+      "country_bonus": [
+        "Robotics"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "India",
+      "adjective": "Indian",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": true,
+      "monthly_funding": 100,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Jai Jawan"
+      ],
+      "country_bonus": [
+        "Jai Vidwan"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Australia",
+      "adjective": "Australian",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": true,
+      "monthly_funding": 80,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Per Ardua Ad Astra"
+      ],
+      "country_bonus": [
+        "Army of the Southern Cross"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Italy",
+      "adjective": "Italian",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 10,
+      "name": "South Korea",
+      "adjective": "South Korean",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 11,
+      "name": "Turkey",
+      "adjective": "Bosnian",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 12,
+      "name": "Indonesia",
+      "adjective": "Indonesian",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 13,
+      "name": "Spain",
+      "adjective": "Spanish",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 14,
+      "name": "Pakistan",
+      "adjective": "Pakistani",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 15,
+      "name": "Canada",
+      "adjective": "Canadian",
+      "continent_id": 0,
+      "continent": "North America",
+      "council_member": true,
+      "monthly_funding": 90,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Advanced Preparations",
+        "Cadre"
+      ],
+      "country_bonus": [
+        "Task Force Arrowhead"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Iran",
+      "adjective": "Iranian",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 17,
+      "name": "Israel",
+      "adjective": "Israeli",
+      "continent_id": 3,
+      "continent": "Asia",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 18,
+      "name": "Egypt",
+      "adjective": "Egyptian",
+      "continent_id": 4,
+      "continent": "Africa",
+      "council_member": true,
+      "monthly_funding": 80,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Gift of Osiris",
+        "For the Sake of Glory"
+      ],
+      "country_bonus": [
+        "Call to Arms"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Brazil",
+      "adjective": "Brazilian",
+      "continent_id": 1,
+      "continent": "South America",
+      "council_member": true,
+      "monthly_funding": 100,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Jungle Scouts",
+        "Expertise",
+        "On Our Own"
+      ],
+      "country_bonus": [
+        "Expertise"
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Argentina",
+      "adjective": "Argentinian",
+      "continent_id": 1,
+      "continent": "South America",
+      "council_member": true,
+      "monthly_funding": 70,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Patriae Semper Vigilis"
+      ],
+      "country_bonus": [
+        "Bounties"
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Mexico",
+      "adjective": "Mexican",
+      "continent_id": 0,
+      "continent": "North America",
+      "council_member": true,
+      "monthly_funding": 80,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Wealthy Benefactor",
+        "Ancient Artifact",
+        "Legacy of Uxmal"
+      ],
+      "country_bonus": [
+        "Legacy of Uxmal"
+      ]
+    },
+    {
+      "id": 22,
+      "name": "South Africa",
+      "adjective": "South African",
+      "continent_id": 4,
+      "continent": "Africa",
+      "council_member": true,
+      "monthly_funding": 70,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Resourceful",
+        "Survival Training"
+      ],
+      "country_bonus": [
+        "1st Recce"
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Poland",
+      "adjective": "Polish",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 24,
+      "name": "Ukraine",
+      "adjective": "Ukrainian",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 25,
+      "name": "Nigeria",
+      "adjective": "Nigerian",
+      "continent_id": 4,
+      "continent": "Africa",
+      "council_member": true,
+      "monthly_funding": 80,
+      "starting_cash": 400,
+      "starting_bonuses": [
+        "Pax Nigeriana",
+        "The Old Path",
+        "On Our Own"
+      ],
+      "country_bonus": [
+        "The Old Path"
+      ]
+    },
+    {
+      "id": 26,
+      "name": "Venezuela",
+      "adjective": "Venezuelan",
+      "continent_id": 1,
+      "continent": "South America",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 27,
+      "name": "Greece",
+      "adjective": "Greek",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 28,
+      "name": "Colombia",
+      "adjective": "Honduran",
+      "continent_id": 1,
+      "continent": "South America",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 29,
+      "name": "Portugal",
+      "adjective": "Portuguese",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 30,
+      "name": "Sweden",
+      "adjective": "Swedish",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 31,
+      "name": "Ireland",
+      "adjective": "Irish",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 32,
+      "name": "Scotland",
+      "adjective": "Scottish",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 33,
+      "name": "Norway",
+      "adjective": "Norwegian",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 34,
+      "name": "Netherlands",
+      "adjective": "Dutch",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    },
+    {
+      "id": 35,
+      "name": "Belgium",
+      "adjective": "Belgian",
+      "continent_id": 2,
+      "continent": "Europe",
+      "council_member": false,
+      "monthly_funding": 0,
+      "starting_cash": 0,
+      "starting_bonuses": [],
+      "country_bonus": []
+    }
+  ],
+  "starting_bonuses": [
+    {
+      "type": "starting",
+      "bonus_id": 21,
+      "name": "Patriae Semper Vigilis",
+      "description": "All soldiers receive +5 will.",
+      "value": 5,
+      "config_comment": "# Will bonus on soldier creation",
+      "enabled": true,
+      "country_id": 20,
+      "country": "Argentina",
+      "continent_id": 1,
+      "continent": "South America",
+      "starter_index": 0
+    },
+    {
+      "type": "starting",
+      "bonus_id": 10,
+      "name": "Per Ardua Ad Astra",
+      "description": "All soldiers receive +5 ability points for stat rolls upon recruitment.",
+      "value": 5,
+      "config_comment": "# General ability point bonus on soldier creation",
+      "enabled": true,
+      "country_id": 8,
+      "country": "Australia",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 1
+    },
+    {
+      "type": "starting",
+      "bonus_id": 35,
+      "name": "Jungle Scouts",
+      "description": "Early armors (Tac Vest and Tac, Kestrel, Phalanx and Aurora Armors) receive an additional small item slot until Tactical Rigging is developed.",
+      "value": 1,
+      "config_comment": "Grants +1 small slot for early armors",
+      "enabled": true,
+      "country_id": 19,
+      "country": "Brazil",
+      "continent_id": 1,
+      "continent": "South America",
+      "starter_index": 2
+    },
+    {
+      "type": "starting",
+      "bonus_id": 54,
+      "name": "Expertise",
+      "description": "+15% bonus to research credits from interrogations.",
+      "value": 15,
+      "config_comment": "additive % bonus to research credit bonuses",
+      "enabled": true,
+      "country_id": 19,
+      "country": "Brazil",
+      "continent_id": 1,
+      "continent": "South America",
+      "starter_index": 3
+    },
+    {
+      "type": "starting",
+      "bonus_id": 41,
+      "name": "On Our Own",
+      "description": "No unique bonus.",
+      "value": 1,
+      "config_comment": "Nothing / Brazil",
+      "enabled": true,
+      "country_id": 19,
+      "country": "Brazil",
+      "continent_id": 1,
+      "continent": "South America",
+      "starter_index": 4
+    },
+    {
+      "type": "starting",
+      "bonus_id": 20,
+      "name": "Advanced Preparations",
+      "description": "XCOM HQ starts with a Laboratory and Workshop already built.",
+      "value": 1,
+      "config_comment": "Grants starting lab and workshop",
+      "enabled": true,
+      "country_id": 15,
+      "country": "Canada",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 5
+    },
+    {
+      "type": "starting",
+      "bonus_id": 37,
+      "name": "Cadre",
+      "description": "Start with four corporals in the barracks, one of each supraclass.",
+      "value": 3,
+      "config_comment": "4 soldiers of rank # at campaign start",
+      "enabled": true,
+      "country_id": 15,
+      "country": "Canada",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 40
+    },
+    {
+      "type": "starting",
+      "bonus_id": 30,
+      "name": "Wei Renmin Fuwu",
+      "description": "Start with a Workshop and Repair Bay already built.",
+      "value": 1,
+      "config_comment": "Grants starting workshop and repair bay",
+      "enabled": true,
+      "country_id": 2,
+      "country": "China",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 6
+    },
+    {
+      "type": "starting",
+      "bonus_id": 47,
+      "name": "Xenological Remedies",
+      "description": "100% bonus cash from alien corpse and wreck sales.",
+      "value": 100,
+      "config_comment": "% bonus for gray market corpse sales",
+      "enabled": true,
+      "country_id": 2,
+      "country": "China",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 7
+    },
+    {
+      "type": "starting",
+      "bonus_id": 31,
+      "name": "Deus Ex",
+      "description": "50% reduction in genemod meld and cash cost and modification time.",
+      "value": 50,
+      "config_comment": "% reduction in cash/time/meld cost to genemod soldiers",
+      "enabled": true,
+      "country_id": 2,
+      "country": "China",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 8
+    },
+    {
+      "type": "starting",
+      "bonus_id": 7,
+      "name": "Gift of Osiris",
+      "description": "Fatigue from psi powers, genemods and officer ranks reduced by 50%.",
+      "value": 50,
+      "config_comment": "Reduction in fatigue penalty for officers, psis and genemods",
+      "enabled": true,
+      "country_id": 18,
+      "country": "Egypt",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 9
+    },
+    {
+      "type": "starting",
+      "bonus_id": 28,
+      "name": "For the Sake of Glory",
+      "description": "Start with Advanced Repair foundry project, which grants faster repair time for aircraft, mechanized units and damaged soldier gear.",
+      "value": 5,
+      "config_comment": "Grants Advanced Repair foundry project",
+      "enabled": true,
+      "country_id": 18,
+      "country": "Egypt",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 10
+    },
+    {
+      "type": "starting",
+      "bonus_id": 16,
+      "name": "Quai d'Orsay",
+      "description": "Country item requests occur 40% faster; fulfilled requests provide 40% additional defense, and intel scans cost 40% less.",
+      "value": 40,
+      "config_comment": "% reduction in intel roll cost, % reduction in time between council requests and % defense bonus from fulfilled requests",
+      "enabled": true,
+      "country_id": 5,
+      "country": "France",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 11
+    },
+    {
+      "type": "starting",
+      "bonus_id": 36,
+      "name": "Foreign Legion",
+      "description": "Start with 20 additional soldiers in the barracks.",
+      "value": 20,
+      "config_comment": "# bonus soldiers at start",
+      "enabled": true,
+      "country_id": 5,
+      "country": "France",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 12
+    },
+    {
+      "type": "starting",
+      "bonus_id": 17,
+      "name": "Skunkworks",
+      "description": "XCOM HQ starts with the Foundry already built.",
+      "value": 1,
+      "config_comment": "Grants Starting foundry",
+      "enabled": true,
+      "country_id": 4,
+      "country": "Germany",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 13
+    },
+    {
+      "type": "starting",
+      "bonus_id": 12,
+      "name": "Baumeister",
+      "description": "Facility construction time reduced by 33%.",
+      "value": 33,
+      "config_comment": "% Reduction in facility build time",
+      "enabled": true,
+      "country_id": 4,
+      "country": "Germany",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 14
+    },
+    {
+      "type": "starting",
+      "bonus_id": 52,
+      "name": "NeoPanzers",
+      "description": "50% reduction in cash, alloy and elerium required for MEC and SHIV primary weapons.",
+      "value": 50,
+      "config_comment": "% reduction Cash / alloy / elerium for SHIV/MEC primary weapons",
+      "enabled": true,
+      "country_id": 4,
+      "country": "Germany",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 15
+    },
+    {
+      "type": "starting",
+      "bonus_id": 41,
+      "name": "On Our Own",
+      "description": "No unique bonus.",
+      "value": 1,
+      "config_comment": "Nothing / Germany",
+      "enabled": true,
+      "country_id": 4,
+      "country": "Germany",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 16
+    },
+    {
+      "type": "starting",
+      "bonus_id": 11,
+      "name": "Jai Jawan",
+      "description": "Start with 2 additional interceptors in your home base and Elerium Afterburners foundry project, granting extended interception time.",
+      "value": 33,
+      "config_comment": "2 bonus interceptors + elerium afterburners foundry project",
+      "enabled": true,
+      "country_id": 7,
+      "country": "India",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 17
+    },
+    {
+      "type": "starting",
+      "bonus_id": 13,
+      "name": "Ring of Fire",
+      "description": "XCOM HQ has 3 additional Steam Vents.",
+      "value": 3,
+      "config_comment": "# bonus steam vents",
+      "enabled": true,
+      "country_id": 6,
+      "country": "Japan",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 18
+    },
+    {
+      "type": "starting",
+      "bonus_id": 25,
+      "name": "Ghost In the Machine",
+      "description": "SHIVs receive +10 aim, and you start the campaign with two SHIVs in the barracks.",
+      "value": 10,
+      "config_comment": "# aim bonus for all SHIVs; also 2 free SHIVS",
+      "enabled": true,
+      "country_id": 6,
+      "country": "Japan",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 19
+    },
+    {
+      "type": "starting",
+      "bonus_id": 32,
+      "name": "Kiryu-Kai Commander",
+      "description": "Start with a Master Sergeant of a random class on your roster.",
+      "value": 7,
+      "config_comment": "Grants soldier of rank # in random class",
+      "enabled": true,
+      "country_id": 6,
+      "country": "Japan",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 20
+    },
+    {
+      "type": "starting",
+      "bonus_id": 48,
+      "name": "Robotics",
+      "description": "+5 bonus aim for new SHIVs and MEC troopers.",
+      "value": 5,
+      "config_comment": "# bonus aim for new SHIVs and MECs",
+      "enabled": true,
+      "country_id": 6,
+      "country": "Japan",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 21
+    },
+    {
+      "type": "starting",
+      "bonus_id": 41,
+      "name": "On Our Own",
+      "description": "No unique bonus.",
+      "value": 1,
+      "config_comment": "Nothing / Japan",
+      "enabled": true,
+      "country_id": 6,
+      "country": "Japan",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 22
+    },
+    {
+      "type": "starting",
+      "bonus_id": 18,
+      "name": "Wealthy Benefactor",
+      "description": "Start with 500 bonus cash.",
+      "value": 500,
+      "config_comment": "# bonus in starting cash",
+      "enabled": true,
+      "country_id": 21,
+      "country": "Mexico",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 23
+    },
+    {
+      "type": "starting",
+      "bonus_id": 23,
+      "name": "Ancient Artifact",
+      "description": "Start the campaign with an Illuminator Gunsight small item.",
+      "value": 209,
+      "config_comment": "# enum of free item at game start",
+      "enabled": true,
+      "country_id": 21,
+      "country": "Mexico",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 24
+    },
+    {
+      "type": "starting",
+      "bonus_id": 55,
+      "name": "Legacy of Uxmal",
+      "description": "20% bonus to psionic training chances.",
+      "value": 20,
+      "config_comment": "additive % increase in psionic training chance",
+      "enabled": true,
+      "country_id": 21,
+      "country": "Mexico",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 25
+    },
+    {
+      "type": "starting",
+      "bonus_id": 8,
+      "name": "Pax Nigeriana",
+      "description": "All soldiers receive +1 mobility.",
+      "value": 1,
+      "config_comment": "# Mobility bonus on soldier creation",
+      "enabled": true,
+      "country_id": 25,
+      "country": "Nigeria",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 26
+    },
+    {
+      "type": "starting",
+      "bonus_id": 43,
+      "name": "The Old Path",
+      "description": "50% reduction in psi training time.",
+      "value": 50,
+      "config_comment": "% reduction in Psionic training time",
+      "enabled": true,
+      "country_id": 25,
+      "country": "Nigeria",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 27
+    },
+    {
+      "type": "starting",
+      "bonus_id": 41,
+      "name": "On Our Own",
+      "description": "No unique bonus.",
+      "value": 1,
+      "config_comment": "Nothing / Nigeria",
+      "enabled": true,
+      "country_id": 25,
+      "country": "Nigeria",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 28
+    },
+    {
+      "type": "starting",
+      "bonus_id": 14,
+      "name": "Sukhoi Company",
+      "description": "Start with Enhanced Avionics foundry project, granting +10% to hit during air combat.",
+      "value": 31,
+      "config_comment": "Grants Improved Avionics (Foundry project #) foundry project",
+      "enabled": true,
+      "country_id": 1,
+      "country": "Russia",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 29
+    },
+    {
+      "type": "starting",
+      "bonus_id": 29,
+      "name": "Roscosmos",
+      "description": "Start with an additional satellite uplink, and all satellites cost 50% less to build.",
+      "value": 50,
+      "config_comment": "% reduction in satellite build cost; 2nd small radar",
+      "enabled": true,
+      "country_id": 1,
+      "country": "Russia",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 30
+    },
+    {
+      "type": "starting",
+      "bonus_id": 9,
+      "name": "Resourceful",
+      "description": "Start with Alien Metallurgy and Advanced Salvage foundry projects (bonus alloys and weapon fragments).",
+      "value": 25,
+      "config_comment": "Grants Alien Metallurgy (Foundry project #) and Advanced Salvage foundry project",
+      "enabled": true,
+      "country_id": 22,
+      "country": "South Africa",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 31
+    },
+    {
+      "type": "starting",
+      "bonus_id": 27,
+      "name": "Survival Training",
+      "description": "All soldiers receive +1 hit point.",
+      "value": 1,
+      "config_comment": "# HP bonus on soldier creation",
+      "enabled": true,
+      "country_id": 22,
+      "country": "South Africa",
+      "continent_id": 4,
+      "continent": "Africa",
+      "starter_index": 32
+    },
+    {
+      "type": "starting",
+      "bonus_id": 15,
+      "name": "Special Air Service",
+      "description": "All soldiers receive +3 aim.",
+      "value": 3,
+      "config_comment": "# Aim bonus on soldier creation",
+      "enabled": true,
+      "country_id": 3,
+      "country": "United Kingdom",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 33
+    },
+    {
+      "type": "starting",
+      "bonus_id": 26,
+      "name": "Their Finest Hour",
+      "description": "Start with Penetrator Weapons foundry project, granting interceptor weapons increased armor piercing capabilities.",
+      "value": 28,
+      "config_comment": "Grants Penetrator Weapons (Foundry project #) foundry project",
+      "enabled": true,
+      "country_id": 3,
+      "country": "United Kingdom",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 34
+    },
+    {
+      "type": "starting",
+      "bonus_id": 50,
+      "name": "Sandhurst",
+      "description": "33% reduction in ranks required to unlock Officer Training School projects.",
+      "value": 33,
+      "config_comment": "% reduction in total ranks for officer upgrades",
+      "enabled": true,
+      "country_id": 3,
+      "country": "United Kingdom",
+      "continent_id": 2,
+      "continent": "Europe",
+      "starter_index": 35
+    },
+    {
+      "type": "starting",
+      "bonus_id": 19,
+      "name": "Special Warfare School",
+      "description": "Officer Training School Projects cost 90% less.",
+      "value": 90,
+      "config_comment": "% reduction in OTS project cash cost",
+      "enabled": true,
+      "country_id": 0,
+      "country": "United States",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 36
+    },
+    {
+      "type": "starting",
+      "bonus_id": 24,
+      "name": "Cheyenne Mountain",
+      "description": "XCOM HQ starts with all elevators already built, and excavation costs are reduced by 50%.",
+      "value": 50,
+      "config_comment": "% reduction in excavation cost; 3 free elevators in base",
+      "enabled": true,
+      "country_id": 0,
+      "country": "United States",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 37
+    },
+    {
+      "type": "starting",
+      "bonus_id": 57,
+      "name": "We Have Ways",
+      "description": "75% reduction in time to complete autopsies and interrogations.",
+      "value": 75,
+      "config_comment": "% reduction in time to complete autopsies and interrogations",
+      "enabled": true,
+      "country_id": 0,
+      "country": "United States",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 38
+    },
+    {
+      "type": "starting",
+      "bonus_id": 41,
+      "name": "On Our Own",
+      "description": "No unique bonus.",
+      "value": 1,
+      "config_comment": "Nothing / USA",
+      "enabled": true,
+      "country_id": 0,
+      "country": "United States",
+      "continent_id": 0,
+      "continent": "North America",
+      "starter_index": 39
+    },
+    {
+      "type": "starting",
+      "bonus_id": 33,
+      "name": "Research Focus",
+      "description": "Start with two laboratories in your home base.",
+      "value": 1,
+      "config_comment": "2 Free Labs",
+      "enabled": false,
+      "country_id": 7,
+      "country": "India",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 41
+    },
+    {
+      "type": "starting",
+      "bonus_id": 34,
+      "name": "Assembly Line",
+      "description": "Start with two workshops in your home base.",
+      "value": 1,
+      "config_comment": "2 Free Workshops",
+      "enabled": false,
+      "country_id": 2,
+      "country": "China",
+      "continent_id": 3,
+      "continent": "Asia",
+      "starter_index": 42
+    },
+    {
+      "type": "starting",
+      "bonus_id": 22,
+      "name": "Jungle Scouts",
+      "description": "Start with Tactical Rigging foundry project, granting all soldiers the ability to carry one additional small item.",
+      "value": 24,
+      "config_comment": "alt - Grants full Tactical Rigging",
+      "enabled": false,
+      "country_id": 19,
+      "country": "Brazil",
+      "continent_id": 1,
+      "continent": "South America",
+      "starter_index": 43
+    }
+  ],
+  "country_bonuses": [
+    {
+      "type": "country",
+      "bonus_id": 42,
+      "name": "Call to Arms",
+      "description": "25% reduction in fatigue from genemods.",
+      "value": 25,
+      "config_comment": "% reduction in Genemod fatigue; note will not stack with Gift of Osiris if moved to another country",
+      "enabled": true,
+      "country_id": 18,
+      "country": "Egypt",
+      "continent_id": 4,
+      "continent": "Africa"
+    },
+    {
+      "type": "country",
+      "bonus_id": 43,
+      "name": "The Old Path",
+      "description": "20% reduction in psi training time.",
+      "value": 20,
+      "config_comment": "% reduction in Psionic training time",
+      "enabled": true,
+      "country_id": 25,
+      "country": "Nigeria",
+      "continent_id": 4,
+      "continent": "Africa"
+    },
+    {
+      "type": "country",
+      "bonus_id": 44,
+      "name": "1st Recce",
+      "description": "+2 bonus defense for newly promoted snipers and scouts.",
+      "value": 2,
+      "config_comment": "# bonus defense for new scout-sniper soldiers",
+      "enabled": true,
+      "country_id": 22,
+      "country": "South Africa",
+      "continent_id": 4,
+      "continent": "Africa"
+    },
+    {
+      "type": "country",
+      "bonus_id": 45,
+      "name": "Army of the Southern Cross",
+      "description": "+2 bonus aim for newly promoted gunners and rocketeers.",
+      "value": 2,
+      "config_comment": "# bonus aim for new weapons soldiers",
+      "enabled": true,
+      "country_id": 8,
+      "country": "Australia",
+      "continent_id": 3,
+      "continent": "Asia"
+    },
+    {
+      "type": "country",
+      "bonus_id": 46,
+      "name": "Jai Vidwan",
+      "description": "+5% research bonus for each lab adjacency.",
+      "value": 5,
+      "config_comment": "% bonus for lab adjacencies",
+      "enabled": true,
+      "country_id": 7,
+      "country": "India",
+      "continent_id": 3,
+      "continent": "Asia"
+    },
+    {
+      "type": "country",
+      "bonus_id": 47,
+      "name": "Xenological Remedies",
+      "description": "34% bonus cash from alien corpse and wreck sales.",
+      "value": 34,
+      "config_comment": "% bonus for gray market corpse sales",
+      "enabled": true,
+      "country_id": 2,
+      "country": "China",
+      "continent_id": 3,
+      "continent": "Asia"
+    },
+    {
+      "type": "country",
+      "bonus_id": 48,
+      "name": "Robotics",
+      "description": "+2 bonus aim for new SHIVs and MEC troopers.",
+      "value": 2,
+      "config_comment": "# bonus aim for new SHIVs and MECs",
+      "enabled": true,
+      "country_id": 6,
+      "country": "Japan",
+      "continent_id": 3,
+      "continent": "Asia"
+    },
+    {
+      "type": "country",
+      "bonus_id": 49,
+      "name": "Spetznaz",
+      "description": "+1 bonus HP for new infantry and assault soldiers.",
+      "value": 1,
+      "config_comment": "# bonus hp for new tactical soldiers",
+      "enabled": true,
+      "country_id": 1,
+      "country": "Russia",
+      "continent_id": 2,
+      "continent": "Europe"
+    },
+    {
+      "type": "country",
+      "bonus_id": 50,
+      "name": "Sandhurst",
+      "description": "15% reduction in ranks required to unlock Officer Training School projects.",
+      "value": 15,
+      "config_comment": "% reduction in total ranks for officer upgrades",
+      "enabled": true,
+      "country_id": 3,
+      "country": "United Kingdom",
+      "continent_id": 2,
+      "continent": "Europe"
+    },
+    {
+      "type": "country",
+      "bonus_id": 51,
+      "name": "Cyberware",
+      "description": "20% reduction in meld required for MEC primary weapons and tactical subsystems.",
+      "value": 20,
+      "config_comment": "% reduction in meld cost for MEC primary and secondary weapons",
+      "enabled": true,
+      "country_id": 5,
+      "country": "France",
+      "continent_id": 2,
+      "continent": "Europe"
+    },
+    {
+      "type": "country",
+      "bonus_id": 52,
+      "name": "NeoPanzers",
+      "description": "15% reduction in cash, alloy and elerium required for MEC and SHIV primary weapons.",
+      "value": 15,
+      "config_comment": "% reduction Cash / alloy / elerium for SHIV/MEC primary weapons",
+      "enabled": true,
+      "country_id": 4,
+      "country": "Germany",
+      "continent_id": 2,
+      "continent": "Europe"
+    },
+    {
+      "type": "country",
+      "bonus_id": 53,
+      "name": "Bounties",
+      "description": "20% bonus cash from abductions.",
+      "value": 20,
+      "config_comment": "% cash bonus from abductions",
+      "enabled": true,
+      "country_id": 20,
+      "country": "Argentina",
+      "continent_id": 1,
+      "continent": "South America"
+    },
+    {
+      "type": "country",
+      "bonus_id": 54,
+      "name": "Expertise",
+      "description": "+10% bonus to research credits from interrogations.",
+      "value": 10,
+      "config_comment": "additive % bonus to research credit bonuses",
+      "enabled": true,
+      "country_id": 19,
+      "country": "Brazil",
+      "continent_id": 1,
+      "continent": "South America"
+    },
+    {
+      "type": "country",
+      "bonus_id": 55,
+      "name": "Legacy of Uxmal",
+      "description": "10% bonus to psionic training chances.",
+      "value": 10,
+      "config_comment": "additive % increase in psionic training chance",
+      "enabled": true,
+      "country_id": 21,
+      "country": "Mexico",
+      "continent_id": 0,
+      "continent": "North America"
+    },
+    {
+      "type": "country",
+      "bonus_id": 56,
+      "name": "Task Force Arrowhead",
+      "description": "+2 bonus will for new engineers and medics.",
+      "value": 2,
+      "config_comment": "# bonus will for new support soldiers",
+      "enabled": true,
+      "country_id": 15,
+      "country": "Canada",
+      "continent_id": 0,
+      "continent": "North America"
+    },
+    {
+      "type": "country",
+      "bonus_id": 57,
+      "name": "We Have Ways",
+      "description": "25% reduction in time to complete autopsies and interrogations.",
+      "value": 25,
+      "config_comment": "% reduction in time to complete autopsies and interrogations",
+      "enabled": true,
+      "country_id": 0,
+      "country": "United States",
+      "continent_id": 0,
+      "continent": "North America"
+    },
+    {
+      "type": "country",
+      "bonus_id": 38,
+      "name": "Eager to Serve",
+      "description": "Solders are $15 cheaper to recruit.",
+      "value": 15,
+      "config_comment": "$ reduction in cost to recruit a soldier",
+      "enabled": false,
+      "country_id": 2,
+      "country": "China",
+      "continent_id": 3,
+      "continent": "Asia"
+    },
+    {
+      "type": "country",
+      "bonus_id": 58,
+      "name": "Independence Day",
+      "description": "Country panic reduced an additional 10 points when liberated from alien control.",
+      "value": 10,
+      "config_comment": "# bonus panic reduction when any country liberated from alien control) Uncomment to make available; will double up USA bonus unless WHW is commented out",
+      "enabled": false,
+      "country_id": 0,
+      "country": "United States",
+      "continent_id": 0,
+      "continent": "North America"
+    }
+  ],
+  "continent_bonuses": [
+    {
+      "type": "continent",
+      "bonus_id": 2,
+      "name": "Air Superiority",
+      "description": "Aircraft and aircraft weapons cost 25% less to purchase and maintain.",
+      "value": 25,
+      "config_comment": "% reduction in aerospace costs",
+      "enabled": true,
+      "continent_id": 0,
+      "continent": "North America"
+    },
+    {
+      "type": "continent",
+      "bonus_id": 3,
+      "name": "Power to the People",
+      "description": "Power facilities cost 30% less to build and maintain.",
+      "value": 30,
+      "config_comment": "% reduction in power facility costs",
+      "enabled": true,
+      "continent_id": 1,
+      "continent": "South America"
+    },
+    {
+      "type": "continent",
+      "bonus_id": 4,
+      "name": "New Warfare",
+      "description": "Foundry projects have cash, alloy and elerium cost reduced by 25% percent.",
+      "value": 25,
+      "config_comment": "% reduction in foundry project costs",
+      "enabled": true,
+      "continent_id": 3,
+      "continent": "Asia"
+    },
+    {
+      "type": "continent",
+      "bonus_id": 5,
+      "name": "Architects of the Future",
+      "description": "Laboratories and Workshops cost 30% less to build and maintain.",
+      "value": 30,
+      "config_comment": "% reduction in lab and workshop cost",
+      "enabled": true,
+      "continent_id": 4,
+      "continent": "Africa"
+    },
+    {
+      "type": "continent",
+      "bonus_id": 6,
+      "name": "Wealth of Nations",
+      "description": "Monthly XCOM funding increased by 20%.",
+      "value": 20,
+      "config_comment": "% bonus in monthly satellite-based funding",
+      "enabled": true,
+      "continent_id": 2,
+      "continent": "Europe"
+    }
+  ],
+  "save1762_continent_bonuses": [
+    {
+      "actor": "XGContinent_0",
+      "continent_enum": "eContinent_NorthAmerica",
+      "bonus_enum": "eCB_AirAndSpace"
+    },
+    {
+      "actor": "XGContinent_1",
+      "continent_enum": "eContinent_SouthAmerica",
+      "bonus_enum": "eCB_Panic"
+    },
+    {
+      "actor": "XGContinent_2",
+      "continent_enum": "eContinent_Europe",
+      "bonus_enum": "eCB_Experts"
+    },
+    {
+      "actor": "XGContinent_3",
+      "continent_enum": "eContinent_Asia",
+      "bonus_enum": "eCB_FutureCombat"
+    },
+    {
+      "actor": "XGContinent_4",
+      "continent_enum": "eContinent_Africa",
+      "bonus_enum": "eCB_Funding"
+    }
+  ]
+}

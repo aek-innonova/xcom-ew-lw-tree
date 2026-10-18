@@ -12,16 +12,14 @@ import { layoutTechs } from '@/model/layout'
 import { categories } from '@/model/techs'
 import { planResearch } from '@/model/plan'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
-import { estimate, researchContext, techState, type TechState } from '@/model/research'
-import { campaign, changedByIni, plan, planSteps, state, techs } from '@/state/store'
+import { estimate, techState, type TechState } from '@/model/research'
+import { campaign, changedByIni, plan, planSteps, state, techs, research } from '@/state/store'
 import { edgePath, geometry, labelLines, NODE_H, NODE_W, LABEL_W } from './geometry'
 
 const layout = computed(() => layoutTechs(techs.value, categories))
 const geo = computed(() => geometry(layout.value))
 
-const ctx = computed(() =>
-  campaign.value ? researchContext(campaign.value, techs.value) : undefined,
-)
+const ctx = research
 
 interface NodeView {
   id: number

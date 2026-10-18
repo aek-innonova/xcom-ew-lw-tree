@@ -18,6 +18,7 @@ function campaign(over: Partial<Campaign>): Campaign {
     credits: [],
     foundryHistory: [],
     secondWave: [],
+    satelliteCountries: [],
     scientists: 100,
     labBonus: 0.2,
     adjacentLabBonus: 0.3,
@@ -43,7 +44,7 @@ describe('research credits', () => {
 })
 
 describe('estimates', () => {
-  it('measure the credit from the current project and apply it elsewhere', () => {
+  it('take credits plus Expertise off, and use the game ETA for the current project', () => {
     // Plasma Weapons (75 days, 54000 points) with the Plasma credit at 35 %.
     const researched = Array.from({ length: 76 }, (_, i) => i === 0)
     researched[41] = true // Interrogate Heavy Floater → Plasma Weapons credit
@@ -54,13 +55,17 @@ describe('estimates', () => {
       progress,
       project: { tech: 24, pointsLeft: 7800, eta: '2 days' },
     })
-    const ctx = researchContext(c, defaultTechs)!
+    const ctx = researchContext(c, defaultTechs, {
+      creditBonus: 0.1,
+      autopsyTimeReduction: 0,
+      sources: [],
+    })!
     expect(ctx.perHour).toBe(150)
-    expect(ctx.creditReduction).toBe(0.35)
-    expect(ctx.creditMeasured).toBe(true)
+    expect(ctx.creditReduction).toBeCloseTo(0.35)
     expect(estimate(tech(24), c, ctx)).toEqual({
       pointsLeft: 7800,
-      days: 3,
+      days: 2,
+      shortened: false,
       credited: true,
       exact: true,
     })
@@ -73,6 +78,20 @@ describe('estimates', () => {
     })
     // Beam Lasers: no credit, 8 days × 720 = 5760 points → 1.6 days.
     expect(estimate(tech(20), c, ctx)).toMatchObject({ pointsLeft: 5760, days: 2, credited: false })
+  })
+})
+
+describe('We Have Ways', () => {
+  it('shortens autopsies and interrogations only', () => {
+    const c = campaign({})
+    const ctx = researchContext(c, defaultTechs, {
+      creditBonus: 0,
+      autopsyTimeReduction: 0.75,
+      sources: [],
+    })!
+    // Sectoid Autopsy: 4 days × 720 × 0.25 = 720 points at 150/h → 4.8 h → 1 day.
+    expect(estimate(tech(44), c, ctx)).toMatchObject({ pointsLeft: 720, shortened: true })
+    expect(estimate(tech(9), c, ctx)).toMatchObject({ pointsLeft: 4320, shortened: false })
   })
 })
 

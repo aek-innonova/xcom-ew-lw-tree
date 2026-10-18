@@ -10,6 +10,7 @@
 // have been seen), so estimates for other techs are before credits.
 
 import type { Campaign } from '@/save/campaign'
+import type { ResearchBonuses } from './bonuses'
 import type { Tech } from './techs'
 
 export const POINTS_PER_BASE_DAY = 720
@@ -33,14 +34,21 @@ export function projectDaysLeft(c: Campaign): number | undefined {
   return daysFor(c.project.pointsLeft, rate)
 }
 
-// --- Research credits -------------------------------------------------------
-//
-// Seen in the samples' finished techs: a credit takes 25 % off the cost; in
-// one campaign it later took 35 % (likely Long War's "Expertise" continent
-// bonus, +10 % to credit bonuses). A credit is held once its interrogation is
-// researched; tech.json's unlock texts say which credit each one gives.
+/** The current project's days left as the game shows them (its ETA text), else our formula. */
+export function projectEtaDays(c: Campaign): number | undefined {
+  const eta = c.project && /^(\d+) days?$/.exec(c.project.eta)
+  return eta ? Number(eta[1]) : projectDaysLeft(c)
+}
 
-export const DEFAULT_CREDIT_REDUCTION = 0.25
+// --- Research credits and bonuses -------------------------------------------
+//
+// Seen in the samples' finished techs: a credit takes 25 % off the cost, and
+// Long War's Expertise bonus adds to that (campaign 55: 35 % once Brazil had a
+// satellite). A credit is held once its interrogation is researched; tech.json's
+// unlock texts say which credit each one gives. We Have Ways shortens autopsies
+// and interrogations (see bonuses.ts).
+
+export const BASE_CREDIT_REDUCTION = 0.25
 
 /** Credit names held, from researched interrogations. "All" covers every tech. */
 export function heldCredits(techs: Tech[], researched: boolean[]): Set<string> {
@@ -64,56 +72,69 @@ export function creditApplies(tech: Tech, held: Set<string>): boolean {
   return held.has('Weapons') && credit.endsWith('Weapons')
 }
 
+/** Autopsies and interrogations, which We Have Ways shortens. */
+export function isAutopsyOrInterrogation(tech: Tech): boolean {
+  return tech.category === 'Autopsies' || tech.category === 'Interrogations'
+}
+
 export interface ResearchContext {
   perHour: number
   held: Set<string>
-  /** Fraction a held credit takes off, observed from the save where possible. */
+  /** Fraction a held credit takes off: 25 % plus Expertise. */
   creditReduction: number
-  /** True when creditReduction was measured from the save rather than assumed. */
-  creditMeasured: boolean
+  /** Fraction We Have Ways takes off autopsies and interrogations. */
+  autopsyTimeReduction: number
+  bonuses: ResearchBonuses
 }
 
-export function researchContext(c: Campaign, techs: Tech[]): ResearchContext | undefined {
+const NO_BONUSES: ResearchBonuses = { creditBonus: 0, autopsyTimeReduction: 0, sources: [] }
+
+export function researchContext(
+  c: Campaign,
+  techs: Tech[],
+  bonuses: ResearchBonuses = NO_BONUSES,
+): ResearchContext | undefined {
   const perHour = pointsPerHour(c)
   if (!perHour) return undefined
-  const held = heldCredits(techs, c.researched)
-  let creditReduction = DEFAULT_CREDIT_REDUCTION
-  let creditMeasured = false
-  const project = c.project && techs.find((t) => t.id === c.project!.tech)
-  if (c.project && project && creditApplies(project, held) && project.base_days > 0) {
-    const effective = (c.progress[project.id] ?? 0) + c.project.pointsLeft
-    const observed = 1 - effective / (project.base_days * POINTS_PER_BASE_DAY)
-    if (observed > 0 && observed < 1) {
-      creditReduction = Math.round(observed * 100) / 100
-      creditMeasured = true
-    }
+  return {
+    perHour,
+    held: heldCredits(techs, c.researched),
+    creditReduction: BASE_CREDIT_REDUCTION + bonuses.creditBonus,
+    autopsyTimeReduction: bonuses.autopsyTimeReduction,
+    bonuses,
   }
-  return { perHour, held, creditReduction, creditMeasured }
 }
 
 export interface Estimate {
-  /** Research points still to go. */
+  /** Research points still to go (at full speed, after reductions). */
   pointsLeft: number
   days: number
   credited: boolean
+  /** We Have Ways shortened it. */
+  shortened: boolean
   /** The game's own figure (current project) rather than our estimate. */
   exact: boolean
 }
 
 export function estimate(tech: Tech, c: Campaign, ctx: ResearchContext): Estimate | undefined {
   if (c.researched[tech.id]) return undefined
+  const credited = creditApplies(tech, ctx.held)
+  const shortened = isAutopsyOrInterrogation(tech) && ctx.autopsyTimeReduction > 0
   if (c.project?.tech === tech.id) {
+    // The game's own ETA, whatever bonuses are behind it.
+    const eta = /^(\d+) days?$/.exec(c.project.eta)
     return {
       pointsLeft: c.project.pointsLeft,
-      days: daysFor(c.project.pointsLeft, ctx.perHour),
-      credited: creditApplies(tech, ctx.held),
+      days: eta ? Number(eta[1]) : daysFor(c.project.pointsLeft, ctx.perHour),
+      credited,
+      shortened,
       exact: true,
     }
   }
-  const credited = creditApplies(tech, ctx.held)
-  const cost = tech.base_days * POINTS_PER_BASE_DAY * (credited ? 1 - ctx.creditReduction : 1)
+  let cost = tech.base_days * POINTS_PER_BASE_DAY * (credited ? 1 - ctx.creditReduction : 1)
+  if (shortened) cost *= 1 - ctx.autopsyTimeReduction
   const pointsLeft = Math.max(0, Math.round(cost - (c.progress[tech.id] ?? 0)))
-  return { pointsLeft, days: daysFor(pointsLeft, ctx.perHour), credited, exact: false }
+  return { pointsLeft, days: daysFor(pointsLeft, ctx.perHour), credited, shortened, exact: false }
 }
 
 export type TechState = 'researched' | 'researching' | 'available' | 'locked'

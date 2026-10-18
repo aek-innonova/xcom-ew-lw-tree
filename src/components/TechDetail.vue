@@ -2,16 +2,23 @@
 // The panel for the selected tech: what it costs, what it needs, what it gives.
 
 import { computed } from 'vue'
-import { estimate, researchContext, techState } from '@/model/research'
+import { estimate, techState } from '@/model/research'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
-import { campaign, changedByIni, planTo, state, techById, techs, toggleGoal } from '@/state/store'
+import {
+  campaign,
+  changedByIni,
+  planTo,
+  state,
+  techById,
+  techs,
+  toggleGoal,
+  research,
+} from '@/state/store'
 
 const tech = computed(() =>
   state.selected === null ? undefined : techById.value.get(state.selected),
 )
-const ctx = computed(() =>
-  campaign.value ? researchContext(campaign.value, techs.value) : undefined,
-)
+const ctx = research
 
 const status = computed(() => {
   const t = tech.value
@@ -43,6 +50,29 @@ const leadsTo = computed(() => {
 
 const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
 const foundry = computed(() => (tech.value ? foundryFor(tech.value.id).map((p) => p.name) : []))
+
+/** "35% off: 25% credit + 10% Expertise (Brazil)". */
+const creditText = computed(() => {
+  const c = ctx.value
+  if (!c) return ''
+  const parts = ['25% credit']
+  for (const b of c.bonuses.sources.filter((b) => b.bonus_id === 54)) {
+    parts.push(
+      `${b.value}% ${b.name}${b.country ? ` (${b.type === 'starting' ? 'start' : b.country})` : ''}`,
+    )
+  }
+  return `${Math.round(c.creditReduction * 100)}% off: ${parts.join(' + ')}`
+})
+
+/** We Have Ways, when it shortens this tech. */
+const waysText = computed(() => {
+  const c = ctx.value
+  if (!c || !status.value?.est?.shortened) return ''
+  const b = c.bonuses.sources.find((x) => x.bonus_id === 57)
+  return b
+    ? `${b.name}: ${b.value}% less time (${b.type === 'starting' ? 'starting bonus' : b.country})`
+    : ''
+})
 
 const isResearched = (id: number) => campaign.value?.researched[id] ?? false
 const select = (id: number) => (state.selected = id)
@@ -111,11 +141,7 @@ const select = (id: number) => (state.selected = id)
         <dt>Credit</dt>
         <dd>
           {{ tech.research_credit }}
-          <span v-if="status?.est?.credited" class="muted">
-            (held: {{ Math.round((ctx?.creditReduction ?? 0) * 100) }}% off{{
-              ctx?.creditMeasured ? ', measured from your save' : ', assumed'
-            }})
-          </span>
+          <span v-if="status?.est?.credited" class="muted">(held: {{ creditText }})</span>
         </dd>
       </template>
       <template v-if="status && status.progress > 0 && status.state !== 'researched'">
@@ -127,6 +153,7 @@ const select = (id: number) => (state.selected = id)
         <dd>{{ status.hours }} hours, {{ status.progress }} points</dd>
       </template>
     </dl>
+    <p v-if="waysText" class="note">{{ waysText }}; not yet confirmed against a save.</p>
     <p v-if="changedByIni.has(tech.id)" class="note">Cost from your DefaultGameCore.ini.</p>
 
     <section v-if="tech.prerequisites.length">

@@ -41,6 +41,12 @@ export interface Campaign {
   credits: number[]
   foundryHistory: number[]
   secondWave: number[]
+  /** The country the campaign started in (config country id). */
+  startCountry?: number
+  /** Which starting bonus it got: an index into the INI's starting bonus lines. */
+  startingBonusIndex?: number
+  /** Country ids with a satellite over them. */
+  satelliteCountries: number[]
 }
 
 export class NotACampaignError extends Error {}
@@ -95,6 +101,18 @@ export function readCampaign(save: SaveFile): Campaign {
   }
 
   const labs = byClass('XGFacility_Labs')
+  // Long War packs the starting bonus into XGHeadQuarters.m_iCountry above the
+  // country: 0x260000 is the United States (0) with starting bonus 38 (We Have
+  // Ways). Verified against both sample campaigns.
+  const hqCountry = int(prop(byClass('XGHeadQuarters'), 'm_iCountry'))
+  const satelliteCountries = table
+    .filter((cp) => cp.class_name.endsWith('.XGCountry'))
+    .filter((cp) => {
+      const sat = prop(cp, 'm_bSatellite')
+      return sat?.kind === 'BoolProperty' && sat.value
+    })
+    .map((cp) => int(structField(prop(cp, 'm_kTCountry'), 'iEnum')))
+    .filter((id): id is number => id !== undefined)
   const engineering = byClass('XGFacility_Engineering')
   const strategy = byClass('XGStrategy')
   const dateTime = deref(prop(byClass('XGGeoscape'), 'm_kDateTime'))
@@ -138,5 +156,8 @@ export function readCampaign(save: SaveFile): Campaign {
     credits: numbers(prop(labs, 'm_arrCredits')),
     foundryHistory: numbers(prop(engineering, 'm_arrFoundryHistory')),
     secondWave: numbers(prop(strategy, 'm_arrSecondWave')),
+    startCountry: hqCountry === undefined ? undefined : hqCountry & 0xffff,
+    startingBonusIndex: hqCountry === undefined ? undefined : hqCountry >>> 16,
+    satelliteCountries,
   }
 }
