@@ -14,8 +14,7 @@ research.
 
 ## Facts
 
-- `longwar_foundry.json` (added by the person, 2026-10-18, not yet
-  committed): projects with id (EFoundryTech slot), config key, name,
+- `longwar_foundry.json` (added by the person, committed 2026-10-18): projects with id (EFoundryTech slot), config key, name,
   category, research credit, base days, engineers, cost (cash, alloys,
   elerium, fragments, meld, items), the tech each requires, and the
   effect. Its `tech_ids_refer_to` names `longwar_tech_tree.json`; in this

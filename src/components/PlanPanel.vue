@@ -83,19 +83,19 @@ const select = (id: number) => (state.selected = id)
           <template v-else>{{ totals.baseDays }} base days</template>
         </dd>
         <template v-if="totals.alloys">
-          <dt>Alloys</dt>
+          <dt class="res res-alloys">Alloys</dt>
           <dd>{{ totals.alloys }}</dd>
         </template>
         <template v-if="totals.elerium">
-          <dt>Elerium</dt>
+          <dt class="res res-elerium">Elerium</dt>
           <dd>{{ totals.elerium }}</dd>
         </template>
         <template v-if="totals.fragments">
-          <dt>Fragments</dt>
+          <dt class="res res-fragments">Fragments</dt>
           <dd>{{ totals.fragments }}</dd>
         </template>
         <template v-if="totals.items.length">
-          <dt>Items</dt>
+          <dt class="res res-items">Items</dt>
           <dd>{{ totals.items.join(', ') }}</dd>
         </template>
       </dl>

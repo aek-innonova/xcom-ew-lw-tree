@@ -88,19 +88,19 @@ const select = (id: number) => (state.selected = id)
         <span class="muted">({{ tech.base_days * 720 }} research points)</span>
       </dd>
       <template v-if="tech.cost.alloys">
-        <dt>Alloys</dt>
+        <dt class="res res-alloys">Alloys</dt>
         <dd>{{ tech.cost.alloys }}</dd>
       </template>
       <template v-if="tech.cost.elerium">
-        <dt>Elerium</dt>
+        <dt class="res res-elerium">Elerium</dt>
         <dd>{{ tech.cost.elerium }}</dd>
       </template>
       <template v-if="tech.cost.weapon_fragments">
-        <dt>Fragments</dt>
+        <dt class="res res-fragments">Fragments</dt>
         <dd>{{ tech.cost.weapon_fragments }}</dd>
       </template>
       <template v-if="tech.cost.items">
-        <dt>Items</dt>
+        <dt class="res res-items">Items</dt>
         <dd>{{ tech.cost.items }}</dd>
       </template>
       <template v-if="tech.research_credit">

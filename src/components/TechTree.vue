@@ -1,13 +1,16 @@
 <script setup lang="ts">
 // The tree: lanes, nodes and prerequisite edges in one SVG, with pan and zoom.
-// Same-lane edges are always drawn; edges to and from the focused tech (hovered,
-// else selected) are drawn on top, across lanes, and related techs get a blue
-// outline. Nothing else changes on hover: fading the rest flickered as the
-// mouse crossed the tree.
+// Same-lane edges are always drawn. For the focused tech (hovered, else
+// selected) the tree shows, on top and across lanes, what it still needs in
+// blue (the whole chain back to what the campaign has, as the planner would
+// research it; direct prerequisites strongest) and what it leads to in pink.
+// Nothing else changes on hover: fading the rest flickered as the mouse
+// crossed the tree.
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { layoutTechs } from '@/model/layout'
 import { categories } from '@/model/techs'
+import { planResearch } from '@/model/plan'
 import { estimate, researchContext, techState, type TechState } from '@/model/research'
 import { campaign, changedByIni, plan, planSteps, state, techs } from '@/state/store'
 import { edgePath, geometry, labelLines, NODE_H, NODE_W, LABEL_W } from './geometry'
@@ -118,18 +121,46 @@ const planEdges = computed(() => {
 })
 
 const focus = computed(() => state.hovered ?? state.selected)
-const focusEdges = computed(() => {
+
+interface Highlight {
+  /** Direct prerequisites of the focused tech (any "any one of" member included). */
+  direct: Set<number>
+  /** Further unresearched techs it needs, back to what the campaign has. */
+  chain: Set<number>
+  /** Techs that list the focused tech as a prerequisite. */
+  enables: Set<number>
+  directEdges: EdgeView[]
+  chainEdges: EdgeView[]
+  enablesEdges: EdgeView[]
+}
+
+const highlight = computed<Highlight | null>(() => {
   const f = focus.value
-  if (f === null) return []
-  return edgesOf((a, b) => a === f || b === f)
-})
-const related = computed(() => {
-  const set = new Set<number>()
-  for (const e of focusEdges.value) {
-    set.add(e.from)
-    set.add(e.to)
+  if (f === null) return null
+  const researched = campaign.value?.researched ?? [true]
+  const tech = techs.value.find((t) => t.id === f)
+  if (!tech) return null
+  const direct = new Set([...tech.prerequisites, ...tech.any_one_of].map((p) => p.id))
+  const chain = new Set(
+    planResearch([f], techs.value, researched).steps.filter((id) => id !== f && !direct.has(id)),
+  )
+  const needed = new Set([...chain, ...direct].filter((id) => !researched[id]))
+  const enables = new Set(
+    techs.value
+      .filter(
+        (t) => t.prerequisites.some((p) => p.id === f) || t.any_one_of.some((p) => p.id === f),
+      )
+      .map((t) => t.id),
+  )
+  return {
+    direct,
+    chain,
+    enables,
+    directEdges: edgesOf((a, b) => b === f),
+    // Into each still-needed tech, from another needed tech or from one already researched.
+    chainEdges: edgesOf((a, b) => needed.has(b) && (needed.has(a) || !!researched[a])),
+    enablesEdges: edgesOf((a) => a === f),
   }
-  return set
 })
 
 // --- Pan and zoom ------------------------------------------------------------
@@ -322,6 +353,17 @@ const laneLabelX = LABEL_W - 14
         >
           <path d="M0,0 L8,4 L0,8 z" class="arrowhead hot" />
         </marker>
+        <marker
+          id="arrow-enables"
+          viewBox="0 0 8 8"
+          refX="7"
+          refY="4"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto"
+        >
+          <path d="M0,0 L8,4 L0,8 z" class="arrowhead enables" />
+        </marker>
       </defs>
       <g :transform="transform">
         <g v-for="(lane, i) in geo.lanes" :key="lane.category" class="lane" :class="{ odd: i % 2 }">
@@ -356,15 +398,35 @@ const laneLabelX = LABEL_W - 14
             marker-end="url(#arrow-hot)"
           />
         </g>
-        <g class="edges hot">
-          <path
-            v-for="e in focusEdges"
-            :key="e.key"
-            :d="e.d"
-            :class="{ any: e.any }"
-            marker-end="url(#arrow-hot)"
-          />
-        </g>
+        <template v-if="highlight">
+          <g class="edges chain">
+            <path
+              v-for="e in highlight.chainEdges"
+              :key="e.key"
+              :d="e.d"
+              :class="{ any: e.any }"
+              marker-end="url(#arrow-hot)"
+            />
+          </g>
+          <g class="edges hot">
+            <path
+              v-for="e in highlight.directEdges"
+              :key="e.key"
+              :d="e.d"
+              :class="{ any: e.any }"
+              marker-end="url(#arrow-hot)"
+            />
+          </g>
+          <g class="edges enables">
+            <path
+              v-for="e in highlight.enablesEdges"
+              :key="e.key"
+              :d="e.d"
+              :class="{ any: e.any }"
+              marker-end="url(#arrow-enables)"
+            />
+          </g>
+        </template>
 
         <g
           v-for="n in nodes"
@@ -374,7 +436,9 @@ const laneLabelX = LABEL_W - 14
             n.state ?? 'neutral',
             {
               selected: state.selected === n.id,
-              related: focus !== null && related.has(n.id),
+              'needs-direct': highlight?.direct.has(n.id),
+              'needs-chain': highlight?.chain.has(n.id),
+              enables: highlight?.enables.has(n.id),
             },
           ]"
           :data-tech="n.id"
@@ -412,12 +476,16 @@ const laneLabelX = LABEL_W - 14
               </div>
               <div class="cost">
                 <span class="days" :title="n.daysTitle">{{ n.days }}</span>
-                <span v-if="n.alloys" class="res alloys" title="Alien alloys">{{ n.alloys }}</span>
-                <span v-if="n.elerium" class="res elerium" title="Elerium">{{ n.elerium }}</span>
-                <span v-if="n.fragments" class="res fragments" title="Weapon fragments">{{
+                <span v-if="n.alloys" class="res res-alloys" title="Alien alloys">{{
+                  n.alloys
+                }}</span>
+                <span v-if="n.elerium" class="res res-elerium" title="Elerium">{{
+                  n.elerium
+                }}</span>
+                <span v-if="n.fragments" class="res res-fragments" title="Weapon fragments">{{
                   n.fragments
                 }}</span>
-                <span v-if="n.items" class="res items" :title="n.items">{{ n.items }}</span>
+                <span v-if="n.items" class="res res-items" :title="n.items">{{ n.items }}</span>
                 <span
                   v-if="n.changed"
                   class="changed"
@@ -492,15 +560,27 @@ const laneLabelX = LABEL_W - 14
   stroke-width: 1.6;
   opacity: 0.8;
 }
+.edges.chain path {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  opacity: 0.6;
+}
 .edges.hot path {
   stroke: var(--accent);
-  stroke-width: 2;
+  stroke-width: 2.2;
+}
+.edges.enables path {
+  stroke: var(--enables);
+  stroke-width: 2.2;
 }
 .arrowhead {
   fill: var(--edge);
 }
 .arrowhead.hot {
   fill: var(--accent);
+}
+.arrowhead.enables {
+  fill: var(--enables);
 }
 
 .node {
@@ -519,9 +599,6 @@ const laneLabelX = LABEL_W - 14
 .node.selected .box {
   stroke: var(--accent);
   stroke-width: 2.5;
-}
-.node.related .box {
-  stroke: var(--accent);
 }
 
 .node.researched .box {
@@ -544,6 +621,19 @@ const laneLabelX = LABEL_W - 14
 }
 .bar {
   fill: var(--progress);
+}
+/* Focus highlights glow rather than recolour the border, which already
+   carries the tech's state (available is blue too). After the state rules. */
+.node.needs-direct .box {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 5px var(--accent));
+}
+.node.needs-chain .box {
+  filter: drop-shadow(0 0 4px rgb(76 195 239 / 0.6));
+}
+.node.enables .box {
+  stroke: var(--enables);
+  filter: drop-shadow(0 0 5px var(--enables));
 }
 .planned {
   fill: none;
@@ -603,26 +693,7 @@ const laneLabelX = LABEL_W - 14
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.res::before {
-  content: '';
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  margin-right: 3px;
-  background: currentColor;
-}
-.alloys {
-  color: var(--alloys);
-}
-.elerium {
-  color: var(--elerium);
-}
-.fragments {
-  color: var(--fragments);
-}
-.items {
-  color: var(--items);
+.res-items {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;

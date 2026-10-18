@@ -93,3 +93,35 @@ plan's edges no longer disappear while something is hovered (the same
 flicker). What remains on focus: the focused tech's edges drawn in blue
 across lanes, and a blue outline on the techs they connect. Checked in
 Chromium with save1738 and a plan open, hovering Plasma Weapons.
+
+## Response (2026-10-18, round 2)
+
+The person: hover only highlights the step immediately before and after;
+it could highlight, more subtly, all requirements back to what the
+campaign has, and what the tech enables in a different colour. The
+resource markers would help in the detail view too, so they map
+mentally.
+
+## Report (2026-10-18, round 3)
+
+- On focus (hover, else selection) the tree shows what the tech still
+  needs in blue: the chain the planner would research for it, so it
+  stops at researched techs and "any one of" groups take the planner's
+  pick. Direct prerequisites glow strongest, the rest of the chain more
+  softly; edges from researched techs into the chain show where it
+  joins what the campaign has. Without a save the chain runs to the
+  start. What it leads to (direct dependents) is pink.
+- The highlight is a glow around the box, not a border colour: the
+  border already carries the tech's state, and "available" is blue.
+- Resource markers (coloured squares) are shared styles now, used in the
+  tree, the detail panel and the plan totals.
+- The footer explains the colours.
+
+Checked in Chromium: Plasma Weapons hovered with no save, Fusion Weapons
+hovered with save1738, and the detail panel.
+
+Noticed: an edge that crosses columns runs along the strip above the
+target's row, which in a lane's top row is 5 px above the boxes it
+passes, so it can read as an outline on them (Xenobiology → Xenogenetics
+passes over Xenoneurology). More padding would fix it at the cost of
+about 10 % scale.

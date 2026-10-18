@@ -74,8 +74,9 @@ onBeforeUnmount(() => {
         rel="noopener"
         >UFOpaedia</a
       >
-      and may contain errors. Drop a save (Documents\My Games\XCOM - Enemy Within\XComGame\SaveData)
-      or your DefaultGameCore.ini anywhere on the page.
+      and may contain errors. Hover a tech: blue is what it still needs, pink what it leads to. Drop
+      a save (Documents\My Games\XCOM - Enemy Within\XComGame\SaveData) or your DefaultGameCore.ini
+      anywhere on the page.
     </footer>
     <div v-if="dragging" class="dropzone">Drop a save or DefaultGameCore.ini</div>
   </div>
@@ -104,6 +105,7 @@ onBeforeUnmount(() => {
   --elerium: #c08cff;
   --fragments: #f39a4c;
   --items: #8fd0a8;
+  --enables: #f07cc4;
   color-scheme: dark;
 }
 * {
@@ -153,6 +155,31 @@ input[type='search']:focus {
 }
 a {
   color: var(--accent);
+}
+
+/* Resource markers, the same wherever a cost appears: a coloured square
+   before the text, which takes the resource's colour. */
+.res::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: 0.05em;
+  background: currentColor;
+}
+.res.res-alloys {
+  color: var(--alloys);
+}
+.res.res-elerium {
+  color: var(--elerium);
+}
+.res.res-fragments {
+  color: var(--fragments);
+}
+.res.res-items {
+  color: var(--items);
 }
 </style>
 
