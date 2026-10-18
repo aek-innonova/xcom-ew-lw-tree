@@ -197,3 +197,10 @@ and landed-UFO missions only (XGStrategy.PostCombat); it now reads
 - The pictures are rougher: dark, matte, worn gunmetal with uneven plating
   (two skewed panel grids), grime and scuffed roughness, dimmer glows, and
   seeded clutter on the hulls (plates, vents, blisters, antennae).
+
+## Report (2026-10-18, round 7)
+
+"Category" is the game's internal word; the page now speaks of alien
+research throughout: the campaign line names the save's alien research, a
+UFO's coming change reads "Upgraded at alien research 330: …", and free
+selection sets alien research (in steps of 30, one category each).

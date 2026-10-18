@@ -17,6 +17,7 @@ import {
   ufosBySize,
   air,
   analysisTech,
+  categoryFor,
   campaignSetting,
   consumableAllowed,
   consumablesHeld,
@@ -107,6 +108,12 @@ function addLeg() {
   const jet = Math.min(setup.legs.length, Math.max(0, hangar.value.length - 1))
   setup.legs.push({ ...newLeg(jet), stance: fromCampaign.value ? savedStance(jet) : 'balanced' })
 }
+
+/** Free selection sets alien research; UFOs grow per 30 of it (the category). */
+const alienResearch = computed({
+  get: () => setup.category * 30,
+  set: (v: number) => (setup.category = categoryFor(Number(v) || 0)),
+})
 
 const fromCampaign = computed(() => setup.mode === 'campaign' && !!campaign.value)
 const hangar = computed(() => campaign.value?.interceptors ?? [])
@@ -338,7 +345,7 @@ const gallery = computed(() =>
       captured: c ? (c.craftEncounters[ship.type] ?? 0) : undefined,
       analysed: c ? !!c.researched[analysisTech(ship.type)] : false,
       next: next
-        ? `From category ${next.above_category + 1}: ${
+        ? `Upgraded at alien research ${(next.above_category + 1) * 30}: ${
             next.weapons ? weaponList(next.weapons.map(weaponName)) : 'tougher hull'
           }${next.weapons && next.stats ? ', tougher hull' : ''}`
         : '',
@@ -401,7 +408,9 @@ const USE_HELP: Record<Use, string> = {
       </div>
       <span v-if="!campaign" class="muted">Load a save to fly your own hangar.</span>
       <span v-else-if="fromCampaign" class="muted">
-        Your hangar, Foundry projects and this month's UFOs (category {{ setting.category }}).
+        Your hangar, Foundry projects and the UFOs at your alien research ({{
+          campaign?.recap.Days ?? 0
+        }}).
       </span>
     </div>
 
@@ -418,8 +427,15 @@ const USE_HELP: Record<Use, string> = {
             >
           </label>
           <label v-if="!fromCampaign" class="field">
-            category
-            <input v-model.number="setup.category" type="number" min="0" max="32" class="num" />
+            alien research
+            <input
+              v-model.number="alienResearch"
+              type="number"
+              min="0"
+              max="990"
+              step="30"
+              class="num wide"
+            />
           </label>
           <label v-if="!fromCampaign" class="field">
             <input v-model="setup.analysis" type="checkbox" /> analysis done
@@ -825,6 +841,9 @@ h3 {
 }
 .num {
   width: 56px;
+}
+.num.wide {
+  width: 68px;
 }
 select,
 input.num {
