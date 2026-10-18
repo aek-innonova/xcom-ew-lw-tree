@@ -52,10 +52,11 @@ what will it cost me" and "how long will that take with my labs".
   a node. A first version that compacted harder (14 rows) made edges run
   backwards and hid skipping edges behind nodes; readability won.
 - 2026-10-18: Research time: speed = scientists × (1 + lab bonus +
-  adjacency bonus) points/hour; a tech costs base days × 720, less 25 %
-  plus Expertise when a credit covering it is held (stacking of two
-  credits is not known), fixed when the project starts; We Have Ways
-  shortens autopsies and interrogations (unconfirmed); the
+  adjacency bonus) points/hour; a tech costs base days × 720, times
+  (1 − 25 % − Expertise) for each held credit that covers it (credits
+  stack by multiplying), fixed when the project starts; We Have Ways
+  takes its share off autopsy and interrogation cost (all verified on
+  the person's 1,711 saves, features/history-verification.md); the
   current project's remaining points come from the save. Verified
   against the game's ETA in every sample; see `src/model/research.ts`.
 - 2026-10-18: Campaign bonuses: starting bonus from the save, country

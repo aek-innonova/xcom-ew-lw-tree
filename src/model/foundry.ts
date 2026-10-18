@@ -185,6 +185,38 @@ export function layoutFoundry(
   return { placed, lanes, totalRows: lanes.reduce((n, l) => n + l.rows, 0) }
 }
 
+// --- Progress -------------------------------------------------------------------
+
+/**
+ * A project's total work is base days × 24 × its required engineers
+ * (engineer-hours): several projects show exactly that on their first day in
+ * the person's saves. The game's iHoursLeft is what is left of it.
+ */
+export function foundryWork(p: FoundryProject): number {
+  return p.base_days * 24 * p.engineers
+}
+
+export interface FoundryProgress {
+  /** Fraction done, 0–1. */
+  done: number
+  /** Days left at base speed (the required engineers working at the nominal rate). */
+  baseDaysLeft: number
+}
+
+/**
+ * Speed is not modelled: the person's saves show it near-proportional to the
+ * engineers when there are fewer than required, and up to about 1.6× faster
+ * with many spare engineers, but not consistently (engineers busy on item
+ * builds are probably not free for the Foundry).
+ */
+export function foundryProgress(p: FoundryProject, workLeft: number): FoundryProgress {
+  const total = foundryWork(p)
+  return {
+    done: total > 0 ? Math.min(1, Math.max(0, 1 - workLeft / total)) : 0,
+    baseDaysLeft: p.engineers > 0 ? Math.max(1, Math.ceil(workLeft / p.engineers / 24)) : 0,
+  }
+}
+
 // --- State in a campaign ----------------------------------------------------------
 
 export type FoundryState = 'done' | 'building' | 'available' | 'locked'

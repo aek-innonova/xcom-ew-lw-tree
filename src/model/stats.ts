@@ -18,6 +18,8 @@ export interface CampaignStats {
   alienResources?: number
   xcomThreat?: number
   alienBonusResearch?: number
+  /** Days plus bonus research once it is above zero, as the INI describes alien research. */
+  alienResearch?: number
   missions?: number
   missionsWon?: number
   aliensKilled?: number
@@ -34,6 +36,7 @@ export function campaignStats(c: Campaign): CampaignStats {
     alienResources: r.FundingCountries,
     xcomThreat: r.ContinentBonuses,
     alienBonusResearch: r.Score,
+    alienResearch: r.Days === undefined ? undefined : r.Days + Math.max(0, r.Score ?? 0),
     missions: r.Missions,
     missionsWon: r.MissionsWon,
     aliensKilled: r.AliensKilled,

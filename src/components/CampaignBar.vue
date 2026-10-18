@@ -139,6 +139,11 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         <button type="button" class="close" aria-label="Close" @click="showStats = false">×</button>
         <h3>The aliens (Long War's hidden counters)</h3>
         <dl>
+          <dt>Alien research</dt>
+          <dd>
+            ≈ {{ stats.alienResearch ?? '–' }}
+            <span class="where">days + bonus research above zero</span>
+          </dd>
           <dt>Alien resources</dt>
           <dd>{{ stats.alienResources ?? '–' }}</dd>
           <dt>XCOM threat this month</dt>
@@ -172,7 +177,8 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
           The game does not show the alien counters. Long War keeps them in reused end-of-campaign
           statistics; what each one means is read from how they move across 1,700 saves: resources
           rise each month and fall with every XCOM success, threat resets monthly and grows with
-          XCOM's successes, bonus research starts at −90 and climbs.
+          XCOM's successes, bonus research starts at −90 and climbs. The game stores no alien
+          research total; the figure above follows the INI's description of it.
         </p>
       </div>
     </span>
@@ -184,7 +190,13 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         :aria-expanded="showChecks"
         @click="showChecks = !showChecks"
       >
-        {{ mismatches === 1 ? '1 check differs' : mismatches ? `${mismatches} checks differ` : 'Checks' }}
+        {{
+          mismatches === 1
+            ? '1 check differs'
+            : mismatches
+              ? `${mismatches} checks differ`
+              : 'Checks'
+        }}
       </button>
       <div
         v-if="showChecks"
@@ -229,6 +241,9 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
           what the project costs against the research credit we expect. A credited project's cost is
           fixed when it starts, so a credit difference can also mean a bonus changed since.
         </p>
+        <button v-if="checks.length" type="button" class="clear-log" @click="state.checks = []">
+          Clear log
+        </button>
       </div>
     </span>
     <span v-if="info.tactical" class="note"
@@ -258,6 +273,9 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
 .stats dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+.clear-log {
+  margin-top: 8px;
 }
 .link.warn {
   color: #ff9b6b;

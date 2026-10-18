@@ -177,8 +177,12 @@ type ArrayKind = 'struct' | 'string' | 'enum' | 'unknown'
 
 /** Text (line breaks and tabs allowed), as opposed to bytes that happen to form a valid string. */
 function isText(s: string): boolean {
-   
-  return s.length > 0 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(s)
+  if (!s.length) return false
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if ((c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) || c === 0x7f) return false
+  }
+  return true
 }
 
 /** Guesses what an array holds by looking at its first bytes, as xcomsave does. */

@@ -1,73 +1,58 @@
-# .
+# Long War Tech Tree
 
-This template should help get you started developing with Vue 3 in Vite.
+The XCOM: Enemy Within Long War 1.0 research tree and Foundry on one screen,
+at **https://xcom.innonova.ch**. Load a save to see where a campaign stands;
+load a `DefaultGameCore.ini` to use your own costs. Everything is read in the
+browser; nothing is uploaded (the site's Content-Security-Policy does not even
+allow it).
 
-## Recommended IDE Setup
+## What it does
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Research tree:** a lane per category, every prerequisite left of what
+  needs it. Hover a tech for what it still needs (blue) and what it leads to
+  (pink); rest on it to open its box with costs and unlocks.
+- **Foundry board:** the same for Foundry projects, each beside the tech it
+  needs.
+- **From a save** (geoscape or mid-mission): researched, in progress,
+  available and locked; days left at the campaign's research speed, with
+  research credits and campaign bonuses; Foundry projects done and being
+  built; the aliens' hidden counters (Stats).
+- **Planner:** pick techs or Foundry projects; get the research still needed,
+  in order, with time and costs.
+- **Live:** in Chromium browsers, point the page at your SaveData folder
+  (`Documents\My Games\XCOM - Enemy Within\XComGame\SaveData`) and it follows
+  new saves as you play, checking its numbers against the game's.
 
-## Recommended Browser Setup
+## Data
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- `tech.json`, `longwar_foundry.json`, `longwar_bonuses.json`: the techs,
+  Foundry projects and bonuses, from the game's config and localization
+  (prerequisites and items cross-checked with UFOpaedia).
+- Saves are read by a TypeScript port of
+  [xcomsave](https://github.com/tracktwo/xcomsave)'s reader (`src/save/`).
+- How the numbers were worked out, and what is still unconfirmed:
+  `docs/design.md` and the reports in `features/`.
 
-## Type Support for `.vue` Imports in TS
+## Repository
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+- `src/save/`: reading saves (`parse.ts`) and what the app takes from them
+  (`campaign.ts`).
+- `src/model/`: layout, research timing, bonuses, Foundry, planner, search.
+- `src/components/`, `src/state/`: the UI.
+- `fixtures/saves/`: test saves (see its README), checked in.
+- `samples/`: git-ignored drop folder for game files that should not be
+  published (Firaxis' `DefaultGameCore.ini`, a full save history).
+- `features/`: one file per unit of work, with reports.
+- `deploy/`: the nginx vhost and `deploy.sh`.
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## Development
 
 ```sh
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-npm run test:unit
-```
-
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
-
-```sh
-# Install browsers for the first run
-npx playwright install
-
-# When testing on CI, must build the project first
-npm run build
-
-# Runs the end-to-end tests
-npm run test:e2e
-# Runs the tests only on Chromium
-npm run test:e2e -- --project=chromium
-# Runs the tests of a specific file
-npm run test:e2e -- tests/example.spec.ts
-# Runs the tests in debug mode
-npm run test:e2e -- --debug
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
+npm run dev              # http://localhost:5173
+npm run test:unit        # vitest
+npm run type-check
 npm run lint
+CI=1 npx playwright test --project=chromium   # end to end, against a build
+deploy/deploy.sh         # build and publish to xcom.innonova.ch
 ```

@@ -42,10 +42,13 @@ export function projectEtaDays(c: Campaign): number | undefined {
 
 // --- Research credits and bonuses -------------------------------------------
 //
-// Seen in the samples' finished techs: a credit takes 25 % off the cost, and
-// Long War's Expertise bonus adds to that (campaign 55: 35 % once Brazil had a
-// satellite). A credit is held once its interrogation is researched; tech.json's
-// unlock texts say which credit each one gives. We Have Ways shortens autopsies
+// Verified on 1,225 credited projects across 46 campaigns (2026-10-18): each
+// credit that covers a tech multiplies its cost by (1 − 25 % − Expertise), and
+// credits stack by multiplying: a plasma tech with the Plasma and the Weapons
+// (Muton Elite) credits costs 0.75 × 0.75 = 56 % of base, or 0.65 × 0.65 = 42 %
+// with Brazil's Expertise. A project's cost is fixed when it starts. A credit is
+// held once its interrogation is researched; tech.json's unlock texts say which
+// credit each one gives. We Have Ways takes its share off the cost of autopsies
 // and interrogations (see bonuses.ts).
 
 export const BASE_CREDIT_REDUCTION = 0.25
@@ -64,12 +67,29 @@ export function heldCredits(techs: Tech[], researched: boolean[]): Set<string> {
   return held
 }
 
-export function creditApplies(tech: Tech, held: Set<string>): boolean {
+/** The held credits that cover a tech; each one takes its share off the cost. */
+export function applicableCredits(tech: Tech, held: Set<string>): string[] {
   const credit = tech.research_credit
-  if (!credit) return held.has('All')
-  if (held.has(credit) || held.has('All')) return true
-  // The Muton Elite's "Weapons" credit covers all weapon research.
-  return held.has('Weapons') && credit.endsWith('Weapons')
+  const out: string[] = []
+  if (credit && held.has(credit)) out.push(credit)
+  // The Muton Elite's "Weapons" credit covers all weapon research, on top of the
+  // weapon type's own credit.
+  if (credit && credit !== 'Weapons' && credit.endsWith('Weapons') && held.has('Weapons'))
+    out.push('Weapons')
+  if (held.has('All')) out.push('All')
+  return out
+}
+
+export function creditApplies(tech: Tech, held: Set<string>): boolean {
+  return applicableCredits(tech, held).length > 0
+}
+
+/** The fraction of base cost a tech's held credits take off together. */
+export function creditReductionFor(
+  tech: Tech,
+  ctx: Pick<ResearchContext, 'held' | 'creditReduction'>,
+): number {
+  return 1 - (1 - ctx.creditReduction) ** applicableCredits(tech, ctx.held).length
 }
 
 /** Autopsies and interrogations, which We Have Ways shortens. */
@@ -80,7 +100,7 @@ export function isAutopsyOrInterrogation(tech: Tech): boolean {
 export interface ResearchContext {
   perHour: number
   held: Set<string>
-  /** Fraction a held credit takes off: 25 % plus Expertise. */
+  /** Fraction each held credit takes off: 25 % plus Expertise. */
   creditReduction: number
   /** Fraction We Have Ways takes off autopsies and interrogations. */
   autopsyTimeReduction: number
@@ -131,7 +151,7 @@ export function estimate(tech: Tech, c: Campaign, ctx: ResearchContext): Estimat
       exact: true,
     }
   }
-  let cost = tech.base_days * POINTS_PER_BASE_DAY * (credited ? 1 - ctx.creditReduction : 1)
+  let cost = tech.base_days * POINTS_PER_BASE_DAY * (1 - creditReductionFor(tech, ctx))
   if (shortened) cost *= 1 - ctx.autopsyTimeReduction
   const pointsLeft = Math.max(0, Math.round(cost - (c.progress[tech.id] ?? 0)))
   return { pointsLeft, days: daysFor(pointsLeft, ctx.perHour), credited, shortened, exact: false }

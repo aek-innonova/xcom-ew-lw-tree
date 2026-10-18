@@ -5,7 +5,13 @@
 // the tech it needs and its effect.
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { foundryCategories, foundryState, layoutFoundry, type FoundryState } from '@/model/foundry'
+import {
+  foundryCategories,
+  foundryProgress,
+  foundryState,
+  layoutFoundry,
+  type FoundryState,
+} from '@/model/foundry'
 import { layoutTechs } from '@/model/layout'
 import { categories } from '@/model/techs'
 import {
@@ -48,7 +54,7 @@ interface ProjectView {
   techState: 'researched' | 'missing' | null
   changed: boolean
   goal: boolean
-  building?: { engineers: number }
+  building?: { engineers: number; done: number; baseDaysLeft: number }
   label: string
 }
 
@@ -80,7 +86,10 @@ const projects = computed<ProjectView[]>(() => {
       techState: techDone === null ? null : techDone ? 'researched' : 'missing',
       changed: changedFoundryByIni.value.has(p.id),
       goal: state.foundryGoals.includes(p.id),
-      building: building.get(p.id) && { engineers: building.get(p.id)!.engineers },
+      building: building.get(p.id) && {
+        engineers: building.get(p.id)!.engineers,
+        ...foundryProgress(p, building.get(p.id)!.workLeft),
+      },
       label: [
         p.name,
         st === 'building' ? 'being built' : st,
@@ -218,6 +227,14 @@ const stateClass = (s: FoundryState | null) =>
             rx="8"
           />
           <rect class="box" :x="n.x" :y="n.y" :width="NODE_W" :height="NODE_H" rx="5" />
+          <rect
+            v-if="n.building"
+            class="bar"
+            :x="n.x + 1"
+            :y="n.y + NODE_H - 4"
+            :width="(NODE_W - 2) * n.building.done"
+            height="3"
+          />
           <foreignObject :x="n.x" :y="n.y" :width="NODE_W" :height="NODE_H">
             <div class="content">
               <div class="name">
@@ -269,7 +286,9 @@ const stateClass = (s: FoundryState | null) =>
                   {{ card.node.days }} days base time, {{ card.node.engineers }} engineers
                 </div>
                 <div v-if="card.node.building" class="card-days">
-                  Being built with {{ card.node.building.engineers }} engineers
+                  {{ Math.round(card.node.building.done * 100) }}% built,
+                  {{ card.node.building.engineers }} engineers; about
+                  {{ card.node.building.baseDaysLeft }} days left at base speed
                 </div>
                 <div v-for="it in card.node.items" :key="it" class="res res-items card-items">
                   {{ it }}

@@ -110,3 +110,14 @@ describe.skipIf(!existsSync(sampleIni))('the sample DefaultGameCore.ini', () => 
     expect(applyFoundryBalance(defaultFoundry, b).changed).toEqual([])
   })
 })
+
+describe('Foundry progress', () => {
+  it('total work is base days × 24 × engineers; save1719 has Improved Arc Thrower 85 % done', async () => {
+    const { foundryProgress, foundryWork } = await import('../foundry')
+    expect(foundryWork(project(4))).toBe(14 * 24 * 30)
+    const c = campaignOf('save1719')
+    const p = foundryProgress(project(4), c.foundryInProgress[0]!.workLeft)
+    expect(p.done).toBeCloseTo(1 - 1547 / 10080)
+    expect(p.baseDaysLeft).toBe(3)
+  })
+})

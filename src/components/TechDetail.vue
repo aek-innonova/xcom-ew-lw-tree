@@ -2,7 +2,7 @@
 // The panel for the selected tech: what it costs, what it needs, what it gives.
 
 import { computed } from 'vue'
-import { estimate, techState } from '@/model/research'
+import { applicableCredits, creditReductionFor, estimate, techState } from '@/model/research'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
 import {
   campaign,
@@ -52,17 +52,26 @@ const leadsTo = computed(() => {
 const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
 const foundry = computed(() => (tech.value ? foundryFor(tech.value.id) : []))
 
-/** "35% off: 25% credit + 10% Expertise (Brazil)". */
+/** "35% off: 25% credit + 10% Expertise (Brazil)", or for two credits "58% off: Plasma Weapons and Weapons credits, 35% each". */
 const creditText = computed(() => {
   const c = ctx.value
-  if (!c) return ''
-  const parts = ['25% credit']
+  const t = tech.value
+  if (!c || !t) return ''
+  const parts = ['25%']
   for (const b of c.bonuses.sources.filter((b) => b.bonus_id === 54)) {
     parts.push(
       `${b.value}% ${b.name}${b.country ? ` (${b.type === 'starting' ? 'start' : b.country})` : ''}`,
     )
   }
-  return `${Math.round(c.creditReduction * 100)}% off: ${parts.join(' + ')}`
+  const credits = applicableCredits(t, c.held)
+  const total = Math.round(creditReductionFor(t, c) * 100)
+  const each =
+    parts.length > 1
+      ? `${Math.round(c.creditReduction * 100)}% each (${parts.join(' + ')})`
+      : '25% each'
+  return credits.length > 1
+    ? `${total}% off: ${credits.join(' and ')} credits, ${each}`
+    : `${total}% off: ${parts.length > 1 ? parts.join(' + ') : '25% credit'}`
 })
 
 /** We Have Ways, when it shortens this tech. */
@@ -154,7 +163,7 @@ const select = (id: number) => (state.selected = id)
         <dd>{{ status.hours }} hours, {{ status.progress }} points</dd>
       </template>
     </dl>
-    <p v-if="waysText" class="note">{{ waysText }}; not yet confirmed against a save.</p>
+    <p v-if="waysText" class="note">{{ waysText }}, included above.</p>
     <p v-if="changedByIni.has(tech.id)" class="note">Cost from your DefaultGameCore.ini.</p>
 
     <section v-if="tech.prerequisites.length">

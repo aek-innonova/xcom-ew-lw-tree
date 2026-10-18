@@ -2,7 +2,7 @@
 // The panel for the selected Foundry project.
 
 import { computed } from 'vue'
-import { foundryState } from '@/model/foundry'
+import { foundryProgress, foundryState } from '@/model/foundry'
 import {
   campaign,
   changedFoundryByIni,
@@ -35,6 +35,7 @@ const status = computed(() => {
       st
     ],
     building,
+    progress: building ? foundryProgress(p, building.workLeft) : undefined,
   }
 })
 
@@ -56,7 +57,15 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
 
     <p v-if="status" class="status" :class="status.state">
       {{ status.label }}
-      <template v-if="status.building"> with {{ status.building.engineers }} engineers</template>
+      <template v-if="status.building && status.progress">
+        · {{ Math.round(status.progress.done * 100) }}% with
+        {{ status.building.engineers }} engineers; about {{ status.progress.baseDaysLeft }} days
+        left at base speed
+      </template>
+    </p>
+    <p v-if="status?.building" class="note">
+      Spare engineers make Foundry work faster (up to about 1.6× in your saves); the days above are
+      at base speed.
     </p>
 
     <div v-if="status?.state !== 'done'" class="plan-actions">

@@ -2,21 +2,22 @@
 // from DefaultGameCore.ini and the game's localization), which of them a
 // campaign has, and what they do to research.
 //
-// What is active, as far as the samples show:
+// What is active (verified 2026-10-18 on the person's 1,711 saves, 46 campaigns):
 // - the starting bonus the campaign got (stored in the save, see campaign.ts);
 // - a country bonus while that country has a satellite, except the starting
-//   country's: campaign 55 started in the United States with a US satellite
-//   from day one, and its autopsies and interrogations ran at the normal speed
-//   and cost, so the US "We Have Ways" was not in force;
+//   country's: campaigns started elsewhere pay 75 % for autopsies once the US
+//   has a satellite (We Have Ways, 25 %), campaigns started in the US with a
+//   US satellite pay full cost unless their starting bonus is We Have Ways;
 // - a continent bonus once every council country on the continent has a
 //   satellite (verified: campaign 55's Foundry costs carry Asia's New Warfare).
 //
 // Research effects:
-// - Expertise adds to the research credit reduction. Campaign 55's credits
-//   went from 25 % to 35 % once Brazil had a satellite (+10 %), for projects
-//   started after that: a project's credited cost is fixed when it starts.
-// - We Have Ways shortens autopsies and interrogations. Not yet seen at work
-//   in a save, so estimates using it say so.
+// - Expertise adds to each research credit's reduction: 25 % + 10 % once Brazil
+//   has a satellite, for projects started after that (a project's cost is fixed
+//   when it starts). Verified with research.ts's credit rule on 1,225 projects.
+// - We Have Ways takes its share off the cost of autopsies and interrogations:
+//   25 % of base as a starting bonus (75 % off), 75 % as the US country bonus,
+//   and the game's ETA agrees.
 
 import bonusData from '../../longwar_bonuses.json'
 import type { Campaign } from '@/save/campaign'

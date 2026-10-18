@@ -4,7 +4,7 @@
 
 import type { Campaign } from '@/save/campaign'
 import {
-  creditApplies,
+  creditReductionFor,
   daysFor,
   isAutopsyOrInterrogation,
   POINTS_PER_BASE_DAY,
@@ -64,6 +64,11 @@ export interface SaveCheck {
   gameDays?: number
   /** Ours: points left over research speed. */
   formulaDays?: number
+  /**
+   * The game's ETA text can lag its points by a few hours (seen in 28 of 1,637
+   * saves), so a game figure one day higher within six hours of a day boundary
+   * counts as agreeing.
+   */
   etaMatch?: boolean
   /** Credit reduction we expect for the project, if it is credited. */
   expectedCredit?: number
@@ -90,18 +95,20 @@ export function checkSave(
   if (!p || !tech || !ctx) return undefined
   const eta = /^(\d+) days?$/.exec(p.eta)
   const gameDays = eta ? Number(eta[1]) : undefined
-  const formulaDays = daysFor(p.pointsLeft, ctx.perHour)
+  const formulaDays = p.pointsLeft > 0 ? daysFor(p.pointsLeft, ctx.perHour) : 0
+  const hours = p.pointsLeft / ctx.perHour
+  const nearBoundary = formulaDays * 24 - hours < 6
   const base = tech.base_days * POINTS_PER_BASE_DAY
   const actualReduction =
     base > 0
       ? Math.round((1 - ((c.progress[tech.id] ?? 0) + p.pointsLeft) / base) * 100) / 100
       : undefined
-  const credited = creditApplies(tech, ctx.held)
   const notes: string[] = []
+  let expectedCredit = creditReductionFor(tech, ctx)
   if (isAutopsyOrInterrogation(tech) && ctx.autopsyTimeReduction > 0) {
-    notes.push(`We Have Ways ${Math.round(ctx.autopsyTimeReduction * 100)}% should apply`)
+    expectedCredit = 1 - (1 - expectedCredit) * (1 - ctx.autopsyTimeReduction)
+    notes.push(`We Have Ways ${Math.round(ctx.autopsyTimeReduction * 100)}% off`)
   }
-  const expectedCredit = credited ? ctx.creditReduction : 0
   return {
     at: Date.now(),
     fileName,
@@ -112,7 +119,10 @@ export function checkSave(
     project: tech.name,
     gameDays,
     formulaDays,
-    etaMatch: gameDays === undefined ? undefined : gameDays === formulaDays,
+    etaMatch:
+      gameDays === undefined
+        ? undefined
+        : gameDays === formulaDays || (gameDays === formulaDays + 1 && nearBoundary),
     expectedCredit,
     actualReduction,
     creditMatch:

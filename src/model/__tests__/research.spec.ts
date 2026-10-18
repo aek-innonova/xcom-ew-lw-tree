@@ -114,3 +114,15 @@ describe('techState', () => {
     expect(techState(tech(3), researched)).toBe('available')
   })
 })
+
+describe('credit stacking (verified on 1,225 projects in the save history)', () => {
+  it('multiplies: a plasma tech with the Plasma and Weapons credits costs 0.65 × 0.65 with Expertise', async () => {
+    const { creditReductionFor, applicableCredits } = await import('../research')
+    const held = new Set(['Plasma Weapons', 'Weapons'])
+    expect(applicableCredits(tech(24), held)).toEqual(['Plasma Weapons', 'Weapons'])
+    expect(creditReductionFor(tech(24), { held, creditReduction: 0.35 })).toBeCloseTo(0.5775)
+    expect(creditReductionFor(tech(24), { held, creditReduction: 0.25 })).toBeCloseTo(0.4375)
+    // Armor research is not weapon research: only its own credit.
+    expect(applicableCredits(tech(15), new Set(['Armor', 'Weapons']))).toEqual(['Armor'])
+  })
+})
