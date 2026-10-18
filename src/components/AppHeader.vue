@@ -3,10 +3,10 @@
 
 import { computed, ref } from 'vue'
 import { search, searchIndex, type SearchEntry } from '@/model/unlocks'
-import { clearIni, clearSave, loadFile, state, techs } from '@/state/store'
+import { clearIni, clearSave, loadFile, showFoundry, showTech, state, techs } from '@/state/store'
 import { chooseFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
 
-const emit = defineEmits<{ find: [id: number] }>()
+const emit = defineEmits<{ find: [hit: { view: 'research' | 'foundry'; id: number }] }>()
 
 const saveInput = ref<HTMLInputElement | null>(null)
 const iniInput = ref<HTMLInputElement | null>(null)
@@ -23,14 +23,20 @@ const query = ref('')
 const index = computed(() => searchIndex(techs.value))
 const matches = computed<SearchEntry[]>(() => search(index.value, query.value))
 
-function find(id: number) {
-  state.selected = id
-  emit('find', id)
+/** A Foundry hit opens the project on the Foundry board; anything else, the tech. */
+function find(hit: SearchEntry) {
+  if (hit.kind === 'foundry' && hit.foundryId !== undefined) {
+    showFoundry(hit.foundryId)
+    emit('find', { view: 'foundry', id: hit.foundryId })
+  } else {
+    showTech(hit.techId)
+    emit('find', { view: 'research', id: hit.techId })
+  }
   query.value = ''
 }
 
 function onSearchKey(e: KeyboardEvent) {
-  if (e.key === 'Enter' && matches.value[0]) find(matches.value[0].techId)
+  if (e.key === 'Enter' && matches.value[0]) find(matches.value[0])
   if (e.key === 'Escape') query.value = ''
 }
 </script>
@@ -38,6 +44,27 @@ function onSearchKey(e: KeyboardEvent) {
 <template>
   <header class="bar">
     <h1>Long War <span>Tech Tree</span></h1>
+
+    <div class="views" role="tablist" aria-label="Board">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="state.view === 'research'"
+        :class="{ on: state.view === 'research' }"
+        @click="state.view = 'research'"
+      >
+        Research
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="state.view === 'foundry'"
+        :class="{ on: state.view === 'foundry' }"
+        @click="state.view = 'foundry'"
+      >
+        Foundry
+      </button>
+    </div>
 
     <div class="search">
       <input
@@ -49,7 +76,7 @@ function onSearchKey(e: KeyboardEvent) {
       />
       <ul v-if="matches.length" class="matches" role="listbox">
         <li v-for="m in matches" :key="`${m.kind}:${m.techId}:${m.label}`">
-          <button type="button" @mousedown.prevent="find(m.techId)">
+          <button type="button" @mousedown.prevent="find(m)">
             <span class="label" :class="m.kind">{{ m.label }}</span>
             <span v-if="m.kind !== 'tech'" class="via">
               <span v-if="m.kind === 'foundry'" class="foundry-tag">Foundry</span>{{ m.techName }}
@@ -138,6 +165,25 @@ h1 {
 }
 h1 span {
   color: var(--accent);
+}
+.views {
+  display: flex;
+}
+.views button {
+  border-radius: 0;
+}
+.views button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.views button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+.views button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
 }
 .search {
   position: relative;

@@ -175,6 +175,12 @@ const NATIVE_STRUCT_SIZES: Record<string, number> = {
 
 type ArrayKind = 'struct' | 'string' | 'enum' | 'unknown'
 
+/** Text (line breaks and tabs allowed), as opposed to bytes that happen to form a valid string. */
+function isText(s: string): boolean {
+   
+  return s.length > 0 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(s)
+}
+
 /** Guesses what an array holds by looking at its first bytes, as xcomsave does. */
 function sniffArrayKind(r: Reader): ArrayKind {
   const start = r.pos
@@ -194,7 +200,12 @@ function sniffArrayKind(r: Reader): ArrayKind {
       return sniff(r)
     }
     const afterFirst = r.pos
-    if (r.xstring(false).str.length > 0) return 'string'
+    // Only text counts as a second string. An enum value's number followed by
+    // the next element's length can pass for a short string otherwise: Long
+    // War's m_arrUnlockedFoundryProjects holds ("eMPMECSTT_MECSuitTemplate8", 2)
+    // then a 14-byte name, and 2, 0x0e 0x00 reads as the string "\x0e". xcomsave
+    // has the same flaw; 17 of 1,711 sample saves failed on it.
+    if (isText(r.xstring(false).str)) return 'string'
     r.pos = afterFirst
     r.int()
     const next = r.xstring(false)

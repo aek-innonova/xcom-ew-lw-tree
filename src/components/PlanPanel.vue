@@ -4,10 +4,47 @@
 import { computed } from 'vue'
 import { planTotals } from '@/model/plan'
 import { daysFor, estimate, techState } from '@/model/research'
-import { campaign, plan, state, techById, techs, toggleGoal, research } from '@/state/store'
+import {
+  campaign,
+  clearPlan,
+  foundryById,
+  plan,
+  research,
+  showFoundry,
+  showTech,
+  state,
+  techById,
+  techs,
+  toggleFoundryGoal,
+  toggleGoal,
+} from '@/state/store'
 
 const ctx = research
-const totals = computed(() => (plan.value ? planTotals(plan.value, techs.value) : undefined))
+
+/** Foundry goals still to build, after the research they need. */
+const foundrySteps = computed(() =>
+  state.foundryGoals
+    .map((id) => foundryById.value.get(id))
+    .filter((p) => p !== undefined && !campaign.value?.foundryHistory[p.id]),
+)
+
+/** Research totals plus the Foundry goals' costs. */
+const totals = computed(() => {
+  if (!plan.value) return undefined
+  const t = planTotals(plan.value, techs.value)
+  let cash = 0
+  let meld = 0
+  const items = [...t.items]
+  for (const p of foundrySteps.value) {
+    cash += p!.cost.cash
+    meld += p!.cost.meld
+    t.alloys += p!.cost.alloys
+    t.elerium += p!.cost.elerium
+    t.fragments += p!.cost.weapon_fragments
+    items.push(...p!.cost.items)
+  }
+  return { ...t, cash, meld, items }
+})
 
 const steps = computed(() => {
   const c = campaign.value
@@ -41,45 +78,74 @@ const choices = computed(() =>
   })),
 )
 
-const goalNames = computed(() =>
-  state.goals.map((id) => ({ id, name: techById.value.get(id)?.name ?? `#${id}` })),
-)
-const select = (id: number) => (state.selected = id)
+const goalNames = computed(() => [
+  ...state.goals.map((id) => ({
+    id,
+    name: techById.value.get(id)?.name ?? `#${id}`,
+    foundry: false,
+  })),
+  ...state.foundryGoals.map((id) => ({
+    id,
+    name: foundryById.value.get(id)?.name ?? `#${id}`,
+    foundry: true,
+  })),
+])
+const select = (id: number) => showTech(id)
+const removeGoal = (g: { id: number; foundry: boolean }) =>
+  g.foundry ? toggleFoundryGoal(g.id) : toggleGoal(g.id)
 </script>
 
 <template>
   <section v-if="plan" class="plan" aria-label="Research plan">
     <header>
       <h2>Research plan</h2>
-      <button type="button" title="Clear the plan" @click="state.goals = []">Clear</button>
+      <button type="button" title="Clear the plan" @click="clearPlan">Clear</button>
     </header>
 
     <ul class="goals">
-      <li v-for="g in goalNames" :key="g.id">
-        <button type="button" class="goal" @click="select(g.id)">★ {{ g.name }}</button>
+      <li v-for="g in goalNames" :key="`${g.foundry}:${g.id}`">
+        <button
+          type="button"
+          class="goal"
+          :class="{ foundry: g.foundry }"
+          @click="g.foundry ? showFoundry(g.id) : select(g.id)"
+        >
+          ★ {{ g.name }}
+        </button>
         <button
           type="button"
           class="remove"
-          :title="`Remove ${g.name} from the plan`"
-          @click="toggleGoal(g.id)"
+          :aria-label="`Remove ${g.name} from the plan`"
+          @click="removeGoal(g)"
         >
           ×
         </button>
       </li>
     </ul>
 
-    <p v-if="!plan.steps.length" class="done">Everything for these goals is researched.</p>
+    <p v-if="!plan.steps.length && !foundrySteps.length" class="done">
+      Everything for these goals is done.
+    </p>
     <template v-else>
       <dl v-if="totals" class="totals">
         <dt>Techs</dt>
-        <dd>{{ plan.steps.length }}</dd>
-        <dt>Time</dt>
         <dd>
-          <template v-if="estimatedDays !== undefined"
-            >≈ {{ estimatedDays }} days at your research speed</template
-          >
-          <template v-else>{{ totals.baseDays }} base days</template>
+          {{ plan.steps.length
+          }}<template v-if="foundrySteps.length"> + {{ foundrySteps.length }} Foundry</template>
         </dd>
+        <template v-if="plan.steps.length">
+          <dt>Time</dt>
+          <dd>
+            <template v-if="estimatedDays !== undefined"
+              >≈ {{ estimatedDays }} days at your research speed</template
+            >
+            <template v-else>{{ totals.baseDays }} base days</template>
+          </dd>
+        </template>
+        <template v-if="totals.cash">
+          <dt class="cash">Cash</dt>
+          <dd>${{ totals.cash }}</dd>
+        </template>
         <template v-if="totals.alloys">
           <dt class="res res-alloys">Alloys</dt>
           <dd>{{ totals.alloys }}</dd>
@@ -91,6 +157,10 @@ const select = (id: number) => (state.selected = id)
         <template v-if="totals.fragments">
           <dt class="res res-fragments">Fragments</dt>
           <dd>{{ totals.fragments }}</dd>
+        </template>
+        <template v-if="totals.meld">
+          <dt class="res res-meld">Meld</dt>
+          <dd>{{ totals.meld }}</dd>
         </template>
         <template v-if="totals.items.length">
           <dt class="res res-items">Items</dt>
@@ -108,6 +178,11 @@ const select = (id: number) => (state.selected = id)
           <span class="n">{{ i + 1 }}</span>
           <button type="button" @click="select(s.id)">{{ s.name }}</button>
           <span class="d">{{ s.approx ? '≈' : '' }}{{ s.days }}d</span>
+        </li>
+        <li v-for="p in foundrySteps" :key="`f:${p!.id}`" class="foundry">
+          <span class="n">F</span>
+          <button type="button" @click="showFoundry(p!.id)">{{ p!.name }}</button>
+          <span class="d">{{ p!.base_days }}d</span>
         </li>
       </ol>
     </template>
@@ -210,6 +285,16 @@ dd {
 .steps li.researching .n {
   border-color: var(--progress);
   color: var(--progress);
+}
+.goal.foundry {
+  color: var(--foundry);
+}
+.steps li.foundry .n {
+  border-color: var(--foundry);
+  color: var(--foundry);
+}
+.steps li.foundry button {
+  color: var(--foundry);
 }
 .steps button {
   border: none;

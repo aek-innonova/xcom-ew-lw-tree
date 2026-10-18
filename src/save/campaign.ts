@@ -15,6 +15,18 @@ export interface ResearchProject {
   eta: string
 }
 
+export interface FoundryInProgress {
+  id: number
+  engineers: number
+  maxEngineers: number
+  /**
+   * The game's iHoursLeft. Not hours: in campaign 55 it fell by about 1.8 per
+   * assigned engineer per hour, so it is closer to engineer-hours scaled by
+   * something (workshops?) not yet known.
+   */
+  workLeft: number
+}
+
 export interface Campaign {
   description: string
   gameNumber: number
@@ -39,7 +51,10 @@ export interface Campaign {
   labBonus?: number
   adjacentLabBonus?: number
   credits: number[]
+  /** Index = Foundry project id; non-zero once done (index 0 is always set). */
   foundryHistory: number[]
+  /** Foundry projects being built. */
+  foundryInProgress: FoundryInProgress[]
   secondWave: number[]
   /** The country the campaign started in (config country id). */
   startCountry?: number
@@ -47,11 +62,15 @@ export interface Campaign {
   startingBonusIndex?: number
   /** Country ids with a satellite over them. */
   satelliteCountries: number[]
+  /** The end-of-campaign statistics, by name without the eRecap_ prefix. */
+  recap: Record<string, number>
 }
 
 export class NotACampaignError extends Error {}
 
-const DIFFICULTY_NAMES = ['Easy', 'Normal', 'Classic', 'Impossible']
+// Long War renames the four levels (the INI's per-difficulty lines say so, and a
+// save's journal records "Difficulty: Classic" where m_iDifficulty is 1).
+const DIFFICULTY_NAMES = ['Normal', 'Classic', 'Brutal', 'Impossible']
 
 export function difficultyName(d: number | undefined): string | undefined {
   return d === undefined ? undefined : (DIFFICULTY_NAMES[d] ?? `Difficulty ${d}`)
@@ -73,6 +92,41 @@ function numbers(p: Property | undefined): number[] {
   if (p?.kind === 'ArrayProperty' && 'elements' in p) return p.elements
   if (p?.kind === 'StaticArrayProperty' && 'int_values' in p) return p.int_values
   return []
+}
+
+/** XGRecapSaveData.m_aRecapStats: pairs of (ERecapStats name, value). */
+function recapStats(save: SaveFile): Record<string, number> {
+  const recap = save.checkpoints
+    .flatMap((c) => c.checkpoint_table)
+    .find((cp) => cp.class_name.endsWith('.XGRecapSaveData'))
+  const stats = prop(recap, 'm_aRecapStats')
+  const out: Record<string, number> = {}
+  if (stats?.kind !== 'ArrayProperty' || !('structs' in stats)) return out
+  for (const [stat, value] of stats.structs) {
+    if (stat?.kind !== 'ByteProperty') continue
+    out[stat.value.replace(/^eRecap_/, '')] = value?.kind === 'IntProperty' ? value.value : 0
+  }
+  return out
+}
+
+function foundryProjects(p: Property | undefined): FoundryInProgress[] {
+  if (p?.kind !== 'ArrayProperty' || !('structs' in p)) return []
+  return p.structs.flatMap((fields) => {
+    const get = (n: string) => {
+      const f = fields.find((x) => x.name === n)
+      return f?.kind === 'IntProperty' ? f.value : undefined
+    }
+    const id = get('eTech')
+    if (id === undefined) return []
+    return [
+      {
+        id,
+        engineers: get('iEngineers') ?? 0,
+        maxEngineers: get('iMaxEngineers') ?? 0,
+        workLeft: get('iHoursLeft') ?? 0,
+      },
+    ]
+  })
 }
 
 function structField(p: Property | undefined, name: string): Property | undefined {
@@ -155,9 +209,11 @@ export function readCampaign(save: SaveFile): Campaign {
     adjacentLabBonus: float(prop(labs, 'm_fAdjLabBonus')),
     credits: numbers(prop(labs, 'm_arrCredits')),
     foundryHistory: numbers(prop(engineering, 'm_arrFoundryHistory')),
+    foundryInProgress: foundryProjects(prop(engineering, 'm_arrFoundryProjects')),
     secondWave: numbers(prop(strategy, 'm_arrSecondWave')),
     startCountry: hqCountry === undefined ? undefined : hqCountry & 0xffff,
     startingBonusIndex: hqCountry === undefined ? undefined : hqCountry >>> 16,
     satelliteCountries,
+    recap: recapStats(save),
   }
 }

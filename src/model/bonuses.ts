@@ -8,7 +8,8 @@
 //   country's: campaign 55 started in the United States with a US satellite
 //   from day one, and its autopsies and interrogations ran at the normal speed
 //   and cost, so the US "We Have Ways" was not in force;
-// - a continent bonus once every country on the continent has a satellite.
+// - a continent bonus once every council country on the continent has a
+//   satellite (verified: campaign 55's Foundry costs carry Asia's New Warfare).
 //
 // Research effects:
 // - Expertise adds to the research credit reduction. Campaign 55's credits
@@ -41,6 +42,7 @@ interface Country {
   id: number
   name: string
   continent_id: number
+  council_member: boolean
 }
 
 interface Continent {
@@ -133,7 +135,10 @@ export function activeBonuses(c: Campaign, values?: Map<string, number>): Active
   )
   const continents = data.continent_bonuses.filter((b) => {
     if (!b.enabled) return false
-    const members = data.countries.filter((k) => k.continent_id === b.continent_id)
+    // Only council members can have satellites; the rest of the continent does not count.
+    const members = data.countries.filter(
+      (k) => k.continent_id === b.continent_id && k.council_member,
+    )
     return members.length > 0 && members.every((k) => sats.has(k.id))
   })
   const s = starting && withValue(starting, values)

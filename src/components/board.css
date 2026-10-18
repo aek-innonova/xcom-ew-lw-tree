@@ -1,0 +1,286 @@
+/* Shared by the research tree and the Foundry board: lanes, boxes, the opened
+   box (hover card), zoom buttons. */
+.tree {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.canvas:active {
+  cursor: grabbing;
+}
+
+.lane rect {
+  fill: var(--lane);
+}
+.lane.odd rect {
+  fill: var(--lane-alt);
+}
+.lane-label {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.edges path {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.4;
+}
+.edges path.any {
+  stroke-dasharray: 5 4;
+}
+.edges.plan path {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  opacity: 0.8;
+}
+.edges.chain path {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  opacity: 0.6;
+}
+.edges.hot path {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+}
+.edges.enables path {
+  stroke: var(--enables);
+  stroke-width: 2.2;
+}
+.arrowhead {
+  fill: var(--edge);
+}
+.arrowhead.hot {
+  fill: var(--accent);
+}
+.arrowhead.enables {
+  fill: var(--enables);
+}
+
+.node {
+  cursor: pointer;
+  outline: none;
+}
+.node .box {
+  fill: var(--node);
+  stroke: var(--node-border);
+  stroke-width: 1.2;
+}
+
+.node.researched .box {
+  fill: var(--done);
+  stroke: var(--done-border);
+}
+.node.researching .box {
+  stroke: var(--progress);
+  stroke-width: 2.2;
+}
+.node.available .box {
+  stroke: var(--available);
+  stroke-width: 1.8;
+}
+.node.locked .box {
+  fill: var(--locked);
+}
+.node.locked .content {
+  opacity: 0.65;
+}
+/* Hover and selection after the state rules, so they show on every state. */
+.node:hover .box,
+.node:focus-visible .box {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.node.selected .box {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.bar {
+  fill: var(--progress);
+}
+/* Focus highlights glow rather than recolour the border, which already
+   carries the tech's state (available is blue too). After the state rules. */
+.node.needs-direct .box {
+  stroke: var(--accent);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgb(76 195 239 / 0.8));
+}
+.node.needs-chain .box {
+  stroke: rgb(76 195 239 / 0.7);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px rgb(76 195 239 / 0.6));
+}
+.node.enables .box {
+  stroke: var(--enables);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgb(240 124 196 / 0.8));
+}
+.planned {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.step circle {
+  fill: var(--accent);
+}
+.step text,
+.goal-star {
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.step text {
+  fill: var(--bg);
+}
+.goal-star {
+  font-size: 16px;
+  fill: var(--accent);
+}
+
+.content {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 5px 9px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.tick {
+  color: var(--done-text);
+  margin-right: 4px;
+}
+.cost {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.days {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.res-items {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.changed {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.card-layer {
+  pointer-events: none;
+}
+.card-wrap {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.card-wrap.up {
+  justify-content: flex-end;
+  padding: 10px 10px 0;
+}
+/* The tech's own box, opened: same width, fill and border as the box (an
+   outline, like the SVG stroke, so the top row sits exactly where it was). */
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 5px;
+  background: var(--node);
+  /* The hovered box's border (an outline, like the SVG stroke, so the top
+     row sits exactly where it was); the fill keeps the tech's state. */
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
+}
+.card.up {
+  flex-direction: column-reverse;
+}
+.card.researched {
+  background: var(--done);
+}
+.card.locked {
+  background: var(--locked);
+}
+.card-head {
+  height: 46px;
+  flex: none;
+}
+.card-body {
+  padding: 0 9px 8px;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.card.up .card-body {
+  padding: 8px 9px 0;
+}
+.card-days,
+.card-credit {
+  color: var(--muted);
+}
+.card-items,
+.card-credit {
+  margin-top: 2px;
+}
+.card-unlocks {
+  margin: 5px 0 0;
+  padding: 5px 0 0;
+  border-top: 1px solid var(--border);
+}
+.card-unlocks ul {
+  margin: 0;
+  padding-left: 14px;
+}
+.card.up .card-unlocks {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+.card-unlocks li {
+  margin: 1px 0;
+}
+.zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 4px;
+}
+.zoom button {
+  min-width: 32px;
+  height: 30px;
+}

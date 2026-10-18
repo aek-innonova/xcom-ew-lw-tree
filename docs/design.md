@@ -60,7 +60,14 @@ what will it cost me" and "how long will that take with my labs".
   against the game's ETA in every sample; see `src/model/research.ts`.
 - 2026-10-18: Campaign bonuses: starting bonus from the save, country
   bonuses for covered countries except the starting country, continent
-  bonuses for fully covered continents (see features/campaign-bonuses.md).
+  bonuses once every council country on the continent is covered (see
+  features/campaign-bonuses.md).
+- 2026-10-18: Foundry: a second board in the same style, a lane per
+  category, each project right of the tech it needs; boards share
+  `usePanZoom.ts` and `board.css`.
+- 2026-10-18: Long War's alien counters live in reused recap statistics
+  (see features/campaign-stats.md); their names are inferred and shown
+  as such.
 - 2026-10-18: Tactical saves are read through the strategy state they
   embed (see the save-parser report).
 - 2026-10-18: What persists in localStorage is what was extracted (costs,

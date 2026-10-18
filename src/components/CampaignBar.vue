@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { difficultyName } from '@/save/campaign'
 import { countryName, EXPERTISE, WE_HAVE_WAYS, type Bonus } from '@/model/bonuses'
 import { pointsPerHour, projectEtaDays } from '@/model/research'
+import { campaignStats } from '@/model/stats'
 import { bonuses, campaign, state, techById, techs } from '@/state/store'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -34,6 +35,10 @@ const info = computed(() => {
   }
 })
 
+// Long War's hidden counters and the usual figures, opened from the bar.
+const showStats = ref(false)
+const stats = computed(() => (campaign.value ? campaignStats(campaign.value) : undefined))
+
 // The campaign's bonuses, opened from the bar.
 const showBonuses = ref(false)
 
@@ -50,7 +55,10 @@ const groups = computed(() => {
   return [
     { title: 'Starting bonus', items: b.starting ? [b.starting] : [] },
     { title: 'Country bonuses (satellite coverage)', items: researchFirst(b.countries) },
-    { title: 'Continent bonuses (every country covered)', items: researchFirst(b.continents) },
+    {
+      title: 'Continent bonuses (every council country covered)',
+      items: researchFirst(b.continents),
+    },
   ].filter((g) => g.items.length)
 })
 const JAI_VIDWAN = 46
@@ -123,6 +131,51 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         </p>
       </div>
     </span>
+    <span v-if="stats" class="bonus-anchor">
+      <button type="button" class="link" :aria-expanded="showStats" @click="showStats = !showStats">
+        Stats
+      </button>
+      <div v-if="showStats" class="bonuses stats" role="dialog" aria-label="Campaign statistics">
+        <button type="button" class="close" aria-label="Close" @click="showStats = false">×</button>
+        <h3>The aliens (Long War's hidden counters)</h3>
+        <dl>
+          <dt>Alien resources</dt>
+          <dd>{{ stats.alienResources ?? '–' }}</dd>
+          <dt>XCOM threat this month</dt>
+          <dd>{{ stats.xcomThreat ?? '–' }}</dd>
+          <dt>Alien bonus research</dt>
+          <dd>
+            {{ stats.alienBonusResearch ?? '–' }}
+            <span v-if="(stats.alienBonusResearch ?? 0) < 0" class="where">
+              still making up the starting deficit
+            </span>
+          </dd>
+        </dl>
+        <h3>XCOM</h3>
+        <dl>
+          <dt>Day of the campaign</dt>
+          <dd>{{ stats.days ?? '–' }}</dd>
+          <dt>Missions won</dt>
+          <dd>{{ stats.missionsWon ?? '–' }} of {{ stats.missions ?? '–' }}</dd>
+          <dt>Aliens killed</dt>
+          <dd>{{ stats.aliensKilled ?? '–' }}</dd>
+          <dt>UFOs shot down</dt>
+          <dd>{{ stats.ufosShotDown ?? '–' }}</dd>
+          <dt>Soldiers lost</dt>
+          <dd>{{ stats.soldiersLost ?? 0 }}</dd>
+          <dt>Satellites</dt>
+          <dd>{{ stats.satellites }} countries</dd>
+          <dt>Foundry projects done</dt>
+          <dd>{{ stats.foundryDone }}</dd>
+        </dl>
+        <p class="foot">
+          The game does not show the alien counters. Long War keeps them in reused end-of-campaign
+          statistics; what each one means is read from how they move across 1,700 saves: resources
+          rise each month and fall with every XCOM success, threat resets monthly and grows with
+          XCOM's successes, bonus research starts at −90 and climbs.
+        </p>
+      </div>
+    </span>
     <span class="bonus-anchor">
       <button
         type="button"
@@ -131,7 +184,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         :aria-expanded="showChecks"
         @click="showChecks = !showChecks"
       >
-        {{ mismatches ? `${mismatches} check${mismatches === 1 ? '' : 's'} differ` : 'Checks' }}
+        {{ mismatches === 1 ? '1 check differs' : mismatches ? `${mismatches} checks differ` : 'Checks' }}
       </button>
       <div
         v-if="showChecks"
@@ -191,6 +244,20 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
 <style scoped>
 .bonus-anchor {
   position: relative;
+}
+.stats dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.stats dt {
+  color: var(--muted);
+}
+.stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 .link.warn {
   color: #ff9b6b;

@@ -61,3 +61,10 @@ describe('rejecting files that are not saves', () => {
     expect(() => parseSave(bytes)).toThrow(SaveFormatError)
   })
 })
+
+describe('Long War details', () => {
+  it('names the difficulty as Long War does (campaign 56 is Classic per its journal)', async () => {
+    const { difficultyName } = await import('../campaign')
+    expect(difficultyName(readCampaign(parseSave(load('save1762'))).difficulty)).toBe('Classic')
+  })
+})

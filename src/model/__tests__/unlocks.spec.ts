@@ -38,7 +38,7 @@ describe('search', () => {
 
   it('finds the tech behind a Foundry project', () => {
     const hit = search(index, 'enhanced ballistics')[0]!
-    expect(hit).toMatchObject({ kind: 'foundry', techName: 'Alien Materials' })
+    expect(hit).toMatchObject({ kind: 'foundry', techName: 'Alien Materials', foundryId: 1 })
   })
 
   it('ranks names starting with the query first, techs before unlocks', () => {

@@ -3,19 +3,10 @@
 // authority on project names and which tech each needs; tech.json lists some
 // of them as plain unlocks, and two under older names).
 
-import foundryData from '../../longwar_foundry.json'
+import { defaultFoundry, type FoundryProject } from './foundry'
 import type { Tech } from './techs'
 
-export interface FoundryProject {
-  id: number
-  name: string
-  category: string
-  base_days: number
-  requires_tech: { id: number; name: string } | null
-  effect: string
-}
-
-export const foundryProjects = (foundryData as { projects: FoundryProject[] }).projects
+export const foundryProjects = defaultFoundry
 
 const FOUNDRY_SUFFIX = /\s*\(Foundry\)$/
 
@@ -44,6 +35,8 @@ export interface SearchEntry {
   kind: SearchKind
   techId: number
   techName: string
+  /** For Foundry hits: the project. */
+  foundryId?: number
 }
 
 export function searchIndex(techs: Tech[]): SearchEntry[] {
@@ -53,7 +46,7 @@ export function searchIndex(techs: Tech[]): SearchEntry[] {
     for (const u of itemUnlocks(t))
       out.push({ label: u, kind: 'unlock', techId: t.id, techName: t.name })
     for (const p of foundryFor(t.id))
-      out.push({ label: p.name, kind: 'foundry', techId: t.id, techName: t.name })
+      out.push({ label: p.name, kind: 'foundry', techId: t.id, techName: t.name, foundryId: p.id })
   }
   return out
 }

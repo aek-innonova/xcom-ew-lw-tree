@@ -6,6 +6,14 @@
 import { computed, reactive, watch } from 'vue'
 import { activeBonuses, parseBonusValues, researchBonuses } from '@/model/bonuses'
 import { applyTechBalance, parseTechBalance, type TechBalance } from '@/model/ini'
+import {
+  applyFoundryBalance,
+  defaultFoundry,
+  parseFoundryBalance,
+  withCostReduction,
+  type FoundryBalance,
+  type FoundryProject,
+} from '@/model/foundry'
 import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
 import { researchContext } from '@/model/research'
 import { planResearch, type Plan } from '@/model/plan'
@@ -17,6 +25,8 @@ const INI_KEY = 'lwtree.ini.v1'
 const SAVE_KEY = 'lwtree.save.v1'
 const GOALS_KEY = 'lwtree.goals.v1'
 const CHECKS_KEY = 'lwtree.checks.v1'
+const VIEW_KEY = 'lwtree.view.v1'
+const FOUNDRY_GOALS_KEY = 'lwtree.foundryGoals.v1'
 const MAX_CHECKS = 100
 
 export interface LoadedIni {
@@ -25,6 +35,8 @@ export interface LoadedIni {
   unmatched: string[]
   /** Starting, country and continent bonus values from the INI, by bonus key. */
   bonusValues?: [string, number][]
+  /** FoundryBalance lines, by project id. */
+  foundryBalance?: [number, FoundryBalance][]
 }
 
 export interface LoadedSave {
@@ -37,6 +49,12 @@ interface State {
   save: LoadedSave | null
   selected: number | null
   hovered: number | null
+  /** Which board is shown. */
+  view: 'research' | 'foundry'
+  selectedFoundry: number | null
+  hoveredFoundry: number | null
+  /** Foundry projects the player wants; the plan adds the research they need. */
+  foundryGoals: number[]
   /** Techs the player wants to reach; the plan is everything still needed for them. */
   goals: number[]
   /** Our figures against the game's, one entry per save loaded, newest first. */
@@ -68,6 +86,10 @@ export const state = reactive<State>({
   save: restore<LoadedSave>(SAVE_KEY),
   selected: null,
   hovered: null,
+  view: restore<'research' | 'foundry'>(VIEW_KEY) ?? 'research',
+  selectedFoundry: null,
+  hoveredFoundry: null,
+  foundryGoals: restore<number[]>(FOUNDRY_GOALS_KEY) ?? [],
   goals: restore<number[]>(GOALS_KEY) ?? [],
   checks: restore<SaveCheck[]>(CHECKS_KEY) ?? [],
   message: null,
@@ -80,6 +102,14 @@ watch(
 watch(
   () => state.save,
   (v) => persist(SAVE_KEY, v),
+)
+watch(
+  () => state.view,
+  (v) => persist(VIEW_KEY, v),
+)
+watch(
+  () => [...state.foundryGoals],
+  (v) => persist(FOUNDRY_GOALS_KEY, v.length ? v : null),
 )
 watch(
   () => state.checks,
@@ -128,12 +158,52 @@ export const research = computed(() =>
     : undefined,
 )
 
-/** What is still needed for the goals, from the loaded campaign or from scratch. */
+// --- Foundry ------------------------------------------------------------------
+
+const NEW_WARFARE = 4
+
+const foundryApplied = computed(() =>
+  state.ini?.foundryBalance
+    ? applyFoundryBalance(defaultFoundry, new Map(state.ini.foundryBalance))
+    : { projects: defaultFoundry, changed: [] as number[] },
+)
+
+/** Asia's New Warfare bonus, if the campaign has it: the fraction off Foundry cash, alloys and elerium. */
+export const foundryReduction = computed(() => {
+  const b = bonuses.value?.all.find((x) => x.bonus_id === NEW_WARFARE)
+  return b ? b.value / 100 : 0
+})
+
+/** Foundry projects with the costs in force (the INI's, less New Warfare). */
+export const foundry = computed<FoundryProject[]>(() =>
+  foundryApplied.value.projects.map((p) => withCostReduction(p, foundryReduction.value)),
+)
+export const foundryById = computed(() => new Map(foundry.value.map((p) => [p.id, p])))
+export const changedFoundryByIni = computed(() => new Set(foundryApplied.value.changed))
+
+/** Shows a Foundry project: switches to the Foundry board and selects it. */
+export function showFoundry(id: number) {
+  state.view = 'foundry'
+  state.selectedFoundry = id
+}
+
+/** Shows a tech: switches to the research tree and selects it. */
+export function showTech(id: number) {
+  state.view = 'research'
+  state.selected = id
+}
+
+// --- Plan ---------------------------------------------------------------------
+
+/** What is still needed for the goals (techs, and the techs Foundry goals need). */
 export const plan = computed<Plan | null>(() => {
   const goals = state.goals.filter((g) => techById.value.has(g))
-  if (!goals.length) return null
+  const foundryTechs = state.foundryGoals
+    .map((f) => foundryById.value.get(f)?.requires_tech?.id)
+    .filter((id): id is number => id !== undefined && !goals.includes(id))
+  if (!goals.length && !state.foundryGoals.length) return null
   return planResearch(
-    goals,
+    [...goals, ...foundryTechs],
     techs.value,
     campaign.value?.researched ?? [true],
     campaign.value?.project?.tech,
@@ -145,12 +215,29 @@ export const planSteps = computed(
 
 export function planTo(id: number) {
   state.goals = [id]
+  state.foundryGoals = []
 }
 
 export function toggleGoal(id: number) {
   state.goals = state.goals.includes(id)
     ? state.goals.filter((g) => g !== id)
     : [...state.goals, id]
+}
+
+export function planToFoundry(id: number) {
+  state.goals = []
+  state.foundryGoals = [id]
+}
+
+export function toggleFoundryGoal(id: number) {
+  state.foundryGoals = state.foundryGoals.includes(id)
+    ? state.foundryGoals.filter((g) => g !== id)
+    : [...state.foundryGoals, id]
+}
+
+export function clearPlan() {
+  state.goals = []
+  state.foundryGoals = []
 }
 
 /** Loads a dropped or picked file, deciding by content whether it is a save or an INI. */
@@ -182,6 +269,7 @@ export function loadIni(fileName: string, text: string) {
     balance: [...parsed.balance],
     unmatched: parsed.unmatched,
     bonusValues: [...parseBonusValues(text)],
+    foundryBalance: [...parseFoundryBalance(text, defaultFoundry)],
   }
   const changed = changedByIni.value.size
   const missing = applied.value?.missing.length ?? 0

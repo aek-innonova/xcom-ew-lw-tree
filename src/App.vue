@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CampaignBar from '@/components/CampaignBar.vue'
+import FoundryDetail from '@/components/FoundryDetail.vue'
+import FoundryTree from '@/components/FoundryTree.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
@@ -9,6 +11,7 @@ import { loadFile, state } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
 
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
+const foundryTree = ref<InstanceType<typeof FoundryTree> | null>(null)
 const dragging = ref(false)
 let depth = 0
 
@@ -33,7 +36,24 @@ async function onDrop(e: DragEvent) {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) state.selected = null
+  if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) {
+    state.selected = null
+    state.selectedFoundry = null
+  }
+}
+
+const sideOpen = computed(
+  () =>
+    (state.view === 'research' ? state.selected !== null : state.selectedFoundry !== null) ||
+    state.goals.length > 0 ||
+    state.foundryGoals.length > 0,
+)
+
+/** Search picked something: centre it on its board once that board is showing. */
+async function onFind(hit: { view: 'research' | 'foundry'; id: number }) {
+  await nextTick()
+  if (hit.view === 'research') tree.value?.centerOn(hit.id)
+  else foundryTree.value?.centerOn(hit.id)
 }
 
 onMounted(() => {
@@ -55,16 +75,18 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <AppHeader @find="tree?.centerOn($event)" />
+    <AppHeader @find="onFind" />
     <CampaignBar />
     <p v-if="state.message" class="message" :class="state.message.kind" role="status">
       {{ state.message.text }}
       <button type="button" class="dismiss" title="Dismiss" @click="state.message = null">×</button>
     </p>
     <main class="main">
-      <TechTree ref="tree" />
-      <aside v-if="state.selected !== null || state.goals.length" class="side">
-        <TechDetail />
+      <TechTree v-if="state.view === 'research'" ref="tree" />
+      <FoundryTree v-else ref="foundryTree" />
+      <aside v-if="sideOpen" class="side">
+        <TechDetail v-if="state.view === 'research'" />
+        <FoundryDetail v-else />
         <PlanPanel />
       </aside>
     </main>
@@ -109,6 +131,8 @@ onBeforeUnmount(() => {
   --items: #8fd0a8;
   --enables: #f07cc4;
   --foundry: #e3d26f;
+  --cash: #d6e4b0;
+  --meld: #5fd3c4;
   color-scheme: dark;
 }
 * {
@@ -198,6 +222,9 @@ a {
 }
 .res.res-items {
   color: var(--items);
+}
+.res.res-meld {
+  color: var(--meld);
 }
 </style>
 

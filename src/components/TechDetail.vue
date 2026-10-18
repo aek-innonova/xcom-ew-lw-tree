@@ -13,6 +13,7 @@ import {
   techs,
   toggleGoal,
   research,
+  showFoundry,
 } from '@/state/store'
 
 const tech = computed(() =>
@@ -49,7 +50,7 @@ const leadsTo = computed(() => {
 })
 
 const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
-const foundry = computed(() => (tech.value ? foundryFor(tech.value.id).map((p) => p.name) : []))
+const foundry = computed(() => (tech.value ? foundryFor(tech.value.id) : []))
 
 /** "35% off: 25% credit + 10% Expertise (Brazil)". */
 const creditText = computed(() => {
@@ -190,7 +191,11 @@ const select = (id: number) => (state.selected = id)
       <h3>Unlocks</h3>
       <ul class="unlocks">
         <li v-for="u in unlocks" :key="u">{{ u }}</li>
-        <li v-for="f in foundry" :key="`foundry:${f}`" class="foundry-item">{{ f }}</li>
+        <li v-for="f in foundry" :key="`foundry:${f.id}`" class="foundry-item">
+          <button type="button" class="foundry-link" @click="showFoundry(f.id)">
+            {{ f.name }}
+          </button>
+        </li>
       </ul>
     </section>
   </section>
@@ -288,6 +293,18 @@ ul {
 .links button.done::before {
   content: '✓ ';
   color: var(--done-text);
+}
+.foundry-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.foundry-link:hover {
+  text-decoration: underline;
 }
 .unlocks li {
   font-size: 13px;
