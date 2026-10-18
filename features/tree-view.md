@@ -230,3 +230,16 @@ Verified: unit tests (splitting, the Foundry/unlock split, all 46
 projects tied to existing techs, search hits and ranking). In Chromium:
 the Alien Materials card, a search for "gren" (an item from each of two
 techs and a Foundry project), Enter selecting Gauss Weapons, its panel.
+
+## Response (2026-10-18, round 8)
+
+The person: Foundry projects on one line does not really make sense;
+list them like the items, only in another colour.
+
+## Report (2026-10-18, round 9)
+
+Foundry projects are now listed with the other unlocks, one per line,
+after them, in yellow (card and detail panel). The FOUNDRY tag stays only
+in search results, where a project sits among other kinds of hits. The
+footer says "Foundry projects are yellow". Checked in Chromium: the
+Alien Materials card and the Gauss Weapons panel.

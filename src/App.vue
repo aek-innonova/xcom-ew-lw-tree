@@ -74,9 +74,9 @@ onBeforeUnmount(() => {
         rel="noopener"
         >UFOpaedia</a
       >
-      and may contain errors. Hover a tech: blue is what it still needs, pink what it leads to. Drop
-      a save (Documents\My Games\XCOM - Enemy Within\XComGame\SaveData) or your DefaultGameCore.ini
-      anywhere on the page.
+      and may contain errors. Hover a tech: blue is what it still needs, pink what it leads to.
+      Foundry projects are yellow. Drop a save (Documents\My Games\XCOM - Enemy
+      Within\XComGame\SaveData) or your DefaultGameCore.ini anywhere on the page.
     </footer>
     <div v-if="dragging" class="dropzone">Drop a save or DefaultGameCore.ini</div>
   </div>
@@ -158,11 +158,9 @@ a {
   color: var(--accent);
 }
 
-/* Foundry projects a tech opens, on one line in their own colour. */
-.foundry-line {
+/* Foundry projects a tech opens: listed with its other unlocks, in their own colour. */
+.foundry-item {
   color: var(--foundry);
-  font-size: 12.5px;
-  line-height: 1.45;
 }
 .foundry-tag {
   font-size: 10px;

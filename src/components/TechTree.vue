@@ -587,12 +587,12 @@ const laneLabelX = LABEL_W - 14
                 </div>
                 <div v-if="card.credit" class="card-credit">Credit: {{ card.credit }}</div>
                 <div v-if="card.unlocks.length || card.foundry.length" class="card-unlocks">
-                  <ul v-if="card.unlocks.length">
+                  <ul>
                     <li v-for="u in card.unlocks" :key="u">{{ u }}</li>
+                    <li v-for="f in card.foundry" :key="`foundry:${f}`" class="foundry-item">
+                      {{ f }}
+                    </li>
                   </ul>
-                  <p v-if="card.foundry.length" class="foundry-line">
-                    <span class="foundry-tag">Foundry</span> {{ card.foundry.join(' · ') }}
-                  </p>
                 </div>
               </div>
             </div>
@@ -875,9 +875,6 @@ const laneLabelX = LABEL_W - 14
 .card-unlocks ul {
   margin: 0;
   padding-left: 14px;
-}
-.card-unlocks .foundry-line {
-  margin: 3px 0 0;
 }
 .card.up .card-unlocks {
   padding-bottom: 5px;

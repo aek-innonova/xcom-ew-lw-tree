@@ -161,12 +161,10 @@ const select = (id: number) => (state.selected = id)
     </section>
     <section v-if="unlocks.length || foundry.length">
       <h3>Unlocks</h3>
-      <ul v-if="unlocks.length" class="unlocks">
+      <ul class="unlocks">
         <li v-for="u in unlocks" :key="u">{{ u }}</li>
+        <li v-for="f in foundry" :key="`foundry:${f}`" class="foundry-item">{{ f }}</li>
       </ul>
-      <p v-if="foundry.length" class="foundry-line">
-        <span class="foundry-tag">Foundry</span> {{ foundry.join(' · ') }}
-      </p>
     </section>
   </section>
 </template>
