@@ -136,13 +136,14 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
           </ul>
         </section>
         <section v-if="blocked.length">
-          <h3>Out of reach</h3>
+          <h3>Blocked until a country is retaken</h3>
           <ul>
             <li v-for="x in blocked" :key="x.bonus.bonus_id">
               <strong>{{ x.bonus.name }}</strong> <span class="where">{{ x.bonus.continent }}</span>
               <div class="desc">
-                {{ x.lost.join(', ') }} left the council, so the continent can no longer be fully
-                covered.
+                {{ x.lost.join(', ') }} left the council. The continent cannot be fully covered
+                until {{ x.lost.length === 1 ? 'it is' : 'they are' }} retaken by assaulting the
+                alien base there.
               </div>
             </li>
           </ul>

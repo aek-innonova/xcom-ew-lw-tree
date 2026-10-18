@@ -65,3 +65,19 @@ lost a council member, since that member can never have a satellite
 again. The save history agrees, though thinly: Asia's New Warfare shows
 in Foundry costs exactly when every Asian council country is covered,
 and campaign 21, which lost all four, never had it. Tests on save1762.
+
+## Response (2026-10-18)
+
+The person: "out of reach" is not true; a lost country can be recovered
+by conducting an alien base raid on it.
+
+## Report (2026-10-18, round 3)
+
+The section is now "Blocked until a country is retaken", and says the
+continent cannot be fully covered until the country is retaken by
+assaulting the alien base there. The rule itself is unchanged (a lost
+country has no satellite, so its continent's bonus waits), and a
+retaken country stops being listed as lost as soon as a save shows it
+back. The save history confirms that: campaigns 31, 46 and 55 retook
+Brazil, South Africa, France, Egypt and Nigeria; `m_bSecretPact` clears
+and the country usually has a satellite again in the same save.

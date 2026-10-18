@@ -149,9 +149,11 @@ export function activeBonuses(c: Campaign, values?: Map<string, number>): Active
 }
 
 /**
- * Continent bonuses a lost council country has put out of reach: it can never
- * have a satellite again. Seen in the save history: campaign 21 lost all of
- * Asia's council and never had New Warfare.
+ * Continent bonuses blocked by a lost council country: it cannot have a
+ * satellite until XCOM retakes it by assaulting the alien base there (then
+ * m_bSecretPact clears: campaigns 31, 46 and 55 retook five countries). Seen in
+ * the save history: campaign 21 lost all of Asia's council and never had New
+ * Warfare.
  */
 export function blockedContinents(c: Campaign): { bonus: Bonus; lost: string[] }[] {
   const lost = new Set(c.lostCountries ?? [])

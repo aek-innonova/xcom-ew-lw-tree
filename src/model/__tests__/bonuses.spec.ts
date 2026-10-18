@@ -81,7 +81,7 @@ describe.skipIf(!existsSync(sampleIni))('the sample DefaultGameCore.ini', () => 
 })
 
 describe('lost countries', () => {
-  it("campaign 56 lost Australia, which puts Asia's New Warfare out of reach", async () => {
+  it("campaign 56 lost Australia, which blocks Asia's New Warfare until it is retaken", async () => {
     const { blockedContinents } = await import('../bonuses')
     const c = campaignOf('save1762')
     expect(c.lostCountries).toEqual([8])
