@@ -2,9 +2,17 @@
 // The panel for the selected tech: what it costs, what it needs, what it gives.
 
 import { computed } from 'vue'
-import { applicableCredits, creditReductionFor, estimate, techState } from '@/model/research'
+import {
+  applicableCredits,
+  creditReductionFor,
+  estimate,
+  gateMet,
+  techState,
+  unmetGates,
+} from '@/model/research'
+import { gateText, gateShown } from '@/model/gates'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
-import { covers, creditGivenBy, creditSources } from '@/model/credits'
+import { CREDIT_SHARE, covers, creditGivenBy, creditSources } from '@/model/credits'
 import { itemLink, techLink } from '@/model/ufopaedia'
 import {
   campaign,
@@ -29,20 +37,35 @@ const status = computed(() => {
   const t = tech.value
   const c = campaign.value
   if (!t || !c) return undefined
-  const st = techState(t, c.researched, c.project?.tech)
+  const st = techState(t, c.researched, c.project?.tech, c)
   const est = ctx.value ? estimate(t, c, ctx.value) : undefined
+  // Name the missing item or UFO only when research is not what is missing.
+  const missing =
+    st === 'locked' && techState(t, c.researched, c.project?.tech) === 'available'
+      ? unmetGates(t.gates, c)
+      : []
   return {
     label: {
       researched: 'Researched',
       researching: 'Researching now',
       available: 'Available now',
-      locked: 'Locked',
+      locked: missing.length ? `Locked: needs ${missing.map(gateText).join(', ')}` : 'Locked',
     }[st],
     state: st,
     est,
     progress: c.progress[t.id] ?? 0,
     hours: c.hoursSpent[t.id] ?? 0,
   }
+})
+
+/** The game's other checks, where the cost does not already say them; met or not with a save. */
+const gates = computed(() => {
+  const t = tech.value
+  if (!t) return []
+  const c = campaign.value
+  return t.gates
+    .filter((g) => gateShown(g, t.cost.items))
+    .map((g) => ({ text: gateText(g), met: c ? gateMet(g, c) : false }))
 })
 
 const leadsTo = computed(() => {
@@ -56,38 +79,42 @@ const leadsTo = computed(() => {
 const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
 const foundryUnlocks = computed(() => (tech.value ? foundryFor(tech.value.id) : []))
 
-/** "35% off: 25% credit + 10% Expertise (Brazil)", or for two credits "58% off: Plasma Weapons and Weapons credits, 35% each". */
+/**
+ * "35% off: 25% credit + 10% Expertise (Brazil)"; for two credits "58% off:
+ * Plasma Weapons and Weapons credits, 35% each (25% + 10% Expertise (Brazil))";
+ * with the Ethereal's 20 % one, each credit's share.
+ */
 const creditText = computed(() => {
   const c = ctx.value
   const t = tech.value
   if (!c || !t) return ''
-  const parts = ['25%']
-  for (const b of c.bonuses.sources.filter((b) => b.bonus_id === 54)) {
-    parts.push(
-      `${b.value}% ${b.name}${b.country ? ` (${b.type === 'starting' ? 'start' : b.country})` : ''}`,
+  const expertise = c.bonuses.sources
+    .filter((b) => b.bonus_id === 54)
+    .map(
+      (b) =>
+        `${b.value}% ${b.name}${b.country ? ` (${b.type === 'starting' ? 'start' : b.country})` : ''}`,
     )
-  }
+  const plus = expertise.length ? ` + ${expertise.join(' + ')}` : ''
+  const share = (n: string) => Math.round((CREDIT_SHARE[n] ?? 0.25) * 100)
+  const label = (n: string) => (n === 'All' ? 'All research' : n)
   const credits = applicableCredits(t, c.held)
   const total = Math.round(creditReductionFor(t, c) * 100)
-  const each =
-    parts.length > 1
-      ? `${Math.round(c.creditReduction * 100)}% each (${parts.join(' + ')})`
-      : '25% each'
-  return credits.length > 1
-    ? `${total}% off: ${credits.join(' and ')} credits, ${each}`
-    : `${total}% off: ${parts.length > 1 ? parts.join(' + ') : '25% credit'}`
+  if (credits.length === 1) return `${total}% off: ${share(credits[0]!)}% credit${plus}`
+  if (new Set(credits.map(share)).size === 1) {
+    const each = Math.round((share(credits[0]!) / 100 + c.expertise) * 100)
+    return `${total}% off: ${credits.map(label).join(' and ')} credits, ${each}% each${plus ? ` (${share(credits[0]!)}%${plus})` : ''}`
+  }
+  return `${total}% off: ${credits.map((n) => `${label(n)} ${share(n)}%`).join(', ')}${plus ? `, each${plus}` : ''}`
 })
 
 /**
- * The credits that can cover this tech: its own field's, plus the Muton Elite's
- * Weapons credit for weapon research. With a save: held or not.
+ * The credits that can cover this tech (the game's list, e.g. a plasma weapon's
+ * own field and the Muton Elite's Weapons). With a save: held or not.
  */
 const creditRows = computed(() => {
   const t = tech.value
-  if (!t?.research_credit) return []
-  const names = [t.research_credit]
-  if (t.research_credit !== 'Weapons' && t.research_credit.endsWith('Weapons'))
-    names.push('Weapons')
+  if (!t) return []
+  const names = t.credits
   const sources = creditSources(techs.value)
   const held = credits.value?.held
   return names.map((name) => ({
@@ -104,9 +131,13 @@ const gives = computed(() => {
   if (!credit) return undefined
   return {
     credit,
-    techs: techs.value.filter((x) => covers(credit, x.research_credit)),
-    foundry: foundry.value.filter((p) => covers(credit, p.research_credit)),
-    each: Math.round((credits.value?.each ?? 0.25) * 100),
+    techs: techs.value.filter((x) => covers(credit, x.credits)),
+    foundry: foundry.value.filter((p) => covers(credit, p.credits)),
+    each: Math.round(
+      ((credit === 'All' ? credits.value?.all : credits.value?.each) ??
+        CREDIT_SHARE[credit] ??
+        0.25) * 100,
+    ),
   }
 })
 
@@ -191,7 +222,7 @@ const select = (id: number) => (state.selected = id)
         <dd class="credits">
           <div v-for="r in creditRows" :key="r.name">
             {{ r.name }}
-            <span class="muted">from</span>
+            <span class="muted"> from </span>
             <button v-if="r.source" type="button" class="inline-link" @click="select(r.source.id)">
               {{ r.source.name }}
             </button>
@@ -213,13 +244,17 @@ const select = (id: number) => (state.selected = id)
     <p v-if="waysText" class="note">{{ waysText }}, included above.</p>
     <p v-if="changedByIni.has(tech.id)" class="note">Cost from your DefaultGameCore.ini.</p>
 
-    <section v-if="tech.prerequisites.length">
+    <section v-if="tech.prerequisites.length || gates.length">
       <h3>Requires all of</h3>
       <ul class="links">
         <li v-for="p in tech.prerequisites" :key="p.id">
           <button type="button" :class="{ done: isResearched(p.id) }" @click="select(p.id)">
             {{ p.name }}
           </button>
+          <span v-if="p.via" class="muted"> for the {{ p.via }}</span>
+        </li>
+        <li v-for="g in gates" :key="g.text" class="gate" :class="{ done: g.met }">
+          {{ g.text }}
         </li>
       </ul>
     </section>
@@ -382,9 +417,21 @@ ul {
   font-size: 12.5px;
   padding: 3px 8px;
 }
-.links button.done::before {
+.links button.done::before,
+.links .gate.done::before {
   content: '✓ ';
   color: var(--done-text);
+}
+.links li {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+}
+.links .gate {
+  font-size: 12.5px;
+  padding: 3px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
 }
 .wiki {
   color: var(--muted);

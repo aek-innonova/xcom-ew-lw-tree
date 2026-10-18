@@ -110,14 +110,7 @@ onBeforeUnmount(() => {
       </aside>
     </main>
     <footer class="foot">
-      Long War 1.0. Prerequisites from
-      <a
-        href="https://www.ufopaedia.org/index.php/Research_(Long_War)"
-        target="_blank"
-        rel="noopener"
-        >UFOpaedia</a
-      >
-      may contain errors.
+      Long War 1.0. Prerequisites and credits from the game's own script.
       <button type="button" class="link" @click="helpOpen = true">
         Where are my files? How does this work?
       </button>

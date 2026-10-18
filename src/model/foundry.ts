@@ -4,9 +4,13 @@
 // in a campaign.
 
 import foundryData from '../../longwar_foundry.json'
-import { covers } from './credits'
+import techtree from '../../data/techtree.json'
+import { applyCredits, coveringCredits, creditCut, creditNames } from './credits'
 import type { Layout, Placed } from './layout'
 import { COLUMNS } from './layout'
+import { unmetGates, type Holdings } from './research'
+import type { Gate } from './techs'
+import { withoutImplied } from './gates'
 
 export interface FoundryCost {
   cash: number
@@ -23,7 +27,13 @@ export interface FoundryProject {
   config_key: string | number
   name: string
   category: string
-  research_credit: string | null
+  /** The credits that cover it, from the game (besides the Ethereal's "All"). */
+  credits: string[]
+  /**
+   * What else the game checks (HasFoundryPrereqs): the INI's eReqItem in stores
+   * now, and for Alien Grenades one ever held.
+   */
+  gates: Gate[]
   base_days: number
   engineers: number
   cost: FoundryCost
@@ -33,7 +43,29 @@ export interface FoundryProject {
 
 const data = foundryData as unknown as { categories: string[]; projects: FoundryProject[] }
 
-export const defaultFoundry: FoundryProject[] = data.projects
+interface FoundryRule {
+  id: number
+  requires: number
+  in_stores?: { id: number; name: string }
+  ever_had?: { id: number; name: string }
+  credits: number[]
+}
+export const foundryRules = techtree.foundry as FoundryRule[]
+const rules = new Map(foundryRules.map((r) => [r.id, r]))
+
+function gatesOf(r: FoundryRule | undefined): Gate[] {
+  const gates: Gate[] = []
+  if (r?.in_stores)
+    gates.push({ kind: 'in_stores', items: [r.in_stores.id], name: r.in_stores.name })
+  if (r?.ever_had) gates.push({ kind: 'ever_had', items: [r.ever_had.id], name: r.ever_had.name })
+  return withoutImplied(gates)
+}
+
+export const defaultFoundry: FoundryProject[] = data.projects.map((p) => ({
+  ...p,
+  credits: creditNames(rules.get(p.id)?.credits ?? []),
+  gates: gatesOf(rules.get(p.id)),
+}))
 export const foundryCategories: string[] = data.categories
 
 // --- INI ----------------------------------------------------------------------
@@ -194,7 +226,7 @@ export function layoutFoundry(
  * the person's saves. The game's iHoursLeft is what is left of it.
  */
 export function foundryWork(p: FoundryProject, creditReduction = 0): number {
-  return p.base_days * 24 * p.engineers * (1 - creditReduction)
+  return Math.round(p.base_days * 24 * p.engineers * (1 - creditReduction))
 }
 
 export interface FoundryProgress {
@@ -223,9 +255,14 @@ export function foundryProgress(
 }
 
 /** The fraction of a project's work its held credits take off (see credits.ts). */
-export function foundryCreditReduction(p: FoundryProject, held: Set<string>, each: number): number {
-  const n = [...held].filter((c) => covers(c, p.research_credit)).length
-  return 1 - (1 - each) ** n
+export function foundryCreditReduction(
+  p: FoundryProject,
+  held: Set<string>,
+  expertise: number,
+): number {
+  const base = p.base_days * 24 * p.engineers
+  const cuts = coveringCredits(p.credits, held).map((c) => creditCut(c, expertise))
+  return base > 0 ? 1 - applyCredits(base, cuts, false) / base : 0
 }
 
 // --- State in a campaign ----------------------------------------------------------
@@ -237,8 +274,10 @@ export function foundryState(
   done: number[],
   building: Set<number>,
   researched: boolean[],
+  holdings?: Holdings,
 ): FoundryState {
   if (done[p.id]) return 'done'
   if (building.has(p.id)) return 'building'
-  return !p.requires_tech || researched[p.requires_tech.id] ? 'available' : 'locked'
+  const tech = !p.requires_tech || researched[p.requires_tech.id]
+  return tech && !unmetGates(p.gates, holdings).length ? 'available' : 'locked'
 }

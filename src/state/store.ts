@@ -18,6 +18,7 @@ import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
 import { peekGameNumber, snapshotOf, withSnapshot, type Snapshot } from '@/model/history'
 import { CATALOG, needs, parsePrices, type CatalogItem, type Need } from '@/model/inventory'
 import { BASE_CREDIT_REDUCTION, heldCredits, researchContext } from '@/model/research'
+import { CREDIT_SHARE } from '@/model/credits'
 import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
 import { readCampaign, type Campaign } from '@/save/campaign'
@@ -165,14 +166,16 @@ export const bonuses = computed(() =>
     : null,
 )
 
-/** Credits the campaign holds, and what each takes off (25 % + Expertise). */
+/** Credits the campaign holds, and what each takes off (25 % + Expertise; "All" 20 % + Expertise). */
 export const credits = computed(() => {
   const c = campaign.value
   if (!c) return null
   const bonus = bonuses.value ? researchBonuses(bonuses.value).creditBonus : 0
   return {
     held: heldCredits(techs.value, c.researched, c.credits),
+    expertise: bonus,
     each: BASE_CREDIT_REDUCTION + bonus,
+    all: (CREDIT_SHARE.All ?? 0.2) + bonus,
   }
 })
 

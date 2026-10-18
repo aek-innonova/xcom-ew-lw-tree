@@ -1,0 +1,1657 @@
+{
+ "source": "Long War 1.0 XComStrategyGame.upk (XGTechTree), FoundryBalance in DefaultGameCore.ini, names from the INT localization; read by scripts/upk_techtree.py",
+ "credit_bonus": {
+  "1": 25,
+  "2": 25,
+  "3": 25,
+  "4": 25,
+  "5": 25,
+  "6": 25,
+  "7": 25,
+  "8": 25,
+  "9": 20
+ },
+ "techs": [
+  {
+   "id": 1,
+   "enum": "eTech_Xenobiology",
+   "requires": [],
+   "ever_had": {
+    "id": 134,
+    "name": "Sectoid Corpse"
+   },
+   "in_stores": {
+    "any_of": [
+     {
+      "id": 134,
+      "name": "Sectoid Corpse"
+     },
+     {
+      "id": 135,
+      "name": "Sectoid Commander Corpse"
+     },
+     {
+      "id": 136,
+      "name": "Floater Corpse"
+     },
+     {
+      "id": 137,
+      "name": "Heavy Floater Corpse"
+     },
+     {
+      "id": 138,
+      "name": "Thin Man Corpse"
+     },
+     {
+      "id": 139,
+      "name": "Muton Corpse"
+     },
+     {
+      "id": 140,
+      "name": "Muton Elite Corpse"
+     },
+     {
+      "id": 141,
+      "name": "Berserker Corpse"
+     },
+     {
+      "id": 143,
+      "name": "Ethereal Corpse"
+     },
+     {
+      "id": 144,
+      "name": "Chryssalid Carcass"
+     }
+    ],
+    "name": "an alien corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 2,
+   "enum": "eTech_ArcThrower",
+   "requires": [
+    1
+   ],
+   "ever_had": {
+    "id": 134,
+    "name": "Sectoid Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 3,
+   "enum": "eTech_BaseShard",
+   "requires": [
+    4
+   ],
+   "ever_had": {
+    "id": 183,
+    "name": "Outsider Shard"
+   },
+   "any_of": [
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43
+   ],
+   "in_stores": {
+    "any_of": [
+     {
+      "id": 183,
+      "name": "Outsider Shard"
+     }
+    ],
+    "name": "Outsider Shard"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 4,
+   "enum": "eTech_PsiLabs",
+   "requires": [
+    2,
+    13,
+    44
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    8,
+    9
+   ]
+  },
+  {
+   "id": 5,
+   "enum": "eTech_Firestorm",
+   "requires": [
+    33,
+    59
+   ],
+   "ever_had": {
+    "id": 170,
+    "name": "UFO Power Source"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 6,
+   "enum": "eTech_AutopsySectoidCommander",
+   "requires": [
+    13,
+    44
+   ],
+   "ever_had": {
+    "id": 135,
+    "name": "Sectoid Commander Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 7,
+   "enum": "eTech_Hyperwave",
+   "requires": [
+    2
+   ],
+   "ever_had": {
+    "id": 171,
+    "name": "Hyperwave Beacon"
+   },
+   "credits": [
+    8,
+    9
+   ]
+  },
+  {
+   "id": 8,
+   "enum": "eTech_PsiLink",
+   "requires": [
+    43
+   ],
+   "ever_had": {
+    "id": 180,
+    "name": "Ethereal Device"
+   },
+   "credits": [
+    8,
+    9
+   ]
+  },
+  {
+   "id": 9,
+   "enum": "eTech_WeaponFragments",
+   "requires": [],
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 10,
+   "enum": "eTech_AlienMaterials",
+   "requires": [],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 11,
+   "enum": "eTech_Exp_Warfare",
+   "requires": [
+    9
+   ],
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 12,
+   "enum": "eTech_Elerium",
+   "requires": [
+    10
+   ],
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 13,
+   "enum": "eTech_Meld",
+   "requires": [
+    1
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 14,
+   "enum": "eTech_PsiArmor",
+   "requires": [
+    8,
+    60
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    8,
+    9
+   ]
+  },
+  {
+   "id": 15,
+   "enum": "eTech_Armor_Carapace",
+   "requires": [
+    72
+   ],
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 16,
+   "enum": "eTech_Armor_Skeleton",
+   "requires": [
+    12,
+    15
+   ],
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 17,
+   "enum": "eTech_Armor_Titan",
+   "requires": [
+    16,
+    33
+   ],
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 18,
+   "enum": "eTech_Armor_Ghost",
+   "requires": [
+    7,
+    17
+   ],
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 19,
+   "enum": "eTech_Armor_ArchAngel",
+   "requires": [
+    5,
+    17
+   ],
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 20,
+   "enum": "eTech_LaserWeapons",
+   "requires": [
+    9
+   ],
+   "credits": [
+    1,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 21,
+   "enum": "eTech_PrecisionLasers",
+   "requires": [
+    20
+   ],
+   "credits": [
+    1,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 22,
+   "enum": "eTech_HeavyLasers",
+   "requires": [
+    21,
+    33
+   ],
+   "credits": [
+    1,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 23,
+   "enum": "eTech_Plasma_Pistol",
+   "requires": [
+    24
+   ],
+   "ever_had": {
+    "id": 41,
+    "name": "Alien Pistol"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 24,
+   "enum": "eTech_Plasma_Light",
+   "requires": [
+    9,
+    33,
+    60
+   ],
+   "ever_had": {
+    "id": 42,
+    "name": "Alien Carbine"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 25,
+   "enum": "eTech_Plasma_Rifle",
+   "requires": [
+    24
+   ],
+   "ever_had": {
+    "id": 45,
+    "name": "Alien Rifle"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 26,
+   "enum": "eTech_Plasma_Heavy",
+   "requires": [
+    25
+   ],
+   "ever_had": {
+    "id": 47,
+    "name": "Alien Heavy Weapon"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 27,
+   "enum": "eTech_Plasma_Sniper",
+   "requires": [
+    25
+   ],
+   "ever_had": {
+    "id": 45,
+    "name": "Alien Rifle"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 28,
+   "enum": "eTech_Alloy_Cannon",
+   "requires": [
+    10,
+    11
+   ],
+   "credits": [
+    3,
+    7,
+    9
+   ]
+  },
+  {
+   "id": 29,
+   "enum": "eTech_Plasma_Cannon",
+   "requires": [
+    25
+   ],
+   "ever_had": {
+    "id": 45,
+    "name": "Alien Rifle"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 30,
+   "enum": "eTech_Fusion_Launcher",
+   "requires": [
+    26,
+    34
+   ],
+   "ever_had": {
+    "id": 179,
+    "name": "Fusion Core"
+   },
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 31,
+   "enum": "eTech_BlasterLauncher",
+   "requires": [
+    28
+   ],
+   "credits": [
+    3,
+    7,
+    9
+   ]
+  },
+  {
+   "id": 32,
+   "enum": "eTech_AlienNavigation",
+   "requires": [],
+   "ever_had": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 33,
+   "enum": "eTech_UFOPowerSource",
+   "requires": [
+    12,
+    32
+   ],
+   "ever_had": {
+    "id": 170,
+    "name": "UFO Power Source"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 34,
+   "enum": "eTech_EMP",
+   "requires": [
+    31,
+    49
+   ],
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 35,
+   "enum": "eTech_InterrogateSectoid",
+   "requires": [
+    44
+   ],
+   "ever_had": {
+    "id": 150,
+    "name": "Sectoid Captive"
+   },
+   "grants_credit": 6,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 36,
+   "enum": "eTech_InterrogateFloater",
+   "requires": [
+    45
+   ],
+   "ever_had": {
+    "id": 152,
+    "name": "Floater Captive"
+   },
+   "grants_credit": 4,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 37,
+   "enum": "eTech_InterrogateMuton",
+   "requires": [
+    47
+   ],
+   "ever_had": {
+    "id": 155,
+    "name": "Muton Captive"
+   },
+   "grants_credit": 7,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 38,
+   "enum": "eTech_InterrogateSectoidCommander",
+   "requires": [
+    6
+   ],
+   "ever_had": {
+    "id": 151,
+    "name": "Sectoid Commander Captive"
+   },
+   "grants_credit": 8,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 39,
+   "enum": "eTech_InterrogateBerserker",
+   "requires": [
+    51
+   ],
+   "ever_had": {
+    "id": 157,
+    "name": "Berserker Captive"
+   },
+   "grants_credit": 5,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 40,
+   "enum": "eTech_InterrogateThinMan",
+   "requires": [
+    46
+   ],
+   "ever_had": {
+    "id": 154,
+    "name": "Thin Man Captive"
+   },
+   "grants_credit": 1,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 41,
+   "enum": "eTech_InterrogateHeavyFloater",
+   "requires": [
+    52
+   ],
+   "ever_had": {
+    "id": 153,
+    "name": "Heavy Floater Captive"
+   },
+   "grants_credit": 2,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 42,
+   "enum": "eTech_InterrogateMutonElite",
+   "requires": [
+    53
+   ],
+   "ever_had": {
+    "id": 156,
+    "name": "Muton Elite Captive"
+   },
+   "grants_credit": 3,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 43,
+   "enum": "eTech_InterrogateEthereal",
+   "requires": [
+    56
+   ],
+   "ever_had": {
+    "id": 158,
+    "name": "Ethereal Captive"
+   },
+   "grants_credit": 9,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 44,
+   "enum": "eTech_AutopsySectoid",
+   "requires": [
+    1
+   ],
+   "ever_had": {
+    "id": 134,
+    "name": "Sectoid Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 45,
+   "enum": "eTech_AutopsyFloater",
+   "requires": [
+    60
+   ],
+   "ever_had": {
+    "id": 136,
+    "name": "Floater Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 46,
+   "enum": "eTech_AutopsyThinMan",
+   "requires": [
+    1
+   ],
+   "ever_had": {
+    "id": 138,
+    "name": "Thin Man Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 47,
+   "enum": "eTech_AutopsyMuton",
+   "requires": [
+    1
+   ],
+   "ever_had": {
+    "id": 139,
+    "name": "Muton Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 48,
+   "enum": "eTech_AutopsyCryssalid",
+   "requires": [
+    13
+   ],
+   "ever_had": {
+    "id": 144,
+    "name": "Chryssalid Carcass"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 49,
+   "enum": "eTech_AutopsyZombie",
+   "requires": [
+    22
+   ],
+   "credits": [
+    1,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 50,
+   "enum": "eTech_AutopsyCyberdisc",
+   "requires": [
+    60
+   ],
+   "ever_had": {
+    "id": 142,
+    "name": "Cyberdisc Wreck"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 51,
+   "enum": "eTech_AutopsyBerserker",
+   "requires": [
+    2,
+    47
+   ],
+   "ever_had": {
+    "id": 141,
+    "name": "Berserker Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 52,
+   "enum": "eTech_AutopsyHeavyFloater",
+   "requires": [
+    45
+   ],
+   "ever_had": {
+    "id": 137,
+    "name": "Heavy Floater Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 53,
+   "enum": "eTech_AutopsyMutonElite",
+   "requires": [
+    47
+   ],
+   "ever_had": {
+    "id": 140,
+    "name": "Muton Elite Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 54,
+   "enum": "eTech_AutopsyDrone",
+   "requires": [
+    32
+   ],
+   "ever_had": {
+    "id": 147,
+    "name": "Drone Wreck"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 55,
+   "enum": "eTech_AutopsySectopod",
+   "requires": [
+    32
+   ],
+   "ever_had": {
+    "id": 146,
+    "name": "Sectopod Wreck"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 56,
+   "enum": "eTech_AutopsyEthereal",
+   "requires": [
+    4
+   ],
+   "ever_had": {
+    "id": 143,
+    "name": "Ethereal Corpse"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 57,
+   "enum": "eTech_AutopsyMechtoid",
+   "requires": [
+    44,
+    60
+   ],
+   "ever_had": {
+    "id": 187,
+    "name": "Mechtoid Core"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 58,
+   "enum": "eTech_AutopsySeeker",
+   "requires": [
+    32
+   ],
+   "ever_had": {
+    "id": 188,
+    "name": "Seeker Wreck"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 59,
+   "enum": "eTech_Autopsy_END",
+   "requires": [
+    10,
+    11
+   ],
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 60,
+   "enum": "eTech_Placeholder",
+   "requires": [
+    10,
+    13,
+    32
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 61,
+   "enum": "eTech_Placeholder_1",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 4,
+    "name": "Scout"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 62,
+   "enum": "eTech_Placeholder_2",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 5,
+    "name": "Destroyer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 63,
+   "enum": "eTech_Placeholder_3",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 6,
+    "name": "Abductor"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 64,
+   "enum": "eTech_Placeholder_4",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 7,
+    "name": "Transport"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 65,
+   "enum": "eTech_Placeholder_5",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 8,
+    "name": "Battleship"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 66,
+   "enum": "eTech_Placeholder_6",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 9,
+    "name": "Overseer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 67,
+   "enum": "eTech_Placeholder_7",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 10,
+    "name": "Fighter"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 68,
+   "enum": "eTech_Placeholder_8",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 11,
+    "name": "Raider"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 69,
+   "enum": "eTech_Placeholder_9",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 12,
+    "name": "Harvester"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 70,
+   "enum": "eTech_Placeholder_10",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 13,
+    "name": "Terror Ship"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 71,
+   "enum": "eTech_Placeholder_11",
+   "requires": [
+    10
+   ],
+   "encountered": {
+    "id": 14,
+    "name": "Assault Carrier"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 72,
+   "enum": "eTech_Placeholder_12",
+   "requires": [
+    10
+   ],
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 73,
+   "enum": "eTech_Placeholder_13",
+   "requires": [
+    16,
+    60
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 74,
+   "enum": "eTech_Placeholder_14",
+   "requires": [
+    17,
+    73
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 75,
+   "enum": "eTech_Placeholder_15",
+   "requires": [
+    17,
+    73
+   ],
+   "ever_had": {
+    "id": 164,
+    "name": "Meld"
+   },
+   "credits": [
+    5,
+    9
+   ]
+  }
+ ],
+ "foundry": [
+  {
+   "id": 1,
+   "requires": 10,
+   "enum": "eFoundry_SHIV",
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 2,
+   "requires": 47,
+   "enum": "eFoundry_AlienGrenades",
+   "in_stores": {
+    "id": 84,
+    "name": "Alien Grenade"
+   },
+   "ever_had": {
+    "id": 84,
+    "name": "Alien Grenade"
+   },
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 3,
+   "requires": 46,
+   "enum": "eFoundry_MedikitII",
+   "in_stores": {
+    "id": 138,
+    "name": "Thin Man Corpse"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 4,
+   "requires": 33,
+   "enum": "eFoundry_ArcThrowerII",
+   "in_stores": {
+    "id": 147,
+    "name": "Drone Wreck"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 5,
+   "requires": 52,
+   "enum": "eFoundry_VehicleRepair",
+   "in_stores": {
+    "id": 137,
+    "name": "Heavy Floater Corpse"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 6,
+   "requires": 21,
+   "enum": "eFoundry_AutomatedLasers",
+   "credits": [
+    1,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 7,
+   "requires": 27,
+   "enum": "eFoundry_AutomatedPlasma",
+   "in_stores": {
+    "id": 250,
+    "name": "Plasma Dragon"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 8,
+   "requires": 54,
+   "enum": "eFoundry_SHIV_Heal",
+   "in_stores": {
+    "id": 147,
+    "name": "Drone Wreck"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 9,
+   "requires": 34,
+   "enum": "eFoundry_CaptureDrone",
+   "in_stores": {
+    "id": 147,
+    "name": "Drone Wreck"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 10,
+   "requires": 47,
+   "enum": "eFoundry_AmmoConservation",
+   "in_stores": {
+    "id": 139,
+    "name": "Muton Corpse"
+   },
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 11,
+   "requires": 19,
+   "enum": "eFoundry_AdvancedFlight",
+   "in_stores": {
+    "id": 142,
+    "name": "Cyberdisc Wreck"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 12,
+   "requires": 59,
+   "enum": "eFoundry_AdvancedConstruction",
+   "in_stores": {
+    "id": 136,
+    "name": "Floater Corpse"
+   },
+   "credits": [
+    4,
+    5,
+    9
+   ]
+  },
+  {
+   "id": 13,
+   "requires": 9,
+   "enum": "eFoundry_PistolI",
+   "credits": [
+    3,
+    7,
+    9
+   ]
+  },
+  {
+   "id": 14,
+   "requires": 28,
+   "enum": "eFoundry_PistolII",
+   "credits": [
+    3,
+    7,
+    9
+   ]
+  },
+  {
+   "id": 15,
+   "requires": 23,
+   "enum": "eFoundry_PistolIII",
+   "in_stores": {
+    "id": 41,
+    "name": "Alien Pistol"
+   },
+   "credits": [
+    2,
+    3,
+    9
+   ]
+  },
+  {
+   "id": 16,
+   "requires": 9,
+   "enum": "eFoundry_SHIVSuppression",
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 17,
+   "requires": 18,
+   "enum": "eFoundry_StealthSatellites",
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 18,
+   "requires": 11,
+   "enum": "eFoundry_Scope",
+   "in_stores": {
+    "id": 74,
+    "name": "SCOPE"
+   },
+   "credits": [
+    3,
+    9
+   ]
+  },
+  {
+   "id": 19,
+   "requires": 12,
+   "enum": "eFoundry_EleriumFuel",
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 20,
+   "requires": 51,
+   "enum": "eFoundry_MECCloseCombat",
+   "in_stores": {
+    "id": 141,
+    "name": "Berserker Corpse"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 21,
+   "requires": 57,
+   "enum": "eFoundry_AdvancedServomotors",
+   "in_stores": {
+    "id": 187,
+    "name": "Mechtoid Core"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 22,
+   "requires": 45,
+   "enum": "eFoundry_ShapedArmor",
+   "in_stores": {
+    "id": 136,
+    "name": "Floater Corpse"
+   },
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 23,
+   "requires": 50,
+   "enum": "eFoundry_SentinelDrone",
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 24,
+   "requires": 53,
+   "enum": "eFoundry_TacticalRigging",
+   "in_stores": {
+    "id": 140,
+    "name": "Muton Elite Corpse"
+   },
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 25,
+   "requires": 10,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 26,
+   "requires": 10,
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 27,
+   "requires": 59,
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 28,
+   "requires": 59,
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 29,
+   "requires": 15,
+   "in_stores": {
+    "id": 142,
+    "name": "Cyberdisc Wreck"
+   },
+   "credits": [
+    5,
+    9
+   ]
+  },
+  {
+   "id": 30,
+   "requires": 60,
+   "in_stores": {
+    "id": 169,
+    "name": "Alien Surgery"
+   },
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 31,
+   "requires": 59,
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 32,
+   "requires": 58,
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 33,
+   "requires": 5,
+   "in_stores": {
+    "id": 170,
+    "name": "UFO Power Source"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 34,
+   "requires": 49,
+   "in_stores": {
+    "id": 170,
+    "name": "UFO Power Source"
+   },
+   "credits": [
+    1,
+    9
+   ]
+  },
+  {
+   "id": 35,
+   "requires": 33,
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 36,
+   "requires": 60,
+   "credits": [
+    6,
+    9
+   ]
+  },
+  {
+   "id": 37,
+   "requires": 59,
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 38,
+   "requires": 33,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 39,
+   "requires": 10,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 40,
+   "requires": 11,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 41,
+   "requires": 4,
+   "in_stores": {
+    "id": 134,
+    "name": "Sectoid Corpse"
+   },
+   "credits": [
+    8,
+    9
+   ]
+  },
+  {
+   "id": 42,
+   "requires": 20,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 43,
+   "requires": 72,
+   "credits": [
+    9
+   ]
+  },
+  {
+   "id": 44,
+   "requires": 28,
+   "in_stores": {
+    "id": 170,
+    "name": "UFO Power Source"
+   },
+   "credits": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": 45,
+   "requires": 59,
+   "in_stores": {
+    "id": 168,
+    "name": "UFO Flight Computer"
+   },
+   "credits": [
+    4,
+    9
+   ]
+  },
+  {
+   "id": 46,
+   "requires": 31,
+   "in_stores": {
+    "id": 42,
+    "name": "Alien Carbine"
+   },
+   "credits": [
+    3,
+    7,
+    9
+   ]
+  }
+ ]
+}

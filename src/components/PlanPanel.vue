@@ -51,7 +51,7 @@ const steps = computed(() => {
   return (plan.value?.steps ?? []).map((id) => {
     const t = techById.value.get(id)!
     const est = c && ctx.value ? estimate(t, c, ctx.value) : undefined
-    const st = c ? techState(t, c.researched, c.project?.tech) : undefined
+    const st = c ? techState(t, c.researched, c.project?.tech, c) : undefined
     return {
       id,
       name: t.name,

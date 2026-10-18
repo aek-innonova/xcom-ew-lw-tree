@@ -26,8 +26,10 @@ allow it).
 ## Data
 
 - `tech.json`, `longwar_foundry.json`, `longwar_bonuses.json`: the techs,
-  Foundry projects and bonuses, from the game's config and localization
-  (prerequisites and items cross-checked with UFOpaedia).
+  Foundry projects and bonuses, from the game's config and localization.
+- `data/techtree.json`: prerequisites, item and UFO checks, and research
+  credit rules, read from the game's compiled script (`XGTechTree`) by
+  `scripts/upk_techtree.py` (with `scripts/upk_script.py`).
 - `ufopaedia.json`: where UFOpaedia links each unlock, extracted from its
   Long War Research and Foundry pages by `scripts/ufopaedia_links.py`.
 - `data/enums.json`: Enemy Within's item, tech, Foundry, facility and

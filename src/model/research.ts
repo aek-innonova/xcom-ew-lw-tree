@@ -6,13 +6,13 @@
 // - for the current project the save holds the points still needed after
 //   credits (TResearchProject.iActualHoursLeft, despite the name), and the
 //   game's ETA is ceil(points left / points per hour / 24) days.
-// How much each research credit takes off is not known yet (25 % and 35 %
-// have been seen), so estimates for other techs are before credits.
+// Research credits and We Have Ways are applied the way the game's GetTech
+// does (credits.ts).
 
 import type { Campaign } from '@/save/campaign'
 import type { ResearchBonuses } from './bonuses'
-import { creditsFromSlots } from './credits'
-import type { Tech } from './techs'
+import { applyCredits, coveringCredits, creditCut, creditsFromSlots } from './credits'
+import type { Gate, Tech } from './techs'
 
 export const POINTS_PER_BASE_DAY = 720
 
@@ -43,21 +43,23 @@ export function projectEtaDays(c: Campaign): number | undefined {
 
 // --- Research credits and bonuses -------------------------------------------
 //
-// Verified on 1,225 credited projects across 46 campaigns (2026-10-18): each
-// credit that covers a tech multiplies its cost by (1 − 25 % − Expertise), and
-// credits stack by multiplying: a plasma tech with the Plasma and the Weapons
-// (Muton Elite) credits costs 0.75 × 0.75 = 56 % of base, or 0.65 × 0.65 = 42 %
-// with Brazil's Expertise. A project's cost is fixed when it starts. A credit is
-// held once its interrogation is researched; tech.json's unlock texts say which
-// credit each one gives. We Have Ways takes its share off the cost of autopsies
-// and interrogations (see bonuses.ts).
+// Verified on 1,225 credited projects across 46 campaigns (2026-10-18), then
+// read from the game's script (credits.ts): each credit that covers a tech
+// takes 25 % plus Expertise off its cost (the Ethereal's "All" credit 20 %),
+// and credits stack by multiplying: a plasma tech with the Plasma and the
+// Weapons (Muton Elite) credits costs 0.75 × 0.75 = 56 % of base, or
+// 0.65 × 0.65 = 42 % with Brazil's Expertise. A project's cost is fixed when it
+// starts. A credit is held once its interrogation is researched; tech.json's
+// unlock texts say which credit each one gives. We Have Ways takes its share
+// off the cost of autopsies and interrogations after the credits (see
+// bonuses.ts).
 
+/** The share a field's credit takes off before Expertise. */
 export const BASE_CREDIT_REDUCTION = 0.25
 
 /**
  * Credit names held: from the save's credit slots where it has them, plus any
- * whose interrogation is researched (the Ethereal's "All" credit has no known
- * slot). "All" covers every tech.
+ * whose interrogation is researched. "All" covers every tech.
  */
 export function heldCredits(
   techs: Tech[],
@@ -76,29 +78,31 @@ export function heldCredits(
   return held
 }
 
-/** The held credits that cover a tech; each one takes its share off the cost. */
+/** The held credits that cover a tech, in the order the game applies them. */
 export function applicableCredits(tech: Tech, held: Set<string>): string[] {
-  const credit = tech.research_credit
-  const out: string[] = []
-  if (credit && held.has(credit)) out.push(credit)
-  // The Muton Elite's "Weapons" credit covers all weapon research, on top of the
-  // weapon type's own credit.
-  if (credit && credit !== 'Weapons' && credit.endsWith('Weapons') && held.has('Weapons'))
-    out.push('Weapons')
-  if (held.has('All')) out.push('All')
-  return out
+  return coveringCredits(tech.credits, held)
 }
 
 export function creditApplies(tech: Tech, held: Set<string>): boolean {
   return applicableCredits(tech, held).length > 0
 }
 
+/** A tech's cost in research points after its held credits, as the game computes it. */
+export function creditedPoints(
+  tech: Tech,
+  ctx: Pick<ResearchContext, 'held' | 'expertise'>,
+): number {
+  const cuts = applicableCredits(tech, ctx.held).map((c) => creditCut(c, ctx.expertise))
+  return applyCredits(tech.base_days * POINTS_PER_BASE_DAY, cuts, true)
+}
+
 /** The fraction of base cost a tech's held credits take off together. */
 export function creditReductionFor(
   tech: Tech,
-  ctx: Pick<ResearchContext, 'held' | 'creditReduction'>,
+  ctx: Pick<ResearchContext, 'held' | 'expertise'>,
 ): number {
-  return 1 - (1 - ctx.creditReduction) ** applicableCredits(tech, ctx.held).length
+  const base = tech.base_days * POINTS_PER_BASE_DAY
+  return base > 0 ? 1 - creditedPoints(tech, ctx) / base : 0
 }
 
 /** Autopsies and interrogations, which We Have Ways shortens. */
@@ -109,7 +113,9 @@ export function isAutopsyOrInterrogation(tech: Tech): boolean {
 export interface ResearchContext {
   perHour: number
   held: Set<string>
-  /** Fraction each held credit takes off: 25 % plus Expertise. */
+  /** What Expertise adds to each credit's share. */
+  expertise: number
+  /** Fraction a field's credit takes off: 25 % plus Expertise. */
   creditReduction: number
   /** Fraction We Have Ways takes off autopsies and interrogations. */
   autopsyTimeReduction: number
@@ -128,6 +134,7 @@ export function researchContext(
   return {
     perHour,
     held: heldCredits(techs, c.researched, c.credits),
+    expertise: bonuses.creditBonus,
     creditReduction: BASE_CREDIT_REDUCTION + bonuses.creditBonus,
     autopsyTimeReduction: bonuses.autopsyTimeReduction,
     bonuses,
@@ -160,18 +167,46 @@ export function estimate(tech: Tech, c: Campaign, ctx: ResearchContext): Estimat
       exact: true,
     }
   }
-  let cost = tech.base_days * POINTS_PER_BASE_DAY * (1 - creditReductionFor(tech, ctx))
-  if (shortened) cost *= 1 - ctx.autopsyTimeReduction
-  const pointsLeft = Math.max(0, Math.round(cost - (c.progress[tech.id] ?? 0)))
+  let cost = creditedPoints(tech, ctx)
+  // GetTech: hours *= 1 − bonus / 100, kept whole.
+  if (shortened) cost = Math.trunc(cost * Math.fround(1 - Math.fround(ctx.autopsyTimeReduction)))
+  const pointsLeft = Math.max(0, cost - (c.progress[tech.id] ?? 0))
   return { pointsLeft, days: daysFor(pointsLeft, ctx.perHour), credited, shortened, exact: false }
 }
 
 export type TechState = 'researched' | 'researching' | 'available' | 'locked'
 
-export function techState(tech: Tech, researched: boolean[], projectTech?: number): TechState {
+/** What a save says the campaign holds, for the game's non-research checks. */
+export interface Holdings {
+  /** XGStorage.m_arrItemArchives: non-zero for every item ever held. */
+  everHad?: number[]
+  stock?: number[]
+  /** XGGeoscape.m_arrCraftEncounters, by ship type. */
+  craftEncounters?: number[]
+}
+
+/** Whether a gate is met; true when the save does not say. */
+export function gateMet(g: Gate, h: Holdings): boolean {
+  const any = (list: number[] | undefined, ids: number[]) =>
+    !list?.length || ids.some((i) => (list[i] ?? 0) > 0)
+  if (g.kind === 'ever_had') return any(h.everHad, g.items)
+  if (g.kind === 'in_stores') return any(h.stock, g.items)
+  return any(h.craftEncounters, [g.ship])
+}
+
+export function unmetGates(gates: Gate[], h: Holdings | undefined): Gate[] {
+  return h ? gates.filter((g) => !gateMet(g, h)) : []
+}
+
+export function techState(
+  tech: Tech,
+  researched: boolean[],
+  projectTech?: number,
+  holdings?: Holdings,
+): TechState {
   if (researched[tech.id]) return 'researched'
   if (projectTech === tech.id) return 'researching'
   const all = tech.prerequisites.every((p) => researched[p.id])
   const any = tech.any_one_of.length === 0 || tech.any_one_of.some((p) => researched[p.id])
-  return all && any ? 'available' : 'locked'
+  return all && any && !unmetGates(tech.gates, holdings).length ? 'available' : 'locked'
 }

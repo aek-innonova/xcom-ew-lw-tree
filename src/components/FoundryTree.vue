@@ -65,7 +65,9 @@ const projects = computed<ProjectView[]>(() => {
   const building = new Map((c?.foundryInProgress ?? []).map((b) => [b.id, b]))
   return foundry.value.map((p) => {
     const box = geo.value.nodes.get(p.id)!
-    const st = c ? foundryState(p, c.foundryHistory, new Set(building.keys()), c.researched) : null
+    const st = c
+      ? foundryState(p, c.foundryHistory, new Set(building.keys()), c.researched, c)
+      : null
     const tech = p.requires_tech
       ? (techById.value.get(p.requires_tech.id)?.name ?? p.requires_tech.name)
       : ''
@@ -93,7 +95,9 @@ const projects = computed<ProjectView[]>(() => {
         ...foundryProgress(
           p,
           building.get(p.id)!.workLeft,
-          credits.value ? foundryCreditReduction(p, credits.value.held, credits.value.each) : 0,
+          credits.value
+            ? foundryCreditReduction(p, credits.value.held, credits.value.expertise)
+            : 0,
         ),
       },
       label: [
@@ -169,7 +173,7 @@ const card = computed(() => {
   return {
     node: n,
     effect: p.effect,
-    credit: p.research_credit,
+    credit: p.credits.join(', '),
     x: n.x - CARD_PAD,
     y: up ? n.y + NODE_H - CARD_MAX_H : n.y,
     up,

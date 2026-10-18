@@ -70,6 +70,10 @@ export interface Campaign {
   lostCountries: number[]
   /** Items in stores, by Enemy Within item index (XGStorage.m_arrItems; see model/inventory.ts). */
   stock: number[]
+  /** Non-zero for every item ever held (XGStorage.m_arrItemArchives). */
+  everHad: number[]
+  /** UFOs met, by ship type (XGGeoscape.m_arrCraftEncounters); UFO analyses need one. */
+  craftEncounters: number[]
   /** The end-of-campaign statistics, by name without the eRecap_ prefix. */
   recap: Record<string, number>
 }
@@ -253,5 +257,7 @@ export function readCampaign(save: SaveFile): Campaign {
     lostCountries,
     recap: recapStats(save),
     stock: numbers(prop(byClass('XGStorage'), 'm_arrItems')),
+    everHad: numbers(prop(byClass('XGStorage'), 'm_arrItemArchives')),
+    craftEncounters: numbers(prop(byClass('XGGeoscape'), 'm_arrCraftEncounters')),
   }
 }

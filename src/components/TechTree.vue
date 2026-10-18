@@ -47,7 +47,7 @@ const nodes = computed<NodeView[]>(() =>
   techs.value.map((t) => {
     const box = geo.value.nodes.get(t.id)!
     const c = campaign.value
-    const st = c ? techState(t, c.researched, c.project?.tech) : null
+    const st = c ? techState(t, c.researched, c.project?.tech, c) : null
     let days = `${t.base_days}d`
     const dayWord = (n: number) => (n === 1 ? '1 day' : `${n} days`)
     let daysTitle = `${dayWord(t.base_days)} base time`
@@ -246,7 +246,7 @@ const card = computed(() => {
     node: n,
     unlocks: itemUnlocks(t),
     foundry: foundryFor(t.id).map((p) => p.name),
-    credit: t.research_credit,
+    credit: t.credits.join(', '),
     x: n.x - CARD_PAD,
     y: up ? n.y + NODE_H - CARD_MAX_H : n.y,
     up,

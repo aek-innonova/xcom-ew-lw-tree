@@ -24,6 +24,8 @@ function campaign(over: Partial<Campaign>): Campaign {
     researchedOn: [],
     recap: {},
     stock: [],
+    everHad: [],
+    craftEncounters: [],
     scientists: 100,
     labBonus: 0.2,
     adjacentLabBonus: 0.3,
@@ -123,8 +125,8 @@ describe('credit stacking (verified on 1,225 projects in the save history)', () 
     const { creditReductionFor, applicableCredits } = await import('../research')
     const held = new Set(['Plasma Weapons', 'Weapons'])
     expect(applicableCredits(tech(24), held)).toEqual(['Plasma Weapons', 'Weapons'])
-    expect(creditReductionFor(tech(24), { held, creditReduction: 0.35 })).toBeCloseTo(0.5775)
-    expect(creditReductionFor(tech(24), { held, creditReduction: 0.25 })).toBeCloseTo(0.4375)
+    expect(creditReductionFor(tech(24), { held, expertise: 0.1 })).toBeCloseTo(0.5775, 3)
+    expect(creditReductionFor(tech(24), { held, expertise: 0 })).toBeCloseTo(0.4375, 3)
     // Armor research is not weapon research: only its own credit.
     expect(applicableCredits(tech(15), new Set(['Armor', 'Weapons']))).toEqual(['Armor'])
   })

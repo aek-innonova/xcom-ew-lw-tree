@@ -1,6 +1,18 @@
 // Research credits: interrogating an alien gives a credit for a field of
-// research. Each credit that covers a tech or Foundry project takes (25 % +
-// Expertise) off its cost, credits stacking by multiplying (research.ts).
+// research. Each credit that covers a tech or Foundry project takes its share
+// off the cost, credits stacking by multiplying.
+//
+// From the game's script (XGTechTree, read into data/techtree.json by
+// scripts/upk_techtree.py):
+// - BuildResearchCredits: every credit is worth 25 %, the Ethereal's "All" 20 %.
+// - CreditAppliesToTech / CreditAppliesToFoundryTech: which techs and Foundry
+//   projects each credit covers (each item's `credits`); "All" covers everything.
+// - GetCreditAdjustedTechHours, per held credit that covers the item, in slot
+//   order: saved = (share + Expertise) × hours, at least 24; hours −= saved,
+//   cut to a whole number; research never drops below 24. "Hours" are research
+//   points (base days × 720) or Foundry engineer-hours. The game applies it
+//   when it looks the tech up, so a running project keeps the cost it started
+//   with.
 //
 // Verified on the person's 1,711 saves (2026-10-18):
 // - XGFacility_Labs.m_arrCredits holds a flag per credit; slot ↔ credit matched
@@ -10,9 +22,11 @@
 //   same ten slots under vanilla names (Weapons_I, PlasmaWeapons, AllWeapons,
 //   Armor_I, AllArmor, UFOTech, Flight, Psionics, AllTech): Long War reuses
 //   them for its own fields. Slot 9, AllTech, is the Ethereal's "All" credit.
-// - Foundry projects: a held credit makes a project start with 75 % of its work
-//   (65 % with Brazil's Expertise), the same rule as research.
+// - 371 of the 380 credited projects running in those saves cost exactly what
+//   the formula gives; the other nine, all in early saves, fit no setting.
+//   None had the "All" credit.
 
+import techtree from '../../data/techtree.json'
 import type { Tech } from './techs'
 
 export const CREDIT_SLOTS: Record<number, string> = {
@@ -57,12 +71,50 @@ export function creditsFromSlots(slots: number[]): string[] {
     .map(([, name]) => name)
 }
 
-/** Whether a credit covers a tech or project with the given credit category. */
-export function covers(credit: string, category: string | null): boolean {
-  if (credit === 'All') return true
-  if (!category) return false
-  return (
-    category === credit ||
-    (credit === 'Weapons' && category !== 'Weapons' && category.endsWith('Weapons'))
-  )
+/** Each credit's share off, from the game (BuildResearchCredits). */
+export const CREDIT_SHARE: Record<string, number> = Object.fromEntries(
+  Object.entries(techtree.credit_bonus).map(([slot, pct]) => [
+    CREDIT_SLOTS[Number(slot)]!,
+    pct / 100,
+  ]),
+)
+
+const SLOT_OF = new Map(Object.entries(CREDIT_SLOTS).map(([slot, name]) => [name, Number(slot)]))
+
+/** Credit names from slot numbers, leaving out "All" (it covers everything anyway). */
+export function creditNames(slots: number[]): string[] {
+  return slots.flatMap((s) => (s === 9 || !CREDIT_SLOTS[s] ? [] : [CREDIT_SLOTS[s]!]))
+}
+
+/** Whether a credit covers a tech or project with the given covering credits. */
+export function covers(credit: string, credits: string[]): boolean {
+  return credit === 'All' || credits.includes(credit)
+}
+
+/** The held credits that cover an item, in the order the game applies them. */
+export function coveringCredits(credits: string[], held: Set<string>): string[] {
+  return [...held]
+    .filter((h) => covers(h, credits))
+    .sort((a, b) => (SLOT_OF.get(a) ?? 99) - (SLOT_OF.get(b) ?? 99))
+}
+
+/** One credit's share with Expertise added, as the game computes it (in single precision). */
+export function creditCut(credit: string, expertise: number): number {
+  const share = Math.fround(CREDIT_SHARE[credit] ?? 0.25)
+  return expertise > 0 ? Math.fround(share + Math.fround(expertise)) : share
+}
+
+/**
+ * GetCreditAdjustedTechHours: what is left of `hours` after each cut, in order.
+ * Each credit saves at least 24; research never drops below 24.
+ */
+export function applyCredits(hours: number, cuts: number[], research: boolean): number {
+  if (hours === 0) return 0
+  let h = hours
+  for (const cut of cuts) {
+    const saved = Math.max(24, Math.fround(cut * h))
+    h -= Math.trunc(saved)
+    if (research && h < 24) h = 24
+  }
+  return h
 }

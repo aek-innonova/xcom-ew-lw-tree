@@ -33,7 +33,6 @@
         "weapon_fragments": 0,
         "items": "5 Sectoid corpses"
       },
-      "research_credit": null,
       "prerequisites": [],
       "any_one_of": [],
       "leads_to": [
@@ -76,7 +75,6 @@
         "weapon_fragments": 10,
         "items": "10 Sectoid corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 1,
@@ -88,6 +86,10 @@
         {
           "id": 4,
           "name": "Xenopsionics"
+        },
+        {
+          "id": 7,
+          "name": "Alien Communications"
         },
         {
           "id": 51,
@@ -112,7 +114,6 @@
         "weapon_fragments": 0,
         "items": "Outsider Shard"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 4,
@@ -181,7 +182,6 @@
         "weapon_fragments": 0,
         "items": "15 Meld"
       },
-      "research_credit": "Psionics",
       "prerequisites": [
         {
           "id": 2,
@@ -228,7 +228,6 @@
         "weapon_fragments": 160,
         "items": "6 UFO Power Sources"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 33,
@@ -264,7 +263,6 @@
         "weapon_fragments": 0,
         "items": "5 Sectoid Commander corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 44,
@@ -300,19 +298,19 @@
         "weapon_fragments": 0,
         "items": "Hyperwave Beacon"
       },
-      "research_credit": "Psionics",
       "prerequisites": [
         {
+          "id": 2,
+          "name": "Xenoneurology"
+        },
+        {
           "id": 3,
-          "name": "Alien Operations"
+          "name": "Alien Operations",
+          "via": "Hyperwave Beacon"
         }
       ],
       "any_one_of": [],
       "leads_to": [
-        {
-          "id": 8,
-          "name": "Alien Command and Control"
-        },
         {
           "id": 18,
           "name": "Stealth Systems"
@@ -336,12 +334,7 @@
         "weapon_fragments": 0,
         "items": "Ethereal Device"
       },
-      "research_credit": "Psionics",
       "prerequisites": [
-        {
-          "id": 7,
-          "name": "Alien Communications"
-        },
         {
           "id": 43,
           "name": "Interrogate Ethereal"
@@ -371,7 +364,6 @@
         "weapon_fragments": 5,
         "items": null
       },
-      "research_credit": "Weapons",
       "prerequisites": [],
       "any_one_of": [],
       "leads_to": [
@@ -407,41 +399,28 @@
         "weapon_fragments": 10,
         "items": "1 Meld"
       },
-      "research_credit": null,
       "prerequisites": [],
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 60,
-          "name": "Alien Biocybernetics"
-        },
-        {
-          "id": 59,
-          "name": "Advanced Aerospace Concepts"
-        },
-        {
           "id": 12,
           "name": "Elerium"
-        },
-        {
-          "id": 72,
-          "name": "Improved Body Armor"
         },
         {
           "id": 28,
           "name": "Gauss Weapons"
         },
         {
+          "id": 59,
+          "name": "Advanced Aerospace Concepts"
+        },
+        {
+          "id": 60,
+          "name": "Alien Biocybernetics"
+        },
+        {
           "id": 61,
           "name": "UFO Analysis: Scout"
-        },
-        {
-          "id": 67,
-          "name": "UFO Analysis: Fighter"
-        },
-        {
-          "id": 68,
-          "name": "UFO Analysis: Raider"
         },
         {
           "id": 62,
@@ -452,12 +431,28 @@
           "name": "UFO Analysis: Abductor"
         },
         {
-          "id": 69,
-          "name": "UFO Analysis: Harvester"
-        },
-        {
           "id": 64,
           "name": "UFO Analysis: Transport"
+        },
+        {
+          "id": 65,
+          "name": "UFO Analysis: Battleship"
+        },
+        {
+          "id": 66,
+          "name": "UFO Analysis: Overseer"
+        },
+        {
+          "id": 67,
+          "name": "UFO Analysis: Fighter"
+        },
+        {
+          "id": 68,
+          "name": "UFO Analysis: Raider"
+        },
+        {
+          "id": 69,
+          "name": "UFO Analysis: Harvester"
         },
         {
           "id": 70,
@@ -468,12 +463,8 @@
           "name": "UFO Analysis: Assault Carrier"
         },
         {
-          "id": 65,
-          "name": "UFO Analysis: Battleship"
-        },
-        {
-          "id": 66,
-          "name": "UFO Analysis: Overseer"
+          "id": 72,
+          "name": "Improved Body Armor"
         }
       ],
       "unlocks": [
@@ -496,7 +487,6 @@
         "weapon_fragments": 20,
         "items": null
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 9,
@@ -506,12 +496,12 @@
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 59,
-          "name": "Advanced Aerospace Concepts"
-        },
-        {
           "id": 28,
           "name": "Gauss Weapons"
+        },
+        {
+          "id": 59,
+          "name": "Advanced Aerospace Concepts"
         }
       ],
       "unlocks": [
@@ -533,7 +523,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 10,
@@ -543,12 +532,12 @@
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 33,
-          "name": "Alien Power Systems"
-        },
-        {
           "id": 16,
           "name": "Mobile Power Armor"
+        },
+        {
+          "id": 33,
+          "name": "Alien Power Systems"
         }
       ],
       "unlocks": [
@@ -569,7 +558,6 @@
         "weapon_fragments": 0,
         "items": "20 Meld"
       },
-      "research_credit": "Cybernetics",
       "prerequisites": [
         {
           "id": 1,
@@ -583,16 +571,16 @@
           "name": "Xenopsionics"
         },
         {
-          "id": 60,
-          "name": "Alien Biocybernetics"
+          "id": 6,
+          "name": "Sectoid Commander Autopsy"
         },
         {
           "id": 48,
           "name": "Chryssalid Autopsy"
         },
         {
-          "id": 6,
-          "name": "Sectoid Commander Autopsy"
+          "id": 60,
+          "name": "Alien Biocybernetics"
         }
       ],
       "unlocks": [
@@ -614,7 +602,6 @@
         "weapon_fragments": 0,
         "items": "5 Meld"
       },
-      "research_credit": "Psionics",
       "prerequisites": [
         {
           "id": 60,
@@ -644,7 +631,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 72,
@@ -677,7 +663,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 15,
@@ -691,12 +676,12 @@
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 73,
-          "name": "Improved Combat Exoskeletons"
-        },
-        {
           "id": 17,
           "name": "Advanced Power Armor"
+        },
+        {
+          "id": 73,
+          "name": "Improved Combat Exoskeletons"
         }
       ],
       "unlocks": [
@@ -718,7 +703,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 16,
@@ -732,20 +716,20 @@
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 74,
-          "name": "Mobile Combat Exoskeletons"
-        },
-        {
-          "id": 75,
-          "name": "Heavy Combat Exoskeletons"
+          "id": 18,
+          "name": "Stealth Systems"
         },
         {
           "id": 19,
           "name": "Antigrav Systems"
         },
         {
-          "id": 18,
-          "name": "Stealth Systems"
+          "id": 74,
+          "name": "Mobile Combat Exoskeletons"
+        },
+        {
+          "id": 75,
+          "name": "Heavy Combat Exoskeletons"
         }
       ],
       "unlocks": [
@@ -767,7 +751,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 17,
@@ -798,7 +781,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 17,
@@ -833,7 +815,6 @@
         "weapon_fragments": 40,
         "items": null
       },
-      "research_credit": "Laser Weapons",
       "prerequisites": [
         {
           "id": 9,
@@ -871,7 +852,6 @@
         "weapon_fragments": 50,
         "items": null
       },
-      "research_credit": "Laser Weapons",
       "prerequisites": [
         {
           "id": 20,
@@ -909,7 +889,6 @@
         "weapon_fragments": 125,
         "items": null
       },
-      "research_credit": "Laser Weapons",
       "prerequisites": [
         {
           "id": 21,
@@ -946,7 +925,6 @@
         "weapon_fragments": 150,
         "items": "2 Alien Pistols"
       },
-      "research_credit": "Plasma Weapons",
       "prerequisites": [
         {
           "id": 24,
@@ -974,7 +952,6 @@
         "weapon_fragments": 175,
         "items": "5 Alien Carbines"
       },
-      "research_credit": "Plasma Weapons",
       "prerequisites": [
         {
           "id": 9,
@@ -1018,7 +995,6 @@
         "weapon_fragments": 200,
         "items": "3 Alien Rifles"
       },
-      "research_credit": "Plasma Weapons",
       "prerequisites": [
         {
           "id": 24,
@@ -1059,7 +1035,6 @@
         "weapon_fragments": 200,
         "items": "2 Alien Heavy Weapons"
       },
-      "research_credit": "Plasma Weapons",
       "prerequisites": [
         {
           "id": 25,
@@ -1092,7 +1067,6 @@
         "weapon_fragments": 200,
         "items": null
       },
-      "research_credit": "Plasma Weapons",
       "prerequisites": [
         {
           "id": 25,
@@ -1120,7 +1094,6 @@
         "weapon_fragments": 80,
         "items": null
       },
-      "research_credit": "Gauss Weapons",
       "prerequisites": [
         {
           "id": 10,
@@ -1159,7 +1132,6 @@
         "weapon_fragments": 200,
         "items": null
       },
-      "research_credit": "Plasma Weapons",
       "prerequisites": [
         {
           "id": 25,
@@ -1186,7 +1158,6 @@
         "weapon_fragments": 300,
         "items": "Fusion Core (kept)"
       },
-      "research_credit": "Weapons",
       "prerequisites": [
         {
           "id": 26,
@@ -1217,7 +1188,6 @@
         "weapon_fragments": 100,
         "items": null
       },
-      "research_credit": "Gauss Weapons",
       "prerequisites": [
         {
           "id": 28,
@@ -1255,29 +1225,28 @@
         "weapon_fragments": 0,
         "items": "4 UFO Flight Computers"
       },
-      "research_credit": null,
       "prerequisites": [],
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 60,
-          "name": "Alien Biocybernetics"
-        },
-        {
-          "id": 59,
-          "name": "Advanced Aerospace Concepts"
+          "id": 33,
+          "name": "Alien Power Systems"
         },
         {
           "id": 54,
           "name": "Drone Autopsy"
         },
         {
+          "id": 55,
+          "name": "Sectopod Autopsy"
+        },
+        {
           "id": 58,
           "name": "Seeker Autopsy"
         },
         {
-          "id": 55,
-          "name": "Sectopod Autopsy"
+          "id": 60,
+          "name": "Alien Biocybernetics"
         }
       ],
       "unlocks": [
@@ -1297,11 +1266,14 @@
         "weapon_fragments": 0,
         "items": "6 UFO Power Sources"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 12,
           "name": "Elerium"
+        },
+        {
+          "id": 32,
+          "name": "Alien Computers"
         }
       ],
       "any_one_of": [],
@@ -1341,7 +1313,6 @@
         "weapon_fragments": 300,
         "items": "40 Meld"
       },
-      "research_credit": "Weapons",
       "prerequisites": [
         {
           "id": 31,
@@ -1378,7 +1349,6 @@
         "weapon_fragments": 0,
         "items": "1 Sectoid captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 44,
@@ -1410,7 +1380,6 @@
         "weapon_fragments": 0,
         "items": "1 Floater captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 45,
@@ -1441,7 +1410,6 @@
         "weapon_fragments": 0,
         "items": "1 Muton captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 47,
@@ -1473,7 +1441,6 @@
         "weapon_fragments": 0,
         "items": "1 Sectoid Commander captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 6,
@@ -1505,7 +1472,6 @@
         "weapon_fragments": 0,
         "items": "1 Berserker captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 51,
@@ -1537,7 +1503,6 @@
         "weapon_fragments": 0,
         "items": "1 Thin Man captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 46,
@@ -1569,7 +1534,6 @@
         "weapon_fragments": 0,
         "items": "1 Heavy Floater captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 52,
@@ -1600,7 +1564,6 @@
         "weapon_fragments": 0,
         "items": "1 Muton Elite captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 53,
@@ -1632,7 +1595,6 @@
         "weapon_fragments": 0,
         "items": "1 Ethereal captive"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 56,
@@ -1642,12 +1604,12 @@
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 8,
-          "name": "Alien Command and Control"
-        },
-        {
           "id": 3,
           "name": "Alien Operations"
+        },
+        {
+          "id": 8,
+          "name": "Alien Command and Control"
         }
       ],
       "unlocks": [
@@ -1669,7 +1631,6 @@
         "weapon_fragments": 0,
         "items": "10 Sectoid corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 1,
@@ -1687,12 +1648,12 @@
           "name": "Sectoid Commander Autopsy"
         },
         {
-          "id": 57,
-          "name": "Mechtoid Autopsy"
-        },
-        {
           "id": 35,
           "name": "Interrogate Sectoid"
+        },
+        {
+          "id": 57,
+          "name": "Mechtoid Autopsy"
         }
       ],
       "unlocks": [
@@ -1713,7 +1674,6 @@
         "weapon_fragments": 0,
         "items": "10 Floater corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 60,
@@ -1723,12 +1683,12 @@
       "any_one_of": [],
       "leads_to": [
         {
-          "id": 52,
-          "name": "Heavy Floater Autopsy"
-        },
-        {
           "id": 36,
           "name": "Interrogate Floater"
+        },
+        {
+          "id": 52,
+          "name": "Heavy Floater Autopsy"
         }
       ],
       "unlocks": [
@@ -1751,7 +1711,6 @@
         "weapon_fragments": 0,
         "items": "10 Thin Man corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 1,
@@ -1783,7 +1742,6 @@
         "weapon_fragments": 0,
         "items": "10 Muton corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 1,
@@ -1793,16 +1751,16 @@
       "any_one_of": [],
       "leads_to": [
         {
+          "id": 37,
+          "name": "Interrogate Muton"
+        },
+        {
           "id": 51,
           "name": "Berserker Autopsy"
         },
         {
           "id": 53,
           "name": "Muton Elite Autopsy"
-        },
-        {
-          "id": 37,
-          "name": "Interrogate Muton"
         }
       ],
       "unlocks": [
@@ -1823,7 +1781,6 @@
         "weapon_fragments": 0,
         "items": "5 Chryssalid corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 13,
@@ -1850,7 +1807,6 @@
         "weapon_fragments": 150,
         "items": null
       },
-      "research_credit": "Laser Weapons",
       "prerequisites": [
         {
           "id": 22,
@@ -1886,7 +1842,6 @@
         "weapon_fragments": 0,
         "items": "3 Cyberdisc wrecks"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 60,
@@ -1915,7 +1870,6 @@
         "weapon_fragments": 0,
         "items": "5 Berserker corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 47,
@@ -1952,7 +1906,6 @@
         "weapon_fragments": 0,
         "items": "5 Heavy Floater corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 45,
@@ -1984,7 +1937,6 @@
         "weapon_fragments": 0,
         "items": "5 Muton Elite corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 47,
@@ -2016,7 +1968,6 @@
         "weapon_fragments": 0,
         "items": "5 Drone wrecks"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 32,
@@ -2043,7 +1994,6 @@
         "weapon_fragments": 0,
         "items": "3 Sectopod wrecks"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 32,
@@ -2070,7 +2020,6 @@
         "weapon_fragments": 0,
         "items": "3 Ethereal corpses"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 4,
@@ -2101,7 +2050,6 @@
         "weapon_fragments": 0,
         "items": "3 Mechtoid wrecks"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 44,
@@ -2133,7 +2081,6 @@
         "weapon_fragments": 0,
         "items": "5 Seeker wrecks"
       },
-      "research_credit": null,
       "prerequisites": [
         {
           "id": 32,
@@ -2163,15 +2110,10 @@
         "weapon_fragments": 50,
         "items": null
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
           "name": "Alien Materials"
-        },
-        {
-          "id": 32,
-          "name": "Alien Computers"
         },
         {
           "id": 11,
@@ -2202,7 +2144,6 @@
         "weapon_fragments": 50,
         "items": "20 Meld"
       },
-      "research_credit": "Cybernetics",
       "prerequisites": [
         {
           "id": 13,
@@ -2224,10 +2165,6 @@
           "name": "Mind and Machine"
         },
         {
-          "id": 73,
-          "name": "Improved Combat Exoskeletons"
-        },
-        {
           "id": 24,
           "name": "Plasma Weapons"
         },
@@ -2242,6 +2179,10 @@
         {
           "id": 57,
           "name": "Mechtoid Autopsy"
+        },
+        {
+          "id": 73,
+          "name": "Improved Combat Exoskeletons"
         }
       ],
       "unlocks": [
@@ -2265,7 +2206,6 @@
         "weapon_fragments": 0,
         "items": "Scout crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2292,7 +2232,6 @@
         "weapon_fragments": 0,
         "items": "Destroyer crash mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2319,7 +2258,6 @@
         "weapon_fragments": 0,
         "items": "Abductor crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2346,7 +2284,6 @@
         "weapon_fragments": 0,
         "items": "Transport crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2373,7 +2310,6 @@
         "weapon_fragments": 0,
         "items": "Battleship crash mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2400,7 +2336,6 @@
         "weapon_fragments": 0,
         "items": "Overseer crash mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2427,7 +2362,6 @@
         "weapon_fragments": 0,
         "items": "Fighter crash mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2454,7 +2388,6 @@
         "weapon_fragments": 0,
         "items": "Raider crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2481,7 +2414,6 @@
         "weapon_fragments": 0,
         "items": "Harvester crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2508,7 +2440,6 @@
         "weapon_fragments": 0,
         "items": "Terror Ship crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2535,7 +2466,6 @@
         "weapon_fragments": 0,
         "items": "Assault Carrier crash or landing mission"
       },
-      "research_credit": "Aerospace",
       "prerequisites": [
         {
           "id": 10,
@@ -2562,7 +2492,6 @@
         "weapon_fragments": 0,
         "items": null
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 10,
@@ -2597,7 +2526,6 @@
         "weapon_fragments": 50,
         "items": "10 Meld"
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 16,
@@ -2637,7 +2565,6 @@
         "weapon_fragments": 50,
         "items": "10 Meld"
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 17,
@@ -2668,7 +2595,6 @@
         "weapon_fragments": 50,
         "items": "10 Meld"
       },
-      "research_credit": "Armor",
       "prerequisites": [
         {
           "id": 17,

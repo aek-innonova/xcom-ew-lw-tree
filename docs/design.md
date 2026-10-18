@@ -31,8 +31,12 @@ what will it cost me" and "how long will that take with my labs".
 
 - `tech.json`: 75 techs. `id` is the `ETechType` enum value and the index
   into `XGFacility_Labs.m_arrResearched` / `m_arrProgress` in a save.
-  `config_key` is how the INI names the tech. Prerequisites come from
-  ufopaedia, not from game code, so they may contain errors.
+  `config_key` is how the INI names the tech. Prerequisites agree with
+  the game's script, except steps marked `via` (the way to an item the
+  game requires); a test holds them to it.
+- `data/techtree.json`: the rules read from the game's script by
+  `scripts/upk_techtree.py`: prerequisites, item and UFO checks, credit
+  shares and coverage, Foundry checks (features/game-script-rules.md).
 - The INI names techs three ways: enum names (`eTech_Xenobiology`), bare
   numbers (`eTech=72`), and one reused vanilla name: `eTech_Placeholder`
   is Alien Biocybernetics (id 60).
@@ -53,7 +57,8 @@ what will it cost me" and "how long will that take with my labs".
   backwards and hid skipping edges behind nodes; readability won.
 - 2026-10-18: Research time: speed = scientists × (1 + lab bonus +
   adjacency bonus) points/hour; a tech costs base days × 720, times
-  (1 − 25 % − Expertise) for each held credit that covers it (credits
+  (1 − 25 % − Expertise; the Ethereal's "All" credit 20 %, and whole
+  numbers as in features/game-script-rules.md) for each held credit that covers it (credits
   stack by multiplying), fixed when the project starts; We Have Ways
   takes its share off autopsy and interrogation cost (all verified on
   the person's 1,711 saves, features/history-verification.md); the
@@ -76,6 +81,12 @@ what will it cost me" and "how long will that take with my labs".
   comes from the game's own script packages via scripts/upk_enums.py into
   data/enums.json; Firaxis's files stay in samples/, only the extracted
   names are committed.
+- 2026-10-18: Research and Foundry rules (prerequisites, item and UFO
+  checks, credit coverage and formula) come from Long War's compiled
+  script, read by scripts/upk_techtree.py into data/techtree.json; the
+  app merges it into tech.json and longwar_foundry.json at load. Where a
+  game rule only names an item, the tree keeps the tech that leads to it
+  as a marked step (features/game-script-rules.md).
 - 2026-10-18: Tactical saves are read through the strategy state they
   embed (see the save-parser report).
 - 2026-10-18: What persists in localStorage is what was extracted (costs,

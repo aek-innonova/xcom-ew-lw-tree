@@ -38,19 +38,27 @@ describe('research credits', () => {
     expect(creditGivenBy(tech(24))).toBeUndefined()
   })
 
-  it('Weapons covers every weapon field but not itself twice; All covers everything', () => {
-    expect(covers('Weapons', 'Plasma Weapons')).toBe(true)
-    expect(covers('Weapons', 'Armor')).toBe(false)
-    expect(covers('All', null)).toBe(true)
-    expect(covers('Armor', null)).toBe(false)
+  it('covers what the game lists; All covers everything', () => {
+    expect(tech(24).credits).toEqual(['Plasma Weapons', 'Weapons'])
+    expect(covers('Weapons', tech(24).credits)).toBe(true)
+    expect(covers('Weapons', tech(15).credits)).toBe(false) // Carapace Armor
+    expect(covers('All', [])).toBe(true)
+    expect(covers('Armor', [])).toBe(false)
   })
 
   it('takes 25 % (+ Expertise) off Foundry work, per held credit', () => {
     const surgery = defaultFoundry.find((p) => p.name === 'Advanced Surgery')!
-    expect(surgery.research_credit).toBe('Cybernetics')
-    expect(foundryCreditReduction(surgery, new Set(['Cybernetics']), 0.25)).toBeCloseTo(0.25)
-    expect(foundryCreditReduction(surgery, new Set(['Cybernetics']), 0.35)).toBeCloseTo(0.35)
-    expect(foundryCreditReduction(surgery, new Set(['Armor']), 0.25)).toBe(0)
+    expect(surgery.credits).toEqual(['Cybernetics'])
+    expect(foundryCreditReduction(surgery, new Set(['Cybernetics']), 0)).toBeCloseTo(0.25)
+    expect(foundryCreditReduction(surgery, new Set(['Cybernetics']), 0.1)).toBeCloseTo(0.35)
+    expect(foundryCreditReduction(surgery, new Set(['Armor']), 0)).toBe(0)
+    // Armored Fighters: two credits, as the game lists them.
+    const fighters = defaultFoundry.find((p) => p.name === 'Armored Fighters')!
+    expect(fighters.credits).toEqual(['Aerospace', 'Armor'])
+    expect(foundryCreditReduction(fighters, new Set(['Aerospace', 'Armor']), 0)).toBeCloseTo(
+      0.4375,
+      3,
+    )
   })
 })
 

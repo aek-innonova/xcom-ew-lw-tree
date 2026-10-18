@@ -30,7 +30,6 @@
       "config_key": "eFoundry_SHIV",
       "name": "Enhanced Ballistics",
       "category": "General Weapon Upgrades",
-      "research_credit": "Weapons",
       "base_days": 7,
       "engineers": 10,
       "cost": {
@@ -53,7 +52,6 @@
       "config_key": "eFoundry_AlienGrenades",
       "name": "Alien Grenades",
       "category": "General Weapon Upgrades",
-      "research_credit": null,
       "base_days": 7,
       "engineers": 35,
       "cost": {
@@ -78,7 +76,6 @@
       "config_key": "eFoundry_MedikitII",
       "name": "Improved Medikit",
       "category": "General Equipment Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 7,
       "engineers": 12,
       "cost": {
@@ -103,7 +100,6 @@
       "config_key": "eFoundry_ArcThrowerII",
       "name": "Improved Arc Thrower",
       "category": "General Equipment Upgrades",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 30,
       "cost": {
@@ -128,7 +124,6 @@
       "config_key": "eFoundry_VehicleRepair",
       "name": "Advanced Repair",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 21,
       "engineers": 45,
       "cost": {
@@ -153,7 +148,6 @@
       "config_key": "eFoundry_AutomatedLasers",
       "name": "Enhanced Lasers",
       "category": "General Weapon Upgrades",
-      "research_credit": "Laser Weapons, Weapons",
       "base_days": 14,
       "engineers": 30,
       "cost": {
@@ -176,7 +170,6 @@
       "config_key": "eFoundry_AutomatedPlasma",
       "name": "Enhanced Plasma",
       "category": "General Weapon Upgrades",
-      "research_credit": "Plasma Weapons, Weapons",
       "base_days": 21,
       "engineers": 120,
       "cost": {
@@ -201,7 +194,6 @@
       "config_key": "eFoundry_SHIV_Heal",
       "name": "Field Repairs",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 15,
       "cost": {
@@ -226,7 +218,6 @@
       "config_key": "eFoundry_CaptureDrone",
       "name": "Drone Capture",
       "category": "General Equipment Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 14,
       "engineers": 75,
       "cost": {
@@ -251,7 +242,6 @@
       "config_key": "eFoundry_AmmoConservation",
       "name": "Ammo Conservation",
       "category": "General Weapon Upgrades",
-      "research_credit": "Weapons",
       "base_days": 14,
       "engineers": 60,
       "cost": {
@@ -276,7 +266,6 @@
       "config_key": "eFoundry_AdvancedFlight",
       "name": "Advanced Flight",
       "category": "General Equipment Upgrades",
-      "research_credit": "Aerospace",
       "base_days": 14,
       "engineers": 50,
       "cost": {
@@ -303,7 +292,6 @@
       "config_key": "eFoundry_AdvancedConstruction",
       "name": "Armored Fighters",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace, Armor",
       "base_days": 14,
       "engineers": 30,
       "cost": {
@@ -328,7 +316,6 @@
       "config_key": "eFoundry_PistolI",
       "name": "Mag Pistols",
       "category": "Pistol Upgrades",
-      "research_credit": "Weapons",
       "base_days": 7,
       "engineers": 10,
       "cost": {
@@ -351,7 +338,6 @@
       "config_key": "eFoundry_PistolII",
       "name": "Rail Pistols",
       "category": "Pistol Upgrades",
-      "research_credit": "Gauss Weapons, Weapons",
       "base_days": 10,
       "engineers": 20,
       "cost": {
@@ -374,7 +360,6 @@
       "config_key": "eFoundry_PistolIII",
       "name": "Reflex Pistols",
       "category": "Pistol Upgrades",
-      "research_credit": "Plasma Weapons, Weapons",
       "base_days": 14,
       "engineers": 35,
       "cost": {
@@ -399,7 +384,6 @@
       "config_key": "eFoundry_SHIVSuppression",
       "name": "SHIV Suppression",
       "category": "SHIV-Specific Upgrades",
-      "research_credit": "Weapons",
       "base_days": 7,
       "engineers": 15,
       "cost": {
@@ -422,7 +406,6 @@
       "config_key": "eFoundry_StealthSatellites",
       "name": "Stealth Satellites",
       "category": "Aerospace Improvements",
-      "research_credit": null,
       "base_days": 28,
       "engineers": 115,
       "cost": {
@@ -447,7 +430,6 @@
       "config_key": "eFoundry_Scope",
       "name": "SCOPE Upgrade",
       "category": "General Equipment Upgrades",
-      "research_credit": "Weapons",
       "base_days": 7,
       "engineers": 25,
       "cost": {
@@ -472,7 +454,6 @@
       "config_key": "eFoundry_EleriumFuel",
       "name": "Jellied Elerium",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 10,
       "engineers": 45,
       "cost": {
@@ -495,7 +476,6 @@
       "config_key": "eFoundry_MECCloseCombat",
       "name": "MEC Close Combat",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 7,
       "engineers": 50,
       "cost": {
@@ -520,7 +500,6 @@
       "config_key": "eFoundry_AdvancedServomotors",
       "name": "Advanced Servomotors",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 14,
       "engineers": 45,
       "cost": {
@@ -545,7 +524,6 @@
       "config_key": "eFoundry_ShapedArmor",
       "name": "Shaped Armor",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Armor",
       "base_days": 21,
       "engineers": 35,
       "cost": {
@@ -570,7 +548,6 @@
       "config_key": "eFoundry_SentinelDrone",
       "name": "Sentinel Drone",
       "category": "SHIV-Specific Upgrades",
-      "research_credit": null,
       "base_days": 21,
       "engineers": 50,
       "cost": {
@@ -596,7 +573,6 @@
       "config_key": "eFoundry_TacticalRigging",
       "name": "Tactical Rigging",
       "category": "General Equipment Upgrades",
-      "research_credit": "Armor",
       "base_days": 21,
       "engineers": 80,
       "cost": {
@@ -621,7 +597,6 @@
       "config_key": 25,
       "name": "Alien Metallurgy",
       "category": "Material Recovery",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 20,
       "cost": {
@@ -644,7 +619,6 @@
       "config_key": 26,
       "name": "Aircraft Boosters",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace, Laser Weapons",
       "base_days": 7,
       "engineers": 10,
       "cost": {
@@ -667,7 +641,6 @@
       "config_key": 27,
       "name": "Wingtip Sparrowhawks",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace, Gauss Weapons",
       "base_days": 21,
       "engineers": 50,
       "cost": {
@@ -690,7 +663,6 @@
       "config_key": 28,
       "name": "Penetrator Weapons",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace",
       "base_days": 14,
       "engineers": 35,
       "cost": {
@@ -716,7 +688,6 @@
       "config_key": 29,
       "name": "Mechanized Unit Defenses",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Armor",
       "base_days": 10,
       "engineers": 30,
       "cost": {
@@ -741,7 +712,6 @@
       "config_key": 30,
       "name": "Advanced Surgery",
       "category": "Base Security Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 21,
       "engineers": 45,
       "cost": {
@@ -767,7 +737,6 @@
       "config_key": 31,
       "name": "Improved Avionics",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace",
       "base_days": 14,
       "engineers": 40,
       "cost": {
@@ -792,7 +761,6 @@
       "config_key": 32,
       "name": "UFO Countermeasures",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace",
       "base_days": 14,
       "engineers": 50,
       "cost": {
@@ -818,7 +786,6 @@
       "config_key": 33,
       "name": "Elerium Afterburners",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace",
       "base_days": 14,
       "engineers": 45,
       "cost": {
@@ -843,7 +810,6 @@
       "config_key": 34,
       "name": "Supercapacitors",
       "category": "Aerospace Improvements",
-      "research_credit": "Laser Weapons",
       "base_days": 21,
       "engineers": 70,
       "cost": {
@@ -868,7 +834,6 @@
       "config_key": 35,
       "name": "UFO Tracking",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace",
       "base_days": 28,
       "engineers": 40,
       "cost": {
@@ -893,7 +858,6 @@
       "config_key": 36,
       "name": "MEC Warfare Systems",
       "category": "General Mechanical Unit Upgrades",
-      "research_credit": "Cybernetics",
       "base_days": 7,
       "engineers": 20,
       "cost": {
@@ -916,7 +880,6 @@
       "config_key": 37,
       "name": "Super Skyranger",
       "category": "Aerospace Improvements",
-      "research_credit": "Aerospace",
       "base_days": 14,
       "engineers": 35,
       "cost": {
@@ -939,7 +902,6 @@
       "config_key": 38,
       "name": "Alien Nucleonics",
       "category": "Material Recovery",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 45,
       "cost": {
@@ -962,7 +924,6 @@
       "config_key": 39,
       "name": "Improved Salvage",
       "category": "Material Recovery",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 20,
       "cost": {
@@ -985,7 +946,6 @@
       "config_key": 40,
       "name": "New Combat Systems",
       "category": "General Equipment Upgrades",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 30,
       "cost": {
@@ -1008,7 +968,6 @@
       "config_key": 41,
       "name": "Psi Warfare Systems",
       "category": "General Equipment Upgrades",
-      "research_credit": "Psionics",
       "base_days": 14,
       "engineers": 40,
       "cost": {
@@ -1033,7 +992,6 @@
       "config_key": 42,
       "name": "Security Training: Weapons",
       "category": "Base Security Upgrades",
-      "research_credit": null,
       "base_days": 3,
       "engineers": 25,
       "cost": {
@@ -1056,7 +1014,6 @@
       "config_key": 43,
       "name": "Security Training: Armor",
       "category": "Base Security Upgrades",
-      "research_credit": null,
       "base_days": 3,
       "engineers": 25,
       "cost": {
@@ -1079,7 +1036,6 @@
       "config_key": 44,
       "name": "Phoenix Coilguns",
       "category": "Aerospace Improvements",
-      "research_credit": "Gauss Weapons",
       "base_days": 14,
       "engineers": 50,
       "cost": {
@@ -1104,7 +1060,6 @@
       "config_key": 45,
       "name": "UFO Scanners",
       "category": "Aerospace Improvements",
-      "research_credit": null,
       "base_days": 14,
       "engineers": 40,
       "cost": {
@@ -1129,7 +1084,6 @@
       "config_key": 46,
       "name": "Quenchguns",
       "category": "General Weapon Upgrades",
-      "research_credit": "Gauss Weapons, Weapons",
       "base_days": 14,
       "engineers": 60,
       "cost": {

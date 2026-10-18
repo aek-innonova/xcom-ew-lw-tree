@@ -3,7 +3,9 @@
 
 import { computed } from 'vue'
 import { foundryCreditReduction, foundryProgress, foundryState } from '@/model/foundry'
-import { covers, creditSources } from '@/model/credits'
+import { creditSources } from '@/model/credits'
+import { gateText } from '@/model/gates'
+import { unmetGates } from '@/model/research'
 import { foundryLink } from '@/model/ufopaedia'
 import {
   campaign,
@@ -32,12 +34,20 @@ const status = computed(() => {
     c.foundryHistory,
     new Set(c.foundryInProgress.map((b) => b.id)),
     c.researched,
+    c,
   )
+  const missing =
+    st === 'locked' && foundryState(p, c.foundryHistory, new Set(), c.researched) === 'available'
+      ? unmetGates(p.gates, c)
+      : []
   return {
     state: st,
-    label: { done: 'Done', building: 'Being built', available: 'Available now', locked: 'Locked' }[
-      st
-    ],
+    label: {
+      done: 'Done',
+      building: 'Being built',
+      available: 'Available now',
+      locked: missing.length ? `Locked: needs ${missing.map(gateText).join(', ')}` : 'Locked',
+    }[st],
     building,
     progress: building ? foundryProgress(p, building.workLeft, creditCut.value) : undefined,
   }
@@ -47,24 +57,19 @@ const status = computed(() => {
 const creditCut = computed(() => {
   const p = project.value
   const c = credits.value
-  return p && c ? foundryCreditReduction(p, c.held, c.each) : 0
+  return p && c ? foundryCreditReduction(p, c.held, c.expertise) : 0
 })
 
 /** The credits that can cover this project, where they come from, held or not. */
 const creditRows = computed(() => {
   const p = project.value
-  if (!p?.research_credit) return []
-  const names = [p.research_credit]
-  if (p.research_credit !== 'Weapons' && p.research_credit.endsWith('Weapons'))
-    names.push('Weapons')
+  if (!p) return []
   const sources = creditSources(techs.value)
   const held = credits.value?.held
-  return names.map((name) => ({
+  return p.credits.map((name) => ({
     name,
     source: sources.get(name),
-    held: held
-      ? [...held].some((h) => h === name || (h === 'All' && covers(h, p.research_credit)))
-      : undefined,
+    held: held ? held.has(name) : undefined,
   }))
 })
 
@@ -153,7 +158,7 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
         <dd class="credits">
           <div v-for="r in creditRows" :key="r.name">
             {{ r.name }}
-            <span class="muted">from</span>
+            <span class="muted"> from </span>
             <button
               v-if="r.source"
               type="button"

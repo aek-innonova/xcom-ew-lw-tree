@@ -56,8 +56,10 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       UFOpaedia disagrees with it in places (other Long War versions, or wiki
       errors), so "stock" is not a claim to make; loading an INI matters for
       another version or a modded install.
-    - Numbers: prerequisites from UFOpaedia (may contain errors); research
-      time, credits and bonuses verified against the game's own figures
+    - Numbers: prerequisites, item and UFO checks and credit rules read from
+      the game's compiled script (XGTechTree in XComStrategyGame.upk,
+      data/techtree.json, features/game-script-rules.md); research time,
+      credits and bonuses also verified against the game's own figures
       (features/history-verification.md); Checks keeps verifying per save.
   -->
   <dialog
@@ -114,14 +116,8 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
     </section>
 
     <p class="small">
-      Prerequisites from
-      <a
-        href="https://www.ufopaedia.org/index.php/Research_(Long_War)"
-        target="_blank"
-        rel="noopener"
-        >UFOpaedia</a
-      >
-      may contain errors. Times are checked against the game's own: see <strong>Checks</strong>.
+      Prerequisites and credits are read from the game's own script. Times are checked against the
+      game's own: see <strong>Checks</strong>.
     </p>
   </dialog>
 </template>

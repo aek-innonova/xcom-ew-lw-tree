@@ -200,7 +200,9 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
             <template v-if="credits?.held.size">
               {{
                 [...credits.held]
-                  .map((c) => (c === 'All' ? 'All research' : c))
+                  .map((c) =>
+                    c === 'All' ? `All research (${Math.round(credits!.all * 100)}%)` : c,
+                  )
                   .sort()
                   .join(', ')
               }}
