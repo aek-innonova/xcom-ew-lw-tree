@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // The tree: lanes, nodes and prerequisite edges in one SVG, with pan and zoom.
 // Same-lane edges are always drawn; edges to and from the focused tech (hovered,
-// else selected) are drawn on top, across lanes, so the picture stays readable.
+// else selected) are drawn on top, across lanes, and related techs get a blue
+// outline. Nothing else changes on hover: fading the rest flickered as the
+// mouse crossed the tree.
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { layoutTechs } from '@/model/layout'
@@ -336,7 +338,7 @@ const laneLabelX = LABEL_W - 14
           </text>
         </g>
 
-        <g class="edges" :class="{ dimmed: focus !== null }">
+        <g class="edges">
           <path
             v-for="e in sameLane"
             :key="e.key"
@@ -345,7 +347,7 @@ const laneLabelX = LABEL_W - 14
             marker-end="url(#arrow)"
           />
         </g>
-        <g v-if="focus === null" class="edges plan">
+        <g class="edges plan">
           <path
             v-for="e in planEdges"
             :key="e.key"
@@ -373,7 +375,6 @@ const laneLabelX = LABEL_W - 14
             {
               selected: state.selected === n.id,
               related: focus !== null && related.has(n.id),
-              faded: focus !== null && !related.has(n.id) && focus !== n.id,
             },
           ]"
           :data-tech="n.id"
@@ -486,9 +487,6 @@ const laneLabelX = LABEL_W - 14
 .edges path.any {
   stroke-dasharray: 5 4;
 }
-.edges.dimmed path {
-  opacity: 0.25;
-}
 .edges.plan path {
   stroke: var(--accent);
   stroke-width: 1.6;
@@ -524,9 +522,6 @@ const laneLabelX = LABEL_W - 14
 }
 .node.related .box {
   stroke: var(--accent);
-}
-.node.faded {
-  opacity: 0.45;
 }
 
 .node.researched .box {

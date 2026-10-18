@@ -78,3 +78,18 @@ console errors.
 - At 1366×768 the fitted tree is small (about 0.7); readable, and zoom
   is there.
 - Touch: drag-to-pan works through pointer events, pinch zoom does not.
+
+## Response (2026-10-18)
+
+The person: fading everything else on hover flickers wildly while the
+mouse moves over the tree; the blue outlining is enough, keep the rest
+unchanged. The lanes are liked: the first tree they have seen that fits
+on one screen.
+
+## Report (2026-10-18, round 2)
+
+Hover and selection no longer fade other techs or dim the edges, and the
+plan's edges no longer disappear while something is hovered (the same
+flicker). What remains on focus: the focused tech's edges drawn in blue
+across lanes, and a blue outline on the techs they connect. Checked in
+Chromium with save1738 and a plan open, hovering Plasma Weapons.
