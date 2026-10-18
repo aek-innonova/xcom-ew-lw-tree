@@ -67,4 +67,8 @@ describe('Long War details', () => {
     const { difficultyName } = await import('../campaign')
     expect(difficultyName(readCampaign(parseSave(load('save1762'))).difficulty)).toBe('Classic')
   })
+
+  it('reads the money in hand (save1762: $87, as XGHeadQuarters.m_iCash)', () => {
+    expect(readCampaign(parseSave(load('save1762'))).cash).toBe(87)
+  })
 })

@@ -68,6 +68,8 @@ export interface Campaign {
   project?: ResearchProject
   scientists?: number
   engineers?: number
+  /** Money in hand (XGHeadQuarters.m_iCash). */
+  cash?: number
   labBonus?: number
   adjacentLabBonus?: number
   credits: number[]
@@ -293,6 +295,7 @@ export function readCampaign(save: SaveFile): Campaign {
           }
         : undefined,
     scientists: int(prop(labs, 'm_iNumScientists')),
+    cash: int(prop(byClass('XGHeadQuarters'), 'm_iCash')),
     engineers: int(prop(engineering, 'm_iNumEngineers')),
     labBonus: float(prop(labs, 'm_fLabBonus')),
     adjacentLabBonus: float(prop(labs, 'm_fAdjLabBonus')),

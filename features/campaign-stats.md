@@ -81,3 +81,11 @@ retaken country stops being listed as lost as soon as a save shows it
 back. The save history confirms that: campaigns 31, 46 and 55 retook
 Brazil, South Africa, France, Egypt and Nigeria; `m_bSecretPact` clears
 and the country usually has a satellite again in the same save.
+
+## Report (2026-10-18, money and materials)
+
+The campaign bar shows engineers next to scientists, the money in hand
+(XGHeadQuarters.m_iCash) and the alloys, elerium, Meld and weapon fragments
+in stores (XGStorage.m_arrItems), as coloured squares with numbers like
+costs elsewhere (the names are there for screen readers). Unit test: save1762
+holds $87.

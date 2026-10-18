@@ -14,6 +14,15 @@ import { pointsPerHour, projectEtaDays } from '@/model/research'
 import { campaignStats } from '@/model/stats'
 import { bonuses, campaign, credits, state, techById, techs } from '@/state/store'
 import { categoryFor } from '@/model/airwar'
+import enumData from '../../data/enums.json'
+
+const ITEM_TYPES: string[] = (enumData as { enums: Record<string, string[]> }).enums.EItemType!
+const ITEM = {
+  alloys: ITEM_TYPES.indexOf('eItem_AlienAlloys'),
+  elerium: ITEM_TYPES.indexOf('eItem_Elerium115'),
+  meld: ITEM_TYPES.indexOf('eItem_Meld'),
+  fragments: ITEM_TYPES.indexOf('eItem_WeaponFragment'),
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -39,6 +48,15 @@ const info = computed(() => {
     tactical: c.tactical,
     ironman: c.ironman,
     start: countryName(c.startCountry),
+    cash: c.cash,
+    engineers: c.engineers,
+    // Materials in stores (EItemType slots, as on the grey market).
+    materials: [
+      { key: 'alloys', name: 'alloys', n: c.stock[ITEM.alloys] },
+      { key: 'elerium', name: 'elerium', n: c.stock[ITEM.elerium] },
+      { key: 'meld', name: 'meld', n: c.stock[ITEM.meld] },
+      { key: 'fragments', name: 'fragments', n: c.stock[ITEM.fragments] },
+    ].filter((m) => m.n !== undefined),
   }
 })
 
@@ -98,8 +116,24 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
       v-if="info.scientists !== undefined"
       :title="info.rate ? `${Math.round(info.rate)} research points per hour` : undefined"
     >
-      {{ info.scientists }} scientists<template v-if="info.bonus">
-        +{{ info.bonus }}% labs</template
+      {{ info.scientists }} scientists<template v-if="info.bonus"> +{{ info.bonus }}% labs</template
+      ><template v-if="info.engineers !== undefined">, {{ info.engineers }} engineers</template>
+    </span>
+    <span
+      v-if="info.cash !== undefined || info.materials.length"
+      class="stores"
+      aria-label="Money and materials"
+    >
+      <span v-if="info.cash !== undefined" class="cash"
+        >${{ info.cash.toLocaleString('en-US') }}</span
+      >
+      <span
+        v-for="m in info.materials"
+        :key="m.key"
+        class="res"
+        :class="`res-${m.key}`"
+        :aria-label="`${m.n} ${m.name}`"
+        >{{ m.n!.toLocaleString('en-US') }}</span
       >
     </span>
     <span v-if="info.project">
@@ -303,6 +337,16 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
 </template>
 
 <style scoped>
+.stores {
+  display: inline-flex;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.stores .cash {
+  color: var(--cash);
+  font-weight: 600;
+}
+
 .bonus-anchor {
   position: relative;
 }
