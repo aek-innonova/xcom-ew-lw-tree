@@ -47,15 +47,16 @@ const nodes = computed<NodeView[]>(() =>
     const c = campaign.value
     const st = c ? techState(t, c.researched, c.project?.tech) : null
     let days = `${t.base_days}d`
-    let daysTitle = `${t.base_days} base days`
+    const dayWord = (n: number) => (n === 1 ? '1 day' : `${n} days`)
+    let daysTitle = `${dayWord(t.base_days)} base time`
     let progress = 0
     if (c && ctx.value) {
       const est = estimate(t, c, ctx.value)
       if (est) {
         days = est.exact ? `${est.days}d` : `≈${est.days}d`
         daysTitle = est.exact
-          ? `${est.days} days left (the game's own figure)`
-          : `about ${est.days} days at your current research speed${est.credited ? ', with research credit' : ''}`
+          ? `${dayWord(est.days)} left (the game's own figure)`
+          : `about ${dayWord(est.days)} at your current research speed${est.credited ? ', with research credit' : ''}`
       }
       const cost = t.base_days * 720
       const done = c.progress[t.id] ?? 0
@@ -314,13 +315,15 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
 
 // --- Hover card -----------------------------------------------------------------
 //
-// Resting on a tech opens a larger card over it with the full cost and what it
-// unlocks. It is drawn above the tree (nothing moves) and ignores the pointer, so
+// Resting on a tech opens its box downwards (upwards low in the tree) to show
+// the full item cost, research credit and unlocks; its own top row stays where
+// it was, so it reads as the box opening. It is drawn above the tree (nothing moves) and ignores the pointer, so
 // the tech underneath keeps the hover. The short delay keeps cards from popping
 // up under a mouse that is only passing through.
 
-const CARD_W = 270
 const CARD_MAX_H = 420
+/** Room around the card inside its foreignObject for the shadow. */
+const CARD_PAD = 10
 const CARD_DELAY_MS = 280
 const cardId = ref<number | null>(null)
 let cardTimer: ReturnType<typeof setTimeout> | undefined
@@ -341,14 +344,12 @@ const card = computed(() => {
   const n = nodes.value.find((v) => v.id === id)
   const t = techs.value.find((v) => v.id === id)
   if (!n || !t) return null
-  // Centred on the tech, kept inside the tree; low in the tree it grows upwards.
-  const x = Math.min(Math.max(0, n.x - (CARD_W - NODE_W) / 2), geo.value.width - CARD_W)
   const up = n.y + NODE_H / 2 > geo.value.height * 0.6
   return {
     node: n,
     unlocks: t.unlocks,
     credit: t.research_credit,
-    x,
+    x: n.x - CARD_PAD,
     y: up ? n.y + NODE_H - CARD_MAX_H : n.y,
     up,
   }
@@ -552,32 +553,38 @@ const laneLabelX = LABEL_W - 14
           class="card-layer"
           :x="card.x"
           :y="card.y"
-          :width="CARD_W"
+          :width="NODE_W + 2 * CARD_PAD"
           :height="CARD_MAX_H"
         >
           <div class="card-wrap" :class="{ up: card.up }">
-            <div class="card" :class="card.node.state ?? 'neutral'">
-              <div class="card-name">
-                <span v-if="card.node.state === 'researched'" class="tick">✓</span
-                >{{ card.node.name }}
+            <div class="card" :class="[card.node.state ?? 'neutral', { up: card.up }]">
+              <div class="content card-head">
+                <div class="name">
+                  <span v-if="card.node.state === 'researched'" class="tick">✓</span
+                  >{{ card.node.name }}
+                </div>
+                <div class="cost">
+                  <span class="days">{{ card.node.days }}</span>
+                  <span v-if="card.node.alloys" class="res res-alloys">{{ card.node.alloys }}</span>
+                  <span v-if="card.node.elerium" class="res res-elerium">{{
+                    card.node.elerium
+                  }}</span>
+                  <span v-if="card.node.fragments" class="res res-fragments">{{
+                    card.node.fragments
+                  }}</span>
+                  <span v-if="card.node.items" class="res res-items">{{ card.node.items }}</span>
+                </div>
               </div>
-              <div class="card-cost">
-                <span class="days" :title="card.node.daysTitle">{{ card.node.days }}</span>
-                <span v-if="card.node.alloys" class="res res-alloys">{{ card.node.alloys }}</span>
-                <span v-if="card.node.elerium" class="res res-elerium">{{
-                  card.node.elerium
-                }}</span>
-                <span v-if="card.node.fragments" class="res res-fragments">{{
-                  card.node.fragments
-                }}</span>
+              <div class="card-body">
+                <div class="card-days">{{ card.node.daysTitle }}</div>
+                <div v-if="card.node.items" class="res res-items card-items">
+                  {{ card.node.items }}
+                </div>
+                <div v-if="card.credit" class="card-credit">Credit: {{ card.credit }}</div>
+                <ul v-if="card.unlocks.length" class="card-unlocks">
+                  <li v-for="u in card.unlocks" :key="u">{{ u }}</li>
+                </ul>
               </div>
-              <div v-if="card.node.items" class="res res-items card-items">
-                {{ card.node.items }}
-              </div>
-              <div v-if="card.credit" class="card-credit">Credit: {{ card.credit }}</div>
-              <ul v-if="card.unlocks.length" class="card-unlocks">
-                <li v-for="u in card.unlocks" :key="u">{{ u }}</li>
-              </ul>
             </div>
           </div>
         </foreignObject>
@@ -706,18 +713,18 @@ const laneLabelX = LABEL_W - 14
    carries the tech's state (available is blue too). After the state rules. */
 .node.needs-direct .box {
   stroke: var(--accent);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 7px var(--accent)) drop-shadow(0 0 2px var(--accent));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgb(76 195 239 / 0.8));
 }
 .node.needs-chain .box {
-  stroke: rgb(76 195 239 / 0.75);
-  stroke-width: 1.8;
-  filter: drop-shadow(0 0 6px rgb(76 195 239 / 0.75));
+  stroke: rgb(76 195 239 / 0.7);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px rgb(76 195 239 / 0.6));
 }
 .node.enables .box {
   stroke: var(--enables);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 7px var(--enables)) drop-shadow(0 0 2px var(--enables));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgb(240 124 196 / 0.8));
 }
 .planned {
   fill: none;
@@ -793,56 +800,77 @@ const laneLabelX = LABEL_W - 14
 
 .card-layer {
   pointer-events: none;
-  overflow: visible;
 }
 .card-wrap {
+  box-sizing: border-box;
   height: 100%;
+  padding: 0 10px 10px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
 }
 .card-wrap.up {
   justify-content: flex-end;
+  padding: 10px 10px 0;
 }
+/* The tech's own box, opened: same width, fill and border as the box (an
+   outline, like the SVG stroke, so the top row sits exactly where it was). */
 .card {
-  box-sizing: border-box;
-  padding: 7px 11px 9px;
-  border-radius: 6px;
-  background: #18304a;
-  border: 1.5px solid var(--accent);
-  box-shadow: 0 8px 26px rgb(0 0 0 / 0.55);
-  font-size: 12px;
-  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  border-radius: 5px;
+  background: var(--node);
+  outline: 1.2px solid var(--accent);
+  outline-offset: -0.6px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
+}
+.card.up {
+  flex-direction: column-reverse;
 }
 .card.researched {
-  background: #163a27;
-  border-color: var(--done-text);
+  background: var(--done);
+  outline-color: var(--done-border);
 }
 .card.researching {
-  border-color: var(--progress);
+  outline: 2.2px solid var(--progress);
+  outline-offset: -1.1px;
 }
-.card-name {
-  font-size: 14px;
-  font-weight: 600;
+.card.available {
+  outline-width: 1.8px;
+  outline-offset: -0.9px;
 }
-.card-cost {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 9px;
-  margin-top: 3px;
+.card.locked {
+  background: var(--locked);
+  outline-color: var(--node-border);
+}
+.card-head {
+  height: 46px;
+  flex: none;
+}
+.card-body {
+  padding: 0 9px 8px;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.card.up .card-body {
+  padding: 8px 9px 0;
+}
+.card-days,
+.card-credit {
   color: var(--muted);
 }
 .card-items,
 .card-credit {
-  margin-top: 3px;
-}
-.card-credit {
-  color: var(--muted);
+  margin-top: 2px;
 }
 .card-unlocks {
-  margin: 6px 0 0;
-  padding: 6px 0 0 14px;
+  margin: 5px 0 0;
+  padding: 5px 0 0 14px;
   border-top: 1px solid var(--border);
+}
+.card.up .card-unlocks {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
 }
 .card-unlocks li {
   margin: 1px 0;

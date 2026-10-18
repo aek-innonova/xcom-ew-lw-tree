@@ -148,3 +148,24 @@ show its unlocks. The edge-over-top-row quirk is not a problem.
 Checked in Chromium with save1738: a quick sweep opens no card, resting
 does; cards in the top lane (Advanced Aerospace Concepts, long unlock
 list), the middle (Plasma Weapons) and the bottom lane (grows up).
+
+## Response (2026-10-18, round 4)
+
+The person: the glow on direct prerequisites and next steps is a bit
+much now. The hover card should not be wider than the box; it should
+look like the box just opened up. As it was, it felt in the way.
+
+## Report (2026-10-18, round 5)
+
+- Direct prerequisites and enabled techs: 2 px tinted border and one
+  4 px glow; the chain: softer border and a 3 px glow.
+- The hover card is now the tech's own box opened: same position, width,
+  fill and border as the box (drawn as an outline so it sits where the
+  SVG stroke is), its top row identical to the box's, and below it the
+  day figure in words, the full item text, the credit and the unlocks.
+  In the lower part of the tree it opens upwards, with the box's row
+  staying in place at the bottom.
+- "1 days" fixed in the day wording.
+
+Checked in Chromium with save1738: top lane, middle (Plasma Weapons),
+bottom lane opening upwards.
