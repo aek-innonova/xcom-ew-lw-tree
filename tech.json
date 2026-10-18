@@ -2192,7 +2192,7 @@
     {
       "id": 60,
       "enum": "eTech_Placeholder",
-      "config_key": 60,
+      "config_key": "eTech_Placeholder",
       "name": "Alien Biocybernetics",
       "category": "Xenology",
       "base_days": 25,

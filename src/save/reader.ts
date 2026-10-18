@@ -105,7 +105,8 @@ export class Reader {
     if (this.pos + length > this.bytes.length) return fail('invalid string length')
     const body = this.bytes.subarray(this.pos, this.pos + length)
     const nul = body.indexOf(0)
-    if (nul !== length - 1) return fail(`string length mismatch: expected ${length - 1}, found ${nul}`)
+    if (nul !== length - 1)
+      return fail(`string length mismatch: expected ${length - 1}, found ${nul}`)
     this.pos += length
     let s = ''
     for (let i = 0; i < nul; i++) s += String.fromCharCode(body[i]!)

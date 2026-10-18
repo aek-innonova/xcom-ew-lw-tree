@@ -75,7 +75,9 @@ function structField(p: Property | undefined, name: string): Property | undefine
 
 /** The strategy chunk: the one holding the headquarters game's checkpoints. */
 function strategyChunk(save: SaveFile): CheckpointChunk | undefined {
-  return save.checkpoints.find((c) => c.checkpoint_table.some((cp) => cp.class_name.endsWith('.XGFacility_Labs')))
+  return save.checkpoints.find((c) =>
+    c.checkpoint_table.some((cp) => cp.class_name.endsWith('.XGFacility_Labs')),
+  )
 }
 
 export function readCampaign(save: SaveFile): Campaign {
@@ -112,7 +114,10 @@ export function readCampaign(save: SaveFile): Campaign {
     saveNumber: save.header.save_number,
     tactical: save.header.tactical_save,
     ironman: save.header.ironman,
-    date: year !== undefined && month !== undefined && day !== undefined ? { year, month, day } : undefined,
+    date:
+      year !== undefined && month !== undefined && day !== undefined
+        ? { year, month, day }
+        : undefined,
     difficulty: int(prop(strategy, 'm_iDifficulty')),
     researched,
     // The game allocates m_arrProgress at twice the tech count; the tail is unused.

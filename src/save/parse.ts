@@ -43,10 +43,14 @@ export function readHeader(r: Reader): SaveHeader {
   r.pos = 0
   const version = r.int()
   if (version === SaveVersion.EnemyUnknown) {
-    throw new SaveFormatError('This is an Enemy Unknown save; only Enemy Within (Long War) saves are supported.')
+    throw new SaveFormatError(
+      'This is an Enemy Unknown save; only Enemy Within (Long War) saves are supported.',
+    )
   }
   if (version === SaveVersion.EnemyWithinAndroid) {
-    throw new SaveFormatError('This is an Android save; only PC Enemy Within saves are supported so far.')
+    throw new SaveFormatError(
+      'This is an Android save; only PC Enemy Within saves are supported so far.',
+    )
   }
   if (version !== SaveVersion.EnemyWithin) {
     throw new SaveFormatError('This does not look like an XCOM: Enemy Within save file.')
@@ -70,7 +74,11 @@ export function readHeader(r: Reader): SaveHeader {
   r.pos = 1016
   const headerSize = r.int()
   const headerCrc = r.uint()
-  if (headerSize <= 0 || headerSize > COMPRESSED_DATA_START || crc32(r.bytes.subarray(0, headerSize)) !== headerCrc) {
+  if (
+    headerSize <= 0 ||
+    headerSize > COMPRESSED_DATA_START ||
+    crc32(r.bytes.subarray(0, headerSize)) !== headerCrc
+  ) {
     throw new SaveFormatError('The save header is damaged (checksum mismatch).')
   }
   if (crc32(r.bytes.subarray(COMPRESSED_DATA_START)) !== compressedCrc) {
@@ -113,7 +121,8 @@ export function decompressBody(bytes: Uint8Array, start = COMPRESSED_DATA_START)
       try {
         n = lzo1xDecompress(bytes.subarray(ip, ip + c), out.subarray(op, op + u))
       } catch (e) {
-        if (e instanceof LzoError) throw new SaveFormatError(`decompression failed: ${e.message}`, ip)
+        if (e instanceof LzoError)
+          throw new SaveFormatError(`decompression failed: ${e.message}`, ip)
         throw e
       }
       if (n !== u) throw new SaveFormatError(`chunk decompressed to ${n} bytes, expected ${u}`, ip)
@@ -131,9 +140,11 @@ function readActorTable(r: Reader): string[] {
   for (let i = 0; i < count; i += 2) {
     const actor = r.string()
     const instance = r.int()
-    if (instance === 0) throw new SaveFormatError('malformed actor table entry: expected a non-zero instance', r.pos)
+    if (instance === 0)
+      throw new SaveFormatError('malformed actor table entry: expected a non-zero instance', r.pos)
     const pkg = r.string()
-    if (r.int() !== 0) throw new SaveFormatError('malformed actor table entry: missing 0 instance', r.pos)
+    if (r.int() !== 0)
+      throw new SaveFormatError('malformed actor table entry: missing 0 instance', r.pos)
     actors.push(`${pkg}.${actor}_${instance - 1}`)
   }
   return actors
@@ -248,7 +259,8 @@ function readProperty(r: Reader, name: string, type: string, size: number): Prop
       const enumType = r.string()
       expectZero(r, 'enum type')
       // With enum type "None" the value is a single raw byte.
-      if (enumType === 'None') return { name, kind: type, type: enumType, value: 'None', number: r.byte() }
+      if (enumType === 'None')
+        return { name, kind: type, type: enumType, value: 'None', number: r.byte() }
       return { name, kind: type, type: enumType, value: r.string(), number: r.int() }
     }
     case 'StructProperty': {
@@ -256,9 +268,21 @@ function readProperty(r: Reader, name: string, type: string, size: number): Prop
       expectZero(r, 'struct name')
       const nativeSize = NATIVE_STRUCT_SIZES[structName]
       if (nativeSize !== undefined) {
-        return { name, kind: type, struct_name: structName, native_data: toHex(r.raw(nativeSize)), properties: [] }
+        return {
+          name,
+          kind: type,
+          struct_name: structName,
+          native_data: toHex(r.raw(nativeSize)),
+          properties: [],
+        }
       }
-      return { name, kind: type, struct_name: structName, native_data: '', properties: readProperties(r) }
+      return {
+        name,
+        kind: type,
+        struct_name: structName,
+        native_data: '',
+        properties: readProperties(r),
+      }
     }
     case 'ArrayProperty':
       return readArray(r, name, size)
@@ -276,10 +300,21 @@ interface PendingStatic {
 function finishStatic(p: PendingStatic): StaticArrayProperty {
   const first = p.items[0]
   if (first?.kind === 'IntProperty') {
-    return { name: p.name, kind: p.kind, int_values: p.items.map((i) => (i as { value: number }).value) }
+    return {
+      name: p.name,
+      kind: p.kind,
+      int_values: p.items.map((i) => (i as { value: number }).value),
+    }
   }
-  if (first?.kind === 'StrProperty' && p.items.every((i) => i.kind === 'StrProperty' && !i.value.is_wide)) {
-    return { name: p.name, kind: p.kind, string_values: p.items.map((i) => (i as { value: XcomString }).value.str) }
+  if (
+    first?.kind === 'StrProperty' &&
+    p.items.every((i) => i.kind === 'StrProperty' && !i.value.is_wide)
+  ) {
+    return {
+      name: p.name,
+      kind: p.kind,
+      string_values: p.items.map((i) => (i as { value: XcomString }).value.str),
+    }
   }
   return { name: p.name, kind: p.kind, properties: p.items }
 }
@@ -302,14 +337,24 @@ export function readProperties(r: Reader): Property[] {
     }
     // Elements 1..n of a static array follow element 0 under the same name.
     const last = props[props.length - 1]
-    if (last === undefined) throw new SaveFormatError(`static array element ${name}[${arrayIndex}] without element 0`, r.pos)
+    if (last === undefined)
+      throw new SaveFormatError(
+        `static array element ${name}[${arrayIndex}] without element 0`,
+        r.pos,
+      )
     if (last.kind === 'StaticArrayProperty' && 'items' in last) {
       last.items.push(prop)
     } else {
-      props[props.length - 1] = { name, kind: 'StaticArrayProperty', items: [last as Property, prop] }
+      props[props.length - 1] = {
+        name,
+        kind: 'StaticArrayProperty',
+        items: [last as Property, prop],
+      }
     }
   }
-  return props.map((p) => (p.kind === 'StaticArrayProperty' && 'items' in p ? finishStatic(p) : (p as Property)))
+  return props.map((p) =>
+    p.kind === 'StaticArrayProperty' && 'items' in p ? finishStatic(p) : (p as Property),
+  )
 }
 
 function readCheckpoints(r: Reader): Checkpoint[] {
@@ -335,7 +380,16 @@ function readCheckpoints(r: Reader): Checkpoint[] {
     } else if (used > propLength) {
       throw new SaveFormatError(`properties of ${name} overran their declared length`, r.pos)
     }
-    out.push({ name, instance_name, class_name, vector, rotator, properties, template_index: r.int(), pad_size })
+    out.push({
+      name,
+      instance_name,
+      class_name,
+      vector,
+      rotator,
+      properties,
+      template_index: r.int(),
+      pad_size,
+    })
   }
   return out
 }
@@ -345,7 +399,8 @@ function skipNameTable(r: Reader) {
   for (let i = 0; i < count; i++) {
     r.string()
     const zeros = r.raw(8)
-    if (zeros.some((b) => b !== 0)) throw new SaveFormatError('expected zeros in name table entry', r.pos)
+    if (zeros.some((b) => b !== 0))
+      throw new SaveFormatError('expected zeros in name table entry', r.pos)
     r.raw(r.int())
   }
 }
@@ -364,7 +419,8 @@ export function readCheckpointChunks(r: Reader): CheckpointChunk[] {
   do {
     const unknown_int1 = r.int()
     const game_type = r.string()
-    if (r.string() !== 'None') throw new SaveFormatError("expected 'None' after checkpoint chunk game type", r.pos)
+    if (r.string() !== 'None')
+      throw new SaveFormatError("expected 'None' after checkpoint chunk game type", r.pos)
     const unknown_int2 = r.int()
     const checkpoint_table = readCheckpoints(r)
     if (r.int() > 0) skipNameTable(r)
@@ -400,7 +456,8 @@ export function findEmbeddedStrategy(body: Uint8Array): number | undefined {
   const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
   for (let at = 8; at + 24 <= body.length; at++) {
     if (view.getUint32(at, true) !== UPK_MAGIC) continue
-    if (view.getInt32(at - 8, true) !== body.length - at + 4 || view.getInt32(at - 4, true) !== 0) continue
+    if (view.getInt32(at - 8, true) !== body.length - at + 4 || view.getInt32(at - 4, true) !== 0)
+      continue
     let p = at
     while (p + 24 <= body.length && view.getUint32(p, true) === UPK_MAGIC) {
       const blockSize = view.getInt32(p + 4, true)
@@ -430,7 +487,9 @@ export function parseSave(bytes: Uint8Array): SaveFile {
   if (header.tactical_save) {
     const at = findEmbeddedStrategy(body)
     if (at === undefined) {
-      throw new SaveFormatError('This is a mid-mission save and its campaign data could not be found. Try a geoscape save.')
+      throw new SaveFormatError(
+        'This is a mid-mission save and its campaign data could not be found. Try a geoscape save.',
+      )
     }
     const checkpoints = readCheckpointChunks(new Reader(decompressBody(body, at)))
     return { header, actor_table: [], checkpoints, strategy_from_tactical: true }

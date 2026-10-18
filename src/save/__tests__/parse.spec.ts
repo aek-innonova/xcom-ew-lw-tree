@@ -28,7 +28,11 @@ function diff(a: unknown, b: unknown, path = '$'): string | undefined {
     const kb = Object.keys(b).sort()
     if (ka.join() !== kb.join()) return `${path}: keys [${ka}] !== [${kb}]`
     for (const k of ka) {
-      const d = diff((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], `${path}.${k}`)
+      const d = diff(
+        (a as Record<string, unknown>)[k],
+        (b as Record<string, unknown>)[k],
+        `${path}.${k}`,
+      )
       if (d) return d
     }
     return

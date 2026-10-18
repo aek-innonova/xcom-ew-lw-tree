@@ -1,6 +1,6 @@
 ---
 title: The visual tech tree
-status: planned
+status: review
 priority: 3
 dependsOn: []
 ---
@@ -36,3 +36,45 @@ and a selected tech with its cross-lane edges; the person decides.
 
 The largest piece of UI. If the simple lane layout is unreadable,
 say so with a screenshot before reaching for a layout library.
+
+## Report (2026-10-18)
+
+**What changed.** `src/model/layout.ts`, `src/components/geometry.ts`,
+`TechTree.vue`, `TechDetail.vue`, `AppHeader.vue`, `App.vue`. The
+scaffold's router is removed (one screen, no routes).
+
+**Layout, and how it got there.** The first version compacted lanes by
+letting a tech move right freely: 14 rows, but edges into Plasma Weapons
+ran right to left, and in one-row lanes a skipping edge passed behind the
+node in between (Advanced Beam Lasers → Pulse Lasers read as a chain
+through Gauss Weapons). Now every prerequisite sits strictly left of the
+tech that needs it, across lanes (for "any one of", the earliest
+member). Each lane starts with rows enough for every tech at its depth
+and gives rows back while everything still fits in nine columns: 15
+rows. Nine columns rather than eight because the result's proportions
+then match a 1920×1080 screen (fit scale about 0.85 instead of 0.72).
+Rows follow same-lane prerequisites so chains run along one track.
+Edges are routed through the column gutters and the gaps between rows,
+so none passes behind a node.
+
+**Behaviour.** Pan by dragging, zoom with the wheel or the buttons, Fit.
+The tree refits to its space until the player pans or zooms. Hover or
+select a tech: its edges to and from other lanes are drawn, related
+nodes highlighted, the rest faded. "Any one of" edges are dashed. Search
+finds by name and centres the tech in the space left by the panel.
+Escape or a click on empty space closes the panel. The footer says where
+prerequisites come from and that they may contain errors.
+
+**Verified.** Layout invariants in unit tests (every tech once, no
+overlap, every prerequisite to the left). Mount tests (75 nodes, the
+privacy note, the panel opening on Enter). Looked at the screen in
+Chromium at 1920×1080 and 1366×768: empty, with a late and an early
+campaign loaded, with Plasma Weapons selected, after a search. No
+console errors.
+
+**Left open.**
+- Long names are truncated with an ellipsis (full name on hover and in
+  the panel), notably "Interrogate Sectoid Commander".
+- At 1366×768 the fitted tree is small (about 0.7); readable, and zoom
+  is there.
+- Touch: drag-to-pan works through pointer events, pinch zoom does not.

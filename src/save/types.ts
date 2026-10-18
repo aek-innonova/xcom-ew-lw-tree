@@ -68,9 +68,7 @@ export type ArrayProperty = Base & { kind: 'ArrayProperty' } & (
 
 /** A fixed-size array (`var int foo[8]`), stored as repeated properties. */
 export type StaticArrayProperty = Base & { kind: 'StaticArrayProperty' } & (
-    | { int_values: number[] }
-    | { string_values: string[] }
-    | { properties: Property[] }
+    { int_values: number[] } | { string_values: string[] } | { properties: Property[] }
   )
 
 export type Property =

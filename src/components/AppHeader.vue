@@ -1,0 +1,166 @@
+<script setup lang="ts">
+// Title, the two file loaders, search, and the privacy promise.
+
+import { computed, ref } from 'vue'
+import { clearIni, clearSave, loadFile, state, techs } from '@/state/store'
+
+const emit = defineEmits<{ find: [id: number] }>()
+
+const saveInput = ref<HTMLInputElement | null>(null)
+const iniInput = ref<HTMLInputElement | null>(null)
+
+async function onPick(e: Event) {
+  const input = e.target as HTMLInputElement
+  for (const file of input.files ?? []) await loadFile(file)
+  input.value = ''
+}
+
+const query = ref('')
+const matches = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q) return []
+  return techs.value.filter((t) => t.name.toLowerCase().includes(q)).slice(0, 8)
+})
+
+function find(id: number) {
+  state.selected = id
+  emit('find', id)
+  query.value = ''
+}
+
+function onSearchKey(e: KeyboardEvent) {
+  if (e.key === 'Enter' && matches.value[0]) find(matches.value[0].id)
+  if (e.key === 'Escape') query.value = ''
+}
+</script>
+
+<template>
+  <header class="bar">
+    <h1>Long War <span>Tech Tree</span></h1>
+
+    <div class="search">
+      <input
+        v-model="query"
+        type="search"
+        placeholder="Find a tech…"
+        aria-label="Find a tech"
+        @keydown="onSearchKey"
+      />
+      <ul v-if="matches.length" class="matches" role="listbox">
+        <li v-for="m in matches" :key="m.id">
+          <button type="button" @mousedown.prevent="find(m.id)">{{ m.name }}</button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="files">
+      <div class="file">
+        <button type="button" @click="saveInput?.click()">
+          {{ state.save ? 'Change save' : 'Load save' }}
+        </button>
+        <span v-if="state.save" class="loaded" :title="state.save.campaign.description">
+          {{ state.save.fileName }}
+          <button type="button" class="clear" title="Forget this save" @click="clearSave">×</button>
+        </span>
+        <input ref="saveInput" type="file" hidden @change="onPick" />
+      </div>
+      <div class="file">
+        <button type="button" @click="iniInput?.click()">
+          {{ state.ini ? 'Change INI' : 'Load DefaultGameCore.ini' }}
+        </button>
+        <span v-if="state.ini" class="loaded">
+          {{ state.ini.fileName }}
+          <button
+            type="button"
+            class="clear"
+            title="Back to stock Long War 1.0 costs"
+            @click="clearIni"
+          >
+            ×
+          </button>
+        </span>
+        <input ref="iniInput" type="file" accept=".ini,text/plain" hidden @change="onPick" />
+      </div>
+    </div>
+
+    <p class="privacy">Your files are read in this browser and never uploaded.</p>
+  </header>
+</template>
+
+<style scoped>
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+h1 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+h1 span {
+  color: var(--accent);
+}
+.search {
+  position: relative;
+}
+.search input {
+  width: 220px;
+}
+.matches {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
+}
+.matches button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+}
+.matches button:hover {
+  background: var(--node);
+}
+.files {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.loaded {
+  font-size: 12.5px;
+  color: var(--muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clear {
+  padding: 0 6px;
+  margin-left: 2px;
+}
+.privacy {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+</style>
