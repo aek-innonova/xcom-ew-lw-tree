@@ -78,3 +78,48 @@ The zip ships whole `XComGame.upk` and `XComStrategyGame.upk`, its
 
 So LWR support means a second, generated data set and, for research timing,
 credits and the air war, LWR's own formulas decoded beside Long War 1.0's.
+
+## LWR's air war, as its script has it (2026-10-18)
+
+Read from LWR's XGInterceptionEngagement, UIInterceptionEngagement,
+XGInterception and XGItemTree; ships and weapons in `data/lwr/airwar.json`.
+
+- **Squadrons.** Up to 2 jets, 3 once a jet in it has 8 kills, 4 at 16, 5
+  at 32 (× SW_MARATHON, 1 in LWR). Jets under half health or not ready
+  cannot launch (ToggleInterceptor).
+- **The UFO's target** (Init): each jet scores 2, plus 1 per weapon if
+  aggressive, minus 1 if defensive; the highest is the target (the "lead");
+  on a tie a random jet leads. During the fight each UFO shot has a 49 %
+  chance to go to a wingman instead (one behind the lead), drawn with
+  weights 1 defensive, 2 balanced, 3 aggressive.
+- **Shooting** (GetCombat, 120 s; UpdateWeapons): after each shot a jet's
+  weapon waits its firing time ÷ 1.35 with Jai Jawan (bonus 11), ÷ 1.5 on a
+  Firestorm, ÷ 1.2 with Air Superiority (2), ÷ 1.3 with Foundry 28, ÷ 1.3
+  once the UFO's size-class analysis (61–64) is done. A jet's aim: its
+  weapon's + kills ÷ 4 (× 5 with bonus 40), + 10 aggressive, − 10
+  defensive, − 10 if damaged (not with bonus 26), × 1.5 against medium UFOs,
+  × 2 against large and very large, 0–100; a hit is Rand(100) < aim. The
+  UFO's shots are rolled again at playback against the target's stance:
+  its weapon's aim as is against balanced, × 2/3 against defensive, × 3/2
+  against aggressive. Damage: armor as in Long War 1.0, then ± 20 %
+  (4/5 + Rand(2/5)); a critical (× 1.5) with chance (penetration − armor) ×
+  2, + 25 against the UFO with bonus 40 or 45, 1–100.
+- **Escape** (GetTimeUntilOutrun): 30 × the squadron's average battle speed
+  (a damaged jet's × 0.8, not with bonus 26) ÷ the UFO's, + 50 % while a
+  Boost is on, × 1.1 with Foundry 45, × 1.3 with bonus 26, × 1.1 with
+  Foundry 35.
+- **Consumables**, by the first jet's stance: Aim only aggressive, Dodge only
+  defensive, Boost only balanced; Aim and Dodge each also give a Boost. Two
+  charges each as in Long War 1.0 (Aim: the lead's misses; Dodge: hits on
+  any jet). Not at the very start.
+- **Breaking off** (TryAbort): the lead leaves and the next jet leads (Aim
+  and Dodge end); only with none left does the squadron disengage. A
+  wingman below 25 % health leaves by itself; when the lead goes down or
+  leaves and no jet is still chasing, the UFO has escaped.
+- **Outcome**: a UFO down is destroyed if it is a Fighter or a Destroyer,
+  otherwise it crashes; either way it counts towards its analysis
+  (m_arrCraftEncounters, which Long War 1.0 raises only for a crash site
+  won).
+- **UFOs** grow per 50 alien research (at most category 14); their hull
+  points are multiplied by difficulty (4×, 7×, 10×, 12×, 13× the INI's
+  value); UFO weapons get − 10 aim with bonus 26.

@@ -822,6 +822,12 @@
  "always_crash": [
   9
  ],
+ "always_destroyed": [],
+ "analysis_on_shootdown": false,
+ "category": {
+  "per": 30,
+  "max": 32
+ },
  "consumables": {
   "hit": {
    "item": 127,

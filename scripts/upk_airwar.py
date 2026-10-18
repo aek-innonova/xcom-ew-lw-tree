@@ -34,8 +34,9 @@ class Sym:
     Foundry project is done or a second-wave option is on, plus an amount per
     alien research category."""
 
-    def __init__(s, base=0.0, foundry=None, option=None, per_category=0.0):
+    def __init__(s, base=0.0, foundry=None, option=None, per_category=0.0, bonus=None):
         s.base = base; s.foundry = dict(foundry or {}); s.option = dict(option or {}); s.per_category = per_category
+        s.bonus = dict(bonus or {})  # LWR: amounts that apply with a campaign bonus (HasBonus)
 
     @staticmethod
     def of(x):
@@ -45,16 +46,18 @@ class Sym:
         o = Sym.of(o)
         f = dict(s.foundry); [f.__setitem__(k, f.get(k, 0) + v) for k, v in o.foundry.items()]
         p = dict(s.option); [p.__setitem__(k, p.get(k, 0) + v) for k, v in o.option.items()]
-        return Sym(s.base + o.base, f, p, s.per_category + o.per_category)
+        b = dict(s.bonus); [b.__setitem__(k, b.get(k, 0) + v) for k, v in o.bonus.items()]
+        return Sym(s.base + o.base, f, p, s.per_category + o.per_category, b)
     __radd__ = __add__
 
     def scale(s, k):
         return Sym(s.base * k, {i: v * k for i, v in s.foundry.items()},
-                   {i: v * k for i, v in s.option.items()}, s.per_category * k)
+                   {i: v * k for i, v in s.option.items()}, s.per_category * k,
+                   {i: v * k for i, v in s.bonus.items()})
 
     def __mul__(s, o):
         if isinstance(o, Cat):
-            assert not s.foundry and not s.option and not s.per_category
+            assert not s.foundry and not s.option and not s.per_category and not s.bonus
             return Sym(0.0, per_category=s.base)
         return s.scale(float(o))
     __rmul__ = __mul__
@@ -68,6 +71,7 @@ class Sym:
         if s.foundry: out['foundry'] = {str(k): num(v) for k, v in s.foundry.items()}
         if s.option: out['option'] = {str(k): num(v) for k, v in s.option.items()}
         if s.per_category: out['per_category'] = num(s.per_category)
+        if s.bonus: out['bonus'] = {str(k): num(v) for k, v in s.bonus.items()}
         return out
 
 
@@ -99,11 +103,13 @@ def evaluate(expr, rows, consts):
     e = re.sub(r'XGTacticalGameCore::default\.(\w+)', lambda m: str(consts[m.group(1)]), e)
     e = re.sub(r'ENGINEERING\(\)\.IsFoundryTechResearched\((\d+)\) \? (-?[\d.]+) : 0', r'F(\1, \2)', e)
     e = re.sub(r'IsOptionEnabled\(b(\d+)\) \? (-?[\d.]+) : 0', r'O(\1, \2)', e)
+    e = re.sub(r'\(HQ\(\)\.HasBonus\(b(\d+)\) > 0\) \? (-?[\d.]+) : 0', r'B(\1, \2)', e)
     e = e.replace('self.m_iCurrentCategory', 'CAT')
     e = re.sub(r'\bb(\d+)\b', r'\1', e)
-    if re.search(r'[A-Za-z_]', re.sub(r'\b(F|O|CAT)\b', '', e)):
+    if re.search(r'[A-Za-z_]', re.sub(r'\b(F|O|B|CAT)\b', '', e)):
         raise ValueError(f'cannot evaluate {expr!r} -> {e!r}')
-    return Sym.of(eval(e, {'__builtins__': {}}, {'F': when('foundry'), 'O': when('option'), 'CAT': Cat()}))
+    return Sym.of(eval(e, {'__builtins__': {}},
+                       {'F': when('foundry'), 'O': when('option'), 'B': when('bonus'), 'CAT': Cat()}))
 
 
 def args(call):
@@ -203,10 +209,24 @@ def main():
                 elif s.startswith('BuildShipWeapon('):
                     t, v = build_weapon(args(s)); weapons[t] = v
                 continue
-            cat = re.fullmatch(r'\(self\.m_iCurrentCategory > (\d+)\)', conds[-1])
+            # Category thresholds may be written as sums ("(6 - 2)", LWR).
+            cat = re.fullmatch(r'\(self\.m_iCurrentCategory > (.+)\)', conds[0])
+            above = int(eval(cat.group(1), {'__builtins__': {}})) if cat else None
             fdy = re.fullmatch(r'(!?)ENGINEERING\(\)\.IsFoundryTechResearched\((\d+)\)', conds[-1])
-            if cat and len(conds) == 1:
-                change = {'above_category': int(cat.group(1))}
+            diff = re.fullmatch(r'\(Game\(\)\.GetDifficulty\(\) == (\d+)\)', conds[-1])
+            if diff and len(conds) == 1:
+                # LWR: UFO stats by difficulty (their hull points scaled).
+                if not s.startswith('UpdateShip('):
+                    raise SystemExit(f'UpdateShips: unexpected {s!r} under {conds}')
+                t, v = update_ship(args(s))
+                ships.setdefault(t, {}).setdefault('by_difficulty', {})[diff.group(1)] = v
+            elif cat and diff and len(conds) == 2:
+                t, v = update_ship(args(s)) if s.startswith('UpdateShip(') else (None, None)
+                if t is None:
+                    raise SystemExit(f'UpdateShips: unexpected {s!r} under {conds}')
+                upgrades.append({'above_category': above, 'ship': t, 'difficulty': int(diff.group(1)), 'stats': v})
+            elif cat and len(conds) == 1:
+                change = {'above_category': above}
                 if s.startswith('BuildShip('):
                     t, w, look = build_ship(args(s), cat); change.update(ship=t, weapons=w, **look)
                 elif s.startswith('UpdateShip('):
@@ -235,20 +255,46 @@ def main():
                 raise SystemExit(f'UpdateShips: unexpected condition {conds}')
 
     walk(structure(statements(pk, 'XGItemTree.UpdateShips', mem=True)), [])
+    # Base stats where a version only sets them per difficulty (LWR's UFOs): Normal's.
+    for t, v in ships.items():
+        if 'hp' not in v and 'by_difficulty' in v:
+            v.update(v['by_difficulty'].get('1') or next(iter(v['by_difficulty'].values())))
 
-    # A downed UFO: destroyed with chance (overkill / k) %; first matching case wins.
-    destroy = {}; pending = []; always_crash = []
-    for _, s in statements(pk, 'XGInterceptionEngagement.UpdateEngagementResult'):
+    # How alien research becomes the UFO category (the first line of UpdateShips).
+    first = statements(pk, 'XGItemTree.UpdateShips')[0][1]
+    if m := re.fullmatch(r'self\.m_iCurrentCategory = clamp\(\(STAT_GetStat\(1\) / (\d+)\), 0, (\d+)\)', first):
+        category = {'per': int(m.group(1)), 'max': int(m.group(2))}
+    elif m := re.fullmatch(r'self\.m_iCurrentCategory = \((\d+) min \(0 \+ \(STAT_GetStat\(1\) / (\d+)\)\)\)', first):
+        category = {'per': int(m.group(2)), 'max': int(m.group(1))}
+    else:
+        raise SystemExit(f'UpdateShips: category not a form this script knows: {first}')
+
+    # A downed UFO: destroyed with chance (overkill / k) %, always crashed, or
+    # (LWR) always destroyed; the first matching case wins.
+    destroy = {}; pending = []; always_crash = []; always_destroyed = []; to_default = []
+    result_lines = statements(pk, 'XGInterceptionEngagement.UpdateEngagementResult')
+    in_default = False
+    for _, s in result_lines:
         if m := re.fullmatch(r'case (\d+):', s):
             pending.append(int(m.group(1)))
         elif m := re.search(r'm_iHP / -(\d+)\)\)\) goto', s):
             for t in pending:
                 destroy.setdefault(t, int(m.group(1)))
             pending = []
-        elif s.endswith('m_eUFOResult = b1') and pending:
-            always_crash += pending; pending = []
+        elif s.endswith('m_eUFOResult = b1') and (pending or in_default):
+            always_crash += pending + (to_default if in_default else []); pending = []
+            if in_default:
+                break
+        elif s.endswith('m_eUFOResult = b2') and pending:
+            always_destroyed += pending; pending = []
+        elif s.startswith('goto') and pending:
+            to_default += pending; pending = []
         elif s == 'default:':
-            break
+            in_default = True
+            if not to_default:
+                break
+    # LWR counts a UFO shot down towards its analysis (m_arrCraftEncounters), not only a crash site won.
+    analysis_on_shootdown = any('m_arrCraftEncounters' in s for _, s in result_lines)
 
     def ship_name(t):
         return ship_names.get(ship_enum[t]) or ship_names.get(str(t)) or ship_enum[t]
@@ -278,6 +324,9 @@ def main():
         'foundry_variants': variants,
         'destroy_divisor': {str(k): v for k, v in sorted(destroy.items())},
         'always_crash': sorted(set(always_crash)),
+        'always_destroyed': sorted(set(always_destroyed)),
+        'analysis_on_shootdown': analysis_on_shootdown,
+        'category': category,
         'consumables': {k.removeprefix('eItem_IntConsumable_').lower(): {'item': v, 'name': item_names.get(k, k)}
                         for k, v in consumables.items()},
         # Interceptor weapons as items, and the ship weapon each one is

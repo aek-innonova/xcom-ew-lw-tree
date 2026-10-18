@@ -111,10 +111,11 @@ class Script:
         if t == 0x56: a = s.expr(); s.u16(); v = s.expr(); s.u8(); return f'{a}.RemoveItem({v})'
         if t == 0x57: a = s.expr(); s.u16(); i = s.expr(); v = s.expr(); s.u8(); return f'{a}.InsertItem({i}, {v})'
         if t == 0x58:
-            a = s.expr(); v = s.expr(); has = s.u8(); i = s.expr() if has else ''; s.u16()
+            # array, item, has-index byte, the index (an empty marker when unused), end offset
+            a = s.expr(); v = s.expr(); has = s.u8(); i = s.expr(); s.u16()
             return f'foreach {a}({v}{", " + i if has else ""})'
+        if t == 0x30: return 'iterator pop'
         if t == 0x31: return 'iterator next'
-        if t == 0x32: return 'iterator pop'
         if 0x60 <= t <= 0x6f:
             idx = ((t - 0x60) << 8) + s.u8(); return f'native{idx}({", ".join(s.params())})'
         if t >= 0x70:
