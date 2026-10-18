@@ -153,6 +153,11 @@ def main():
         if m := re.search(r'\(STORAGE\(\)\.GetNumItemsAvailable\((\d+)\) > 0\)', rest):
             e['in_stores'] = {'any_of': [item(int(m.group(1)))], 'name': item_name(int(m.group(1)))}
             rest = rest.replace(m.group(0), '')
+        # LWR: one analysis for several types, any of them captured.
+        caps = re.findall(r'\(GEOSCAPE\(\)\.self\.m_arrCraftEncounters\[(\d+)\] > 0\)', rest)
+        if caps:
+            e['captured'] = {'any_of': [{'id': int(c), 'name': ship_name(int(c))} for c in caps]}
+            rest = re.sub(r'\(GEOSCAPE\(\)\.self\.m_arrCraftEncounters\[\d+\] > 0\)', '', rest).replace('||', '')
         if m := re.search(r'\(GEOSCAPE\(\)\.self\.m_arrCraftEncounters\[\(iTech - (\d+)\)\] != 0\)', rest):
             ship = tid - int(m.group(1))
             # Counted after a won crash-site or landed-UFO mission (XGStrategy.PostCombat).

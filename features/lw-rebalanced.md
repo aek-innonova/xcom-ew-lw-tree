@@ -48,3 +48,32 @@ work for an LWR campaign as well as for a Long War 1.0 one.
   `Localization/INT`, into `samples/lwr/` (git-ignored like the rest).
 - One or more LWR saves, ideally from more than one point in a campaign.
 - Which LWR version is played.
+
+## Findings from the LWR v2.06.00 zip (2026-10-18)
+
+The zip ships whole `XComGame.upk` and `XComStrategyGame.upk`, its
+`DefaultGameCore.ini` and localization; unpacked into `samples/lwr/` (with
+`samples/lwr/root/` linking the layout the extractors expect).
+
+- The enums are identical to Long War 1.0's (items, techs, Foundry,
+  facilities, credits, ships): saves read the same way; LWR changes what
+  the slots mean through its INI and localization.
+- The research tree is a different tree: 68 techs (the seven UFO analyses
+  65–71 are gone; 61–64 are now Small, Medium, Large and Very Large UFOs,
+  each needing any one of its types captured); prerequisites differ for
+  about 30 techs (most autopsies need only Xenobiology; Plasma Weapons needs
+  EMP Weapons, Interrogate Muton Elite and the Sectopod autopsy's line …);
+  every research credit is 20 %.
+- Of the strategy functions this site models, LWR changed 132, among them
+  research speed (GetResearchPerHour, UpdateLabBonus), tech cost (TechCost),
+  the credit rules, Foundry hours and requirements, and nearly all of the
+  air combat (UpdateWeapons, GetTimeUntilOutrun, the playback,
+  consumables, UpdateEngagementResult), and UpdateShips (UFOs grow per 50
+  alien research up to category 14, hull points times a factor by
+  difficulty, other upgrade thresholds).
+- `scripts/upk_techtree.py` reads LWR's grouped UFO analyses now; LW 1.0's
+  output is unchanged. `scripts/upk_airwar.py` stops on LWR's per-difficulty
+  ship building, as it should.
+
+So LWR support means a second, generated data set and, for research timing,
+credits and the air war, LWR's own formulas decoded beside Long War 1.0's.
