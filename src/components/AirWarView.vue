@@ -38,7 +38,7 @@ import {
 } from '@/model/airwar'
 import { campaign, foundryById } from '@/state/store'
 import AirFight from './AirFight.vue'
-import UfoPicture from './UfoPicture.vue'
+import ShipPicture from './ShipPicture.vue'
 import { UFO_NOTES } from '@/model/ufos'
 
 type Use = 'aim' | 'dodge' | 'boost'
@@ -432,6 +432,7 @@ const USE_HELP: Record<Use, string> = {
           <li v-for="(l, i) in setup.legs" :key="i" class="leg">
             <div class="row">
               <span class="n">{{ i + 1 }}</span>
+              <span class="jet-pic"><ShipPicture :type="legs[i]?.craft.type ?? l.type" /></span>
               <template v-if="fromCampaign">
                 <select
                   v-model.number="l.jet"
@@ -644,7 +645,7 @@ const USE_HELP: Record<Use, string> = {
             :aria-selected="setup.ufo === u.ship.type"
             @click="setup.ufo = u.ship.type"
           >
-            <span class="pic"><UfoPicture :type="u.ship.type" :size="u.ship.size" /></span>
+            <span class="pic"><ShipPicture :type="u.ship.type" :size="u.ship.size" /></span>
             <span class="txt">
               <span class="name">
                 {{ u.ship.name }}
@@ -887,6 +888,10 @@ input.num {
   padding: 6px 10px;
   margin-bottom: 8px;
   background: var(--panel);
+}
+.jet-pic {
+  width: 64px;
+  height: 32px;
 }
 .leg .n {
   font-weight: 700;

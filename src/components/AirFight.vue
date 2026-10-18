@@ -154,7 +154,7 @@ onBeforeUnmount(() => {
 watch(legIndex, () => (last = 0))
 
 // The scene: the jet left, the UFO right; a shot flies for 0.3 s.
-const ufoPicture = `${import.meta.env.BASE_URL}ufos/${props.ufo.type}.webp`
+const picture = (type: number) => `${import.meta.env.BASE_URL}ships/${type}.webp`
 const W = 640
 const H = 190
 const JET = { x: 90, y: 95 }
@@ -284,11 +284,11 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
 
       <svg :viewBox="`0 0 ${W} ${H}`" class="scene" aria-hidden="true">
         <g :transform="`translate(${JET.x} ${JET.y})`" :class="{ down: hpAt(1) <= 0 }">
-          <path d="M 26 0 L -18 -14 L -10 0 L -18 14 Z" class="jet-shape" />
+          <image :href="picture(leg.craft.type)" x="-64" y="-32" width="128" height="64" />
           <circle v-if="charges.dodge > 0" r="30" class="shield" />
         </g>
         <g :transform="`translate(${UFO.x} ${UFO.y})`" :class="{ down: hpAt(0) <= 0 }">
-          <image :href="ufoPicture" x="-70" y="-35" width="140" height="70" />
+          <image :href="picture(ufo.type)" x="-70" y="-35" width="140" height="70" />
         </g>
         <circle
           v-for="s in inFlight"
@@ -459,9 +459,6 @@ h3 {
   height: auto;
   background: var(--lane);
   border-radius: 6px;
-}
-.jet-shape {
-  fill: var(--accent);
 }
 .down {
   opacity: 0.25;

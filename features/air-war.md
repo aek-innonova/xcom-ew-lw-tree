@@ -167,3 +167,23 @@ and landed-UFO missions only (XGStrategy.PostCombat); it now reads
 - The UFO block on the left keeps only its controls (name, starting HP,
   and in free selection the category and analysis); the gallery carries the
   numbers.
+
+## Report (2026-10-18, round 5)
+
+- The models were redone to be recognisable as their classes in Enemy
+  Unknown's look, as UFOpaedia's pictures show them, without copying them
+  (the reference pictures were only looked at, not kept): the Scout a thick,
+  rounded-square saucer with a carved front scoop and side bulges; the
+  Destroyer a wide flat oval with a layered rim and the same scoop; the
+  Abductor a wide rounded block with a row of humps and front nacelles; the
+  Transport a chunky box ending in a cluster of six thrusters; the
+  Battleship a long angular hull with swept wings, a raised spine and ring
+  structures; the Overseer a smooth violet lens. No glass domes (none of the
+  game's have one). Long War's extra types keep their parent's shape, as the
+  game keeps its pictures, plus their own mark (the Fighter's fins, the
+  Raider's spine, the Harvester's claws, the Terror Ship's spikes, the
+  Assault Carrier's deck and hangar bay). Hulls carry a panel grid.
+- Our jets are modelled too: the Interceptor a twin-tailed fighter with
+  canards, the Firestorm a crescent with forward-curving wings and a
+  glowing engine ring. They fly in the fight instead of the triangle and
+  sit on each jet's card. All pictures are now `public/ships/<EShipType>.webp`.
