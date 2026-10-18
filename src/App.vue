@@ -4,6 +4,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import CampaignBar from '@/components/CampaignBar.vue'
 import FoundryDetail from '@/components/FoundryDetail.vue'
 import FoundryTree from '@/components/FoundryTree.vue'
+import HelpDialog from '@/components/HelpDialog.vue'
 import HistoryView from '@/components/HistoryView.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
@@ -13,6 +14,18 @@ import { restoreWatch } from '@/state/watch'
 
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
 const foundryTree = ref<InstanceType<typeof FoundryTree> | null>(null)
+
+// Help opens by itself on a first visit, then from the header.
+const HELP_SEEN_KEY = 'lwtree.helpSeen.v1'
+const helpOpen = ref(typeof localStorage !== 'undefined' && !localStorage.getItem(HELP_SEEN_KEY))
+function closeHelp() {
+  helpOpen.value = false
+  try {
+    localStorage.setItem(HELP_SEEN_KEY, '1')
+  } catch {
+    // Storage unavailable: it will open again next time.
+  }
+}
 const dragging = ref(false)
 let depth = 0
 
@@ -77,7 +90,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <AppHeader @find="onFind" />
+    <AppHeader @find="onFind" @help="helpOpen = true" />
+    <HelpDialog :open="helpOpen" @close="closeHelp" />
     <CampaignBar />
     <p v-if="state.message" class="message" :class="state.message.kind" role="status">
       {{ state.message.text }}
@@ -94,16 +108,17 @@ onBeforeUnmount(() => {
       </aside>
     </main>
     <footer class="foot">
-      Long War 1.0 research tree. Costs from DefaultGameCore.ini; prerequisites from
+      Long War 1.0. Prerequisites from
       <a
         href="https://www.ufopaedia.org/index.php/Research_(Long_War)"
         target="_blank"
         rel="noopener"
         >UFOpaedia</a
       >
-      and may contain errors. Hover a tech: blue is what it still needs, pink what it leads to.
-      Foundry projects are yellow. Drop a save (Documents\My Games\XCOM - Enemy
-      Within\XComGame\SaveData) or your DefaultGameCore.ini anywhere on the page.
+      may contain errors.
+      <button type="button" class="link" @click="helpOpen = true">
+        Where are my files? How does this work?
+      </button>
     </footer>
     <div v-if="dragging" class="dropzone">Drop a save or DefaultGameCore.ini</div>
   </div>
@@ -267,6 +282,16 @@ a {
 .dismiss {
   margin-left: auto;
   padding: 0 7px;
+}
+.foot .link {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: 6px;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline dotted;
 }
 .foot {
   padding: 6px 16px;

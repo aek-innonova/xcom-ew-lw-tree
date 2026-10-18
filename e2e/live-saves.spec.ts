@@ -27,6 +27,7 @@ test.skip(({ browserName }) => browserName !== 'chromium', 'File System Access i
 
 test('follows the save folder: new saves, a half-written one, and a reload', async ({ page }) => {
   await page.addInitScript(() => {
+    localStorage.setItem('lwtree.helpSeen.v1', '1')
     window.showDirectoryPicker = async () => {
       const root = await navigator.storage.getDirectory()
       return (await root.getDirectoryHandle('SaveData', { create: true })) as never

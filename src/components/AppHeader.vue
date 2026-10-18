@@ -6,7 +6,10 @@ import { search, searchIndex, type SearchEntry } from '@/model/unlocks'
 import { clearIni, clearSave, loadFile, showFoundry, showTech, state, techs } from '@/state/store'
 import { chooseFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
 
-const emit = defineEmits<{ find: [hit: { view: 'research' | 'foundry'; id: number }] }>()
+const emit = defineEmits<{
+  find: [hit: { view: 'research' | 'foundry'; id: number }]
+  help: []
+}>()
 
 const saveInput = ref<HTMLInputElement | null>(null)
 const iniInput = ref<HTMLInputElement | null>(null)
@@ -164,6 +167,7 @@ function onSearchKey(e: KeyboardEvent) {
     </div>
 
     <p class="privacy">Your files are read in this browser and never uploaded.</p>
+    <button type="button" class="help-button" @click="emit('help')">Help</button>
   </header>
 </template>
 
@@ -311,6 +315,9 @@ h1 span {
 .watch-error {
   font-size: 12px;
   color: #ff8a8a;
+}
+.help-button {
+  flex: none;
 }
 .privacy {
   margin: 0 0 0 auto;
