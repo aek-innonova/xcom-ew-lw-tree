@@ -25,6 +25,12 @@ allow it).
 - **Two versions:** Long War 1.0 and LWR 2.06, switched in the header. LWR's
   tree, Foundry, research speed, costs, bonuses and air war are read from its
   own files the same way as Long War 1.0's.
+- **Tools** (beside Help): point the page at your game folder (Chrome, Edge;
+  not under Program Files) and it tells Long War 1.0 from LWR, switches to
+  it and loads the install's INI; keep your PatcherGUI mods and mod folders
+  in the browser with their options, and see whether what each patches is in
+  your install. Installing them into the game is the next step
+  (`features/game-tools.md`).
 - **Planner:** pick techs or Foundry projects; get the research still needed,
   in order, with time and costs.
 - **Live:** in Chromium browsers, point the page at your SaveData folder

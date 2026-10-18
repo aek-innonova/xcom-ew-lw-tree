@@ -10,11 +10,12 @@
 
 import { reactive } from 'vue'
 import { fileKey, isSaveName, newestSave, type FileInfo } from '@/model/live'
+import { stored as storedIn } from './idb'
 import { importSaves, loadSave, state } from './store'
 
 // The parts of the API TypeScript's DOM library does not describe yet.
-type Permission = 'granted' | 'denied' | 'prompt'
-interface DirectoryHandle {
+export type Permission = 'granted' | 'denied' | 'prompt'
+export interface DirectoryHandle {
   name: string
   kind: 'directory'
   values(): AsyncIterable<{
@@ -51,32 +52,11 @@ let loadedKey: string | null = null
 let failing: { key: string; tries: number } | null = null
 let busy = false
 
-// --- IndexedDB: one store, one key, holding the directory handle -------------
+// --- IndexedDB: the "handles" store, holding the directory handle -----------
 
-const DB_NAME = 'lwtree'
-const STORE = 'handles'
 const KEY = 'savedata'
-
-function db(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE)
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
-}
-
-async function stored<T>(
-  mode: IDBTransactionMode,
-  op: (s: IDBObjectStore) => IDBRequest,
-): Promise<T> {
-  const d = await db()
-  return new Promise((resolve, reject) => {
-    const req = op(d.transaction(STORE, mode).objectStore(STORE))
-    req.onsuccess = () => resolve(req.result as T)
-    req.onerror = () => reject(req.error)
-  })
-}
+const stored = <T>(mode: IDBTransactionMode, op: (s: IDBObjectStore) => IDBRequest) =>
+  storedIn<T>('handles', mode, op)
 
 // --- Watching ----------------------------------------------------------------
 

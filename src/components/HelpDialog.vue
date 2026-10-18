@@ -66,6 +66,8 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       features/air-war.md), ships and weapons from the INI via
       scripts/upk_airwar.py; odds are thousands of simulated fights. No save
       records a fight, so they are checked against the script, not history.
+    - Tools: state/tools.ts, model/upk.ts (package tables), model/patchupk.ts
+      (PatcherGUI scripts); features/game-tools.md. Read-only so far.
     - LWR: its own files read the same way (scripts/game_data.py, data/lwr/,
       features/lw-rebalanced.md); its air war, squadrons flying together, is
       model/airwar-lwr.ts. A save does not say which version made it, so the
@@ -89,7 +91,7 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       <h3>Version</h3>
       <p>
         Long War 1.0 or Long War Rebalanced: pick yours at the top left. A save does not say which
-        one it was played with.
+        one it was played with; your game folder does (<strong>Tools</strong>, Chrome or Edge).
       </p>
     </section>
 

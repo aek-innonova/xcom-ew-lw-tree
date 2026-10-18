@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CampaignBar from '@/components/CampaignBar.vue'
 import FoundryDetail from '@/components/FoundryDetail.vue'
 import FoundryTree from '@/components/FoundryTree.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import GreyMarketView from '@/components/GreyMarketView.vue'
-import AirWarView from '@/components/AirWarView.vue'
 import HistoryView from '@/components/HistoryView.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
 import { loadFile, state, game } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
+import { restoreTools } from '@/state/tools'
+
+// Pages opened less often load when first shown.
+const AirWarView = defineAsyncComponent(() => import('@/components/AirWarView.vue'))
+const ToolsView = defineAsyncComponent(() => import('@/components/ToolsView.vue'))
 
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
 const foundryTree = ref<InstanceType<typeof FoundryTree> | null>(null)
@@ -62,8 +66,11 @@ const sideOpen = computed(
   () =>
     (state.view !== 'history' &&
       state.view !== 'air' &&
+      state.view !== 'tools' &&
       (state.view === 'research' ? state.selected !== null : state.selectedFoundry !== null)) ||
-    (state.view !== 'air' && (state.goals.length > 0 || state.foundryGoals.length > 0)),
+    (state.view !== 'air' &&
+      state.view !== 'tools' &&
+      (state.goals.length > 0 || state.foundryGoals.length > 0)),
 )
 
 /** Search picked something: centre it on its board once that board is showing. */
@@ -75,6 +82,7 @@ async function onFind(hit: { view: 'research' | 'foundry'; id: number }) {
 
 onMounted(() => {
   void restoreWatch()
+  void restoreTools()
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragleave', onDragLeave)
   window.addEventListener('dragover', onDragOver)
@@ -104,6 +112,7 @@ onBeforeUnmount(() => {
       <FoundryTree v-else-if="state.view === 'foundry'" ref="foundryTree" />
       <HistoryView v-else-if="state.view === 'history'" />
       <GreyMarketView v-else-if="state.view === 'market'" />
+      <ToolsView v-else-if="state.view === 'tools'" />
       <AirWarView v-else />
       <aside v-if="sideOpen" class="side">
         <TechDetail v-if="state.view === 'research'" />

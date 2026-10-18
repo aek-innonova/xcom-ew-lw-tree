@@ -217,6 +217,15 @@ function onSearchKey(e: KeyboardEvent) {
     </div>
 
     <p class="privacy">Nothing is uploaded.</p>
+    <button
+      type="button"
+      class="help-button"
+      :class="{ on: state.view === 'tools' }"
+      title="Your game install, mods and settings"
+      @click="state.view = 'tools'"
+    >
+      Tools
+    </button>
     <button type="button" class="help-button" @click="emit('help')">Help</button>
   </header>
 </template>
@@ -377,6 +386,10 @@ h1 span {
 }
 .help-button {
   flex: none;
+}
+.help-button.on {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .privacy {
   margin: 0 0 0 auto;

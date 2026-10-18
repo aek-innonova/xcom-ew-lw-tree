@@ -60,7 +60,7 @@ interface State {
   selected: number | null
   hovered: number | null
   /** Which board is shown. */
-  view: 'research' | 'foundry' | 'history' | 'market' | 'air'
+  view: 'research' | 'foundry' | 'history' | 'market' | 'air' | 'tools'
   /** Snapshots of every save loaded, by campaign number. */
   history: Record<number, Snapshot[]>
   /** A bulk import in progress. */
@@ -101,7 +101,9 @@ export const state = reactive<State>({
   save: restore<LoadedSave>(SAVE_KEY),
   selected: null,
   hovered: null,
-  view: restore<'research' | 'foundry' | 'history' | 'market' | 'air'>(VIEW_KEY) ?? 'research',
+  view:
+    restore<'research' | 'foundry' | 'history' | 'market' | 'air' | 'tools'>(VIEW_KEY) ??
+    'research',
   history: restore<Record<number, Snapshot[]>>(HISTORY_KEY) ?? {},
   importing: null,
   selectedFoundry: null,
