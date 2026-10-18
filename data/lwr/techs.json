@@ -14,6 +14,7 @@
  ],
  "research_points_per_base_day": 720,
  "ini_points_per_day": 240,
+ "research_formula": "lwr",
  "techs": [
   {
    "id": 1,

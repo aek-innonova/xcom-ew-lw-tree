@@ -48,9 +48,7 @@
     "elerium": 40,
     "weapon_fragments": 150,
     "meld": 30,
-    "items": [
-     "20x Muton Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 47,
@@ -72,9 +70,7 @@
     "elerium": 0,
     "weapon_fragments": 0,
     "meld": 50,
-    "items": [
-     "8x Muton Elite Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 53,
@@ -96,9 +92,7 @@
     "elerium": 50,
     "weapon_fragments": 100,
     "meld": 0,
-    "items": [
-     "32x Drone Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 33,
@@ -120,9 +114,7 @@
     "elerium": 0,
     "weapon_fragments": 0,
     "meld": 50,
-    "items": [
-     "12x Heavy Floater Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 52,
@@ -166,9 +158,7 @@
     "elerium": 200,
     "weapon_fragments": 320,
     "meld": 0,
-    "items": [
-     "10x Muton Elite Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 24,
@@ -190,9 +180,7 @@
     "elerium": 60,
     "weapon_fragments": 240,
     "meld": 0,
-    "items": [
-     "8x Mechtoid Core"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 52,
@@ -236,9 +224,7 @@
     "elerium": 0,
     "weapon_fragments": 950,
     "meld": 20,
-    "items": [
-     "20x Muton Elite Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 53,
@@ -262,8 +248,7 @@
     "meld": 0,
     "items": [
      "4x Heavy Floater Corpse",
-     "4x Drone Wreck",
-     "4x Heavy Floater Corpse"
+     "4x Drone Wreck"
     ]
    },
    "requires_tech": {
@@ -286,9 +271,7 @@
     "elerium": 0,
     "weapon_fragments": 100,
     "meld": 25,
-    "items": [
-     "16x Floater Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 59,
@@ -332,9 +315,7 @@
     "elerium": 0,
     "weapon_fragments": 80,
     "meld": 0,
-    "items": [
-     "4x Seeker Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 28,
@@ -356,9 +337,7 @@
     "elerium": 50,
     "weapon_fragments": 90,
     "meld": 0,
-    "items": [
-     "12x Heavy Floater Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 23,
@@ -380,9 +359,7 @@
     "elerium": 0,
     "weapon_fragments": 160,
     "meld": 0,
-    "items": [
-     "12x Drone Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 9,
@@ -404,9 +381,7 @@
     "elerium": 10,
     "weapon_fragments": 0,
     "meld": 0,
-    "items": [
-     "12x UFO Flight Computer"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 18,
@@ -428,9 +403,7 @@
     "elerium": 60,
     "weapon_fragments": 220,
     "meld": 15,
-    "items": [
-     "8x UFO Power Source"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 11,
@@ -452,9 +425,7 @@
     "elerium": 100,
     "weapon_fragments": 100,
     "meld": 30,
-    "items": [
-     "20x Chryssalid Carcass"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 12,
@@ -476,9 +447,7 @@
     "elerium": 0,
     "weapon_fragments": 20,
     "meld": 0,
-    "items": [
-     "10x Heavy Floater Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 41,
@@ -500,9 +469,7 @@
     "elerium": 0,
     "weapon_fragments": 120,
     "meld": 0,
-    "items": [
-     "8x Mechtoid Core"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 57,
@@ -524,9 +491,7 @@
     "elerium": 40,
     "weapon_fragments": 0,
     "meld": 40,
-    "items": [
-     "8x Berserker Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 51,
@@ -549,8 +514,7 @@
     "weapon_fragments": 200,
     "meld": 0,
     "items": [
-     "4x Drone Wreck",
-     "4x Cyberdisc Wreck"
+     "4x Drone Wreck"
     ]
    },
    "requires_tech": {
@@ -573,9 +537,7 @@
     "elerium": 80,
     "weapon_fragments": 120,
     "meld": 30,
-    "items": [
-     "8x Muton Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 37,
@@ -597,9 +559,7 @@
     "elerium": 0,
     "weapon_fragments": 0,
     "meld": 50,
-    "items": [
-     "20x Drone Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 10,
@@ -621,9 +581,7 @@
     "elerium": 0,
     "weapon_fragments": 20,
     "meld": 10,
-    "items": [
-     "4x Drone Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 10,
@@ -668,8 +626,7 @@
     "weapon_fragments": 220,
     "meld": 0,
     "items": [
-     "8x Cyberdisc Wreck",
-     "8x UFO Flight Computer"
+     "8x Cyberdisc Wreck"
     ]
    },
    "requires_tech": {
@@ -692,9 +649,7 @@
     "elerium": 0,
     "weapon_fragments": 20,
     "meld": 10,
-    "items": [
-     "4x Cyberdisc Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 15,
@@ -717,8 +672,7 @@
     "weapon_fragments": 0,
     "meld": 0,
     "items": [
-     "8x Alien Stasis Tank",
-     "8x Alien Surgery"
+     "8x Alien Stasis Tank"
     ]
    },
    "requires_tech": {
@@ -741,9 +695,7 @@
     "elerium": 0,
     "weapon_fragments": 120,
     "meld": 0,
-    "items": [
-     "12x UFO Flight Computer"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 59,
@@ -766,8 +718,7 @@
     "weapon_fragments": 150,
     "meld": 0,
     "items": [
-     "24x Seeker Wreck",
-     "24x UFO Flight Computer"
+     "24x Seeker Wreck"
     ]
    },
    "requires_tech": {
@@ -790,9 +741,7 @@
     "elerium": 150,
     "weapon_fragments": 0,
     "meld": 0,
-    "items": [
-     "8x UFO Power Source"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 5,
@@ -814,9 +763,7 @@
     "elerium": 50,
     "weapon_fragments": 80,
     "meld": 30,
-    "items": [
-     "16x UFO Power Source"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 49,
@@ -838,9 +785,7 @@
     "elerium": 10,
     "weapon_fragments": 0,
     "meld": 0,
-    "items": [
-     "4x UFO Flight Computer"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 33,
@@ -862,9 +807,7 @@
     "elerium": 0,
     "weapon_fragments": 20,
     "meld": 0,
-    "items": [
-     "4x Drone Wreck"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 60,
@@ -886,9 +829,7 @@
     "elerium": 10,
     "weapon_fragments": 0,
     "meld": 10,
-    "items": [
-     "2x Sectoid Captive"
-    ]
+    "items": []
    },
    "requires_tech": null,
    "effect": "Establishes a behind-the-scenes exchange for alien artifacts and military equipment to council nations to circumvent sanctions on illegal trade. An extra cargo compartment will allow Big Sky to make clandestine deliveries during down time. Desperate times call for desperate measures."
@@ -907,9 +848,7 @@
     "elerium": 10,
     "weapon_fragments": 0,
     "meld": 50,
-    "items": [
-     "48x Sectoid Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 10,
@@ -931,9 +870,7 @@
     "elerium": 0,
     "weapon_fragments": 30,
     "meld": 50,
-    "items": [
-     "40x Thin Man Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 10,
@@ -955,9 +892,7 @@
     "elerium": 20,
     "weapon_fragments": 120,
     "meld": 0,
-    "items": [
-     "8x Thin Man Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 11,
@@ -979,9 +914,7 @@
     "elerium": 20,
     "weapon_fragments": 40,
     "meld": 40,
-    "items": [
-     "12x Sectoid Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 4,
@@ -1047,9 +980,7 @@
     "elerium": 0,
     "weapon_fragments": 260,
     "meld": 0,
-    "items": [
-     "12x UFO Power Source"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 28,
@@ -1071,9 +1002,7 @@
     "elerium": 0,
     "weapon_fragments": 10,
     "meld": 0,
-    "items": [
-     "4x UFO Flight Computer"
-    ]
+    "items": []
    },
    "requires_tech": null,
    "effect": "Increase interception time by 10% and add UFO HP estimates to the interception screen. Our ongoing studies of the alien UFO types has led us to develop some ideas on how we can give our pilots precise information on alien UFO classes. With your approval, we can install air combat scanners on all our current and future combat aircraft that will help determine how much damage a UFO has sustained and help us maintain pursuit."
@@ -1092,9 +1021,7 @@
     "elerium": 30,
     "weapon_fragments": 60,
     "meld": 0,
-    "items": [
-     "18x Muton Corpse"
-    ]
+    "items": []
    },
    "requires_tech": {
     "id": 31,

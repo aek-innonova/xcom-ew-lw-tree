@@ -52,13 +52,16 @@ interface Continent {
   countries: string[]
 }
 
-const data = bonusData as unknown as {
+export interface BonusData {
   countries: Country[]
   continents: Continent[]
   starting_bonuses: Bonus[]
   country_bonuses: Bonus[]
   continent_bonuses: Bonus[]
 }
+
+/** Long War 1.0's; LWR's is data/lwr/bonuses.json (model/game.ts). */
+const data = bonusData as unknown as BonusData
 
 export const EXPERTISE = 54
 export const WE_HAVE_WAYS = 57
@@ -122,7 +125,12 @@ export interface ActiveBonuses {
   all: Bonus[]
 }
 
-export function activeBonuses(c: Campaign, values?: Map<string, number>): ActiveBonuses {
+export function activeBonuses(
+  c: Campaign,
+  values?: Map<string, number>,
+  bonuses: BonusData = data,
+): ActiveBonuses {
+  const data = bonuses
   const sats = new Set(c.satelliteCountries)
   const starting = data.starting_bonuses.find(
     (b) => b.enabled && b.starter_index === c.startingBonusIndex,
@@ -155,7 +163,11 @@ export function activeBonuses(c: Campaign, values?: Map<string, number>): Active
  * the save history: campaign 21 lost all of Asia's council and never had New
  * Warfare.
  */
-export function blockedContinents(c: Campaign): { bonus: Bonus; lost: string[] }[] {
+export function blockedContinents(
+  c: Campaign,
+  bonuses: BonusData = data,
+): { bonus: Bonus; lost: string[] }[] {
+  const data = bonuses
   const lost = new Set(c.lostCountries ?? [])
   return data.continent_bonuses
     .filter((b) => b.enabled)

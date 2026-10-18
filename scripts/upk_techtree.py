@@ -182,6 +182,13 @@ def main():
 
     # Foundry: requirements from the INI's FoundryBalance lines, as BalanceFoundry reads them.
     lines = statements(pk, 'XGTechTree.HasFoundryPrereqs')
+    # Long War 1.0 needs the INI's item in stores; LWR does not, and instead
+    # chains some projects to others ("project A needs B built").
+    item_rule = any('GetNumItemsAvailable(kTech.iItemReq)' in s for _, s in lines)
+    after = {}
+    for _, s in lines:
+        if m := re.fullmatch(r'if !\(\(\(iFoundryTech == (\d+)\) && !\(ENGINEERING\(\)\.IsFoundryTechResearched\((\d+)\)\)\)\) goto \d+', s):
+            after.setdefault(int(m.group(1)), []).append(int(m.group(2)))
     ever = {}
     for i, (_, s) in enumerate(lines):
         if m := re.fullmatch(r'if !\(\(iFoundryTech == (\d+)\)\) goto \d+', s):
@@ -202,8 +209,10 @@ def main():
         if foundry_enum[fid].startswith('eFoundry_') and foundry_enum[fid] != 'eFoundry_MAX':
             e['enum'] = foundry_enum[fid]  # Long War's projects past 24 reuse other enums' numbers
         req_item = val(kv['eReqItem'], item_enum)
-        if req_item:
+        if req_item and item_rule:
             e['in_stores'] = item(req_item)
+        if fid in after:
+            e['after'] = after[fid]
         if fid in ever:
             e['ever_had'] = item(ever[fid])
         e['credits'] = sorted(c for c, ps in foundry_cov.items() if ps is None or fid in ps)
@@ -211,7 +220,10 @@ def main():
 
     json.dump({
         'source': 'Long War 1.0 XComStrategyGame.upk (XGTechTree), FoundryBalance in '
-                  'DefaultGameCore.ini, names from the INT localization; read by scripts/upk_techtree.py',
+                  'DefaultGameCore.ini, names from the INT localization; read by scripts/upk_techtree.py'
+                  if 'Rebalance' not in os.path.realpath(cooked) else
+                  'LW Rebalance XComStrategyGame.upk (XGTechTree), FoundryBalance in DefaultGameCore.ini, '
+                  'names from the INT localization; read by scripts/upk_techtree.py',
         'credit_bonus': {str(k): v for k, v in sorted(bonus.items())},
         'techs': out_techs,
         'foundry': sorted(foundry, key=lambda e: e['id']),

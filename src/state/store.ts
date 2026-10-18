@@ -175,8 +175,14 @@ export const bonuses = computed(() =>
     ? activeBonuses(
         campaign.value,
         state.ini?.bonusValues ? new Map(state.ini.bonusValues) : undefined,
+        game.value.bonuses,
       )
     : null,
+)
+
+/** Ids of the campaign's active bonuses (the game's HasBonus). */
+export const bonusIds = computed<ReadonlySet<number>>(
+  () => new Set((bonuses.value?.all ?? []).map((b) => b.bonus_id)),
 )
 
 /** Credits the campaign holds, and what each takes off (25 % + Expertise; "All" 20 % + Expertise). */
@@ -201,6 +207,8 @@ export const research = computed(() =>
         techs.value,
         bonuses.value ? researchBonuses(bonuses.value) : undefined,
         game.value.creditShares,
+        game.value.research,
+        bonusIds.value,
       )
     : undefined,
 )

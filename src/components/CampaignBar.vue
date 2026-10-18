@@ -12,7 +12,7 @@ import {
 } from '@/model/bonuses'
 import { pointsPerHour, projectEtaDays } from '@/model/research'
 import { campaignStats } from '@/model/stats'
-import { bonuses, campaign, credits, state, techById, techs } from '@/state/store'
+import { bonuses, campaign, credits, state, techById, techs, game, bonusIds } from '@/state/store'
 import { categoryFor } from '@/model/airwar'
 import enumData from '../../data/enums.json'
 
@@ -30,9 +30,15 @@ const info = computed(() => {
   const c = campaign.value
   if (!c) return undefined
   const done = techs.value.filter((t) => c.researched[t.id]).length
-  const bonus = Math.round(((c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0)) * 100)
+  // Long War 1.0's lab bonuses add up (+60 %); LWR's are factors that multiply (× 1.43).
+  const bonus =
+    game.value.research === 'lwr'
+      ? `×${(Math.round((c.labBonus ?? 1) * (c.adjacentLabBonus ?? 1) * 100) / 100).toFixed(2)} labs`
+      : Math.round(((c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0)) * 100)
+        ? `+${Math.round(((c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0)) * 100)}% labs`
+        : ''
   const project = c.project ? techById.value.get(c.project.tech) : undefined
-  const days = projectEtaDays(c)
+  const days = projectEtaDays(c, game.value.research, bonusIds.value)
   return {
     date: c.date ? `${c.date.day} ${MONTHS[c.date.month - 1]} ${c.date.year}` : undefined,
     difficulty: difficultyName(c.difficulty),
@@ -41,7 +47,7 @@ const info = computed(() => {
     total: techs.value.length,
     scientists: c.scientists,
     bonus,
-    rate: pointsPerHour(c),
+    rate: pointsPerHour(c, game.value.research, bonusIds.value),
     project: project?.name,
     projectId: project?.id,
     days,
@@ -87,7 +93,9 @@ const groups = computed(() => {
   ].filter((g) => g.items.length)
 })
 const JAI_VIDWAN = 46
-const blocked = computed(() => (campaign.value ? blockedContinents(campaign.value) : []))
+const blocked = computed(() =>
+  campaign.value ? blockedContinents(campaign.value, game.value.bonuses) : [],
+)
 const lostNames = computed(() =>
   (stats.value?.lost ?? []).map((id) => countryName(id) ?? `#${id}`).join(', '),
 )
@@ -116,7 +124,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
       v-if="info.scientists !== undefined"
       :title="info.rate ? `${Math.round(info.rate)} research points per hour` : undefined"
     >
-      {{ info.scientists }} scientists<template v-if="info.bonus"> +{{ info.bonus }}% labs</template
+      {{ info.scientists }} scientists<template v-if="info.bonus"> {{ info.bonus }}</template
       ><template v-if="info.engineers !== undefined">, {{ info.engineers }} engineers</template>
     </span>
     <span

@@ -24,10 +24,33 @@ export function baseDays(n: number): number {
   return n > 0 ? Math.max(1, Math.round(n)) : 0
 }
 
+/**
+ * XGFacility_Labs.GetResearchPerHour. Long War 1.0: scientists × (1 + lab
+ * bonus + adjacency bonus). LWR: 0.5 × (50 + scientists) × lab factor ×
+ * adjacency factor, × 1.1 with Jai Vidwan (bonus 46) and again with Architects
+ * of the Future (5); its save keeps the factors themselves (LAB_BONUS to the
+ * power of the labs, LAB_ADJACENCY_BONUS to the power of the adjacencies).
+ */
+export type ResearchFormula = 'lw' | 'lwr'
+export const JAI_VIDWAN = 46
+export const ARCHITECTS = 5
+
 export function pointsPerHour(
   c: Pick<Campaign, 'scientists' | 'labBonus' | 'adjacentLabBonus'>,
+  formula: ResearchFormula = 'lw',
+  bonusIds: ReadonlySet<number> = new Set(),
 ): number | undefined {
   if (!c.scientists) return undefined
+  if (formula === 'lwr') {
+    const f32 = Math.fround
+    const jai = bonusIds.has(JAI_VIDWAN) ? f32(1.1) : 1
+    const arch = bonusIds.has(ARCHITECTS) ? f32(1.1) : 1
+    return f32(
+      f32(f32(f32(0.5 * jai) * arch) * (50 + c.scientists)) *
+        (c.labBonus ?? 1) *
+        (c.adjacentLabBonus ?? 1),
+    )
+  }
   return c.scientists * (1 + (c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0))
 }
 
@@ -37,16 +60,24 @@ export function daysFor(points: number, perHour: number): number {
 }
 
 /** The current project's remaining days, as the game shows them. */
-export function projectDaysLeft(c: Campaign): number | undefined {
-  const rate = pointsPerHour(c)
+export function projectDaysLeft(
+  c: Campaign,
+  formula: ResearchFormula = 'lw',
+  bonusIds?: ReadonlySet<number>,
+): number | undefined {
+  const rate = pointsPerHour(c, formula, bonusIds)
   if (!c.project || !rate) return undefined
   return daysFor(c.project.pointsLeft, rate)
 }
 
 /** The current project's days left as the game shows them (its ETA text), else our formula. */
-export function projectEtaDays(c: Campaign): number | undefined {
+export function projectEtaDays(
+  c: Campaign,
+  formula: ResearchFormula = 'lw',
+  bonusIds?: ReadonlySet<number>,
+): number | undefined {
   const eta = c.project && /^(\d+) days?$/.exec(c.project.eta)
-  return eta ? Number(eta[1]) : projectDaysLeft(c)
+  return eta ? Number(eta[1]) : projectDaysLeft(c, formula, bonusIds)
 }
 
 // --- Research credits and bonuses -------------------------------------------
@@ -139,8 +170,10 @@ export function researchContext(
   techs: Tech[],
   bonuses: ResearchBonuses = NO_BONUSES,
   shares?: Record<string, number>,
+  formula: ResearchFormula = 'lw',
+  bonusIds?: ReadonlySet<number>,
 ): ResearchContext | undefined {
-  const perHour = pointsPerHour(c)
+  const perHour = pointsPerHour(c, formula, bonusIds)
   if (!perHour) return undefined
   return {
     perHour,
@@ -193,6 +226,8 @@ export interface Holdings {
   /** XGStorage.m_arrItemArchives: non-zero for every item ever held. */
   everHad?: number[]
   stock?: number[]
+  /** XGFacility_Engineering.m_arrFoundryHistory: non-zero for projects done. */
+  foundryHistory?: number[]
   /**
    * XGGeoscape.m_arrCraftEncounters, by ship type: despite the name, a count of
    * crash-site and landed-UFO missions won (XGStrategy.PostCombat).
@@ -206,6 +241,7 @@ export function gateMet(g: Gate, h: Holdings): boolean {
     !list?.length || ids.some((i) => (list[i] ?? 0) > 0)
   if (g.kind === 'ever_had') return any(h.everHad, g.items)
   if (g.kind === 'in_stores') return any(h.stock, g.items)
+  if (g.kind === 'foundry') return any(h.foundryHistory, g.projects)
   return any(h.craftEncounters, g.ships)
 }
 

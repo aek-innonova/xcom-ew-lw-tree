@@ -58,3 +58,38 @@ describe('game versions', () => {
     expect(applied.techs.find((t) => t.id === 10)!.base_days).toBe(10)
   })
 })
+
+describe('LWR research speed (XGFacility_Labs.GetResearchPerHour)', async () => {
+  const { pointsPerHour, JAI_VIDWAN, ARCHITECTS } = await import('../research')
+  const lab = { scientists: 30, labBonus: 1.3 * 1.3, adjacentLabBonus: 1.1 }
+
+  it('is 0.5 × (50 + scientists) × the lab factors', () => {
+    expect(pointsPerHour(lab, 'lwr')).toBeCloseTo(0.5 * 80 * 1.69 * 1.1, 3)
+  })
+
+  it('gains 10 % each from Jai Vidwan and Architects of the Future', () => {
+    const both = pointsPerHour(lab, 'lwr', new Set([JAI_VIDWAN, ARCHITECTS]))!
+    expect(both / pointsPerHour(lab, 'lwr')!).toBeCloseTo(1.21, 3)
+  })
+
+  it('leaves Long War 1.0’s formula alone', () => {
+    expect(pointsPerHour({ scientists: 30, labBonus: 0.4, adjacentLabBonus: 0.3 })).toBeCloseTo(51)
+  })
+})
+
+describe('LWR bonuses and Foundry rules', () => {
+  it('has starting and continent bonuses, and no country bonuses', () => {
+    expect(lwr.bonuses.country_bonuses).toHaveLength(0)
+    expect(lwr.bonuses.continent_bonuses.map((b) => b.name)).toContain('Fear No Evil')
+    expect(lwr.bonuses.starting_bonuses.find((b) => b.bonus_id === 54)?.name).toBe('Ready For War')
+  })
+
+  it('chains some Foundry projects and asks for no items in stores', () => {
+    const p8 = lwr.foundry.find((p) => p.id === 8)!
+    expect(p8.gates.map(gateText)).toEqual([
+      `${lwr.foundry.find((p) => p.id === 23)!.name} (Foundry) built`,
+    ])
+    expect(lwr.foundry.some((p) => p.gates.some((g) => g.kind === 'in_stores'))).toBe(false)
+    expect(GAMES.lw.foundry.some((p) => p.gates.some((g) => g.kind === 'in_stores'))).toBe(true)
+  })
+})

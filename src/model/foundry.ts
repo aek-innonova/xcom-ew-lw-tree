@@ -65,12 +65,20 @@ export interface FoundryRule {
   requires: number
   in_stores?: { id: number; name: string }
   ever_had?: { id: number; name: string }
+  /** LWR: Foundry projects that must be done first (HasFoundryPrereqs). */
+  after?: number[]
   credits: number[]
 }
 export const foundryRules = techtree.foundry as FoundryRule[]
 
-function gatesOf(r: FoundryRule | undefined): Gate[] {
+function gatesOf(r: FoundryRule | undefined, names?: Map<number, string>): Gate[] {
   const gates: Gate[] = []
+  if (r?.after?.length)
+    gates.push({
+      kind: 'foundry',
+      projects: r.after,
+      name: r.after.map((id) => names?.get(id) ?? `Foundry ${id}`).join(' or '),
+    })
   if (r?.in_stores)
     gates.push({ kind: 'in_stores', items: [r.in_stores.id], name: r.in_stores.name })
   if (r?.ever_had) gates.push({ kind: 'ever_had', items: [r.ever_had.id], name: r.ever_had.name })
@@ -81,10 +89,11 @@ function gatesOf(r: FoundryRule | undefined): Gate[] {
 export function buildFoundry(raw: FoundryData, foundryRules: FoundryRule[]): FoundryProject[] {
   const byId = new Map(foundryRules.map((r) => [r.id, r]))
   const work = raw.work ?? 'days*24*engineers'
+  const names = new Map(raw.projects.map((p) => [p.id, p.name]))
   return raw.projects.map((p) => ({
     ...p,
     credits: creditNames(byId.get(p.id)?.credits ?? []),
-    gates: gatesOf(byId.get(p.id)),
+    gates: gatesOf(byId.get(p.id), names),
     hours: workHours(work, p.base_days, p.engineers),
   }))
 }

@@ -15,6 +15,9 @@ import lwrTechs from '../../data/lwr/techs.json'
 import lwrRules from '../../data/lwr/techtree.json'
 import lwrFoundry from '../../data/lwr/foundry.json'
 import lwrPrices from '../../data/lwr/prices.json'
+import lwBonuses from '../../longwar_bonuses.json'
+import lwrBonuses from '../../data/lwr/bonuses.json'
+import type { BonusData } from './bonuses'
 import { creditShares } from './credits'
 import {
   buildFoundry,
@@ -24,6 +27,7 @@ import {
   type FoundryWorkFormula,
 } from './foundry'
 import { buildTechs, type Tech, type TechData, type TechRule } from './techs'
+import type { ResearchFormula } from './research'
 
 export type GameId = 'lw' | 'lwr'
 
@@ -41,20 +45,25 @@ export interface Game {
   creditShares: Record<string, number>
   /** Research points one INI day (TechBalance iTime) is worth (XGTechTree.TechCost). */
   iniPointsPerDay: number
+  /** XGFacility_Labs.GetResearchPerHour's formula (research.ts pointsPerHour). */
+  research: ResearchFormula
   /** Whether UFOpaedia's Long War pages describe this version (its links). */
   ufopaedia: boolean
   /** Grey market prices by item key, where they differ from Long War 1.0's built-in ones. */
   prices?: Record<string, number>
+  /** Starting, country and continent bonuses. */
+  bonuses: BonusData
 }
 
 function game(
   id: GameId,
   name: string,
   short: string,
-  techData: TechData & { ini_points_per_day?: number },
+  techData: TechData & { ini_points_per_day?: number; research_formula?: ResearchFormula },
   rules: { techs: TechRule[]; foundry: FoundryRule[]; credit_bonus: Record<string, number> },
   foundryData: FoundryData,
   ufopaedia: boolean,
+  bonuses: BonusData,
   prices?: Record<string, number>,
 ): Game {
   return {
@@ -68,8 +77,10 @@ function game(
     foundryWork: foundryData.work ?? 'days*24*engineers',
     creditShares: creditShares(rules.credit_bonus),
     iniPointsPerDay: techData.ini_points_per_day ?? 720,
+    research: techData.research_formula ?? 'lw',
     ufopaedia,
     prices,
+    bonuses,
   }
 }
 
@@ -82,6 +93,7 @@ export const GAMES: Record<GameId, Game> = {
     lwRules as never,
     lwFoundry as unknown as FoundryData,
     true,
+    lwBonuses as unknown as BonusData,
   ),
   lwr: game(
     'lwr',
@@ -91,6 +103,7 @@ export const GAMES: Record<GameId, Game> = {
     lwrRules as never,
     lwrFoundry as unknown as FoundryData,
     false,
+    lwrBonuses as unknown as BonusData,
     lwrPrices.prices,
   ),
 }

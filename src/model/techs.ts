@@ -27,6 +27,8 @@ export type Gate =
   | { kind: 'ever_had'; items: number[]; name: string }
   | { kind: 'in_stores'; items: number[]; name: string }
   | { kind: 'captured'; ships: number[]; name: string }
+  /** LWR: a Foundry project that needs another built first. */
+  | { kind: 'foundry'; projects: number[]; name: string }
 
 interface RuleItem {
   id: number

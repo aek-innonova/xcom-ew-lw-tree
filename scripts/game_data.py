@@ -7,7 +7,8 @@ files, in the shapes of tech.json and longwar_foundry.json.
 `root` holds the install's CookedPCConsole/, INT (or INT2)/ and
 DefaultGameCore.ini (or Config/DefaultGameCore.ini); `techtree.json` is the
 same install's output of scripts/upk_techtree.py. Writes techs.json,
-foundry.json and prices.json (grey market) to `out dir`.
+foundry.json, prices.json (grey market) and bonuses.json (starting,
+country and continent bonuses, in longwar_bonuses.json's shape) to `out dir`.
 
 What comes from where:
 - names: the INT localization (TechTypeNames, FoundryTechNames,
@@ -105,6 +106,16 @@ def main():
         per_day = 72 * consts['TECH_TIME_BALANCE']
     else:
         raise SystemExit(f'TechCost: not a form this script knows: {cost}')
+
+    # Research speed (XGFacility_Labs.GetResearchPerHour): which formula.
+    rph = ' '.join(st for _, st in statements(pk, 'XGFacility_Labs.GetResearchPerHour'))
+    if rph.startswith('return (GetAvailableScientists() * ((1 + self.m_fLabBonus) + self.m_fAdjLabBonus))'):
+        research = 'lw'
+    elif ('(50.0 + GetAvailableScientists())' in rph and 'HasBonus(b46)' in rph and 'HasBonus(b5)' in rph
+          and '* self.m_fLabBonus) * self.m_fAdjLabBonus' in rph):
+        research = 'lwr'
+    else:
+        raise SystemExit(f'GetResearchPerHour: not a form this script knows: {rph}')
 
     # Foundry work (XGTechTree.FoundryDaysToHours), as a formula the app evaluates.
     fdh = ' '.join(s for _, s in statements(pk, 'XGTechTree.FoundryDaysToHours'))
@@ -219,12 +230,64 @@ def main():
         if m := re.match(r'^ItemBalance_Normal\s*=\s*\(\s*eItem\s*=\s*(eItem_\w+)\s*,\s*iCash\s*=\s*(-?\d+)', line, re.I):
             prices[m.group(1)] = int(m.group(2))
 
+    # Starting, country and continent bonuses: the INI's ItemBalance_Classic
+    # bonus lines (eItem 0 starting: iCash the index the save stores, iElerium
+    # the country; 1 country: iElerium; 2 continent: iAlloys; iTime the bonus
+    # id, iEng its value), named by ContinentBonusNames / ContinentBonusDesc.
+    # Countries and continents keep Long War 1.0's ids and membership.
+    bonus_names = names('XComStrategyGame.int', 'ContinentBonusNames')
+    bonus_descs = names('XComStrategyGame.int', 'ContinentBonusDesc')
+    lw_bonuses = json.load(open(os.path.join(HERE, 'longwar_bonuses.json')))
+    countries = {c['id']: c for c in lw_bonuses['countries']}
+    continents = {c['id']: c for c in lw_bonuses['continents']}
+    start = ini.index('Starter, Country and Continent bonuses') if 'Starter, Country and Continent bonuses' in ini else 0
+    lists = {0: [], 1: [], 2: []}
+    for raw in ini[start:].splitlines():
+        m = re.match(r'^ItemBalance_Classic\s*=\s*\((.*?)\)\s*;?\s*(.*)$', raw.strip())
+        if not m:
+            continue
+        kv = {k.strip(): v.strip() for k, v in (p.split('=', 1) for p in m.group(1).split(',') if '=' in p)}
+        try:
+            item, bid, value = int(kv['eItem']), int(kv['iTime']), int(kv['iEng'])
+        except (KeyError, ValueError):
+            continue
+        if item not in lists:
+            continue
+        comment = m.group(2).strip()
+        name = (bonus_names.get(str(bid)) or '').strip().rstrip(':').strip() \
+            or re.sub(r'\s*\(.*$', '', comment) or f'Bonus {bid}'
+        desc = (bonus_descs.get(str(bid)) or '').replace('<XGParam:IntValue0/>', str(value)).replace('<XGParam:IntValue0>', str(value))
+        cfg = (re.search(r'\((.*)\)', comment) or [None, ''])[1]
+        b = {'type': ('starting', 'country', 'continent')[item], 'bonus_id': bid, 'name': name,
+             'description': desc, 'value': value, 'config_comment': cfg, 'enabled': True}
+        if item in (0, 1):
+            cid = int(kv['iElerium']); k = countries.get(cid)
+            b.update(country_id=cid, country=k['name'] if k else None,
+                     continent_id=k['continent_id'] if k else None, continent=k['continent'] if k else None)
+            if item == 0:
+                b['starter_index'] = int(kv['iCash'])
+        else:
+            ct = int(kv['iAlloys']); c = continents.get(ct)
+            b.update(continent_id=ct, continent=c['name'] if c else None)
+        lists[item].append(b)
+    bonus_out = dict(lw_bonuses)
+    bonus_out.update(generated=f'scripts/game_data.py from the ItemBalance_Classic bonus block and ContinentBonusNames',
+                     starting_bonuses=lists[0], country_bonuses=lists[1], continent_bonuses=lists[2])
+    bonus_out.pop('save1762_continent_bonuses', None)
+    bonus_out['countries'] = [dict(c, starting_bonuses=[b['name'] for b in lists[0] if b['country_id'] == c['id']],
+                                   country_bonus=[b['name'] for b in lists[1] if b['country_id'] == c['id']])
+                              for c in lw_bonuses['countries']]
+    bonus_out['continents'] = [dict(c, bonus=next((b for b in lists[2] if b['continent_id'] == c['id']), None))
+                               for c in lw_bonuses['continents']]
+
     os.makedirs(out_dir, exist_ok=True)
     json.dump({'generated': f'ItemBalance_Normal iCash, by scripts/game_data.py', 'prices': prices},
               open(os.path.join(out_dir, 'prices.json'), 'w'), indent=1)
+    json.dump(bonus_out, open(os.path.join(out_dir, 'bonuses.json'), 'w'), indent=1)
     source = f'generated by scripts/game_data.py from {os.path.basename(os.path.abspath(root))}'
     json.dump({'game': lw_data.get('game'), 'mod': None, 'generated': source, 'categories': lw_data['categories'],
-               'research_points_per_base_day': 720, 'ini_points_per_day': per_day, 'techs': techs},
+               'research_points_per_base_day': 720, 'ini_points_per_day': per_day, 'research_formula': research,
+               'techs': techs},
               open(os.path.join(out_dir, 'techs.json'), 'w'), indent=1)
     json.dump({'generated': source, 'categories': lw_foundry_data['categories'], 'work': foundry_work,
                'projects': projects},
