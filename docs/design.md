@@ -45,9 +45,21 @@ what will it cost me" and "how long will that take with my labs".
   the C++ to WebAssembly. Reading only; ~800 lines of C++ plus LZO1X
   decompression. `samples/save1762.json` (xcomsave's own output) is the
   oracle.
-- 2026-10-18: Tree layout is our own: a lane per category, columns by
-  prerequisite depth, rendered as SVG. No graph-layout library unless the
-  result proves unreadable.
+- 2026-10-18: Tree layout is our own, rendered as SVG: a lane per
+  category, nine columns, every prerequisite strictly left of the tech
+  that needs it (across lanes), lanes as few rows as that allows (15 in
+  all), edges routed through gutters and row gaps so none passes behind
+  a node. A first version that compacted harder (14 rows) made edges run
+  backwards and hid skipping edges behind nodes; readability won.
+- 2026-10-18: Research time: speed = scientists × (1 + lab bonus +
+  adjacency bonus) points/hour; a tech costs base days × 720 less 25 %
+  per held credit (35 % seen once, likely the Expertise bonus); the
+  current project's remaining points come from the save. Verified
+  against the game's ETA in every sample; see `src/model/research.ts`.
+- 2026-10-18: Tactical saves are read through the strategy state they
+  embed (see the save-parser report).
+- 2026-10-18: What persists in localStorage is what was extracted (costs,
+  campaign summary, goals), never the files themselves.
 - 2026-10-18: Hosted as static files at `https://xcom.innonova.ch`, served
   by nginx on `www` (see `features/deploy.md`).
 - 2026-10-18: `samples/` is git-ignored (the person's own saves and
