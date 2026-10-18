@@ -71,3 +71,8 @@ inno-iacsb-ingress-int`). Production resolves through public DNS and is not
 affected.
 
 xcom.innonova.ch (the dev box, `deploy/deploy.sh`) stays as a staging copy.
+
+Applied in production 2026-10-18 (innonova/iac#179, run 39146278937):
+https://xcom.aek.dk answers 200 under a Let's Encrypt certificate with the
+app's headers; checked from outside in a browser (a save, the air war's
+odds and a fight, no errors).
