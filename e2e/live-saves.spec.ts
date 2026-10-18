@@ -41,11 +41,10 @@ test('follows the save folder: new saves, a half-written one, and a reload', asy
 
   // The game writes the next save.
   await writeSave(page, 'save1761', readFileSync(resolve(saves, 'save1761')))
-  await expect(page.locator('.message')).toContainText(
-    'New save save1761: researched Alien Weaponry; started Xenobiology',
-    { timeout: 10_000 },
-  )
-  await expect(page.locator('.campaign')).toContainText('24 Mar 2016')
+  await expect(page.locator('.campaign')).toContainText('24 Mar 2016', { timeout: 10_000 })
+  // No banner: the header shows the save and when it came in.
+  await expect(page.locator('.message')).toHaveCount(0)
+  await expect(page.locator('.loaded')).toContainText(/save1761 · \d{2}:\d{2}/)
 
   // A save caught half-written changes nothing; once complete it loads.
   const full = readFileSync(resolve(saves, 'save1762'))
@@ -59,7 +58,10 @@ test('follows the save folder: new saves, a half-written one, and a reload', asy
 
   // The check log has an entry per save, all agreeing with the game.
   await page.getByRole('button', { name: 'Checks' }).click()
-  await expect(page.getByRole('dialog', { name: 'Checks against the game' }).locator('tbody tr')).toHaveCount(3)
+  const log = page.getByRole('dialog', { name: 'Checks against the game' })
+  await expect(log.locator('tbody tr')).toHaveCount(3)
+  // What changed between saves is kept in the log.
+  await expect(log).toContainText('researched Alien Weaponry; started Xenobiology')
 
   // After a reload the folder is picked up again without asking.
   await page.reload()

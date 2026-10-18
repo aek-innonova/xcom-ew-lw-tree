@@ -246,6 +246,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
               <td>
                 {{ k.fileName }}
                 <div class="sub">{{ k.date }}</div>
+                <div v-if="k.changes" class="sub">{{ k.changes }}</div>
               </td>
               <td>
                 {{ k.project }}

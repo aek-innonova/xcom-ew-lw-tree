@@ -35,6 +35,15 @@ function find(hit: SearchEntry) {
   query.value = ''
 }
 
+/** "14:02", or "12 Oct 14:02" if it was not today. */
+function loadedAt(ms: number): string {
+  const d = new Date(ms)
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return d.toDateString() === new Date().toDateString()
+    ? time
+    : `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${time}`
+}
+
 function onSearchKey(e: KeyboardEvent) {
   if (e.key === 'Enter' && matches.value[0]) find(matches.value[0])
   if (e.key === 'Escape') query.value = ''
@@ -127,7 +136,10 @@ function onSearchKey(e: KeyboardEvent) {
           {{ state.save ? 'Change save' : 'Load save' }}
         </button>
         <span v-if="state.save" class="loaded" :title="state.save.campaign.description">
-          {{ state.save.fileName }}
+          {{ state.save.fileName
+          }}<span v-if="state.save.loadedAt" class="when">
+            · {{ loadedAt(state.save.loadedAt) }}</span
+          >
           <button type="button" class="clear" title="Forget this save" @click="clearSave">×</button>
         </span>
         <input ref="saveInput" type="file" hidden @change="onPick" />
@@ -267,6 +279,10 @@ h1 span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.when {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 .clear {
   padding: 0 6px;

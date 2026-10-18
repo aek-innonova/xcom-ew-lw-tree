@@ -75,8 +75,10 @@ export interface SaveCheck {
   /** What the project actually costs, as a reduction from base. */
   actualReduction?: number
   creditMatch?: boolean
-  /** Bonuses that should shape this project's figures (We Have Ways…). */
+  /** Bonuses that shape this project's figures (We Have Ways…). */
   notes: string[]
+  /** What changed since the save loaded before it, e.g. "researched Xenobiology". */
+  changes?: string
 }
 
 /**

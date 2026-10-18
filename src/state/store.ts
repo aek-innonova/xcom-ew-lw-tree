@@ -44,6 +44,8 @@ export interface LoadedIni {
 export interface LoadedSave {
   fileName: string
   campaign: Campaign
+  /** When it was loaded (wall clock, ms), shown beside its name. */
+  loadedAt?: number
 }
 
 interface State {
@@ -298,9 +300,12 @@ export function loadIni(fileName: string, text: string) {
 }
 
 /**
- * Loads a save. Throws nothing; reports in the message line. Returns whether it
- * worked, so the folder watcher can retry a save the game is still writing.
- * `live` marks a save picked up from the watched folder.
+ * Loads a save. Throws nothing; a save that cannot be read is reported in the
+ * message line. A good one shows no message: the header shows its name and
+ * when it was loaded, and what changed since the previous save goes into the
+ * check log. Returns whether it worked, so the folder watcher can retry a save
+ * the game is still writing. `live` marks a save picked up from the watched
+ * folder.
  */
 export function loadSave(fileName: string, bytes: Uint8Array, live = false): boolean {
   let next: Campaign
@@ -311,31 +316,21 @@ export function loadSave(fileName: string, bytes: Uint8Array, live = false): boo
     return false
   }
   const prev = state.save?.campaign
-  state.save = { fileName, campaign: next }
-  recordCheck(fileName)
+  state.save = { fileName, campaign: next, loadedAt: Date.now() }
+  recordCheck(fileName, changeText(next, prev))
   recordSnapshot(next, fileName)
-  state.message = saveMessage(fileName, next, prev, live)
+  if (state.message?.kind === 'error') state.message = null
   return true
 }
 
-function saveMessage(
-  fileName: string,
-  next: Campaign,
-  prev: Campaign | undefined,
-  live: boolean,
-): State['message'] {
-  const parts: string[] = []
+/** "researched Alien Weaponry; started Xenobiology", or undefined if nothing changed. */
+function changeText(next: Campaign, prev: Campaign | undefined): string | undefined {
   const change = prev && changesBetween(prev, next)
   const name = (id: number) => techById.value.get(id)?.name ?? `#${id}`
+  const parts: string[] = []
   if (change?.researched.length) parts.push(`researched ${change.researched.map(name).join(', ')}`)
   if (change?.started !== undefined) parts.push(`started ${name(change.started)}`)
-  if (next.tactical)
-    parts.push('a mid-mission save, showing the research state the mission started from')
-  if (!live && !parts.length) return null
-  return {
-    kind: 'info',
-    text: `${live ? 'New save ' : ''}${fileName}${parts.length ? ': ' + parts.join('; ') : ' loaded'}.`,
-  }
+  return parts.length ? parts.join('; ') : undefined
 }
 
 function recordSnapshot(c: Campaign, fileName: string) {
@@ -401,10 +396,11 @@ export function clearHistory(game: number) {
   state.history = next
 }
 
-function recordCheck(fileName: string) {
+function recordCheck(fileName: string, changes?: string) {
   const c = campaign.value
   const check = c && checkSave(c, techs.value, research.value, fileName)
   if (!check) return
+  if (changes) check.changes = changes
   const others = state.checks.filter(
     (k) => !(k.fileName === fileName && k.saveNumber === check.saveNumber),
   )

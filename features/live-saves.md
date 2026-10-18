@@ -83,3 +83,20 @@ check log.
   save the game writes show up, Ironman's single save included.
 - Campaign history (a timeline across saves) is the natural next step;
   not built.
+
+## Response (2026-10-18)
+
+The person: the banner announcing a picked-up save takes space from the
+tree and is not worth it; show when the last save was loaded somewhere
+permanent instead.
+
+## Report (2026-10-18, round 2)
+
+A save that loads no longer shows a banner (manual or watched). The
+header shows the save's name and the time it was loaded ("save1763 ·
+14:02", with the date if not today). What changed since the previous
+save ("researched Alien Weaponry; started Xenobiology") is kept on that
+save's row in the check log. Banners remain for errors and one-off
+actions (an INI loaded, saves added to the history); the mid-mission
+note was already in the campaign bar. The end-to-end test now checks
+the header and the log instead of the banner.
