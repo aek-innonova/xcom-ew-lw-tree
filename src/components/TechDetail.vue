@@ -243,7 +243,11 @@ const select = (id: number) => (state.selected = id)
         </li>
       </ul>
     </section>
-    <section v-if="gives">
+    <section v-if="gives?.credit === 'All'">
+      <h3>Gives a credit for everything</h3>
+      <p class="gives">{{ gives.each }}% off all research and Foundry projects.</p>
+    </section>
+    <section v-else-if="gives">
       <h3>Gives the {{ gives.credit }} credit</h3>
       <p class="gives">
         {{ gives.each }}% off {{ gives.techs.length }} techs<template v-if="gives.foundry.length">

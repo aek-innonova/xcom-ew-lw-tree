@@ -85,13 +85,22 @@ function onSearchKey(e: KeyboardEvent) {
       >
         History
       </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="state.view === 'market'"
+        :class="{ on: state.view === 'market' }"
+        @click="state.view = 'market'"
+      >
+        Grey market
+      </button>
     </div>
 
     <div class="search">
       <input
         v-model="query"
         type="search"
-        placeholder="Find a tech, item or Foundry project…"
+        placeholder="Search techs, items, Foundry"
         aria-label="Find a tech, item or Foundry project"
         @keydown="onSearchKey"
       />
@@ -161,7 +170,7 @@ function onSearchKey(e: KeyboardEvent) {
       </div>
     </div>
 
-    <p class="privacy">Your files are read in this browser and never uploaded.</p>
+    <p class="privacy">Nothing is uploaded.</p>
     <button type="button" class="help-button" @click="emit('help')">Help</button>
   </header>
 </template>
@@ -211,7 +220,7 @@ h1 span {
   position: relative;
 }
 .search input {
-  width: 300px;
+  width: 250px;
 }
 .matches {
   position: absolute;

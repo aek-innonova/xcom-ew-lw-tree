@@ -8,7 +8,7 @@ describe('App', () => {
     const wrapper = mount(App)
     expect(wrapper.find('h1').text()).toContain('Long War')
     expect(wrapper.findAll('[data-tech]')).toHaveLength(75)
-    expect(wrapper.text()).toContain('never uploaded')
+    expect(wrapper.text()).toContain('Nothing is uploaded')
   })
 
   it('opens the detail panel when a tech is selected', async () => {

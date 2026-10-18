@@ -198,7 +198,12 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
           <dt>Research credits</dt>
           <dd>
             <template v-if="credits?.held.size">
-              {{ [...credits.held].sort().join(', ') }}
+              {{
+                [...credits.held]
+                  .map((c) => (c === 'All' ? 'All research' : c))
+                  .sort()
+                  .join(', ')
+              }}
               <span class="where">{{ Math.round(credits.each * 100) }}% off each</span>
             </template>
             <template v-else>none yet</template>

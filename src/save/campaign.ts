@@ -68,6 +68,8 @@ export interface Campaign {
   satelliteCountries: number[]
   /** Council countries that have left XCOM (XGCountry.m_bSecretPact). */
   lostCountries: number[]
+  /** Items in stores, by Enemy Within item index (XGStorage.m_arrItems; see model/inventory.ts). */
+  stock: number[]
   /** The end-of-campaign statistics, by name without the eRecap_ prefix. */
   recap: Record<string, number>
 }
@@ -250,5 +252,6 @@ export function readCampaign(save: SaveFile): Campaign {
     satelliteCountries,
     lostCountries,
     recap: recapStats(save),
+    stock: numbers(prop(byClass('XGStorage'), 'm_arrItems')),
   }
 }

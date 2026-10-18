@@ -16,6 +16,7 @@ import {
 } from '@/model/foundry'
 import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
 import { peekGameNumber, snapshotOf, withSnapshot, type Snapshot } from '@/model/history'
+import { CATALOG, needs, parsePrices, type CatalogItem, type Need } from '@/model/inventory'
 import { BASE_CREDIT_REDUCTION, heldCredits, researchContext } from '@/model/research'
 import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
@@ -39,6 +40,8 @@ export interface LoadedIni {
   bonusValues?: [string, number][]
   /** FoundryBalance lines, by project id. */
   foundryBalance?: [number, FoundryBalance][]
+  /** Grey market prices from the INI's loot lines, by item key. */
+  prices?: [string, number][]
 }
 
 export interface LoadedSave {
@@ -54,7 +57,7 @@ interface State {
   selected: number | null
   hovered: number | null
   /** Which board is shown. */
-  view: 'research' | 'foundry' | 'history'
+  view: 'research' | 'foundry' | 'history' | 'market'
   /** Snapshots of every save loaded, by campaign number. */
   history: Record<number, Snapshot[]>
   /** A bulk import in progress. */
@@ -94,7 +97,7 @@ export const state = reactive<State>({
   save: restore<LoadedSave>(SAVE_KEY),
   selected: null,
   hovered: null,
-  view: restore<'research' | 'foundry' | 'history'>(VIEW_KEY) ?? 'research',
+  view: restore<'research' | 'foundry' | 'history' | 'market'>(VIEW_KEY) ?? 'research',
   history: restore<Record<number, Snapshot[]>>(HISTORY_KEY) ?? {},
   importing: null,
   selectedFoundry: null,
@@ -219,6 +222,57 @@ export function showTech(id: number) {
   state.selected = id
 }
 
+// --- Grey market ---------------------------------------------------------------
+
+const XENOLOGICAL_REMEDIES = 47
+
+export interface InventoryRow {
+  item: CatalogItem
+  /** In stores; undefined where the item's stock slot is not known. */
+  stock?: number
+  needed: number
+  needs: Need[]
+  /** Stores beyond what is still needed. */
+  spare?: number
+  /** Price each, with Xenological Remedies for corpses where the campaign has it. */
+  price: number
+}
+
+/** Every sellable item: stores, what research and the Foundry still need, spare, price. */
+export const inventory = computed<InventoryRow[]>(() => {
+  const c = campaign.value
+  const need = needs(
+    techs.value,
+    foundry.value,
+    c
+      ? {
+          researched: c.researched,
+          progress: c.progress,
+          foundryDone: c.foundryHistory,
+          foundryBuilding: new Set(c.foundryInProgress.map((b) => b.id)),
+        }
+      : null,
+  )
+  const prices = new Map(state.ini?.prices ?? [])
+  const remedies = bonuses.value?.all.find((b) => b.bonus_id === XENOLOGICAL_REMEDIES)
+  return CATALOG.map((item) => {
+    const list = need.get(item.key) ?? []
+    const needed = list.reduce((n, x) => n + x.count, 0)
+    const stock = c && item.slot !== undefined ? (c.stock?.[item.slot] ?? 0) : undefined
+    const base = prices.get(item.key) ?? item.price
+    const price =
+      item.corpse && remedies ? Math.round(base * (1 + remedies.value / 100) * 10) / 10 : base
+    return {
+      item,
+      stock,
+      needed,
+      needs: list,
+      spare: stock === undefined ? undefined : Math.max(0, stock - needed),
+      price,
+    }
+  })
+})
+
 // --- Plan ---------------------------------------------------------------------
 
 /** What is still needed for the goals (techs, and the techs Foundry goals need). */
@@ -296,6 +350,7 @@ export function loadIni(fileName: string, text: string) {
     unmatched: parsed.unmatched,
     bonusValues: [...parseBonusValues(text)],
     foundryBalance: [...parseFoundryBalance(text, defaultFoundry)],
+    prices: [...parsePrices(text)],
   }
   const changed = changedByIni.value.size
   const missing = applied.value?.missing.length ?? 0

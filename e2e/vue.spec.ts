@@ -5,7 +5,7 @@ test('shows the tree and the privacy note', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('h1')).toContainText('Long War')
   await expect(page.locator('[data-tech]')).toHaveCount(75)
-  await expect(page.locator('.privacy')).toContainText('never uploaded')
+  await expect(page.locator('.privacy')).toContainText('Nothing is uploaded')
 })
 
 test('help opens on a first visit, closes, and stays closed after a reload', async ({ page }) => {

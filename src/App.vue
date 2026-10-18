@@ -5,6 +5,7 @@ import CampaignBar from '@/components/CampaignBar.vue'
 import FoundryDetail from '@/components/FoundryDetail.vue'
 import FoundryTree from '@/components/FoundryTree.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
+import GreyMarketView from '@/components/GreyMarketView.vue'
 import HistoryView from '@/components/HistoryView.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
@@ -100,7 +101,8 @@ onBeforeUnmount(() => {
     <main class="main">
       <TechTree v-if="state.view === 'research'" ref="tree" />
       <FoundryTree v-else-if="state.view === 'foundry'" ref="foundryTree" />
-      <HistoryView v-else />
+      <HistoryView v-else-if="state.view === 'history'" />
+      <GreyMarketView v-else />
       <aside v-if="sideOpen" class="side">
         <TechDetail v-if="state.view === 'research'" />
         <FoundryDetail v-else />

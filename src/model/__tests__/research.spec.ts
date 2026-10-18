@@ -23,6 +23,7 @@ function campaign(over: Partial<Campaign>): Campaign {
     lostCountries: [],
     researchedOn: [],
     recap: {},
+    stock: [],
     scientists: 100,
     labBonus: 0.2,
     adjacentLabBonus: 0.3,
