@@ -8,7 +8,9 @@ test('air war: odds for the hangar under each stance, then a fight played out', 
 }) => {
   await page.addInitScript(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
   await page.goto('/')
-  await page.locator('input[type=file]:not([accept]):not([multiple])').setInputFiles(save)
+  await page
+    .locator('input[type=file]:not([accept]):not([multiple]):not([webkitdirectory])')
+    .setInputFiles(save)
   await expect(page.locator('.campaign')).toBeVisible()
   await page.getByRole('tab', { name: 'Air war' }).click()
 
