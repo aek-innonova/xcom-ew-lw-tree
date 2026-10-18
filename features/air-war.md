@@ -132,3 +132,15 @@ moment longer. The game rolls only once per engagement, so a single
   DefaultGameCore.ini does not change it yet.
 - Long War's crash rule has a second "Transport / Terror Ship" case that can
   never be reached (the first wins); the code is followed as it is.
+
+## Report (2026-10-18, round 2)
+
+- Stances are shown from −15 to +15: Defensive, Balanced, Aggressive.
+- The UFO is picked from a gallery on the right, smallest first (size class
+  from XGItemTree.BuildShips, then hull points): a drawn outline per type
+  (ours; the game's pictures are Firaxis's art), HP, armor with the game's
+  own label for it, speed, weapons, what the type is for (paraphrased from
+  the game's UFO analysis reports, `src/model/ufos.ts`), the next category
+  change to come, and with a save how often the campaign has met it and
+  whether its analysis is done. `data/airwar.json` now carries each ship's
+  size class and picture number.

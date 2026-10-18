@@ -11,7 +11,10 @@ import {
   INTERCEPTOR,
   STANCES,
   STANCE_AIM,
-  UFO_TYPES,
+  SIZES,
+  SIZE_LABEL,
+  changesAfter,
+  ufosBySize,
   air,
   analysisTech,
   campaignSetting,
@@ -35,6 +38,8 @@ import {
 } from '@/model/airwar'
 import { campaign, foundryById } from '@/state/store'
 import AirFight from './AirFight.vue'
+import UfoSilhouette from './UfoSilhouette.vue'
+import { UFO_NOTES } from '@/model/ufos'
 
 type Use = 'aim' | 'dodge' | 'boost'
 interface LegSetup {
@@ -322,6 +327,31 @@ function explain(i: number) {
   }
 }
 
+/** The UFO types, smallest first, as this setting makes them. */
+const gallery = computed(() =>
+  ufosBySize(setting.value).map((ship) => {
+    const c = fromCampaign.value ? campaign.value! : undefined
+    const next = changesAfter(ship.type, setting.value.category)[0]
+    return {
+      ship,
+      note: UFO_NOTES[ship.type],
+      met: c ? (c.craftEncounters[ship.type] ?? 0) : undefined,
+      analysed: c ? !!c.researched[analysisTech(ship.type)] : false,
+      next: next
+        ? `From category ${next.above_category + 1}: ${
+            next.weapons ? weaponList(next.weapons.map(weaponName)) : 'tougher hull'
+          }${next.weapons && next.stats ? ', tougher hull' : ''}`
+        : '',
+    }
+  }),
+)
+/** "2 × UFO Weapon I" rather than the name twice. */
+function weaponList(names: string[]): string {
+  const counts = new Map<string, number>()
+  for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1)
+  return [...counts].map(([n, k]) => (k > 1 ? `${k} × ${n}` : n)).join(' + ')
+}
+
 const fighting = ref(false)
 const foundryName = (id: number) => foundryById.value.get(id)?.name ?? `Foundry ${id}`
 const FOUNDRY_TOGGLES = [
@@ -379,9 +409,8 @@ const USE_HELP: Record<Use, string> = {
       <div class="setup">
         <h3>UFO</h3>
         <div class="row">
-          <select v-model.number="setup.ufo" aria-label="UFO type">
-            <option v-for="t in UFO_TYPES" :key="t" :value="t">{{ shipName(t) }}</option>
-          </select>
+          <strong class="ufo-name">{{ shipName(setup.ufo) }}</strong>
+          <span class="muted small">pick one on the right</span>
           <label v-if="!fromCampaign" class="field">
             category
             <input v-model.number="setup.category" type="number" min="0" max="32" class="num" />
@@ -610,6 +639,41 @@ const USE_HELP: Record<Use, string> = {
           </details>
         </section>
       </div>
+
+      <div class="gallery" role="listbox" aria-label="UFO type">
+        <template v-for="size in SIZES" :key="size">
+          <h3>{{ SIZE_LABEL[size] }}</h3>
+          <button
+            v-for="u in gallery.filter((x) => x.ship.size === size)"
+            :key="u.ship.type"
+            type="button"
+            role="option"
+            class="ufo-card"
+            :class="{ on: setup.ufo === u.ship.type }"
+            :aria-selected="setup.ufo === u.ship.type"
+            @click="setup.ufo = u.ship.type"
+          >
+            <span class="pic"><UfoSilhouette :type="u.ship.type" :size="u.ship.size" /></span>
+            <span class="txt">
+              <span class="name">
+                {{ u.ship.name }}
+                <span v-if="u.met !== undefined" class="tag" :class="{ dim: !u.met }">{{
+                  u.met ? `met ${u.met}×` : 'not met'
+                }}</span>
+                <span v-if="u.analysed" class="tag done">analysed</span>
+              </span>
+              <span class="nums">
+                {{ num(u.ship.maxHp) }} HP · armor {{ u.ship.armor }}
+                <span class="muted">({{ u.note?.armor.toLowerCase() }})</span> · speed
+                {{ u.ship.battleSpeed }} ·
+                <span class="nowrap">{{ weaponList(u.ship.weapons.map((w) => w.name)) }}</span>
+              </span>
+              <span class="about">{{ u.note?.about }}</span>
+              <span v-if="u.next" class="about next">{{ u.next }}</span>
+            </span>
+          </button>
+        </template>
+      </div>
     </div>
 
     <AirFight
@@ -662,12 +726,97 @@ h3 {
   align-items: flex-start;
 }
 .setup {
-  flex: 1 1 520px;
-  max-width: 680px;
+  flex: 1 1 480px;
+  max-width: 620px;
 }
 .results {
-  flex: 1 1 460px;
-  max-width: 720px;
+  flex: 1 1 440px;
+  max-width: 640px;
+}
+.gallery {
+  flex: 1 1 340px;
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.gallery h3 {
+  margin: 8px 0 2px;
+}
+.gallery h3:first-child {
+  margin-top: 0;
+}
+.ufo-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--node-border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.ufo-card:hover {
+  border-color: var(--node-border);
+}
+.ufo-card.on {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--node);
+}
+.pic {
+  flex: 0 0 84px;
+  height: 44px;
+}
+.txt {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.tag {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--progress);
+  margin-left: 4px;
+}
+.tag.dim {
+  color: var(--muted);
+}
+.tag.done {
+  color: var(--done-text);
+}
+.nums {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.about {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.about.next {
+  color: var(--progress);
+}
+.nowrap {
+  white-space: nowrap;
+}
+.ufo-name {
+  font-size: 15px;
 }
 .row {
   display: flex;

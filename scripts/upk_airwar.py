@@ -166,9 +166,12 @@ def main():
     def build_ship(a, cond=None):
         t = int(a[0].lstrip('b'))
         w = [int(x.lstrip('b')) for x in a[3:5] if x and x.lstrip('b') != '0']
+        # Size class (m_strSizeSmall …) and the picture the game shows (eShipImage).
+        look = {'size': re.sub(r'(?<!^)(?=[A-Z])', '_', a[1].removeprefix('self.m_strSize')).lower(),
+                'image': int(a[2].lstrip('b'))}
         if cond is None:
-            ships.setdefault(t, {})['weapons'] = w
-        return t, w
+            ships.setdefault(t, {}).update(weapons=w, **look)
+        return t, w, look
 
     def update_ship(a):
         t = int(a[0].lstrip('b'))
@@ -205,7 +208,7 @@ def main():
             if cat and len(conds) == 1:
                 change = {'above_category': int(cat.group(1))}
                 if s.startswith('BuildShip('):
-                    t, w = build_ship(args(s), cat); change.update(ship=t, weapons=w)
+                    t, w, look = build_ship(args(s), cat); change.update(ship=t, weapons=w, **look)
                 elif s.startswith('UpdateShip('):
                     t, v = update_ship(args(s)); change.update(ship=t, stats=v)
                 else:
@@ -220,7 +223,7 @@ def main():
                     else:
                         weapons[t] = v
                 elif s.startswith('BuildShip(') and done:
-                    t, w = build_ship(args(s), fdy)
+                    t, w, _ = build_ship(args(s), fdy)
                     variants.append({'ship': t, 'foundry': fid, 'weapons': w})
                 elif s.startswith('UpdateAllShipTemplates') or s.startswith('goto'):
                     pass

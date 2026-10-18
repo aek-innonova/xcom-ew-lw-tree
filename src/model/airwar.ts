@@ -22,6 +22,8 @@ interface Stat {
 interface ShipData {
   id: number
   name: string
+  /** Size class: small, medium, large, very_large (m_strSize…). */
+  size: string
   weapons: number[]
   battle_speed: Stat
   hp: Stat
@@ -43,6 +45,7 @@ interface AirData {
     above_category: number
     ship: number
     weapons?: number[]
+    size?: string
     stats?: Partial<ShipData>
   }[]
   foundry_variants: {
@@ -65,6 +68,25 @@ export const FIRESTORM = 3
 /** The Wingtip Sparrowhawks' Stingray, a second weapon for every jet. */
 export const STINGRAY = 2
 export const UFO_TYPES = air.ships.filter((s) => s.id >= 4).map((s) => s.id)
+export const SIZES = ['small', 'medium', 'large', 'very_large']
+export const SIZE_LABEL: Record<string, string> = {
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+  very_large: 'Very large',
+}
+
+/** UFO types smallest first: by size class, then by hull points (at the given setting). */
+export function ufosBySize(set: AirSetting): ShipStats[] {
+  return UFO_TYPES.map((t) => ufoStats(t, set)).sort(
+    (a, b) => SIZES.indexOf(a.size) - SIZES.indexOf(b.size) || a.maxHp - b.maxHp,
+  )
+}
+
+/** The category changes still to come for a UFO type. */
+export function changesAfter(type: number, category: number) {
+  return air.ufo_changes.filter((c) => c.ship === type && c.above_category >= category)
+}
 export const CRAFT_WEAPONS = air.equipment.map((e) => e.weapon)
 
 /** Foundry projects that change the air war (longwar_foundry.json ids). */
@@ -136,6 +158,7 @@ export function weaponStats(id: number, set: AirSetting): WeaponStats {
 export interface ShipStats {
   type: number
   name: string
+  size: string
   battleSpeed: number
   maxHp: number
   armor: number
@@ -147,6 +170,7 @@ function shipStats(ship: ShipData, weapons: number[], set: AirSetting): ShipStat
   return {
     type: ship.id,
     name: ship.name,
+    size: ship.size,
     battleSpeed: value(ship.battle_speed, set),
     maxHp: value(ship.hp, set),
     armor: value(ship.armor, set),
@@ -175,6 +199,7 @@ export function ufoStats(type: number, set: AirSetting): ShipStats {
   for (const c of air.ufo_changes) {
     if (c.ship !== type || set.category <= c.above_category) continue
     if (c.weapons) weapons = c.weapons
+    if (c.size) ship = { ...ship, size: c.size }
     if (c.stats) ship = { ...ship, ...c.stats }
   }
   return shipStats(ship, weapons, set)
@@ -183,7 +208,8 @@ export function ufoStats(type: number, set: AirSetting): ShipStats {
 // --- The fight ----------------------------------------------------------------
 
 export type Stance = 'balanced' | 'aggressive' | 'defensive'
-export const STANCES: Stance[] = ['aggressive', 'balanced', 'defensive']
+/** From −15 to +15, the order they are shown in. */
+export const STANCES: Stance[] = ['defensive', 'balanced', 'aggressive']
 /** TShip.iRange of the interceptor, as the launch screen sets it. */
 export const STANCE_CODE: Record<Stance, number> = { balanced: 0, aggressive: 1, defensive: 2 }
 /** To-hit for both sides (UpdateWeapons). */
