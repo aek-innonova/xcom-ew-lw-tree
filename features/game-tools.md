@@ -1,6 +1,6 @@
 ---
 title: "Tools: the game install, mods and settings"
-status: review
+status: in-progress
 priority: 3
 dependsOn: [lw-rebalanced]
 ---
@@ -149,3 +149,87 @@ Verified:
 Next: phase 2 (assemble the scripts' code against the install's packages:
 installed / not installed / not matching). Before phase 3 the question of
 the local helper for Program Files and other browsers wants deciding.
+
+## Report (2026-10-18): phases 2–4
+
+On staging, not in production. The page now checks, installs and removes
+mods, sets INI values, and brings mods' files, all on the player's say-so.
+
+**The patch engine** (`model/modpatch.ts`, `model/pseudocode.ts`,
+`model/upk.ts`). It is our own implementation of PatchUPK's script format,
+written from its documentation and its observed behaviour: keys and
+sections, `//`/`/* */`/`{ }` comments, ALIAS (global and per object),
+OBJECT with KEEP/AUTO/MOVE, REL_OFFSET, FIND_CODE/HEX, MODDED_CODE/HEX,
+REPLACEMENT_CODE, BEFORE/AFTER_CODE/HEX (script sizes adjusted),
+ADD_NAME_ENTRY, UPDATE_REL. Pseudo-code covers literals, object references
+(`Class.`, `.local`, `@member`), names, aliases, labels and `[@]`
+sizes, counted as memory bytes. Grown objects move to the end of the
+package with PatchUPK's marker, so PatchUPK can still undo them. Unsupported
+commands (INSERT_CODE, EXPAND_FUNCTION, the ADD_IMPORT/EXPORT entries …)
+make a mod "does not fit" rather than half-apply. UPKUtils is GPL v2, so
+none of its code is in the site. I built PatchUPK from its source on this
+machine as the oracle.
+
+- Verified byte for byte: four of the person's mods on LWR 2.06's
+  packages, and a script that adds names and moves a function, give
+  exactly PatchUPK's output. SHA-256 of PatchUPK's files are in
+  `modpatch.spec.ts`; the test runs where `samples/` exists.
+- On the person's own Long War 1.0 install all five mods read as
+  installed. On LWR, Enhanced Tactical Info does not fit: its patch to the
+  tactical UI movie expects bytes LWR's movie lacks, and PatchUPK fails
+  there too. Sightlines reads "partly installed", because LWR carries its
+  own version of some of the same functions.
+
+**Checking** runs every script on copies of the install's packages. Each
+write is compared with what is there: installed, not installed, partly (n
+of m changes), installed with other option values than the player's, or
+does not fit (where and why). A mod first seen installed is ticked as
+wanted.
+
+**Applying** (`state/setup.ts`, "Apply my setup…"):
+1. Write access is asked for on that click.
+2. A plan is worked out and shown: which files change and why, with any
+   mods left out and the reason.
+3. Only "Write these changes" writes.
+4. The first time a file changes, its original goes to
+   `XComGame/lwtree-backup/` (read back to check).
+5. The setup is always built from the originals: wanted scripts in library
+   order with the player's option values, INI settings, mods' files. So
+   unticking a mod takes it out of the game.
+6. A file that is neither its original nor what the page last wrote (a
+   reinstall, another tool) becomes the new original. After reinstalling,
+   "Apply my setup" again restores everything.
+7. Each written file is read back and compared.
+
+"Put the originals back…" plans the empty setup.
+
+**Settings** (`model/inifile.ts`): DefaultGameCore.ini's key=value lines
+are searchable by key and by the file's own comments. The player's values
+are kept in the browser and set in place when applied; every other byte is
+kept (round trip on the real INI is byte-identical). Repeated keys (the
+HQ_BASE_POWER colours) are told apart by position.
+
+**Mods' files** ("Put its files into the game"):
+- packages the game lacks are copied into CookedPCConsole; ones the game
+  has are left alone (LWR ships Sightlines.u);
+- new INI files go into Config;
+- INI files the game has get the mod's missing lines merged in under their
+  sections (Sightlines' mutator line into DefaultMutatorLoader.ini);
+- removing the mod removes what it added and restores the merged INIs.
+
+Tests:
+- engine against PatchUPK (14);
+- the planner on LWR's real files in a memory folder (install, again,
+  removal, reinstall, mod files, a mod that does not fit);
+- the INI editor;
+- a browser test of the whole flow in Chromium on a fake install (a
+  setting and a mod's file in, originals kept, nothing to do the second
+  time, everything back).
+
+All suites green in Chromium, Firefox and WebKit.
+
+Not done yet:
+- Phase 5, the local helper for installs under Program Files and for other
+  browsers.
+- A run against the person's real install. Applying on a copy of the game
+  folder first is the cautious way.

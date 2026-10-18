@@ -1,14 +1,15 @@
-// The site's IndexedDB: folder handles (the save folder, the game folder) and
-// the mod library (state/tools.ts). One database, a store per kind.
+// The site's IndexedDB: folder handles (the save folder, the game folder),
+// the mod library and the Tools page's settings and bookkeeping
+// (state/tools.ts). One database, a store per kind.
 
 const DB_NAME = 'lwtree'
-const STORES = ['handles', 'mods'] as const
+const STORES = ['handles', 'mods', 'state'] as const
 export type Store = (typeof STORES)[number]
 
 function db(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    // Version 1 had only "handles"; 2 adds "mods".
-    const req = indexedDB.open(DB_NAME, 2)
+    // Version 1 had only "handles"; 2 added "mods", 3 "state".
+    const req = indexedDB.open(DB_NAME, 3)
     req.onupgradeneeded = () => {
       for (const s of STORES)
         if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s)

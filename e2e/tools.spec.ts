@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 
 // The Tools page against a game folder made in the origin-private file
@@ -36,7 +39,7 @@ async function makeInstall(page: Page) {
       await config.getFileHandle('DefaultGameCore.ini', { create: true })
     ).createWritable()
     await w.write(
-      'TechBalance=(eTech=eTech_Xenobiology, iTime=7, iAlloys=1, iElerium=2, iNumFragments=3, iNumItems=6)\n',
+      '[XComGame.XGTacticalGameCore]\r\n; How many soldiers XCOM starts with\r\nNUM_STARTING_SOLDIERS=12\r\nTechBalance=(eTech=eTech_Xenobiology, iTime=7, iAlloys=1, iElerium=2, iNumFragments=3, iNumItems=6)\r\n',
     )
     await w.close()
   })
@@ -73,7 +76,7 @@ test('tools: reads the install, follows its version, keeps mods and their option
   const mod = page.getByRole('article', { name: 'Test Mod' })
   await expect(mod).toContainText('by nobody')
   // The fake install has no XComGame.upk.
-  await expect(mod).toContainText('XComGame.upk is not in your install')
+  await expect(mod).toContainText('XComGame.upk is not in this install')
   await mod.getByLabel('Days').fill('12')
   await mod.getByLabel('Days').press('Enter')
   // Kept in IndexedDB; wait for the write before reloading.
@@ -105,4 +108,80 @@ test('tools: reads the install, follows its version, keeps mods and their option
 
   await page.getByRole('button', { name: 'Remove Test Mod' }).click()
   await expect(page.getByText('No mods yet.')).toBeVisible()
+})
+
+/** A file in the fake install, as text (null if absent). */
+const readInstalled = (page: Page, path: string) =>
+  page.evaluate(async (path) => {
+    let d = await (await navigator.storage.getDirectory()).getDirectoryHandle('XCom-Enemy-Unknown')
+    const parts = ['XEW', 'XComGame', ...path.split('/')]
+    try {
+      for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p)
+      return await (await (await d.getFileHandle(parts[parts.length - 1]!)).getFile()).text()
+    } catch {
+      return null
+    }
+  }, path)
+
+test('tools: a setting and a mod’s files into the game, the originals kept, and put back', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('lwtree.helpSeen.v1', '1')
+    window.showDirectoryPicker = async () => {
+      const root = await navigator.storage.getDirectory()
+      return (await root.getDirectoryHandle('XCom-Enemy-Unknown')) as never
+    }
+  })
+  await page.goto('/')
+  await makeInstall(page)
+  await page.getByRole('button', { name: 'Tools' }).click()
+  await page.getByRole('button', { name: 'Pick the game folder' }).click()
+  await expect(page.locator('.facts')).toContainText('Long War Rebalanced 2.06')
+
+  // A setting, found by its comment.
+  await page.getByLabel('Find a setting').fill('soldiers XCOM')
+  await page.getByLabel('Set NUM_STARTING_SOLDIERS').fill('60')
+  await page.getByLabel('Set NUM_STARTING_SOLDIERS').press('Enter')
+  await expect(page.locator('.settings')).toContainText('in the game now: 12')
+
+  // A mod folder that brings an INI file.
+  const modDir = mkdtempSync(join(tmpdir(), 'lwtree-mod-'))
+  mkdirSync(join(modDir, 'TestMod'))
+  writeFileSync(
+    join(modDir, 'TestMod', 'DefaultTestMod.ini'),
+    '[TestMod.Settings]\r\nEnabled=true\r\n',
+  )
+  await page.locator('input[aria-label="Mod folder"]').setInputFiles(join(modDir, 'TestMod'))
+  await page.getByLabel("Put TestMod's files into the game").check()
+
+  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  const plan = page.getByRole('region', { name: 'What will change' })
+  await expect(plan).toContainText('Config/DefaultGameCore.ini changed')
+  await expect(plan).toContainText('(original kept first)')
+  await expect(plan).toContainText('Config/DefaultTestMod.ini added')
+  await plan.getByRole('button', { name: 'Write these changes' }).click()
+  await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
+
+  expect(await readInstalled(page, 'Config/DefaultGameCore.ini')).toContain(
+    'NUM_STARTING_SOLDIERS=60\r\n',
+  )
+  expect(await readInstalled(page, 'lwtree-backup/Config/DefaultGameCore.ini')).toContain(
+    'NUM_STARTING_SOLDIERS=12\r\n',
+  )
+  expect(await readInstalled(page, 'Config/DefaultTestMod.ini')).toContain('Enabled=true')
+  await expect(page.locator('.settings')).toContainText('in the game now: 60')
+
+  // Nothing more to do; then everything back as it was.
+  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  await expect(plan).toContainText('Nothing to change')
+  await plan.getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('button', { name: 'Put the originals back…' }).click()
+  await expect(plan).toContainText('Config/DefaultTestMod.ini removed')
+  await plan.getByRole('button', { name: 'Write these changes' }).click()
+  await expect(page.locator('.log')).toContainText('Removed Config/DefaultTestMod.ini')
+  expect(await readInstalled(page, 'Config/DefaultGameCore.ini')).toContain(
+    'NUM_STARTING_SOLDIERS=12\r\n',
+  )
+  expect(await readInstalled(page, 'Config/DefaultTestMod.ini')).toBeNull()
 })

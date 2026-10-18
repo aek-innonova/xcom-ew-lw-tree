@@ -1,26 +1,30 @@
 // The Tools page's state (features/game-tools.md): the player's game folder,
-// what is installed there, and their mod library kept in this browser.
+// what is installed there, their mod library and INI settings kept in this
+// browser, and putting all of it into the game.
 //
 // The folder is picked once (File System Access, Chromium) and its handle
-// kept in IndexedDB like the save folder's. Phase 1 only reads: the version
-// (Long War 1.0, LWR or plain Enemy Within), the INI, and the packages the
-// mods patch. Mods are kept whole in IndexedDB; nothing leaves the browser.
+// kept in IndexedDB like the save folder's. Reading needs only read access;
+// writing asks the browser for more when the player applies their setup.
+// Mods are kept whole in IndexedDB; nothing leaves the browser.
 
 import { markRaw, reactive } from 'vue'
+import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
+import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
-import { exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
+import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
+import { folderFiles, type Dir, type GameFiles } from './gamefiles'
 import { stored } from './idb'
+import {
+  GAME_INI,
+  applyPlan,
+  emptyManaged,
+  planSetup,
+  type Managed,
+  type Plan,
+  type Wanted,
+} from './setup'
 import { loadIni, setGame, state } from './store'
-import type { DirectoryHandle, Permission } from './watch'
-
-interface FileHandle {
-  kind: 'file'
-  getFile(): Promise<File>
-}
-interface Dir extends DirectoryHandle {
-  getDirectoryHandle(name: string): Promise<Dir>
-  getFileHandle(name: string): Promise<FileHandle>
-}
+import type { Permission } from './watch'
 
 export type InstallKind = 'lw' | 'lwr' | 'ew'
 
@@ -62,10 +66,20 @@ export interface Mod {
   values: Record<string, Record<string, string>>
   /** From a README, for mods whose scripts say nothing. */
   readme?: string
+  /** Scripts the player wants in the game, by path (unset: not decided yet). */
+  wanted?: Record<string, boolean>
+  /** The mod's own files (packages, INIs) go into the game too. */
+  wantFiles?: boolean
 }
 
 /** What is kept in IndexedDB (scripts are parsed again on load). */
 type StoredMod = Omit<Mod, 'files'> & { files: Omit<ModFile, 'script'>[] }
+
+export type CheckStatus = RunResult['status'] | 'checking' | 'other-values'
+export interface ScriptCheck {
+  status: CheckStatus
+  steps: Step[]
+}
 
 export const tools = reactive({
   supported: typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function',
@@ -76,11 +90,26 @@ export const tools = reactive({
   /** Package tables read so far, by lower-case file name; null: not in the install. */
   packages: {} as Record<string, PackageInfo | null | 'reading'>,
   mods: [] as Mod[],
+  /** Each script's state in the install, by `${mod id}:${path}`. */
+  checks: {} as Record<string, ScriptCheck>,
+  /** The install's DefaultGameCore.ini, as settings. */
+  iniEntries: [] as IniEntry[],
+  /** The player's INI settings. */
+  settings: [] as IniChange[],
+  /** Putting the setup into the game. */
+  plan: null as Plan | null,
+  busy: null as string | null,
+  log: [] as string[],
 })
 
 let handle: Dir | null = null
-let gameDir: Dir | null = null
+let files: GameFiles | null = null
+let managed: Managed = emptyManaged()
+/** The install's packages as they are now, by lower-case name (for the checks). */
+let current = new Map<string, Package | null>()
 const KEY = 'gamefolder'
+const lower = (s: string) => s.toLowerCase()
+export const checkKey = (m: Mod, f: ModFile) => `${m.id}:${f.path}`
 
 // --- The game folder -----------------------------------------------------------
 
@@ -107,22 +136,6 @@ async function findGameDir(root: Dir): Promise<{ dir: Dir; path: string } | null
   return null
 }
 
-async function names(dir: Dir): Promise<string[]> {
-  const out: string[] = []
-  for await (const e of dir.values()) if (e.kind === 'file') out.push(e.name)
-  return out
-}
-
-async function fileIn(dir: Dir, ...path: string[]): Promise<File | null> {
-  try {
-    let d = dir
-    for (const p of path.slice(0, -1)) d = await d.getDirectoryHandle(p)
-    return await (await d.getFileHandle(path[path.length - 1]!)).getFile()
-  } catch {
-    return null
-  }
-}
-
 /** LWR ships LWRebalance.u; Long War 1.0 LongWar.upk; neither is plain Enemy Within. */
 export function installKind(cooked: string[]): InstallKind {
   const has = (n: string) => cooked.some((c) => c.toLowerCase() === n.toLowerCase())
@@ -137,28 +150,37 @@ async function readInstall(): Promise<void> {
   tools.status = 'reading'
   tools.error = null
   tools.packages = {}
+  tools.checks = {}
+  current = new Map()
   try {
     const found = await findGameDir(handle)
     if (!found) {
       tools.install = null
+      files = null
       tools.status = 'ready'
       tools.error = `No game files (XComGame with CookedPCConsole and Config) in ${handle.name}. Pick the game's folder in your Steam library.`
       return
     }
-    gameDir = found.dir
-    const cooked = await names(await found.dir.getDirectoryHandle('CookedPCConsole'))
+    files = folderFiles(found.dir)
+    const cooked = await files.list('CookedPCConsole')
     const kind = installKind(cooked)
     let ini: string | null = null
+    const iniBytes = await files.read(GAME_INI)
+    tools.iniEntries = markRaw(iniBytes ? iniEntries(iniText(iniBytes)) : [])
     if (kind !== 'ew') {
       setGame(kind)
-      const file = await fileIn(found.dir, 'Config', 'DefaultGameCore.ini')
-      if (file) {
-        loadIni(file.name, await file.text())
-        if (state.ini) ini = file.name
+      if (iniBytes) {
+        loadIni('DefaultGameCore.ini', iniText(iniBytes))
+        if (state.ini) ini = 'DefaultGameCore.ini'
       }
     }
     tools.install = { kind, path: found.path, ini, cooked }
+    managed =
+      (await stored<Managed | undefined>('state', 'readonly', (s) =>
+        s.get(`managed:${found.path}`),
+      ).catch(() => undefined)) ?? emptyManaged()
     tools.status = 'ready'
+    void checkMods()
   } catch (e) {
     // Permission withdrawn, or the folder went away.
     tools.error = (e as Error).message
@@ -168,16 +190,16 @@ async function readInstall(): Promise<void> {
 
 /** A package's tables, read once per install (only the header part of the file). */
 export async function readPackage(name: string): Promise<void> {
-  const key = name.toLowerCase()
-  if (!gameDir || !tools.install || key in tools.packages) return
-  const real = tools.install.cooked.find((c) => c.toLowerCase() === key)
+  const key = lower(name)
+  if (!files || !tools.install || key in tools.packages) return
+  const real = tools.install.cooked.find((c) => lower(c) === key)
   if (!real) {
     tools.packages[key] = null
     return
   }
   tools.packages[key] = 'reading'
   try {
-    const file = (await fileIn(gameDir, 'CookedPCConsole', real))!
+    const file = (await files.file(`CookedPCConsole/${real}`))!
     const head = new Uint8Array(await file.slice(0, 64).arrayBuffer())
     const size = headerSizeOf(head)
     const pk = readUpk(new Uint8Array(await file.slice(0, size).arrayBuffer()))
@@ -195,7 +217,7 @@ export async function chooseGameFolder(): Promise<void> {
   if (!window.showDirectoryPicker) return
   let dir: Dir
   try {
-    dir = (await window.showDirectoryPicker({ id: 'xcom-game', mode: 'read' })) as Dir
+    dir = (await window.showDirectoryPicker({ id: 'xcom-game', mode: 'read' })) as unknown as Dir
   } catch {
     return // cancelled
   }
@@ -211,16 +233,34 @@ export async function reconnectGameFolder(): Promise<void> {
   if (p === 'granted') await readInstall()
 }
 
+export async function rereadInstall(): Promise<void> {
+  await readInstall()
+}
+
 export async function forgetGameFolder(): Promise<void> {
   handle = null
-  gameDir = null
-  Object.assign(tools, { status: 'off', folder: null, error: null, install: null, packages: {} })
+  files = null
+  current = new Map()
+  Object.assign(tools, {
+    status: 'off',
+    folder: null,
+    error: null,
+    install: null,
+    packages: {},
+    checks: {},
+    iniEntries: [],
+    plan: null,
+  })
   await stored('handles', 'readwrite', (s) => s.delete(KEY)).catch(() => undefined)
 }
 
-/** On start-up: the folder picked before, if the browser still lets the page read it. */
+/** On start-up: the library, the settings, and the folder picked before if the browser still lets the page read it. */
 export async function restoreTools(): Promise<void> {
   await loadMods()
+  tools.settings =
+    (await stored<IniChange[] | undefined>('state', 'readonly', (s) => s.get('settings')).catch(
+      () => undefined,
+    )) ?? []
   if (!tools.supported) return
   const dir = await stored<Dir | undefined>('handles', 'readonly', (s) => s.get(KEY)).catch(
     () => undefined,
@@ -231,6 +271,70 @@ export async function restoreTools(): Promise<void> {
   const p = await dir.queryPermission({ mode: 'read' }).catch(() => 'denied' as Permission)
   if (p === 'granted') await readInstall()
   else tools.status = 'needs-permission'
+}
+
+// --- Is it installed? ------------------------------------------------------------
+
+async function currentPackage(name: string): Promise<Package | null> {
+  const key = lower(name)
+  if (current.has(key)) return current.get(key)!
+  let pkg: Package | null = null
+  const real = tools.install?.cooked.find((c) => lower(c) === key)
+  if (files && real) {
+    const bytes = await files.read(`CookedPCConsole/${real}`)
+    try {
+      pkg = bytes ? markRaw(new Package(bytes)) : null
+    } catch {
+      pkg = null
+    }
+  }
+  current.set(key, pkg)
+  return pkg
+}
+
+const upkNames = (text: string) => [
+  ...new Set(
+    parseCommands(text)
+      .filter((c) => c.name === 'UPK_FILE')
+      .map((c) => c.value.trim().split('\n')[0]!.trim()),
+  ),
+]
+
+let checkRun = 0
+/** Runs every script against the install as it is (on copies) and records what it finds. */
+export async function checkMods(): Promise<void> {
+  if (!files || !tools.install) return
+  const run = ++checkRun
+  const scripts = tools.mods.flatMap((m) =>
+    m.files.filter((f) => f.kind === 'script').map((f) => ({ m, f })),
+  )
+  for (const { m, f } of scripts)
+    tools.checks[checkKey(m, f)] = {
+      status: 'checking',
+      steps: tools.checks[checkKey(m, f)]?.steps ?? [],
+    }
+  for (const { m, f } of scripts) {
+    const text = await f.data.text()
+    for (const n of upkNames(text)) await currentPackage(n)
+    if (run !== checkRun) return
+    const open = (n: string) => current.get(lower(n))?.clone()
+    const values = m.values[f.path] ?? {}
+    const r = runScript(text, { open, values })
+    let status: CheckStatus = r.status
+    if (status !== 'installed' && Object.keys(values).length) {
+      if (runScript(text, { open }).status === 'installed') status = 'other-values'
+    }
+    tools.checks[checkKey(m, f)] = { status, steps: markRaw(r.steps) }
+    // A mod first seen in the game counts as wanted there.
+    if (m.wanted?.[f.path] === undefined) {
+      m.wanted = {
+        ...(m.wanted ?? {}),
+        [f.path]: status === 'installed' || status === 'other-values',
+      }
+      await save(m)
+    }
+    await new Promise((res) => setTimeout(res, 0))
+  }
 }
 
 // --- The mod library -----------------------------------------------------------
@@ -245,14 +349,14 @@ export function fileKind(path: string, text?: string): ModFileKind {
 }
 
 async function withScripts(m: StoredMod): Promise<Mod> {
-  const files: ModFile[] = []
+  const out: ModFile[] = []
   for (const f of m.files) {
     if (f.kind === 'script') {
       const text = await f.data.text()
-      files.push({ ...f, script: parseModScript(text, f.path) })
-    } else files.push({ ...f })
+      out.push({ ...f, script: parseModScript(text, f.path) })
+    } else out.push({ ...f })
   }
-  return { ...m, files }
+  return { ...m, files: out }
 }
 
 async function loadMods(): Promise<void> {
@@ -289,9 +393,9 @@ function readmeIntro(text: string): string {
  * Adds mods: a script file on its own is one mod; files picked as a folder
  * (they carry a relative path) are one mod named after the folder.
  */
-export async function addModFiles(files: File[]): Promise<number> {
+export async function addModFiles(picked: File[]): Promise<number> {
   const groups = new Map<string, File[]>()
-  for (const f of files) {
+  for (const f of picked) {
     const folder = f.webkitRelativePath.split('/')[0]
     const key = folder && f.webkitRelativePath.includes('/') ? `dir:${folder}` : `file:${f.name}`
     groups.set(key, [...(groups.get(key) ?? []), f])
@@ -323,6 +427,7 @@ export async function addModFiles(files: File[]): Promise<number> {
     tools.mods.push(m)
     added++
   }
+  if (added) void checkMods()
   return added
 }
 
@@ -340,4 +445,113 @@ export async function setOption(id: string, script: string, option: string, valu
   else v[option] = value
   m.values = { ...m.values, [script]: v }
   await save(m)
+  void checkMods()
+}
+
+export async function setWanted(id: string, script: string, want: boolean) {
+  const m = tools.mods.find((x) => x.id === id)
+  if (!m) return
+  m.wanted = { ...(m.wanted ?? {}), [script]: want }
+  await save(m)
+}
+
+export async function setWantFiles(id: string, want: boolean) {
+  const m = tools.mods.find((x) => x.id === id)
+  if (!m) return
+  m.wantFiles = want
+  await save(m)
+}
+
+// --- INI settings ----------------------------------------------------------------
+
+const sameSetting = (a: IniChange, b: IniChange) =>
+  a.section === b.section && a.key === b.key && a.occurrence === b.occurrence
+
+/** Sets (or, with value null, drops) one of the player's INI settings. */
+export async function setSetting(entry: IniChange, value: string | null) {
+  const rest = tools.settings.filter((s) => !sameSetting(s, entry))
+  tools.settings = value === null ? rest : [...rest, { ...entry, value }]
+  await stored('state', 'readwrite', (s) =>
+    s.put(JSON.parse(JSON.stringify(tools.settings)), 'settings'),
+  )
+}
+
+// --- Putting the setup into the game ---------------------------------------------
+
+async function wantedSetup(everything: boolean): Promise<Wanted> {
+  const wanted: Wanted = { scripts: [], files: [], settings: everything ? [...tools.settings] : [] }
+  if (!everything) return wanted
+  for (const m of tools.mods) {
+    for (const f of m.files)
+      if (f.kind === 'script' && m.wanted?.[f.path])
+        wanted.scripts.push({
+          label: `${m.name}${scriptsOf(m) > 1 ? ` (${f.path})` : ''}`,
+          text: await f.data.text(),
+          values: { ...(m.values[f.path] ?? {}) },
+        })
+    if (m.wantFiles) {
+      const own = m.files.filter((f) => f.kind === 'package' || f.kind === 'config')
+      wanted.files.push({
+        label: m.name,
+        files: await Promise.all(
+          own.map(async (f) => ({
+            path: f.path,
+            kind: f.kind as 'package' | 'config',
+            data: new Uint8Array(await f.data.arrayBuffer()),
+          })),
+        ),
+      })
+    }
+  }
+  return wanted
+}
+const scriptsOf = (m: Mod) => m.files.filter((f) => f.kind === 'script').length
+
+/**
+ * Works out what putting the setup into the game would change (or, with
+ * `everything` false, putting every file back as it was). Asks for write
+ * access first, while the click that asked for it still counts.
+ */
+export async function makePlan(everything = true): Promise<void> {
+  if (!files) return
+  tools.log = []
+  if (!(await files.canWrite(true))) {
+    tools.error = 'The browser did not allow changes to the game folder.'
+    return
+  }
+  tools.error = null
+  tools.busy = 'Working out what changes…'
+  try {
+    tools.plan = markRaw(await planSetup(files, await wantedSetup(everything), managed))
+  } catch (e) {
+    tools.error = (e as Error).message
+  } finally {
+    tools.busy = null
+  }
+}
+
+export function cancelPlan() {
+  tools.plan = null
+}
+
+/** Writes the plan, keeps the bookkeeping, and reads the install again. */
+export async function applyPlanNow(): Promise<void> {
+  if (!files || !tools.plan || !tools.install) return
+  const plan = tools.plan
+  tools.busy = 'Writing…'
+  try {
+    tools.log = await applyPlan(files, plan)
+    managed = plan.managed
+    await stored('state', 'readwrite', (s) =>
+      s.put(JSON.parse(JSON.stringify(managed)), `managed:${tools.install!.path}`),
+    )
+    tools.plan = null
+  } catch (e) {
+    tools.error = `Stopped: ${(e as Error).message}. Your originals are in lwtree-backup/.`
+  } finally {
+    tools.busy = null
+  }
+  const log = tools.log
+  await readInstall()
+  tools.log = log
 }

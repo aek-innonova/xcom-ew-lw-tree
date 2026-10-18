@@ -1,25 +1,36 @@
 <script setup lang="ts">
-// Tools: the player's game install and their mods (features/game-tools.md).
-// Not a board like the others: it works on the game's own files. Phase 1
-// reads only: which version is installed (the site follows it), the INI,
-// and a mod library kept in this browser with each mod's options and
-// whether what it patches exists in this install.
+// Tools: the player's game install, their mods and INI settings
+// (features/game-tools.md). Not a board like the others: it works on the
+// game's own files. It reads which version is installed (the site follows
+// it) and whether each mod is in it, keeps the mod library and settings in
+// this browser, and puts the chosen setup into the game: a plan first,
+// written only when the player says so, with the originals kept.
 
 import { computed, ref, watch } from 'vue'
 import { GAMES } from '@/model/game'
 import { optionProblem, scriptFor, type ModTarget } from '@/model/patchupk'
 import {
   addModFiles,
+  applyPlanNow,
+  cancelPlan,
+  checkKey,
   chooseGameFolder,
   forgetGameFolder,
+  makePlan,
   readPackage,
   reconnectGameFolder,
   removeMod,
   setOption,
+  setSetting,
+  setWanted,
+  setWantFiles,
   tools,
+  type CheckStatus,
   type Mod,
   type ModFile,
 } from '@/state/tools'
+import { BACKUP } from '@/state/setup'
+import type { IniEntry } from '@/model/inifile'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
@@ -55,8 +66,37 @@ watch(
   { immediate: true },
 )
 
+const STATUS_TEXT: Record<CheckStatus, string> = {
+  installed: 'installed',
+  'other-values': 'installed, with other option values than yours',
+  'not-installed': 'not installed',
+  partly: 'partly installed',
+  'does-not-fit': 'does not fit this install',
+  checking: 'checking…',
+}
+/** The script in the install: the engine's check, else what its targets say. */
+function scriptStatus(m: Mod, f: ModFile): { text: string; kind: 'ok' | 'bad' | 'unknown' } {
+  const c = tools.checks[checkKey(m, f)]
+  if (!c || c.status === 'checking') return targetStatus(f)
+  if (c.status === 'does-not-fit') {
+    const e = c.steps.find((s) => s.status === 'error')
+    return {
+      text: `${STATUS_TEXT[c.status]}: ${e?.where} (line ${e?.line}): ${e?.note}`,
+      kind: 'bad',
+    }
+  }
+  const counts =
+    c.status === 'partly'
+      ? ` (${c.steps.filter((s) => s.status === 'already').length} of ${c.steps.length} changes)`
+      : ''
+  return {
+    text: STATUS_TEXT[c.status] + counts,
+    kind: c.status === 'installed' || c.status === 'other-values' ? 'ok' : 'unknown',
+  }
+}
+
 /** What the install says about one script's targets. */
-function scriptStatus(f: ModFile): { text: string; kind: 'ok' | 'bad' | 'unknown' } {
+function targetStatus(f: ModFile): { text: string; kind: 'ok' | 'bad' | 'unknown' } {
   const targets = (f.script?.targets ?? []).filter((t) => t.object)
   const upks = [...new Set(f.script?.targets.map((t) => t.upk) ?? [])]
   const where = upks.join(', ')
@@ -120,6 +160,37 @@ const inCooked = (f: ModFile) =>
 const size = (n: number) =>
   n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n > 1e3 ? `${Math.round(n / 1e3)} kB` : `${n} B`
 
+const hasFiles = (m: Mod) => m.files.some((f) => f.kind === 'package' || f.kind === 'config')
+
+// INI settings: search the install's DefaultGameCore.ini.
+const query = ref('')
+const matches = computed<IniEntry[]>(() => {
+  // Every word somewhere in the key (underscores as spaces) or its comment.
+  const words = query.value.toLowerCase().replace(/_/g, ' ').split(/\s+/).filter(Boolean)
+  if (!words.join('').length || words.join('').length < 2) return []
+  return tools.iniEntries
+    .filter((e) => {
+      const hay = `${e.key.replace(/_/g, ' ')} ${e.key} ${e.help}`.toLowerCase()
+      return words.every((w) => hay.includes(w))
+    })
+    .slice(0, 30)
+})
+const settingOf = (e: IniEntry) =>
+  tools.settings.find(
+    (s) => s.section === e.section && s.key === e.key && s.occurrence === e.occurrence,
+  )
+const entryOf = (s: { section: string; key: string; occurrence: number }) =>
+  tools.iniEntries.find(
+    (e) => e.section === s.section && e.key === s.key && e.occurrence === s.occurrence,
+  )
+function onSetting(e: { section: string; key: string; occurrence: number }, value: string) {
+  void setSetting({ ...e, value }, value.trim() === '' ? null : value.trim())
+}
+const repeated = (e: IniEntry) =>
+  tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
+
+const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
+
 const iniNote = computed(() =>
   tools.install?.ini && state.ini
     ? `${tools.install.ini} loaded: the site's costs are this install's.`
@@ -135,7 +206,8 @@ const iniNote = computed(() =>
       <h2>Tools</h2>
       <p class="lead">
         Your game install, your mods and settings. This works on the game's own files rather than on
-        a campaign; nothing is uploaded, and for now nothing is changed.
+        a campaign; nothing is uploaded, and nothing in the game changes until you apply your setup
+        and confirm what it will write.
       </p>
     </header>
 
@@ -202,8 +274,8 @@ const iniNote = computed(() =>
       <h3 id="mods-h">Mods</h3>
       <p class="muted small">
         PatcherGUI scripts and mod folders, kept in this browser so a reinstall need not mean
-        finding them all again. Each mod's options can be set here; installing them into the game
-        comes next.
+        finding them all again. Tick what you want in the game, set the options, then apply your
+        setup below.
       </p>
       <p>
         <button type="button" @click="scriptInput?.click()">Add mod scripts</button>
@@ -242,9 +314,19 @@ const iniNote = computed(() =>
 
         <div v-for="f in scripts(m)" :key="f.path" class="script">
           <p class="script-head">
-            <code>{{ f.path }}</code>
+            <label class="want" :title="`Have ${f.path} in the game`">
+              <input
+                type="checkbox"
+                :checked="!!m.wanted?.[f.path]"
+                :aria-label="`Install ${f.path}`"
+                @change="setWanted(m.id, f.path, ($event.target as HTMLInputElement).checked)"
+              />
+              <code>{{ f.path }}</code>
+            </label>
             <span v-if="forTag(f)" class="tag">{{ forTag(f) }}</span>
-            <span class="status" :class="scriptStatus(f).kind">{{ scriptStatus(f).text }}</span>
+            <span class="status" :class="scriptStatus(m, f).kind">{{
+              scriptStatus(m, f).text
+            }}</span>
           </p>
           <table v-if="f.script?.options.length" class="options">
             <tbody>
@@ -276,6 +358,19 @@ const iniNote = computed(() =>
             </tbody>
           </table>
         </div>
+        <label v-if="hasFiles(m)" class="want files-want">
+          <input
+            type="checkbox"
+            :checked="!!m.wantFiles"
+            :aria-label="`Put ${m.name}'s files into the game`"
+            @change="setWantFiles(m.id, ($event.target as HTMLInputElement).checked)"
+          />
+          Put its files into the game
+          <span class="muted small"
+            >(packages the game lacks into CookedPCConsole, INI files into Config, their lines
+            merged into the game's own)</span
+          >
+        </label>
         <ul v-if="others(m).length" class="files small">
           <li v-for="f in others(m)" :key="f.path">
             <code>{{ f.path }}</code> <span class="muted">{{ size(f.size) }}</span>
@@ -284,6 +379,125 @@ const iniNote = computed(() =>
           </li>
         </ul>
       </article>
+    </section>
+
+    <section class="block" aria-labelledby="settings-h">
+      <h3 id="settings-h">Settings</h3>
+      <p class="muted small">
+        Values in the game's DefaultGameCore.ini, with the file's own comment on each; yours are set
+        when you apply your setup.
+      </p>
+      <ul v-if="tools.settings.length" class="settings">
+        <li v-for="s in tools.settings" :key="`${s.section}/${s.key}/${s.occurrence}`">
+          <code>{{ s.key }}</code>
+          <span v-if="s.occurrence" class="muted small"> (no. {{ s.occurrence + 1 }})</span>
+          <input
+            class="num wide"
+            :value="s.value"
+            :aria-label="`Your value for ${s.key}`"
+            @change="onSetting(s, ($event.target as HTMLInputElement).value)"
+          />
+          <span class="muted small">
+            <template v-if="entryOf(s)">in the game now: {{ entryOf(s)!.value }}</template>
+            <template v-else-if="tools.install">not in this install's file</template>
+            <template v-if="entryOf(s)?.help"> · {{ entryOf(s)!.help }}</template>
+          </span>
+          <button
+            type="button"
+            class="remove"
+            :aria-label="`Drop your value for ${s.key}`"
+            @click="setSetting(s, null)"
+          >
+            ×
+          </button>
+        </li>
+      </ul>
+      <p v-if="tools.iniEntries.length">
+        <input
+          v-model="query"
+          type="search"
+          class="search"
+          placeholder="Find a setting: NUM_STARTING_SOLDIERS, psi, mobility…"
+          aria-label="Find a setting"
+        />
+      </p>
+      <p v-else class="muted small">Pick the game folder to find its settings.</p>
+      <table v-if="matches.length" class="options">
+        <tbody>
+          <tr v-for="e in matches" :key="`${e.section}/${e.key}/${e.occurrence}`">
+            <th>
+              {{ e.key }}<span v-if="repeated(e)" class="muted"> ({{ e.occurrence + 1 }})</span>
+            </th>
+            <td class="input">
+              <input
+                class="num wide"
+                :value="settingOf(e)?.value ?? ''"
+                :placeholder="e.value.length > 24 ? e.value.slice(0, 24) + '…' : e.value"
+                :aria-label="`Set ${e.key}`"
+                @change="onSetting(e, ($event.target as HTMLInputElement).value)"
+              />
+            </td>
+            <td class="help small">
+              {{ e.help }} <span class="muted">({{ e.section }}; now {{ e.value }})</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section v-if="tools.install" class="block" aria-labelledby="apply-h">
+      <h3 id="apply-h">Into the game</h3>
+      <p class="muted small">
+        Close the game first. The first time a file changes, its original is copied to
+        <code>{{ BACKUP }}/</code> in the XComGame folder; your setup is always built from the
+        originals, so taking a mod out takes it out of the game. After a reinstall, apply again: the
+        new files become the originals.
+      </p>
+      <p v-if="!tools.plan">
+        <button type="button" class="primary" :disabled="!!tools.busy" @click="makePlan(true)">
+          Apply my setup…
+        </button>
+        <button type="button" :disabled="!!tools.busy" @click="makePlan(false)">
+          Put the originals back…
+        </button>
+        <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
+      </p>
+      <div v-else class="plan" role="region" aria-label="What will change">
+        <p v-if="!tools.plan.changes.length">
+          <strong>Nothing to change:</strong> the game already has your setup.
+        </p>
+        <template v-else>
+          <p><strong>These files will change:</strong></p>
+          <ul>
+            <li v-for="c in tools.plan.changes" :key="c.path">
+              <code>{{ c.path }}</code> {{ ACTION_TEXT[c.action] }}
+              <span class="muted small">: {{ c.why.join(', ') }}</span>
+              <span v-if="c.backup" class="muted small"> (original kept first)</span>
+            </li>
+          </ul>
+        </template>
+        <ul v-if="tools.plan.problems.length" class="problems">
+          <li v-for="p in tools.plan.problems" :key="p" class="error small">{{ p }}</li>
+        </ul>
+        <p>
+          <button
+            v-if="tools.plan.changes.length"
+            type="button"
+            class="primary"
+            :disabled="!!tools.busy"
+            @click="applyPlanNow"
+          >
+            Write these changes
+          </button>
+          <button type="button" :disabled="!!tools.busy" @click="cancelPlan">
+            {{ tools.plan.changes.length ? 'Cancel' : 'Close' }}
+          </button>
+          <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
+        </p>
+      </div>
+      <ul v-if="tools.log.length" class="log small" role="status">
+        <li v-for="l in tools.log" :key="l">{{ l }}</li>
+      </ul>
     </section>
   </section>
 </template>
@@ -471,6 +685,65 @@ h4 {
   margin: 6px 0 0;
 }
 .present {
+  color: var(--done-text);
+}
+.want {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.files-want {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.num.wide {
+  width: 120px;
+}
+.search {
+  width: min(460px, 100%);
+  background: var(--node);
+  color: var(--text);
+  border: 1px solid var(--node-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+.settings {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+.settings li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 2px 0;
+  font-size: 13px;
+}
+.settings .remove {
+  margin-left: 0;
+}
+.plan {
+  border: 1px solid var(--node-border);
+  border-radius: 4px;
+  background: var(--panel);
+  padding: 8px 12px;
+  font-size: 13.5px;
+}
+.plan ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.problems {
+  list-style: none;
+  padding: 0;
+}
+.log {
+  margin: 8px 0 0;
+  padding-left: 18px;
   color: var(--done-text);
 }
 .files li {

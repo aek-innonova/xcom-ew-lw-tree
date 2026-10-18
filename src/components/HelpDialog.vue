@@ -66,8 +66,10 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       features/air-war.md), ships and weapons from the INI via
       scripts/upk_airwar.py; odds are thousands of simulated fights. No save
       records a fight, so they are checked against the script, not history.
-    - Tools: state/tools.ts, model/upk.ts (package tables), model/patchupk.ts
-      (PatcherGUI scripts); features/game-tools.md. Read-only so far.
+    - Tools: state/tools.ts, state/setup.ts (plans, backups), model/upk.ts
+      (packages), model/modpatch.ts + model/pseudocode.ts (PatcherGUI scripts,
+      checked byte for byte against PatchUPK), model/inifile.ts;
+      features/game-tools.md.
     - LWR: its own files read the same way (scripts/game_data.py, data/lwr/,
       features/lw-rebalanced.md); its air war, squadrons flying together, is
       model/airwar-lwr.ts. A save does not say which version made it, so the
