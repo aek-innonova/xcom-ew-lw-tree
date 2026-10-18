@@ -3,10 +3,14 @@
 // reload can pick up where it left off, asking the browser for permission
 // again where it requires that. The folder is checked every few seconds and
 // the newest save loaded when it changes. Nothing leaves the browser.
+//
+// Firefox and Safari have no such API; there the folder can still be picked
+// through an ordinary file input, which hands over its files once
+// (loadNewestFromFolder).
 
 import { reactive } from 'vue'
 import { fileKey, isSaveName, newestSave, type FileInfo } from '@/model/live'
-import { importSaves, loadSave } from './store'
+import { importSaves, loadSave, state } from './store'
 
 // The parts of the API TypeScript's DOM library does not describe yet.
 type Permission = 'granted' | 'denied' | 'prompt'
@@ -202,4 +206,36 @@ export async function importCampaignFromFolder(game: number): Promise<void> {
     })
   }
   await importSaves(sources, game)
+}
+
+let toldOnce = false
+
+/**
+ * Where the page cannot follow a folder: the files of a folder picked once
+ * (an <input webkitdirectory>); the newest save directly in it is loaded.
+ */
+export async function loadNewestFromFolder(files: File[]): Promise<void> {
+  // Only the folder's own files, not those of folders inside it.
+  const own = files.filter((f) => (f.webkitRelativePath || f.name).split('/').length <= 2)
+  const folder = files[0]?.webkitRelativePath.split('/')[0] || 'that folder'
+  const newest = newestSave(
+    own.map((f) => ({ name: f.name, lastModified: f.lastModified, size: f.size })),
+  )
+  if (!newest) {
+    state.message = {
+      kind: 'error',
+      text: `No XCOM saves in ${folder}. Pick the SaveData folder (see Help).`,
+    }
+    return
+  }
+  const file = own.find((f) => f.name === newest.name)!
+  if (!loadSave(newest.name, new Uint8Array(await file.arrayBuffer()))) return
+  if (!toldOnce)
+    state.message = {
+      kind: 'info',
+      text:
+        `Loaded ${newest.name}, the newest save in ${folder}. This browser cannot follow ` +
+        'a folder as you play (Chrome and Edge can): pick it again after you save.',
+    }
+  toldOnce = true
 }

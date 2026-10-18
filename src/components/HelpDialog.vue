@@ -104,6 +104,8 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       <p>
         Files named <code>save</code> + a number; the highest is the newest. Drop one on the page,
         or <strong>Watch save folder</strong> (Chrome, Edge) to follow new saves as you play.
+        Firefox and Safari cannot follow a folder: there,
+        <strong>Load newest from folder</strong> loads the newest save each time you pick it.
       </p>
     </section>
 

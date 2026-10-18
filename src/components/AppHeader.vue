@@ -14,7 +14,7 @@ import {
   techs,
   foundry,
 } from '@/state/store'
-import { chooseFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
+import { chooseFolder, loadNewestFromFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
 import { GAMES, type GameId } from '@/model/game'
 
 const emit = defineEmits<{
@@ -24,6 +24,13 @@ const emit = defineEmits<{
 
 const saveInput = ref<HTMLInputElement | null>(null)
 const iniInput = ref<HTMLInputElement | null>(null)
+const folderInput = ref<HTMLInputElement | null>(null)
+
+async function onFolder(e: Event) {
+  const input = e.target as HTMLInputElement
+  await loadNewestFromFolder([...(input.files ?? [])])
+  input.value = ''
+}
 
 async function onPick(e: Event) {
   const input = e.target as HTMLInputElement
@@ -171,6 +178,16 @@ function onSearchKey(e: KeyboardEvent) {
         >
           ×
         </button>
+      </div>
+      <div v-else class="file watch">
+        <button
+          type="button"
+          title="Loads the newest save in the folder you pick. This browser cannot follow the folder as you play (Chrome and Edge can), so pick it again after you save."
+          @click="folderInput?.click()"
+        >
+          Load newest from folder
+        </button>
+        <input ref="folderInput" type="file" webkitdirectory hidden @change="onFolder" />
       </div>
       <div class="file">
         <button type="button" @click="saveInput?.click()">
