@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils'
 import App from '../App.vue'
 
 describe('App', () => {
-  it('shows the whole tree with stock costs and no files loaded', () => {
+  it('shows the whole tree with the built-in costs and no files loaded', () => {
     const wrapper = mount(App)
     expect(wrapper.find('h1').text()).toContain('Long War')
     expect(wrapper.findAll('[data-tech]')).toHaveLength(75)

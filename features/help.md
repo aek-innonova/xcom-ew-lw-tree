@@ -40,3 +40,18 @@ and a line each, the colour key, one small line on sources. The
 background (what was tested, why no Mac/Linux paths, the CSP, what is
 stored) is a comment at the top of the template. The INI path starts at
 the game folder so it fits on one line.
+
+## Response (2026-10-18, round 2)
+
+The person: the INI line suggests the built-in costs are "stock" and
+theirs might differ; their INI disagreed with UFOpaedia in places, yet
+they do not think they changed anything.
+
+## Report (2026-10-18, round 3)
+
+The built-in data was taken from the person's own unmodified Long War
+1.0 install (their INI matches it exactly), so "stock" was the wrong
+claim: UFOpaedia differs from it in places, most likely other Long War
+versions or wiki errors. The help now says the built-in costs are an
+unmodified Long War 1.0 install's and to load your own if it differs;
+the INI-loaded message and the clear button say "built-in costs".

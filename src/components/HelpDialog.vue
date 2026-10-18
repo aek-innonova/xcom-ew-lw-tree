@@ -51,6 +51,11 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       again after a reload.
     - INI: optional; Long War's file is XEW/XComGame/Config/DefaultGameCore.ini
       in the Steam install. Sets research and Foundry costs and bonus values.
+      The built-in data (tech.json etc.) was taken from the person's unmodified
+      Long War 1.0 (Dec 28 2015) install, and their INI matches it exactly.
+      UFOpaedia disagrees with it in places (other Long War versions, or wiki
+      errors), so "stock" is not a claim to make; loading an INI matters for
+      another version or a modded install.
     - Numbers: prerequisites from UFOpaedia (may contain errors); research
       time, credits and bonuses verified against the game's own figures
       (features/history-verification.md); Checks keeps verifying per save.
@@ -91,7 +96,7 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
           {{ copied === INI_WINDOWS ? 'Copied' : 'Copy' }}
         </button>
       </p>
-      <p>Only if you changed your install: your costs instead of stock Long War 1.0.</p>
+      <p>Built-in costs are an unmodified Long War 1.0 install's. Load yours if it differs.</p>
     </section>
 
     <section>

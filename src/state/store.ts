@@ -148,7 +148,7 @@ const applied = computed(() =>
 /** The techs with the costs in force. */
 export const techs = computed<Tech[]>(() => applied.value?.techs ?? defaultTechs)
 export const techById = computed(() => new Map(techs.value.map((t) => [t.id, t])))
-/** Ids whose cost the loaded INI changed from stock Long War 1.0. */
+/** Ids whose cost the loaded INI sets differently from the built-in data. */
 export const changedByIni = computed(() => new Set(applied.value?.changed ?? []))
 export const campaign = computed(() => state.save?.campaign ?? null)
 
@@ -289,10 +289,10 @@ export function loadIni(fileName: string, text: string) {
   const changed = changedByIni.value.size
   const missing = applied.value?.missing.length ?? 0
   const parts = [`${fileName}: costs for ${parsed.balance.size} techs`]
-  if (changed === 1) parts.push('1 differs from stock Long War 1.0')
+  if (changed === 1) parts.push('1 differs from the built-in costs')
   else
     parts.push(
-      changed ? `${changed} differ from stock Long War 1.0` : 'all match stock Long War 1.0',
+      changed ? `${changed} differ from the built-in costs` : 'all match the built-in costs',
     )
   if (missing) parts.push(`${missing} techs not in the file keep their default cost`)
   if (parsed.unmatched.length) parts.push(`${parsed.unmatched.length} lines did not match a tech`)

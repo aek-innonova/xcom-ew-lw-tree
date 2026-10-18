@@ -153,12 +153,7 @@ function onSearchKey(e: KeyboardEvent) {
         </button>
         <span v-if="state.ini" class="loaded">
           {{ state.ini.fileName }}
-          <button
-            type="button"
-            class="clear"
-            title="Back to stock Long War 1.0 costs"
-            @click="clearIni"
-          >
+          <button type="button" class="clear" title="Back to the built-in costs" @click="clearIni">
             ×
           </button>
         </span>
