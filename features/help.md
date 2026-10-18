@@ -27,3 +27,16 @@ now starts as a returning visitor. Looked at the dialog on screen.
 
 Left open: the Mac and Linux save locations are not given, since no
 save from those ports has been tried.
+
+## Response (2026-10-18)
+
+The person: too much prose; keep the background as comments in the file
+to ground it, but nobody will read that much text.
+
+## Report (2026-10-18, round 2)
+
+Cut to essentials: one line on privacy, the two paths with Copy buttons
+and a line each, the colour key, one small line on sources. The
+background (what was tested, why no Mac/Linux paths, the CSP, what is
+stored) is a comment at the top of the template. The INI path starts at
+the game folder so it fits on one line.

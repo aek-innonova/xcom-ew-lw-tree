@@ -33,10 +33,28 @@ async function copy(text: string) {
 }
 
 const SAVES_WINDOWS = String.raw`Documents\My Games\XCOM - Enemy Within\XComGame\SaveData`
-const INI_WINDOWS = String.raw`steamapps\common\XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGameCore.ini`
+// In the game folder under Steam (steamapps\common\...).
+const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGameCore.ini`
 </script>
 
 <template>
+  <!--
+    Kept short on purpose: people skim this. Background for whoever edits it:
+    - Privacy: files are parsed in the browser; the CSP (connect-src 'self')
+      means the page cannot send them anywhere; localStorage keeps only
+      extracted summaries (save summary, costs, plan, history), never files.
+    - Saves: PC Enemy Within + Long War, tested on ~1,700 saves from one
+      Windows machine. Names are "save" + number, no extension. Mid-mission
+      saves work (they embed the strategy state; we show it as the mission
+      began). Mac/Linux (Feral) saves are untested, so no paths given.
+    - Watching: File System Access API, Chromium only; permission may be asked
+      again after a reload.
+    - INI: optional; Long War's file is XEW/XComGame/Config/DefaultGameCore.ini
+      in the Steam install. Sets research and Foundry costs and bonus values.
+    - Numbers: prerequisites from UFOpaedia (may contain errors); research
+      time, credits and bonuses verified against the game's own figures
+      (features/history-verification.md); Checks keeps verifying per save.
+  -->
   <dialog
     ref="dialog"
     class="help"
@@ -49,22 +67,10 @@ const INI_WINDOWS = String.raw`steamapps\common\XCom-Enemy-Unknown\XEW\XComGame\
       <button type="button" class="close" aria-label="Close help" @click="emit('close')">×</button>
     </header>
 
-    <section>
-      <h3>Your files stay with you</h3>
-      <p>
-        Saves and INI files are read in this browser and never uploaded. The page is not even
-        allowed to send them anywhere. What it remembers between visits (a summary of the save, your
-        costs, your plan) stays in this browser too.
-      </p>
-    </section>
+    <p class="lead">Your files are read in this browser. Nothing is uploaded.</p>
 
     <section>
-      <h3>Your save</h3>
-      <p>
-        Load a save to see your campaign on the tree: what is researched, what is in progress, what
-        you can start now, and how long things take at your research speed. On Windows the saves are
-        in:
-      </p>
+      <h3>Saves</h3>
       <p class="path">
         <code>{{ SAVES_WINDOWS }}</code>
         <button type="button" @click="copy(SAVES_WINDOWS)">
@@ -72,91 +78,52 @@ const INI_WINDOWS = String.raw`steamapps\common\XCom-Enemy-Unknown\XEW\XComGame\
         </button>
       </p>
       <p>
-        The files are called <code>save</code> plus a number, with no extension; the highest number
-        is usually the newest. Geoscape saves and mid-mission saves both work (a mid-mission save
-        shows the campaign as the mission began). Only PC Enemy Within saves have been tested; Mac
-        and Linux saves may work but have not been tried.
-      </p>
-      <p>Pick one with <strong>Load save</strong>, or drop it anywhere on the page.</p>
-    </section>
-
-    <section>
-      <h3>Following your saves as you play</h3>
-      <p>
-        In Chrome, Edge and other Chromium browsers, <strong>Watch save folder</strong> lets the
-        page follow the SaveData folder: pick it once and every new save shows up by itself. After a
-        reload the browser may ask once more for permission.
+        Files named <code>save</code> + a number; the highest is the newest. Drop one on the page,
+        or <strong>Watch save folder</strong> (Chrome, Edge) to follow new saves as you play.
       </p>
     </section>
 
     <section>
-      <h3>Your DefaultGameCore.ini (optional)</h3>
-      <p>
-        Without it the site uses stock Long War 1.0 costs. If you have changed your install, load
-        your own so research and Foundry costs, and bonus values, match it. With Steam it is under
-        the Steam library folder:
-      </p>
+      <h3>DefaultGameCore.ini <span class="opt">optional</span></h3>
       <p class="path">
         <code>{{ INI_WINDOWS }}</code>
         <button type="button" @click="copy(INI_WINDOWS)">
           {{ copied === INI_WINDOWS ? 'Copied' : 'Copy' }}
         </button>
       </p>
-    </section>
-
-    <section>
-      <h3>The views</h3>
-      <dl>
-        <dt>Research</dt>
-        <dd>
-          The tech tree, a lane per category, every prerequisite to the left of what needs it. Rest
-          on a tech to open its box; click it for details and to plan research towards it.
-        </dd>
-        <dt>Foundry</dt>
-        <dd>The Foundry projects, each beside the tech it needs, with what they cost and do.</dd>
-        <dt>History</dt>
-        <dd>
-          How your campaign went over time: alien activity, research, staff and satellites. It fills
-          in as saves are loaded, or all at once from the watched folder.
-        </dd>
-      </dl>
+      <p>Only if you changed your install: your costs instead of stock Long War 1.0.</p>
     </section>
 
     <section>
       <h3>Colours</h3>
       <ul class="legend">
-        <li><i class="sw researched"></i>Researched or built</li>
+        <li><i class="sw researched"></i>Done</li>
         <li><i class="sw researching"></i>In progress</li>
         <li><i class="sw available"></i>Available now</li>
         <li><i class="sw locked"></i>Locked</li>
-        <li><i class="ln needs"></i>When you rest on a tech: what it still needs</li>
-        <li><i class="ln enables"></i>…and what it leads to</li>
-        <li><i class="tx foundry"></i>Foundry projects in a tech's unlocks</li>
-        <li><span class="approx">≈</span>An estimate at your current research speed</li>
+        <li><i class="ln needs"></i>Still needed (on hover)</li>
+        <li><i class="ln enables"></i>Leads to (on hover)</li>
+        <li><i class="tx foundry"></i>Foundry project</li>
+        <li><span class="approx">≈</span>Estimate</li>
       </ul>
     </section>
 
-    <section>
-      <h3>Where the numbers come from</h3>
-      <p>
-        Costs come from DefaultGameCore.ini, prerequisites from
-        <a
-          href="https://www.ufopaedia.org/index.php/Research_(Long_War)"
-          target="_blank"
-          rel="noopener"
-          >UFOpaedia</a
-        >
-        (they may contain errors). Research times, credits and bonuses were checked against the
-        game's own figures in about 1,700 saves. <strong>Checks</strong> in the campaign bar keeps
-        doing that for every save you load.
-      </p>
-    </section>
+    <p class="small">
+      Prerequisites from
+      <a
+        href="https://www.ufopaedia.org/index.php/Research_(Long_War)"
+        target="_blank"
+        rel="noopener"
+        >UFOpaedia</a
+      >
+      may contain errors. Times are checked against the game's own: see <strong>Checks</strong>.
+    </p>
   </dialog>
 </template>
 
 <style scoped>
 .help {
-  width: min(720px, calc(100vw - 32px));
+  width: min(600px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   padding: 0 24px 20px;
   color: var(--text);
@@ -187,7 +154,22 @@ h2 {
   padding: 2px 9px;
 }
 section {
-  margin-top: 14px;
+  margin-top: 16px;
+}
+.lead {
+  margin: 0;
+  font-size: 14.5px;
+}
+.opt {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.small {
+  margin-top: 18px;
+  font-size: 12.5px;
+  color: var(--muted);
 }
 h3 {
   margin: 0 0 6px;
@@ -221,20 +203,6 @@ code {
 .path button {
   padding: 2px 9px;
   font-size: 12px;
-}
-dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 14px;
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.45;
-}
-dt {
-  font-weight: 600;
-}
-dd {
-  margin: 0;
 }
 .legend {
   margin: 0;
