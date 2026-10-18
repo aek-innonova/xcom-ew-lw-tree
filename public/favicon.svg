@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Long War Tech Tree: a worn saucer over the page's dark panel, its scoop and running lights lit -->
+  <defs>
+    <linearGradient id="hull" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8c96a3"/>
+      <stop offset="0.45" stop-color="#4c5560"/>
+      <stop offset="1" stop-color="#1c2229"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9b3be"/>
+      <stop offset="1" stop-color="#5d6773"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7fe3ff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#4cc3ef" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="12" fill="#0d1b29" stroke="#2c4a66" stroke-width="1.5"/>
+  <g transform="translate(32 33) scale(1.14) translate(-32 -33)">
+  <ellipse cx="32" cy="45" rx="20" ry="5" fill="url(#glow)"/>
+  <path d="M6 34 C6 25 18 20 32 20 C46 20 58 25 58 34 C58 40 46 43 32 43 C18 43 6 40 6 34 Z" fill="url(#hull)"/>
+  <path d="M14 29 C17 24.5 24 22.5 32 22.5 C40 22.5 47 24.5 50 29 C46 31 39 32 32 32 C25 32 18 31 14 29 Z" fill="url(#top)"/>
+  <path d="M25 37 C25 34 28.5 33 32 33 C35.5 33 39 34 39 37 C39 39.5 35.5 40.5 32 40.5 C28.5 40.5 25 39.5 25 37 Z" fill="#06121b"/>
+  <ellipse cx="32" cy="38" rx="4" ry="1.6" fill="#7fe3ff"/>
+  <circle cx="11" cy="35.5" r="1.6" fill="#4cc3ef"/>
+  <circle cx="18" cy="38.5" r="1.6" fill="#4cc3ef"/>
+  <circle cx="46" cy="38.5" r="1.6" fill="#4cc3ef"/>
+  <circle cx="53" cy="35.5" r="1.6" fill="#4cc3ef"/>
+  </g>
+</svg>
