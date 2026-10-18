@@ -1,0 +1,1152 @@
+{
+  "game": "XCOM: Enemy Within",
+  "mod": "Long War 1.0 (Dec 28 2015)",
+  "generated": "2026-10-18",
+  "sources": {
+    "enum_order": "EFoundryTech enum in XComGame.upk; id = enum slot. Slots 25 to 46 are eFoundry_Placeholder in the enum and are addressed by number in the config.",
+    "costs_and_time": "XEW/XComGame/Config/DefaultGameCore.ini [FoundryBalance]. The ini packs Meld into iFragments as thousands (40030 = 40 Meld + 30 fragments); this file has them split. Base days are before engineer count and research credits.",
+    "names": "XEW/XComGame/Localization/INT/XComStrategyGame.int [FoundryTechNames]",
+    "prerequisites_items_effects": "https://www.ufopaedia.org/index.php/Foundry_(Long_War), cross-checked with eReqTech in the ini. Extra item requirements beyond the single eReqItem in the ini are hard-coded in XGTechTree.BuildFoundryItemCost, so the item list follows the wiki."
+  },
+  "save_fields": {
+    "completed": "XGFacility_Engineering.m_arrFoundryHistory (list of completed foundry ids)",
+    "in_progress": "XGFacility_Engineering.m_arrFoundryProjects (eTech, iHoursLeft, iEngineers)"
+  },
+  "tech_ids_refer_to": "longwar_tech_tree.json",
+  "categories": [
+    "General Weapon Upgrades",
+    "General Equipment Upgrades",
+    "General Mechanical Unit Upgrades",
+    "Aerospace Improvements",
+    "Pistol Upgrades",
+    "SHIV-Specific Upgrades",
+    "Material Recovery",
+    "Base Security Upgrades"
+  ],
+  "projects": [
+    {
+      "id": 1,
+      "enum": "eFoundry_SHIV",
+      "config_key": "eFoundry_SHIV",
+      "name": "Enhanced Ballistics",
+      "category": "General Weapon Upgrades",
+      "research_credit": "Weapons",
+      "base_days": 7,
+      "engineers": 10,
+      "cost": {
+        "cash": 80,
+        "alloys": 10,
+        "elerium": 0,
+        "weapon_fragments": 20,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 10,
+        "name": "Alien Materials"
+      },
+      "effect": "Unlocks Alloy-Jacketed Rounds: +1 damage for ballistic and gauss weapons."
+    },
+    {
+      "id": 2,
+      "enum": "eFoundry_AlienGrenades",
+      "config_key": "eFoundry_AlienGrenades",
+      "name": "Alien Grenades",
+      "category": "General Weapon Upgrades",
+      "research_credit": null,
+      "base_days": 7,
+      "engineers": 35,
+      "cost": {
+        "cash": 100,
+        "alloys": 20,
+        "elerium": 50,
+        "weapon_fragments": 20,
+        "meld": 0,
+        "items": [
+          "1x Alien Grenade (from live capture)"
+        ]
+      },
+      "requires_tech": {
+        "id": 47,
+        "name": "Muton Autopsy"
+      },
+      "effect": "Allows Alien Grenades over HE Grenades, +2 damage for AP Grenades, +40% HE grenade area. Also applies to the MEC Grenade Launcher."
+    },
+    {
+      "id": 3,
+      "enum": "eFoundry_MedikitII",
+      "config_key": "eFoundry_MedikitII",
+      "name": "Improved Medikit",
+      "category": "General Equipment Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 7,
+      "engineers": 12,
+      "cost": {
+        "cash": 180,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 20,
+        "items": [
+          "20x Thin Man Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 46,
+        "name": "Thin Man Autopsy"
+      },
+      "effect": "Medikit heals +3 HP per charge, Restorative Mist +2 HP per charge."
+    },
+    {
+      "id": 4,
+      "enum": "eFoundry_ArcThrowerII",
+      "config_key": "eFoundry_ArcThrowerII",
+      "name": "Improved Arc Thrower",
+      "category": "General Equipment Upgrades",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 30,
+      "cost": {
+        "cash": 100,
+        "alloys": 40,
+        "elerium": 40,
+        "weapon_fragments": 30,
+        "meld": 0,
+        "items": [
+          "10x Drone Wreck"
+        ]
+      },
+      "requires_tech": {
+        "id": 33,
+        "name": "Alien Power Systems"
+      },
+      "effect": "Raises Arc Thrower stun chance (57/57/57/55/48/42/29% at 1 to 7 HP)."
+    },
+    {
+      "id": 5,
+      "enum": "eFoundry_VehicleRepair",
+      "config_key": "eFoundry_VehicleRepair",
+      "name": "Advanced Repair",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 21,
+      "engineers": 45,
+      "cost": {
+        "cash": 500,
+        "alloys": 100,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 80,
+        "items": [
+          "4x Heavy Floater Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 52,
+        "name": "Heavy Floater Autopsy"
+      },
+      "effect": "Interceptor, MEC, SHIV and item repair time reduced by about one third."
+    },
+    {
+      "id": 6,
+      "enum": "eFoundry_AutomatedLasers",
+      "config_key": "eFoundry_AutomatedLasers",
+      "name": "Enhanced Lasers",
+      "category": "General Weapon Upgrades",
+      "research_credit": "Laser Weapons, Weapons",
+      "base_days": 14,
+      "engineers": 30,
+      "cost": {
+        "cash": 150,
+        "alloys": 40,
+        "elerium": 0,
+        "weapon_fragments": 15,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 21,
+        "name": "Advanced Beam Lasers"
+      },
+      "effect": "Unlocks Enhanced Beam Optics: +1 damage for beam and pulse laser weapons."
+    },
+    {
+      "id": 7,
+      "enum": "eFoundry_AutomatedPlasma",
+      "config_key": "eFoundry_AutomatedPlasma",
+      "name": "Enhanced Plasma",
+      "category": "General Weapon Upgrades",
+      "research_credit": "Plasma Weapons, Weapons",
+      "base_days": 21,
+      "engineers": 120,
+      "cost": {
+        "cash": 500,
+        "alloys": 100,
+        "elerium": 100,
+        "weapon_fragments": 100,
+        "meld": 0,
+        "items": [
+          "1x Plasma Dragon"
+        ]
+      },
+      "requires_tech": {
+        "id": 27,
+        "name": "Precision Plasma Weapons"
+      },
+      "effect": "All plasma-tier weapons +1 base damage. Unlocks Plasma Stellerator for another +1."
+    },
+    {
+      "id": 8,
+      "enum": "eFoundry_SHIV_Heal",
+      "config_key": "eFoundry_SHIV_Heal",
+      "name": "Field Repairs",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 15,
+      "cost": {
+        "cash": 100,
+        "alloys": 10,
+        "elerium": 10,
+        "weapon_fragments": 10,
+        "meld": 10,
+        "items": [
+          "10x Drone Wreck"
+        ]
+      },
+      "requires_tech": {
+        "id": 54,
+        "name": "Drone Autopsy"
+      },
+      "effect": "Arc Throwers can repair SHIVs and MECs."
+    },
+    {
+      "id": 9,
+      "enum": "eFoundry_CaptureDrone",
+      "config_key": "eFoundry_CaptureDrone",
+      "name": "Drone Capture",
+      "category": "General Equipment Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 14,
+      "engineers": 75,
+      "cost": {
+        "cash": 100,
+        "alloys": 0,
+        "elerium": 10,
+        "weapon_fragments": 50,
+        "meld": 0,
+        "items": [
+          "30x Drone Wreck"
+        ]
+      },
+      "requires_tech": {
+        "id": 34,
+        "name": "EMP Weapons"
+      },
+      "effect": "Arc Thrower captures enemy Drones for the rest of the mission (100% chance)."
+    },
+    {
+      "id": 10,
+      "enum": "eFoundry_AmmoConservation",
+      "config_key": "eFoundry_AmmoConservation",
+      "name": "Ammo Conservation",
+      "category": "General Weapon Upgrades",
+      "research_credit": "Weapons",
+      "base_days": 14,
+      "engineers": 60,
+      "cost": {
+        "cash": 500,
+        "alloys": 80,
+        "elerium": 0,
+        "weapon_fragments": 100,
+        "meld": 50,
+        "items": [
+          "20x Muton Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 47,
+        "name": "Muton Autopsy"
+      },
+      "effect": "+1 shot or burst of ammo capacity for weapons."
+    },
+    {
+      "id": 11,
+      "enum": "eFoundry_AdvancedFlight",
+      "config_key": "eFoundry_AdvancedFlight",
+      "name": "Advanced Flight",
+      "category": "General Equipment Upgrades",
+      "research_credit": "Aerospace",
+      "base_days": 14,
+      "engineers": 50,
+      "cost": {
+        "cash": 325,
+        "alloys": 40,
+        "elerium": 40,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "5x Drone Wreck",
+          "5x Heavy Floater Corpse",
+          "5x Cyberdisc Wreck"
+        ]
+      },
+      "requires_tech": {
+        "id": 19,
+        "name": "Antigrav Systems"
+      },
+      "effect": "More fuel and flight time for Archangel and Seraph armor and the Hover SHIV."
+    },
+    {
+      "id": 12,
+      "enum": "eFoundry_AdvancedConstruction",
+      "config_key": "eFoundry_AdvancedConstruction",
+      "name": "Armored Fighters",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace, Armor",
+      "base_days": 14,
+      "engineers": 30,
+      "cost": {
+        "cash": 400,
+        "alloys": 200,
+        "elerium": 60,
+        "weapon_fragments": 0,
+        "meld": 70,
+        "items": [
+          "30x Floater Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 59,
+        "name": "Advanced Aerospace Concepts"
+      },
+      "effect": "+1000 HP for all interceptors."
+    },
+    {
+      "id": 13,
+      "enum": "eFoundry_PistolI",
+      "config_key": "eFoundry_PistolI",
+      "name": "Mag Pistols",
+      "category": "Pistol Upgrades",
+      "research_credit": "Weapons",
+      "base_days": 7,
+      "engineers": 10,
+      "cost": {
+        "cash": 35,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 5,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 9,
+        "name": "Alien Weaponry"
+      },
+      "effect": "+8% critical hit chance for all pistols and machine pistols."
+    },
+    {
+      "id": 14,
+      "enum": "eFoundry_PistolII",
+      "config_key": "eFoundry_PistolII",
+      "name": "Rail Pistols",
+      "category": "Pistol Upgrades",
+      "research_credit": "Gauss Weapons, Weapons",
+      "base_days": 10,
+      "engineers": 20,
+      "cost": {
+        "cash": 90,
+        "alloys": 10,
+        "elerium": 0,
+        "weapon_fragments": 35,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 28,
+        "name": "Gauss Weapons"
+      },
+      "effect": "+8 aim for all pistols and machine pistols."
+    },
+    {
+      "id": 15,
+      "enum": "eFoundry_PistolIII",
+      "config_key": "eFoundry_PistolIII",
+      "name": "Reflex Pistols",
+      "category": "Pistol Upgrades",
+      "research_credit": "Plasma Weapons, Weapons",
+      "base_days": 14,
+      "engineers": 35,
+      "cost": {
+        "cash": 145,
+        "alloys": 30,
+        "elerium": 30,
+        "weapon_fragments": 60,
+        "meld": 0,
+        "items": [
+          "1x Alien Pistol"
+        ]
+      },
+      "requires_tech": {
+        "id": 23,
+        "name": "Compact Plasma Weapons"
+      },
+      "effect": "+1 base damage for all pistols and machine pistols."
+    },
+    {
+      "id": 16,
+      "enum": "eFoundry_SHIVSuppression",
+      "config_key": "eFoundry_SHIVSuppression",
+      "name": "SHIV Suppression",
+      "category": "SHIV-Specific Upgrades",
+      "research_credit": "Weapons",
+      "base_days": 7,
+      "engineers": 15,
+      "cost": {
+        "cash": 40,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 5,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 9,
+        "name": "Alien Weaponry"
+      },
+      "effect": "SHIVs gain Suppression. Unlocks Advanced Suppression Module."
+    },
+    {
+      "id": 17,
+      "enum": "eFoundry_StealthSatellites",
+      "config_key": "eFoundry_StealthSatellites",
+      "name": "Stealth Satellites",
+      "category": "Aerospace Improvements",
+      "research_credit": null,
+      "base_days": 28,
+      "engineers": 115,
+      "cost": {
+        "cash": 1200,
+        "alloys": 200,
+        "elerium": 200,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "10x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 18,
+        "name": "Stealth Systems"
+      },
+      "effect": "Satellites are less likely to be found by alien patrols (30% on first pass, 60% on second)."
+    },
+    {
+      "id": 18,
+      "enum": "eFoundry_Scope",
+      "config_key": "eFoundry_Scope",
+      "name": "SCOPE Upgrade",
+      "category": "General Equipment Upgrades",
+      "research_credit": "Weapons",
+      "base_days": 7,
+      "engineers": 25,
+      "cost": {
+        "cash": 100,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 35,
+        "meld": 0,
+        "items": [
+          "1x SCOPE"
+        ]
+      },
+      "requires_tech": {
+        "id": 11,
+        "name": "Experimental Warfare"
+      },
+      "effect": "SCOPE critical chance +8%, laser sight +4%."
+    },
+    {
+      "id": 19,
+      "enum": "eFoundry_EleriumFuel",
+      "config_key": "eFoundry_EleriumFuel",
+      "name": "Jellied Elerium",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 10,
+      "engineers": 45,
+      "cost": {
+        "cash": 100,
+        "alloys": 40,
+        "elerium": 80,
+        "weapon_fragments": 50,
+        "meld": 40,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 12,
+        "name": "Elerium"
+      },
+      "effect": "Flamethrower panic rolls use an 80 will test. Unlocks the Incinerator Module."
+    },
+    {
+      "id": 20,
+      "enum": "eFoundry_MECCloseCombat",
+      "config_key": "eFoundry_MECCloseCombat",
+      "name": "MEC Close Combat",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 7,
+      "engineers": 50,
+      "cost": {
+        "cash": 300,
+        "alloys": 60,
+        "elerium": 30,
+        "weapon_fragments": 30,
+        "meld": 40,
+        "items": [
+          "8x Berserker Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 51,
+        "name": "Berserker Autopsy"
+      },
+      "effect": "All MECs gain MEC Close Combat: Kinetic Strike +4 damage and no longer ends the turn as a first action."
+    },
+    {
+      "id": 21,
+      "enum": "eFoundry_AdvancedServomotors",
+      "config_key": "eFoundry_AdvancedServomotors",
+      "name": "Advanced Servomotors",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 14,
+      "engineers": 45,
+      "cost": {
+        "cash": 300,
+        "alloys": 60,
+        "elerium": 40,
+        "weapon_fragments": 0,
+        "meld": 70,
+        "items": [
+          "8x Mechtoid Core"
+        ]
+      },
+      "requires_tech": {
+        "id": 57,
+        "name": "Mechtoid Autopsy"
+      },
+      "effect": "All SHIVs and MECs gain Sprinter. Unlocks Walker Servos for soldiers and Elerium Turbos for SHIVs."
+    },
+    {
+      "id": 22,
+      "enum": "eFoundry_ShapedArmor",
+      "config_key": "eFoundry_ShapedArmor",
+      "name": "Shaped Armor",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Armor",
+      "base_days": 21,
+      "engineers": 35,
+      "cost": {
+        "cash": 300,
+        "alloys": 80,
+        "elerium": 40,
+        "weapon_fragments": 0,
+        "meld": 40,
+        "items": [
+          "25x Floater Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 45,
+        "name": "Floater Autopsy"
+      },
+      "effect": "+3 HP for SHIVs and MECs."
+    },
+    {
+      "id": 23,
+      "enum": "eFoundry_SentinelDrone",
+      "config_key": "eFoundry_SentinelDrone",
+      "name": "Sentinel Drone",
+      "category": "SHIV-Specific Upgrades",
+      "research_credit": null,
+      "base_days": 21,
+      "engineers": 50,
+      "cost": {
+        "cash": 150,
+        "alloys": 40,
+        "elerium": 20,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "1x Drone Wreck",
+          "1x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 50,
+        "name": "Cyberdisc Autopsy"
+      },
+      "effect": "SHIVs gain Repair Servos and Close Combat Specialist."
+    },
+    {
+      "id": 24,
+      "enum": "eFoundry_TacticalRigging",
+      "config_key": "eFoundry_TacticalRigging",
+      "name": "Tactical Rigging",
+      "category": "General Equipment Upgrades",
+      "research_credit": "Armor",
+      "base_days": 21,
+      "engineers": 80,
+      "cost": {
+        "cash": 500,
+        "alloys": 100,
+        "elerium": 0,
+        "weapon_fragments": 100,
+        "meld": 60,
+        "items": [
+          "20x Muton Elite Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 53,
+        "name": "Muton Elite Autopsy"
+      },
+      "effect": "One extra item slot for soldiers."
+    },
+    {
+      "id": 25,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 25,
+      "name": "Alien Metallurgy",
+      "category": "Material Recovery",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 20,
+      "cost": {
+        "cash": 300,
+        "alloys": 30,
+        "elerium": 10,
+        "weapon_fragments": 0,
+        "meld": 100,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 10,
+        "name": "Alien Materials"
+      },
+      "effect": "+20% alien alloy recovery."
+    },
+    {
+      "id": 26,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 26,
+      "name": "Aircraft Boosters",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace, Laser Weapons",
+      "base_days": 7,
+      "engineers": 10,
+      "cost": {
+        "cash": 50,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 10,
+        "meld": 10,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 10,
+        "name": "Alien Materials"
+      },
+      "effect": "Allows production of one-time boosters for interception."
+    },
+    {
+      "id": 27,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 27,
+      "name": "Wingtip Sparrowhawks",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace, Gauss Weapons",
+      "base_days": 21,
+      "engineers": 50,
+      "cost": {
+        "cash": 400,
+        "alloys": 80,
+        "elerium": 20,
+        "weapon_fragments": 40,
+        "meld": 40,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 59,
+        "name": "Advanced Aerospace Concepts"
+      },
+      "effect": "Interceptors gain secondary armor-piercing missiles at half Stingray damage."
+    },
+    {
+      "id": 28,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 28,
+      "name": "Penetrator Weapons",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace",
+      "base_days": 14,
+      "engineers": 35,
+      "cost": {
+        "cash": 300,
+        "alloys": 80,
+        "elerium": 0,
+        "weapon_fragments": 45,
+        "meld": 0,
+        "items": [
+          "3x Cyberdisc Wreck",
+          "3x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 59,
+        "name": "Advanced Aerospace Concepts"
+      },
+      "effect": "+25% armor penetration for air weapons."
+    },
+    {
+      "id": 29,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 29,
+      "name": "Mechanized Unit Defenses",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Armor",
+      "base_days": 10,
+      "engineers": 30,
+      "cost": {
+        "cash": 150,
+        "alloys": 60,
+        "elerium": 0,
+        "weapon_fragments": 25,
+        "meld": 0,
+        "items": [
+          "2x Cyberdisc Wreck"
+        ]
+      },
+      "requires_tech": {
+        "id": 15,
+        "name": "Advanced Body Armor"
+      },
+      "effect": "Unlocks Core Armoring and Alloy Carbide Plating for MECs and SHIVs."
+    },
+    {
+      "id": 30,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 30,
+      "name": "Advanced Surgery",
+      "category": "Base Security Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 21,
+      "engineers": 45,
+      "cost": {
+        "cash": 600,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "12x Alien Stasis Tank",
+          "12x Alien Surgery"
+        ]
+      },
+      "requires_tech": {
+        "id": 60,
+        "name": "Alien Biocybernetics"
+      },
+      "effect": "Soldier wound times reduced by 30%."
+    },
+    {
+      "id": 31,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 31,
+      "name": "Improved Avionics",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace",
+      "base_days": 14,
+      "engineers": 40,
+      "cost": {
+        "cash": 400,
+        "alloys": 10,
+        "elerium": 0,
+        "weapon_fragments": 50,
+        "meld": 0,
+        "items": [
+          "3x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 59,
+        "name": "Advanced Aerospace Concepts"
+      },
+      "effect": "+10 aim for interceptors."
+    },
+    {
+      "id": 32,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 32,
+      "name": "UFO Countermeasures",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace",
+      "base_days": 14,
+      "engineers": 50,
+      "cost": {
+        "cash": 350,
+        "alloys": 10,
+        "elerium": 60,
+        "weapon_fragments": 40,
+        "meld": 0,
+        "items": [
+          "4x Seeker Wreck",
+          "4x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 58,
+        "name": "Seeker Autopsy"
+      },
+      "effect": "+15% dodge for interceptors."
+    },
+    {
+      "id": 33,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 33,
+      "name": "Elerium Afterburners",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace",
+      "base_days": 14,
+      "engineers": 45,
+      "cost": {
+        "cash": 200,
+        "alloys": 30,
+        "elerium": 30,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "2x UFO Power Source"
+        ]
+      },
+      "requires_tech": {
+        "id": 5,
+        "name": "Alien Propulsion"
+      },
+      "effect": "+5 seconds of interceptor combat time."
+    },
+    {
+      "id": 34,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 34,
+      "name": "Supercapacitors",
+      "category": "Aerospace Improvements",
+      "research_credit": "Laser Weapons",
+      "base_days": 21,
+      "engineers": 70,
+      "cost": {
+        "cash": 800,
+        "alloys": 150,
+        "elerium": 200,
+        "weapon_fragments": 100,
+        "meld": 80,
+        "items": [
+          "6x UFO Power Source"
+        ]
+      },
+      "requires_tech": {
+        "id": 49,
+        "name": "Advanced Pulse Lasers"
+      },
+      "effect": "Laser Cannon +10 damage, +30% armor penetration, rate of fire 1 to 0.75."
+    },
+    {
+      "id": 35,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 35,
+      "name": "UFO Tracking",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace",
+      "base_days": 28,
+      "engineers": 40,
+      "cost": {
+        "cash": 300,
+        "alloys": 20,
+        "elerium": 40,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "2x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 33,
+        "name": "Alien Power Systems"
+      },
+      "effect": "Interceptors can detect UFOs without satellite coverage, and always when UFOs hunt satellites."
+    },
+    {
+      "id": 36,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 36,
+      "name": "MEC Warfare Systems",
+      "category": "General Mechanical Unit Upgrades",
+      "research_credit": "Cybernetics",
+      "base_days": 7,
+      "engineers": 20,
+      "cost": {
+        "cash": 25,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 60,
+        "name": "Alien Biocybernetics"
+      },
+      "effect": "Prerequisite for many advanced MEC weapons and items."
+    },
+    {
+      "id": 37,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 37,
+      "name": "Super Skyranger",
+      "category": "Aerospace Improvements",
+      "research_credit": "Aerospace",
+      "base_days": 14,
+      "engineers": 35,
+      "cost": {
+        "cash": 200,
+        "alloys": 60,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 59,
+        "name": "Advanced Aerospace Concepts"
+      },
+      "effect": "+2 roster slots on Alien Base and EXALT HQ raids, +4 on the Temple Ship assault."
+    },
+    {
+      "id": 38,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 38,
+      "name": "Alien Nucleonics",
+      "category": "Material Recovery",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 45,
+      "cost": {
+        "cash": 500,
+        "alloys": 120,
+        "elerium": 40,
+        "weapon_fragments": 0,
+        "meld": 150,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 33,
+        "name": "Alien Power Systems"
+      },
+      "effect": "+20% elerium recovery."
+    },
+    {
+      "id": 39,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 39,
+      "name": "Improved Salvage",
+      "category": "Material Recovery",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 20,
+      "cost": {
+        "cash": 200,
+        "alloys": 40,
+        "elerium": 20,
+        "weapon_fragments": 0,
+        "meld": 40,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 10,
+        "name": "Alien Materials"
+      },
+      "effect": "+20% weapon fragment recovery."
+    },
+    {
+      "id": 40,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 40,
+      "name": "New Combat Systems",
+      "category": "General Equipment Upgrades",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 30,
+      "cost": {
+        "cash": 100,
+        "alloys": 30,
+        "elerium": 20,
+        "weapon_fragments": 50,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 11,
+        "name": "Experimental Warfare"
+      },
+      "effect": "Unlocks a range of new gear in combination with other technologies and projects."
+    },
+    {
+      "id": 41,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 41,
+      "name": "Psi Warfare Systems",
+      "category": "General Equipment Upgrades",
+      "research_credit": "Psionics",
+      "base_days": 14,
+      "engineers": 40,
+      "cost": {
+        "cash": 100,
+        "alloys": 0,
+        "elerium": 20,
+        "weapon_fragments": 30,
+        "meld": 40,
+        "items": [
+          "12x Sectoid Corpse"
+        ]
+      },
+      "requires_tech": {
+        "id": 4,
+        "name": "Xenopsionics"
+      },
+      "effect": "Unlocks psionic special equipment."
+    },
+    {
+      "id": 42,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 42,
+      "name": "Security Training: Weapons",
+      "category": "Base Security Upgrades",
+      "research_credit": null,
+      "base_days": 3,
+      "engineers": 25,
+      "cost": {
+        "cash": 40,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 20,
+        "name": "Beam Lasers"
+      },
+      "effect": "Base security personnel use spare Laser Rifles during an HQ defense. Wiki name: Base Security: Weapons."
+    },
+    {
+      "id": 43,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 43,
+      "name": "Security Training: Armor",
+      "category": "Base Security Upgrades",
+      "research_credit": null,
+      "base_days": 3,
+      "engineers": 25,
+      "cost": {
+        "cash": 20,
+        "alloys": 0,
+        "elerium": 0,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": []
+      },
+      "requires_tech": {
+        "id": 72,
+        "name": "Improved Body Armor"
+      },
+      "effect": "Base security personnel use spare Phalanx Armor during an HQ defense. Wiki name: Base Security: Armor."
+    },
+    {
+      "id": 44,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 44,
+      "name": "Phoenix Coilguns",
+      "category": "Aerospace Improvements",
+      "research_credit": "Gauss Weapons",
+      "base_days": 14,
+      "engineers": 50,
+      "cost": {
+        "cash": 300,
+        "alloys": 120,
+        "elerium": 60,
+        "weapon_fragments": 100,
+        "meld": 40,
+        "items": [
+          "2x UFO Power Source"
+        ]
+      },
+      "requires_tech": {
+        "id": 28,
+        "name": "Gauss Weapons"
+      },
+      "effect": "Phoenix Cannon +90 damage and +65% armor penetration."
+    },
+    {
+      "id": 45,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 45,
+      "name": "UFO Scanners",
+      "category": "Aerospace Improvements",
+      "research_credit": null,
+      "base_days": 14,
+      "engineers": 40,
+      "cost": {
+        "cash": 65,
+        "alloys": 10,
+        "elerium": 10,
+        "weapon_fragments": 0,
+        "meld": 0,
+        "items": [
+          "2x UFO Flight Computer"
+        ]
+      },
+      "requires_tech": {
+        "id": 59,
+        "name": "Advanced Aerospace Concepts"
+      },
+      "effect": "Shows UFO HP on the interception screen for analyzed UFO classes."
+    },
+    {
+      "id": 46,
+      "enum": "eFoundry_Placeholder",
+      "config_key": 46,
+      "name": "Quenchguns",
+      "category": "General Weapon Upgrades",
+      "research_credit": "Gauss Weapons, Weapons",
+      "base_days": 14,
+      "engineers": 60,
+      "cost": {
+        "cash": 250,
+        "alloys": 40,
+        "elerium": 50,
+        "weapon_fragments": 80,
+        "meld": 25,
+        "items": [
+          "2x Alien Carbine"
+        ]
+      },
+      "requires_tech": {
+        "id": 31,
+        "name": "Advanced Gauss Weapons"
+      },
+      "effect": "Doubles the damage reduction penetration of gauss weapons to 0.67."
+    }
+  ]
+}

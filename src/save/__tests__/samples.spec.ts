@@ -1,16 +1,19 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseSave, SaveFormatError } from '../parse'
 import { readCampaign } from '../campaign'
 import { projectDaysLeft } from '@/model/research'
 
-// samples/ is git-ignored (the person's own saves); these tests skip without it.
-const samples = resolve(__dirname, '../../../samples')
-const saveFiles = existsSync(samples) ? readdirSync(samples).filter((f) => /^save\d+$/.test(f)) : []
-const load = (f: string) => new Uint8Array(readFileSync(resolve(samples, f)))
+const saves = resolve(__dirname, '../../../fixtures/saves')
+const saveFiles = readdirSync(saves).filter((f) => /^save\d+$/.test(f))
+const load = (f: string) => new Uint8Array(readFileSync(resolve(saves, f)))
 
-describe.skipIf(saveFiles.length === 0)('sample saves', () => {
+describe('sample saves', () => {
+  it('are all there', () => {
+    expect(saveFiles).toHaveLength(9)
+  })
+
   it.each(saveFiles)('%s parses and yields a campaign', (f) => {
     const save = parseSave(load(f))
     const c = readCampaign(save)

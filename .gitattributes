@@ -1,1 +1,4 @@
 * text=auto eol=lf
+# XCOM saves are binary; their names carry no extension.
+fixtures/saves/save[0-9]* binary
+fixtures/saves/*.json text

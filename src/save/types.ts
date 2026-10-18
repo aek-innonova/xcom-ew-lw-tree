@@ -1,5 +1,5 @@
 // The parsed save, shaped exactly like xcomsave's xcom2json output so the
-// two can be compared field for field (samples/save1762.json is the oracle).
+// two can be compared field for field (fixtures/saves/save1762.json is the oracle).
 
 export interface XcomString {
   str: string

@@ -1,12 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseSave } from '../parse'
 
-// samples/ is git-ignored (the person's own saves); these tests skip without it.
-const samples = resolve(__dirname, '../../../samples')
-const oracle = resolve(samples, 'save1762.json')
-const haveOracle = existsSync(oracle)
+const saves = resolve(__dirname, '../../../fixtures/saves')
+const oracle = resolve(saves, 'save1762.json')
 
 /** Deep comparison that tolerates float formatting in the oracle's JSON. */
 function diff(a: unknown, b: unknown, path = '$'): string | undefined {
@@ -40,9 +38,9 @@ function diff(a: unknown, b: unknown, path = '$'): string | undefined {
   return a === b ? undefined : `${path}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`
 }
 
-describe.skipIf(!haveOracle)('parseSave against xcomsave output', () => {
+describe('parseSave against xcomsave output', () => {
   it('matches save1762.json property for property', () => {
-    const parsed = parseSave(new Uint8Array(readFileSync(resolve(samples, 'save1762'))))
+    const parsed = parseSave(new Uint8Array(readFileSync(resolve(saves, 'save1762'))))
     const expected = JSON.parse(readFileSync(oracle, 'utf8'))
     expect(diff(parsed, expected)).toBeUndefined()
   })

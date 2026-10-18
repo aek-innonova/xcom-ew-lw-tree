@@ -36,6 +36,7 @@ describe('parseTechBalance', () => {
   })
 })
 
+// Firaxis' file is not published: it lives in the git-ignored samples/ folder.
 const sampleIni = resolve(__dirname, '../../../samples/DefaultGameCore.ini')
 describe.skipIf(!existsSync(sampleIni))('the sample DefaultGameCore.ini', () => {
   it('covers all 75 techs and agrees with tech.json', () => {

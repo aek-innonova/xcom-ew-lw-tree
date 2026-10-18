@@ -43,8 +43,8 @@ what will it cost me" and "how long will that take with my labs".
 
 - 2026-10-18: Port xcomsave's reader to TypeScript rather than compiling
   the C++ to WebAssembly. Reading only; ~800 lines of C++ plus LZO1X
-  decompression. `samples/save1762.json` (xcomsave's own output) is the
-  oracle.
+  decompression. `fixtures/saves/save1762.json` (xcomsave's own output)
+  is the oracle.
 - 2026-10-18: Tree layout is our own, rendered as SVG: a lane per
   category, nine columns, every prerequisite strictly left of the tech
   that needs it (across lanes), lanes as few rows as that allows (15 in
@@ -63,5 +63,7 @@ what will it cost me" and "how long will that take with my labs".
   campaign summary, goals), never the files themselves.
 - 2026-10-18: Hosted as static files at `https://xcom.innonova.ch`, served
   by nginx on `www` (see `features/deploy.md`).
-- 2026-10-18: `samples/` is git-ignored (the person's own saves and
-  INI). Tests that need it skip when it is absent and say so.
+- 2026-10-18: Test saves are checked in under `fixtures/saves/` (see its
+  README). `samples/` stays git-ignored: the person's drop folder for new
+  game files, and the home of Firaxis' `DefaultGameCore.ini`, which is not
+  published. The one test that reads that INI skips without it.
