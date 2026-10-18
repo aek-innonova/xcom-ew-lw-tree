@@ -64,6 +64,15 @@ function onSearchKey(e: KeyboardEvent) {
       >
         Foundry
       </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="state.view === 'history'"
+        :class="{ on: state.view === 'history' }"
+        @click="state.view = 'history'"
+      >
+        History
+      </button>
     </div>
 
     <div class="search">
@@ -175,9 +184,11 @@ h1 span {
 .views button:first-child {
   border-radius: 4px 0 0 4px;
 }
+.views button + button {
+  border-left: none;
+}
 .views button:last-child {
   border-radius: 0 4px 4px 0;
-  border-left: none;
 }
 .views button.on {
   background: var(--accent);

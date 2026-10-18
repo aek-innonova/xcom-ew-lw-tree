@@ -81,10 +81,12 @@ describe.skipIf(!existsSync(sampleIni))('the sample DefaultGameCore.ini', () => 
 })
 
 describe('lost countries', () => {
-  it('campaign 56 lost Australia, which puts Asia\'s New Warfare out of reach', async () => {
+  it("campaign 56 lost Australia, which puts Asia's New Warfare out of reach", async () => {
     const { blockedContinents } = await import('../bonuses')
     const c = campaignOf('save1762')
     expect(c.lostCountries).toEqual([8])
-    expect(blockedContinents(c).map((x) => [x.bonus.name, x.lost])).toEqual([['New Warfare', ['Australia']]])
+    expect(blockedContinents(c).map((x) => [x.bonus.name, x.lost])).toEqual([
+      ['New Warfare', ['Australia']],
+    ])
   })
 })

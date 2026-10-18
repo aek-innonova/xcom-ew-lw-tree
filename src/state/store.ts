@@ -15,6 +15,7 @@ import {
   type FoundryProject,
 } from '@/model/foundry'
 import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
+import { peekGameNumber, snapshotOf, withSnapshot, type Snapshot } from '@/model/history'
 import { researchContext } from '@/model/research'
 import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
@@ -26,6 +27,7 @@ const SAVE_KEY = 'lwtree.save.v1'
 const GOALS_KEY = 'lwtree.goals.v1'
 const CHECKS_KEY = 'lwtree.checks.v1'
 const VIEW_KEY = 'lwtree.view.v1'
+const HISTORY_KEY = 'lwtree.history.v1'
 const FOUNDRY_GOALS_KEY = 'lwtree.foundryGoals.v1'
 const MAX_CHECKS = 100
 
@@ -50,7 +52,11 @@ interface State {
   selected: number | null
   hovered: number | null
   /** Which board is shown. */
-  view: 'research' | 'foundry'
+  view: 'research' | 'foundry' | 'history'
+  /** Snapshots of every save loaded, by campaign number. */
+  history: Record<number, Snapshot[]>
+  /** A bulk import in progress. */
+  importing: { done: number; total: number } | null
   selectedFoundry: number | null
   hoveredFoundry: number | null
   /** Foundry projects the player wants; the plan adds the research they need. */
@@ -86,7 +92,9 @@ export const state = reactive<State>({
   save: restore<LoadedSave>(SAVE_KEY),
   selected: null,
   hovered: null,
-  view: restore<'research' | 'foundry'>(VIEW_KEY) ?? 'research',
+  view: restore<'research' | 'foundry' | 'history'>(VIEW_KEY) ?? 'research',
+  history: restore<Record<number, Snapshot[]>>(HISTORY_KEY) ?? {},
+  importing: null,
   selectedFoundry: null,
   hoveredFoundry: null,
   foundryGoals: restore<number[]>(FOUNDRY_GOALS_KEY) ?? [],
@@ -102,6 +110,11 @@ watch(
 watch(
   () => state.save,
   (v) => persist(SAVE_KEY, v),
+)
+watch(
+  () => state.history,
+  (v) => persist(HISTORY_KEY, v),
+  { deep: true },
 )
 watch(
   () => state.view,
@@ -300,6 +313,7 @@ export function loadSave(fileName: string, bytes: Uint8Array, live = false): boo
   const prev = state.save?.campaign
   state.save = { fileName, campaign: next }
   recordCheck(fileName)
+  recordSnapshot(next, fileName)
   state.message = saveMessage(fileName, next, prev, live)
   return true
 }
@@ -322,6 +336,69 @@ function saveMessage(
     kind: 'info',
     text: `${live ? 'New save ' : ''}${fileName}${parts.length ? ': ' + parts.join('; ') : ' loaded'}.`,
   }
+}
+
+function recordSnapshot(c: Campaign, fileName: string) {
+  const snap = snapshotOf(c, fileName)
+  if (!snap) return
+  state.history = {
+    ...state.history,
+    [snap.game]: withSnapshot(state.history[snap.game] ?? [], snap),
+  }
+}
+
+/** The loaded campaign's history, in campaign order. */
+export const campaignHistory = computed<Snapshot[]>(() =>
+  campaign.value ? (state.history[campaign.value.gameNumber] ?? []) : [],
+)
+
+export interface SaveSource {
+  name: string
+  /** The first bytes, enough to read the campaign number. */
+  head(): Promise<Uint8Array>
+  bytes(): Promise<Uint8Array>
+}
+
+/**
+ * Adds saves to the history without changing the loaded campaign. With `game`
+ * set, only that campaign's saves are read (picked by their header). Yields to
+ * the page between saves so it stays responsive.
+ */
+export async function importSaves(sources: SaveSource[], game?: number): Promise<number> {
+  const wanted: SaveSource[] = []
+  for (const s of sources) {
+    if (game === undefined || peekGameNumber(await s.head()) === game) wanted.push(s)
+  }
+  state.importing = { done: 0, total: wanted.length }
+  let added = 0
+  const history = { ...state.history }
+  for (const s of wanted) {
+    try {
+      const c = readCampaign(parseSave(await s.bytes()))
+      const snap = snapshotOf(c, s.name)
+      if (snap) {
+        history[snap.game] = withSnapshot(history[snap.game] ?? [], snap)
+        added++
+      }
+    } catch {
+      // Not a readable save; skip it.
+    }
+    state.importing = { done: state.importing!.done + 1, total: wanted.length }
+    await new Promise((r) => setTimeout(r, 0))
+  }
+  state.history = history
+  state.importing = null
+  state.message = {
+    kind: 'info',
+    text: `Added ${added} save${added === 1 ? '' : 's'} to the history.`,
+  }
+  return added
+}
+
+export function clearHistory(game: number) {
+  const next = { ...state.history }
+  delete next[game]
+  state.history = next
 }
 
 function recordCheck(fileName: string) {

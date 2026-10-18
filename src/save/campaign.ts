@@ -35,6 +35,10 @@ export interface Campaign {
   tactical: boolean
   ironman: boolean
   date?: { year: number; month: number; day: number }
+  /** Days since the campaign began (1 March 2016), with the time of day. */
+  campaignDay?: number
+  /** Per tech id: the campaign day it was finished, or undefined. */
+  researchedOn: (number | undefined)[]
   difficulty?: number
   /** Index = tech id. Index 0 (eTech_None) is always set by the game. */
   researched: boolean[]
@@ -182,6 +186,23 @@ export function readCampaign(save: SaveFile): Campaign {
   const strategy = byClass('XGStrategy')
   const dateTime = deref(prop(byClass('XGGeoscape'), 'm_kDateTime'))
 
+  // XGDateTime actors: year, month, day and seconds into the day.
+  const START = Date.UTC(2016, 2, 1)
+  const dayOf = (dt: Checkpoint | undefined): number | undefined => {
+    const y = int(prop(dt, 'm_iYear'))
+    const m = int(prop(dt, 'm_iMonth'))
+    const d = int(prop(dt, 'm_iDay'))
+    if (y === undefined || m === undefined || d === undefined) return undefined
+    return (Date.UTC(y, m - 1, d) - START) / 86_400_000 + (float(prop(dt, 'm_fTime')) ?? 0) / 86_400
+  }
+  const times = prop(labs, 'm_arrResearchedTimes')
+  const researchedOn =
+    times?.kind === 'ArrayProperty' && 'actors' in times
+      ? times.actors.map((a) =>
+          a < 0 ? undefined : dayOf(deref({ name: '', kind: 'ObjectProperty', actor: a })),
+        )
+      : []
+
   const year = int(prop(dateTime, 'm_iYear'))
   const month = int(prop(dateTime, 'm_iMonth'))
   const day = int(prop(dateTime, 'm_iDay'))
@@ -201,6 +222,8 @@ export function readCampaign(save: SaveFile): Campaign {
       year !== undefined && month !== undefined && day !== undefined
         ? { year, month, day }
         : undefined,
+    campaignDay: dayOf(dateTime),
+    researchedOn,
     difficulty: int(prop(strategy, 'm_iDifficulty')),
     researched,
     // The game allocates m_arrProgress at twice the tech count; the tail is unused.

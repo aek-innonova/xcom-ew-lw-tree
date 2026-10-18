@@ -4,6 +4,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import CampaignBar from '@/components/CampaignBar.vue'
 import FoundryDetail from '@/components/FoundryDetail.vue'
 import FoundryTree from '@/components/FoundryTree.vue'
+import HistoryView from '@/components/HistoryView.vue'
 import PlanPanel from '@/components/PlanPanel.vue'
 import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
@@ -44,7 +45,8 @@ function onKey(e: KeyboardEvent) {
 
 const sideOpen = computed(
   () =>
-    (state.view === 'research' ? state.selected !== null : state.selectedFoundry !== null) ||
+    (state.view !== 'history' &&
+      (state.view === 'research' ? state.selected !== null : state.selectedFoundry !== null)) ||
     state.goals.length > 0 ||
     state.foundryGoals.length > 0,
 )
@@ -83,7 +85,8 @@ onBeforeUnmount(() => {
     </p>
     <main class="main">
       <TechTree v-if="state.view === 'research'" ref="tree" />
-      <FoundryTree v-else ref="foundryTree" />
+      <FoundryTree v-else-if="state.view === 'foundry'" ref="foundryTree" />
+      <HistoryView v-else />
       <aside v-if="sideOpen" class="side">
         <TechDetail v-if="state.view === 'research'" />
         <FoundryDetail v-else />

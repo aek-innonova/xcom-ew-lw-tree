@@ -6,7 +6,7 @@
 
 import { reactive } from 'vue'
 import { fileKey, isSaveName, newestSave, type FileInfo } from '@/model/live'
-import { loadSave } from './store'
+import { importSaves, loadSave } from './store'
 
 // The parts of the API TypeScript's DOM library does not describe yet.
 type Permission = 'granted' | 'denied' | 'prompt'
@@ -185,4 +185,21 @@ export async function stopWatch(): Promise<void> {
     error: null,
   })
   await stored('readwrite', (s) => s.delete(KEY)).catch(() => undefined)
+}
+
+/** Fills a campaign's history from every save of it in the watched folder. */
+export async function importCampaignFromFolder(game: number): Promise<void> {
+  if (!handle) return
+  const sources = []
+  for await (const entry of handle.values()) {
+    if (entry.kind !== 'file' || !isSaveName(entry.name) || !entry.getFile) continue
+    // Called as a method: a detached getFile loses its handle ("Illegal invocation").
+    const getFile = () => entry.getFile!()
+    sources.push({
+      name: entry.name,
+      head: async () => new Uint8Array(await (await getFile()).slice(0, 12).arrayBuffer()),
+      bytes: async () => new Uint8Array(await (await getFile()).arrayBuffer()),
+    })
+  }
+  await importSaves(sources, game)
 }
