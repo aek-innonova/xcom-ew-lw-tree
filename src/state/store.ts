@@ -16,7 +16,7 @@ import {
 } from '@/model/foundry'
 import { changesBetween, checkSave, type SaveCheck } from '@/model/live'
 import { peekGameNumber, snapshotOf, withSnapshot, type Snapshot } from '@/model/history'
-import { researchContext } from '@/model/research'
+import { BASE_CREDIT_REDUCTION, heldCredits, researchContext } from '@/model/research'
 import { planResearch, type Plan } from '@/model/plan'
 import { defaultTechs, type Tech } from '@/model/techs'
 import { readCampaign, type Campaign } from '@/save/campaign'
@@ -161,6 +161,17 @@ export const bonuses = computed(() =>
       )
     : null,
 )
+
+/** Credits the campaign holds, and what each takes off (25 % + Expertise). */
+export const credits = computed(() => {
+  const c = campaign.value
+  if (!c) return null
+  const bonus = bonuses.value ? researchBonuses(bonuses.value).creditBonus : 0
+  return {
+    held: heldCredits(techs.value, c.researched, c.credits),
+    each: BASE_CREDIT_REDUCTION + bonus,
+  }
+})
 
 /** Research speed, credits and bonuses for estimates; undefined without a save. */
 export const research = computed(() =>

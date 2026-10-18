@@ -11,6 +11,7 @@
 
 import type { Campaign } from '@/save/campaign'
 import type { ResearchBonuses } from './bonuses'
+import { creditsFromSlots } from './credits'
 import type { Tech } from './techs'
 
 export const POINTS_PER_BASE_DAY = 720
@@ -53,9 +54,17 @@ export function projectEtaDays(c: Campaign): number | undefined {
 
 export const BASE_CREDIT_REDUCTION = 0.25
 
-/** Credit names held, from researched interrogations. "All" covers every tech. */
-export function heldCredits(techs: Tech[], researched: boolean[]): Set<string> {
-  const held = new Set<string>()
+/**
+ * Credit names held: from the save's credit slots where it has them, plus any
+ * whose interrogation is researched (the Ethereal's "All" credit has no known
+ * slot). "All" covers every tech.
+ */
+export function heldCredits(
+  techs: Tech[],
+  researched: boolean[],
+  slots: number[] = [],
+): Set<string> {
+  const held = new Set<string>(creditsFromSlots(slots))
   for (const t of techs) {
     if (!researched[t.id]) continue
     for (const u of t.unlocks) {
@@ -118,7 +127,7 @@ export function researchContext(
   if (!perHour) return undefined
   return {
     perHour,
-    held: heldCredits(techs, c.researched),
+    held: heldCredits(techs, c.researched, c.credits),
     creditReduction: BASE_CREDIT_REDUCTION + bonuses.creditBonus,
     autopsyTimeReduction: bonuses.autopsyTimeReduction,
     bonuses,

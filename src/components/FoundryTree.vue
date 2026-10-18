@@ -7,6 +7,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
   foundryCategories,
+  foundryCreditReduction,
   foundryProgress,
   foundryState,
   layoutFoundry,
@@ -16,6 +17,7 @@ import { layoutTechs } from '@/model/layout'
 import { categories } from '@/model/techs'
 import {
   campaign,
+  credits,
   changedFoundryByIni,
   foundry,
   foundryReduction,
@@ -88,7 +90,11 @@ const projects = computed<ProjectView[]>(() => {
       goal: state.foundryGoals.includes(p.id),
       building: building.get(p.id) && {
         engineers: building.get(p.id)!.engineers,
-        ...foundryProgress(p, building.get(p.id)!.workLeft),
+        ...foundryProgress(
+          p,
+          building.get(p.id)!.workLeft,
+          credits.value ? foundryCreditReduction(p, credits.value.held, credits.value.each) : 0,
+        ),
       },
       label: [
         p.name,

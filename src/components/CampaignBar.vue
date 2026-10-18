@@ -12,7 +12,7 @@ import {
 } from '@/model/bonuses'
 import { pointsPerHour, projectEtaDays } from '@/model/research'
 import { campaignStats } from '@/model/stats'
-import { bonuses, campaign, state, techById, techs } from '@/state/store'
+import { bonuses, campaign, credits, state, techById, techs } from '@/state/store'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -195,6 +195,14 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
           <dd>{{ stats.satellites === 1 ? '1 country' : `${stats.satellites} countries` }}</dd>
           <dt>Countries lost</dt>
           <dd>{{ lostNames || 'none' }}</dd>
+          <dt>Research credits</dt>
+          <dd>
+            <template v-if="credits?.held.size">
+              {{ [...credits.held].sort().join(', ') }}
+              <span class="where">{{ Math.round(credits.each * 100) }}% off each</span>
+            </template>
+            <template v-else>none yet</template>
+          </dd>
           <dt>Foundry projects done</dt>
           <dd>{{ stats.foundryDone }}</dd>
         </dl>

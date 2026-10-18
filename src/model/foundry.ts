@@ -4,6 +4,7 @@
 // in a campaign.
 
 import foundryData from '../../longwar_foundry.json'
+import { covers } from './credits'
 import type { Layout, Placed } from './layout'
 import { COLUMNS } from './layout'
 
@@ -192,8 +193,8 @@ export function layoutFoundry(
  * (engineer-hours): several projects show exactly that on their first day in
  * the person's saves. The game's iHoursLeft is what is left of it.
  */
-export function foundryWork(p: FoundryProject): number {
-  return p.base_days * 24 * p.engineers
+export function foundryWork(p: FoundryProject, creditReduction = 0): number {
+  return p.base_days * 24 * p.engineers * (1 - creditReduction)
 }
 
 export interface FoundryProgress {
@@ -209,12 +210,22 @@ export interface FoundryProgress {
  * with many spare engineers, but not consistently (engineers busy on item
  * builds are probably not free for the Foundry).
  */
-export function foundryProgress(p: FoundryProject, workLeft: number): FoundryProgress {
-  const total = foundryWork(p)
+export function foundryProgress(
+  p: FoundryProject,
+  workLeft: number,
+  creditReduction = 0,
+): FoundryProgress {
+  const total = foundryWork(p, creditReduction)
   return {
     done: total > 0 ? Math.min(1, Math.max(0, 1 - workLeft / total)) : 0,
     baseDaysLeft: p.engineers > 0 ? Math.max(1, Math.ceil(workLeft / p.engineers / 24)) : 0,
   }
+}
+
+/** The fraction of a project's work its held credits take off (see credits.ts). */
+export function foundryCreditReduction(p: FoundryProject, held: Set<string>, each: number): number {
+  const n = [...held].filter((c) => covers(c, p.research_credit)).length
+  return 1 - (1 - each) ** n
 }
 
 // --- State in a campaign ----------------------------------------------------------

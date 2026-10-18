@@ -2,10 +2,13 @@
 // The panel for the selected Foundry project.
 
 import { computed } from 'vue'
-import { foundryProgress, foundryState } from '@/model/foundry'
+import { foundryCreditReduction, foundryProgress, foundryState } from '@/model/foundry'
+import { covers, creditSources } from '@/model/credits'
 import { foundryLink } from '@/model/ufopaedia'
 import {
   campaign,
+  credits,
+  techs,
   changedFoundryByIni,
   foundryById,
   foundryReduction,
@@ -36,8 +39,33 @@ const status = computed(() => {
       st
     ],
     building,
-    progress: building ? foundryProgress(p, building.workLeft) : undefined,
+    progress: building ? foundryProgress(p, building.workLeft, creditCut.value) : undefined,
   }
+})
+
+/** What the campaign's held credits take off this project's work. */
+const creditCut = computed(() => {
+  const p = project.value
+  const c = credits.value
+  return p && c ? foundryCreditReduction(p, c.held, c.each) : 0
+})
+
+/** The credits that can cover this project, where they come from, held or not. */
+const creditRows = computed(() => {
+  const p = project.value
+  if (!p?.research_credit) return []
+  const names = [p.research_credit]
+  if (p.research_credit !== 'Weapons' && p.research_credit.endsWith('Weapons'))
+    names.push('Weapons')
+  const sources = creditSources(techs.value)
+  const held = credits.value?.held
+  return names.map((name) => ({
+    name,
+    source: sources.get(name),
+    held: held
+      ? [...held].some((h) => h === name || (h === 'All' && covers(h, p.research_credit)))
+      : undefined,
+  }))
 })
 
 const techDone = (id: number) => campaign.value?.researched[id] ?? false
@@ -120,9 +148,28 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
           <div v-for="it in project.cost.items" :key="it">{{ it }}</div>
         </dd>
       </template>
-      <template v-if="project.research_credit">
+      <template v-if="creditRows.length">
         <dt>Credit</dt>
-        <dd>{{ project.research_credit }}</dd>
+        <dd class="credits">
+          <div v-for="r in creditRows" :key="r.name">
+            {{ r.name }}
+            <span class="muted">from</span>
+            <button
+              v-if="r.source"
+              type="button"
+              class="inline-link"
+              @click="showTech(r.source.id)"
+            >
+              {{ r.source.name }}
+            </button>
+            <span v-if="r.held === true" class="held">held</span>
+            <span v-else-if="r.held === false" class="not-held">not held</span>
+          </div>
+          <div v-if="creditCut" class="muted">
+            {{ Math.round(creditCut * 100) }}% less work: about
+            {{ Math.ceil(project.base_days * (1 - creditCut)) }} days at base speed
+          </div>
+        </dd>
       </template>
     </dl>
     <p v-if="foundryReduction" class="note">
@@ -202,6 +249,35 @@ h2 {
 }
 .status.available {
   border-color: var(--available);
+}
+.muted {
+  color: var(--muted);
+}
+.credits div + div {
+  margin-top: 2px;
+}
+.inline-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+.inline-link:hover {
+  text-decoration: underline;
+}
+.not-held {
+  margin-left: 6px;
+  color: var(--muted);
+}
+.held {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--done-text);
+  border: 1px solid var(--done-border);
+  border-radius: 3px;
+  padding: 0 4px;
 }
 .plan-actions {
   display: flex;

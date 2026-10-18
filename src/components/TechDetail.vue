@@ -4,9 +4,12 @@
 import { computed } from 'vue'
 import { applicableCredits, creditReductionFor, estimate, techState } from '@/model/research'
 import { foundryFor, itemUnlocks } from '@/model/unlocks'
+import { covers, creditGivenBy, creditSources } from '@/model/credits'
 import { itemLink, techLink } from '@/model/ufopaedia'
 import {
   campaign,
+  credits,
+  foundry,
   changedByIni,
   planTo,
   state,
@@ -51,7 +54,7 @@ const leadsTo = computed(() => {
 })
 
 const unlocks = computed(() => (tech.value ? itemUnlocks(tech.value) : []))
-const foundry = computed(() => (tech.value ? foundryFor(tech.value.id) : []))
+const foundryUnlocks = computed(() => (tech.value ? foundryFor(tech.value.id) : []))
 
 /** "35% off: 25% credit + 10% Expertise (Brazil)", or for two credits "58% off: Plasma Weapons and Weapons credits, 35% each". */
 const creditText = computed(() => {
@@ -73,6 +76,38 @@ const creditText = computed(() => {
   return credits.length > 1
     ? `${total}% off: ${credits.join(' and ')} credits, ${each}`
     : `${total}% off: ${parts.length > 1 ? parts.join(' + ') : '25% credit'}`
+})
+
+/**
+ * The credits that can cover this tech: its own field's, plus the Muton Elite's
+ * Weapons credit for weapon research. With a save: held or not.
+ */
+const creditRows = computed(() => {
+  const t = tech.value
+  if (!t?.research_credit) return []
+  const names = [t.research_credit]
+  if (t.research_credit !== 'Weapons' && t.research_credit.endsWith('Weapons'))
+    names.push('Weapons')
+  const sources = creditSources(techs.value)
+  const held = credits.value?.held
+  return names.map((name) => ({
+    name,
+    source: sources.get(name),
+    held: held ? held.has(name) : undefined,
+  }))
+})
+
+/** For an interrogation: the credit it gives and everything that credit covers. */
+const gives = computed(() => {
+  const t = tech.value
+  const credit = t && creditGivenBy(t)
+  if (!credit) return undefined
+  return {
+    credit,
+    techs: techs.value.filter((x) => covers(credit, x.research_credit)),
+    foundry: foundry.value.filter((p) => covers(credit, p.research_credit)),
+    each: Math.round((credits.value?.each ?? 0.25) * 100),
+  }
 })
 
 /** We Have Ways, when it shortens this tech. */
@@ -151,11 +186,19 @@ const select = (id: number) => (state.selected = id)
         <dt class="res res-items">Items</dt>
         <dd>{{ tech.cost.items }}</dd>
       </template>
-      <template v-if="tech.research_credit">
+      <template v-if="creditRows.length">
         <dt>Credit</dt>
-        <dd>
-          {{ tech.research_credit }}
-          <span v-if="status?.est?.credited" class="muted">(held: {{ creditText }})</span>
+        <dd class="credits">
+          <div v-for="r in creditRows" :key="r.name">
+            {{ r.name }}
+            <span class="muted">from</span>
+            <button v-if="r.source" type="button" class="inline-link" @click="select(r.source.id)">
+              {{ r.source.name }}
+            </button>
+            <span v-if="r.held === true" class="held">held</span>
+            <span v-else-if="r.held === false" class="not-held">not held</span>
+          </div>
+          <div v-if="status?.est?.credited" class="muted">{{ creditText }}</div>
         </dd>
       </template>
       <template v-if="status && status.progress > 0 && status.state !== 'researched'">
@@ -200,7 +243,29 @@ const select = (id: number) => (state.selected = id)
         </li>
       </ul>
     </section>
-    <section v-if="unlocks.length || foundry.length">
+    <section v-if="gives">
+      <h3>Gives the {{ gives.credit }} credit</h3>
+      <p class="gives">
+        {{ gives.each }}% off {{ gives.techs.length }} techs<template v-if="gives.foundry.length">
+          and {{ gives.foundry.length }} Foundry projects</template
+        >:
+        <template v-for="(o, i) in gives.techs" :key="o.id"
+          ><button
+            type="button"
+            class="inline-link"
+            :class="{ done: isResearched(o.id) }"
+            @click="select(o.id)"
+          >
+            {{ o.name }}</button
+          ><span v-if="i < gives.techs.length - 1 || gives.foundry.length">, </span></template
+        ><template v-for="(p, i) in gives.foundry" :key="`f${p.id}`"
+          ><button type="button" class="inline-link foundry-inline" @click="showFoundry(p.id)">
+            {{ p.name }}</button
+          ><span v-if="i < gives.foundry.length - 1">, </span></template
+        >
+      </p>
+    </section>
+    <section v-if="unlocks.length || foundryUnlocks.length">
       <h3>Unlocks</h3>
       <ul class="unlocks">
         <li v-for="u in unlocks" :key="u">
@@ -214,7 +279,7 @@ const select = (id: number) => (state.selected = id)
           >
           <template v-else>{{ u }}</template>
         </li>
-        <li v-for="f in foundry" :key="`foundry:${f.id}`" class="foundry-item">
+        <li v-for="f in foundryUnlocks" :key="`foundry:${f.id}`" class="foundry-item">
           <button type="button" class="foundry-link" @click="showFoundry(f.id)">
             {{ f.name }}
           </button>
@@ -334,6 +399,50 @@ ul {
 }
 .item-link:hover {
   color: var(--accent);
+}
+.credits div + div {
+  margin-top: 2px;
+}
+.inline-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+.inline-link:hover {
+  text-decoration: underline;
+}
+.not-held {
+  margin-left: 6px;
+  color: var(--muted);
+}
+.held {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--done-text);
+  border: 1px solid var(--done-border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.gives {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.gives .inline-link {
+  font-size: 12.5px;
+}
+.gives .inline-link.done {
+  color: var(--done-text);
+}
+.foundry-inline {
+  color: var(--foundry) !important;
+}
+.foundry-button {
+  color: var(--foundry);
 }
 .foundry-link {
   border: none;

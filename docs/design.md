@@ -69,6 +69,9 @@ what will it cost me" and "how long will that take with my labs".
 - 2026-10-18: Long War's alien counters live in reused recap statistics
   (see features/campaign-stats.md); their names are inferred and shown
   as such.
+- 2026-10-18: Held research credits are read from the save
+  (`m_arrCredits` slots, mapped in `src/model/credits.ts`); credits cut
+  Foundry work by the same rule as research (features/research-credits.md).
 - 2026-10-18: Tactical saves are read through the strategy state they
   embed (see the save-parser report).
 - 2026-10-18: What persists in localStorage is what was extracted (costs,
