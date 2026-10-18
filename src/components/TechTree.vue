@@ -36,6 +36,8 @@ interface NodeView {
   items: string | null
   progress: number
   changed: boolean
+  /** Everything the box shows, in words, for screen readers (no tooltips: they got in the way). */
+  label: string
   /** Position in the research plan, if the tech is in it. */
   step?: number
   goal: boolean
@@ -81,6 +83,19 @@ const nodes = computed<NodeView[]>(() =>
       changed: changedByIni.value.has(t.id),
       step: planSteps.value.get(t.id),
       goal: state.goals.includes(t.id),
+      label: [
+        t.name,
+        st,
+        daysTitle,
+        t.cost.alloys && `${t.cost.alloys} alloys`,
+        t.cost.elerium && `${t.cost.elerium} elerium`,
+        t.cost.weapon_fragments && `${t.cost.weapon_fragments} weapon fragments`,
+        t.cost.items,
+        changedByIni.value.has(t.id) && 'cost from your DefaultGameCore.ini',
+        planSteps.value.has(t.id) && `step ${planSteps.value.get(t.id)} of the plan`,
+      ]
+        .filter(Boolean)
+        .join(', '),
     }
   }),
 )
@@ -490,12 +505,11 @@ const laneLabelX = LABEL_W - 14
           :data-tech="n.id"
           tabindex="0"
           role="button"
-          :aria-label="n.name"
+          :aria-label="n.label"
           @mouseenter="state.hovered = n.id"
           @mouseleave="state.hovered = null"
           @keydown="onKey($event, n.id)"
         >
-          <title>{{ n.name }}</title>
           <rect
             v-if="n.step || n.goal"
             class="planned"
@@ -521,23 +535,12 @@ const laneLabelX = LABEL_W - 14
                 >{{ n.name }}
               </div>
               <div class="cost">
-                <span class="days" :title="n.daysTitle">{{ n.days }}</span>
-                <span v-if="n.alloys" class="res res-alloys" title="Alien alloys">{{
-                  n.alloys
-                }}</span>
-                <span v-if="n.elerium" class="res res-elerium" title="Elerium">{{
-                  n.elerium
-                }}</span>
-                <span v-if="n.fragments" class="res res-fragments" title="Weapon fragments">{{
-                  n.fragments
-                }}</span>
-                <span v-if="n.items" class="res res-items" :title="n.items">{{ n.items }}</span>
-                <span
-                  v-if="n.changed"
-                  class="changed"
-                  title="Your DefaultGameCore.ini changes this cost"
-                  >ini</span
-                >
+                <span class="days">{{ n.days }}</span>
+                <span v-if="n.alloys" class="res res-alloys">{{ n.alloys }}</span>
+                <span v-if="n.elerium" class="res res-elerium">{{ n.elerium }}</span>
+                <span v-if="n.fragments" class="res res-fragments">{{ n.fragments }}</span>
+                <span v-if="n.items" class="res res-items">{{ n.items }}</span>
+                <span v-if="n.changed" class="changed">ini</span>
               </div>
             </div>
           </foreignObject>

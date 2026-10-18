@@ -184,3 +184,21 @@ researched, researching and available techs they never showed. They
 now come after the state rules, so hovering or selecting any tech shows
 the accent border. Checked in Chromium on a researched tech (top lane)
 and an available one (bottom lane).
+
+## Response (2026-10-18, round 6)
+
+The person: drop the title/tooltip text on the tree; it gets in the way
+and repeats what is shown. If accessibility needs it, use an aria
+attribute instead.
+
+## Report (2026-10-18, round 7)
+
+No native tooltips on the techs any more (the SVG `<title>` and the
+`title` attributes on days, resources, items and the "ini" badge are
+gone). Each tech's `aria-label` now carries everything its box shows, in
+words: name, state, the days figure, each resource, items, the INI
+badge, and its plan step, e.g. "Plasma Weapons, researching, 2 days left
+(the game's own figure), 20 alloys, 60 elerium, 175 weapon fragments,
+5 Alien Carbines". The icon-only buttons (zoom, close, clear) keep their
+titles, since they have no text otherwise. Checked in Chromium: no title
+elements or attributes left in the tree.
