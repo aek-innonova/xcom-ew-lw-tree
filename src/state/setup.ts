@@ -31,6 +31,23 @@ export interface Managed {
 }
 export const emptyManaged = (): Managed => ({ originals: {}, written: {}, created: [] })
 
+/**
+ * The bookkeeping lives beside the backups, in the game folder: whichever
+ * way the page reaches the install (folder access or the helper, any
+ * browser), it finds the same record.
+ */
+export const MANIFEST = `${BACKUP}/manifest.json`
+
+export async function loadManaged(files: GameFiles): Promise<Managed> {
+  const b = await files.read(MANIFEST)
+  if (!b) return emptyManaged()
+  try {
+    return { ...emptyManaged(), ...JSON.parse(new TextDecoder().decode(b)) }
+  } catch {
+    return emptyManaged()
+  }
+}
+
 export interface WantedScript {
   /** Shown in messages: "Lightning Reflexes (LightningReflexes.txt)". */
   label: string
@@ -76,12 +93,16 @@ async function original(
   const current = await files.read(path)
   if (!current) return { current, base: null, fresh: false }
   const known = managed.originals[path]
+  const backup = await files.read(`${BACKUP}/${path}`)
   if (known) {
     const sha = await sha256(current)
     if (sha === managed.written[path] || sha === known) {
-      const backup = await files.read(`${BACKUP}/${path}`)
       if (backup && (await sha256(backup)) === known) return { current, base: backup, fresh: false }
     }
+  } else if (backup) {
+    // A backup without a record (the record was lost): the backup is the
+    // safer original; it is never overwritten on a guess.
+    return { current, base: backup, fresh: false }
   }
   return { current, base: current, fresh: true }
 }
@@ -104,7 +125,7 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
     fresh: boolean,
     data: Uint8Array,
   ) {
-    if (fresh) next.originals[path] = await sha256(base)
+    if (fresh || !next.originals[path]) next.originals[path] = await sha256(base)
     if (same(data, current)) return
     next.written[path] = await sha256(data)
     changes.push({
@@ -123,6 +144,9 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
       if (c.name === 'UPK_FILE') upks.add(lower(c.value.trim().split('\n')[0]!.trim()))
   for (const p of Object.keys(managed.originals))
     if (/^cookedpcconsole\/[^/]+\.upk$/i.test(p)) upks.add(lower(p.split('/')[1]!))
+  // And whatever has a backup, record or not.
+  for (const f of await files.list(`${BACKUP}/CookedPCConsole`))
+    if (/\.upk$/i.test(f)) upks.add(lower(f))
 
   const bases = new Map<
     string,
@@ -208,7 +232,8 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
         }
       }
     }
-  for (const path of Object.keys(managed.originals))
+  const backedUpConfig = (await files.list(`${BACKUP}/Config`)).map((f) => `Config/${f}`)
+  for (const path of [...Object.keys(managed.originals), ...backedUpConfig])
     if (path.startsWith('Config/')) configEdits.set(path, configEdits.get(path) ?? [])
   for (const [path, edits] of configEdits) {
     const o = await original(files, path, managed)
@@ -252,5 +277,7 @@ export async function applyPlan(files: GameFiles, plan: Plan): Promise<string[]>
     if (!back || !same(back, c.data!)) throw new Error(`${c.path} did not read back as written`)
     log.push(`${c.action === 'create' ? 'Added' : 'Wrote'} ${c.path}`)
   }
+  if (plan.changes.length)
+    await files.write(MANIFEST, new TextEncoder().encode(JSON.stringify(plan.managed, null, 1)))
   return log
 }

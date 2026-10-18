@@ -3,7 +3,15 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { GameFiles } from '../gamefiles'
-import { BACKUP, applyPlan, emptyManaged, planSetup, type Wanted } from '../setup'
+import {
+  BACKUP,
+  MANIFEST,
+  applyPlan,
+  emptyManaged,
+  loadManaged,
+  planSetup,
+  type Wanted,
+} from '../setup'
 
 const root = resolve(import.meta.dirname, '../../..')
 const lwr = resolve(root, 'samples/lwr/LW Rebalance v2.06.00')
@@ -125,6 +133,28 @@ describe.skipIf(!existsSync(lwr) || !existsSync(mods))(
       ])
       await applyPlan(files, out)
       expect(sha(files.map.get('CookedPCConsole/XComGame.upk')!)).toBe(original)
+    })
+
+    it('keeps its record in the game folder, and never overwrites a backup when the record is lost', async () => {
+      const files = start()
+      const original = sha(files.map.get('CookedPCConsole/XComGame.upk')!)
+      const wanted = { scripts: [lightning], files: [], settings: [] }
+      const first = await planSetup(files, wanted, emptyManaged())
+      await applyPlan(files, first)
+      expect(await loadManaged(files)).toEqual(first.managed)
+      // The record goes missing; the modded file is not taken for the original.
+      files.map.delete(MANIFEST)
+      const plan = await planSetup(
+        files,
+        { scripts: [], files: [], settings: [] },
+        await loadManaged(files),
+      )
+      expect(plan.changes.map((c) => [c.path, !!c.backup])).toEqual([
+        ['CookedPCConsole/XComGame.upk', false],
+      ])
+      await applyPlan(files, plan)
+      expect(sha(files.map.get('CookedPCConsole/XComGame.upk')!)).toBe(original)
+      expect(sha(files.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk`)!)).toBe(original)
     })
 
     it('takes a reinstalled file as the new original', async () => {

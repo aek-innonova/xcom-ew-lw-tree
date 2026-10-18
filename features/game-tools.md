@@ -1,6 +1,6 @@
 ---
 title: "Tools: the game install, mods and settings"
-status: in-progress
+status: review
 priority: 3
 dependsOn: [lw-rebalanced]
 ---
@@ -233,3 +233,64 @@ Not done yet:
   browsers.
 - A run against the person's real install. Applying on a copy of the game
   folder first is the cautious way.
+
+## Report (2026-10-18): phase 5, the helper program
+
+On staging. The helper's release is not published yet; the Tools page
+links where it will be.
+
+**`helper/`** is one Go program, standard library only.
+- It serves the game's XComGame folder on `127.0.0.1:47801`: hello, info,
+  list, read, write (temporary file, then renamed into place), remove.
+- It answers only pages from xcom.innonova.ch and xcom.aek.dk (`-origin`
+  adds a dev server), and only with a pairing code it prints and keeps
+  between runs.
+- Paths outside the folder are refused.
+- It finds a Steam install by itself: the default library, libraries in
+  `libraryfolders.vdf`, or the folder it was started from. `-dir` points
+  it elsewhere.
+- Preflights answer Chrome's private-network check.
+- `helper/README.md` says what it does and does not do.
+- `.github/workflows/helper.yml` builds Windows, Linux and macOS binaries
+  on a `helper-v*` tag. It signs SHA256SUMS keyless with cosign as the
+  site's release does, and publishes a release not marked latest, so the
+  site's `v*` releases stay "latest".
+
+**The page** connects with the pairing code ("Use the helper program"),
+remembers it, and reconnects by itself on later visits while the helper
+runs. All of Tools works the same through it: `GameFiles` behind both
+routes. The staging vhost's CSP allows `http://127.0.0.1:47801` (installed
+on www; `deploy/nginx-xcom.conf`); nothing can leave the machine.
+
+**Found on the way, and fixed**: the bookkeeping (each file's original and
+what was last written) lived in the browser. Reaching the same install
+another way (the helper, another browser) would have taken the modded file
+for the original and overwritten the real backup. It now lives in
+`lwtree-backup/manifest.json` beside the backups, and a backup without a
+record is taken as the original, never overwritten on a guess (tested).
+
+Verified:
+- Go tests: origin and code checks, paths outside the folder, atomic write,
+  case-insensitive names, finding the game under any of its folders.
+- A browser test that builds and runs the helper on a temporary install:
+  wrong code refused, install read, a setting written to disk with its
+  backup and manifest, reconnect after a reload, put back. Passes in
+  Chromium, Firefox and WebKit, so Firefox and Safari players can manage
+  mods this way.
+- The Windows build on the Windows VM: finds the folder under a
+  "Program Files (x86)" path, reads, replaces a file in place with no
+  temporary file left, refuses `..\` (400) and another origin (403).
+- The real HTTPS staging page against a local helper in Chromium 156.
+  Chrome blocks loopback until the site is allowed to reach the local
+  network; once allowed, it connects. A real Chrome asks the player; the
+  page's message says to allow it.
+
+Open, for the person:
+- **Publishing the helper**: pushing a `helper-v1.0.0` tag publishes a
+  public download. Not done without the go-ahead. The binaries are not
+  code-signed, so Windows SmartScreen will warn (the README explains).
+  Signing would need a certificate.
+- **Production**: xcom.aek.dk's CSP (in the estate's site config) would
+  need the same `connect-src` addition. Held, with everything else.
+- **A first real run** on the person's install, ideally on a copy of the
+  game folder first.

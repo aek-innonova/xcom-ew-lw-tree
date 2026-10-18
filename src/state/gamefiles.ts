@@ -109,3 +109,68 @@ export async function sha256(data: Uint8Array): Promise<string> {
   const d = await crypto.subtle.digest('SHA-256', data as Uint8Array<ArrayBuffer>)
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+// --- Through the helper program (helper/main.go) -----------------------------
+
+/** Where the helper listens (it serves 127.0.0.1 only). */
+export const HELPER = 'http://127.0.0.1:47801'
+
+/** Whether the helper is running (the one call that needs no pairing code). */
+export async function helperRunning(base = HELPER): Promise<boolean> {
+  try {
+    const r = await fetch(`${base}/v1/hello`, { signal: AbortSignal.timeout(1500) })
+    return r.ok && (await r.json()).app === 'lwtree-helper'
+  } catch {
+    return false
+  }
+}
+
+export class WrongCode extends Error {}
+
+/** The helper's game folder, if the code is right. */
+export async function helperInfo(
+  code: string,
+  base = HELPER,
+): Promise<{ root: string; name: string }> {
+  const r = await fetch(`${base}/v1/info`, { headers: { 'X-Lwtree-Code': code } })
+  if (r.status === 401) throw new WrongCode('wrong pairing code')
+  if (!r.ok) throw new Error(`the helper said ${r.status}`)
+  return r.json()
+}
+
+/** The game's files through the helper. */
+export function helperFiles(code: string, base = HELPER): GameFiles {
+  const call = async (method: string, what: string, path: string, body?: Uint8Array) => {
+    const r = await fetch(`${base}/v1/${what}?path=${encodeURIComponent(path)}`, {
+      method,
+      headers: { 'X-Lwtree-Code': code },
+      body: body as BodyInit | undefined,
+    })
+    if (r.status === 404) return null
+    if (!r.ok) throw new Error(`${path}: ${(await r.text()).trim() || r.status}`)
+    return r
+  }
+  return {
+    async read(path) {
+      const r = await call('GET', 'file', path)
+      return r ? new Uint8Array(await r.arrayBuffer()) : null
+    },
+    async file(path) {
+      const bytes = await this.read(path)
+      return bytes ? new File([bytes as BlobPart], path.split('/').pop()!) : null
+    },
+    async list(path) {
+      const r = await call('GET', 'list', path)
+      return r ? r.json() : []
+    },
+    async write(path, data) {
+      await call('PUT', 'file', path, data)
+    },
+    async remove(path) {
+      await call('DELETE', 'file', path)
+    },
+    async canWrite() {
+      return true
+    },
+  }
+}

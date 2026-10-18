@@ -15,6 +15,7 @@ import {
   cancelPlan,
   checkKey,
   chooseGameFolder,
+  connectHelper,
   forgetGameFolder,
   makePlan,
   readPackage,
@@ -34,6 +35,10 @@ import type { IniEntry } from '@/model/inifile'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
+const pairing = ref('')
+/** The helper's release (helper/README.md; tags helper-v…, not the site's v… releases). */
+const HELPER_VERSION = '1.0.0'
+const HELPER_DOWNLOAD = `https://github.com/aek-innonova/xcom-ew-lw-tree/releases/tag/helper-v${HELPER_VERSION}`
 const folderInput = ref<HTMLInputElement | null>(null)
 const added = ref<string | null>(null)
 
@@ -196,7 +201,9 @@ const iniNote = computed(() =>
     ? `${tools.install.ini} loaded: the site's costs are this install's.`
     : tools.install?.kind === 'ew'
       ? ''
-      : 'No DefaultGameCore.ini found in Config.',
+      : tools.iniEntries.length
+        ? 'DefaultGameCore.ini has no research costs (TechBalance lines) for the site to use.'
+        : 'No DefaultGameCore.ini found in Config.',
 )
 </script>
 
@@ -213,25 +220,58 @@ const iniNote = computed(() =>
 
     <section class="block" aria-labelledby="folder-h">
       <h3 id="folder-h">Game folder</h3>
-      <template v-if="!tools.supported">
-        <p class="muted">
-          Reading the game folder needs Chrome or Edge: Firefox and Safari do not let a page open a
-          folder. The mod library below works here too.
+      <template v-if="tools.status === 'off'">
+        <template v-if="tools.supported">
+          <p>
+            <button type="button" class="primary" @click="chooseGameFolder">
+              Pick the game folder
+            </button>
+          </p>
+          <p class="muted small">
+            The game's folder in your Steam library, such as
+            <code>I:\Steam\steamapps\common\XCom-Enemy-Unknown</code> (its <code>XEW</code> or
+            <code>XComGame</code> folder works too). Chrome will not open anything under
+            <code>Program Files</code>, where Steam puts games unless told otherwise: for a game
+            there, use the helper program below.
+          </p>
+        </template>
+        <p v-else class="muted">
+          This browser cannot open a folder (Chrome and Edge can); the helper program below does it
+          for the page. The mod library works here either way.
         </p>
-      </template>
-      <template v-else-if="tools.status === 'off'">
-        <p>
-          <button type="button" class="primary" @click="chooseGameFolder">
-            Pick the game folder
-          </button>
-        </p>
-        <p class="muted small">
-          The game's folder in your Steam library, such as
-          <code>I:\Steam\steamapps\common\XCom-Enemy-Unknown</code> (its <code>XEW</code> or
-          <code>XComGame</code> folder works too). Chrome will not open anything under
-          <code>Program Files</code>, where Steam puts games unless told otherwise; a game there is
-          out of the page's reach for now.
-        </p>
+        <div class="helper" role="group" aria-label="Helper program">
+          <p>
+            <strong>Or use the helper program</strong>: a small program you run on the computer with
+            the game, which lets this page read and write the game's files, wherever it is installed
+            and in any browser.
+            <a :href="HELPER_DOWNLOAD" target="_blank" rel="noopener">Download it</a> (Windows),
+            start it, and enter the pairing code it shows.
+          </p>
+          <p>
+            <input
+              v-model="pairing"
+              class="code"
+              placeholder="ABCD-EFGH"
+              aria-label="Pairing code"
+              @keydown.enter="connectHelper(pairing)"
+            />
+            <button type="button" :disabled="!pairing.trim()" @click="connectHelper(pairing)">
+              Use the helper program
+            </button>
+            <span v-if="tools.helper === 'not-running'" class="error small"
+              >The page cannot reach the helper. Is it running? If the browser asked whether this
+              site may reach apps or devices on this computer, allow it, and try again.</span
+            >
+            <span v-else-if="tools.helper === 'wrong-code'" class="error small"
+              >That is not the code the helper shows.</span
+            >
+          </p>
+          <p class="muted small">
+            It answers only this site, only on this computer, and only to a page with its code; it
+            changes nothing by itself. It finds a Steam install by itself, or start it with
+            <code>-dir "path to the game"</code>.
+          </p>
+        </div>
       </template>
       <template v-else-if="tools.status === 'needs-permission'">
         <p>
@@ -250,6 +290,7 @@ const iniNote = computed(() =>
           <dt>Folder</dt>
           <dd>
             <code>{{ tools.install.path }}</code>
+            <span v-if="tools.via === 'helper'" class="muted"> · through the helper program</span>
           </dd>
           <dt>Installed</dt>
           <dd>
@@ -263,8 +304,12 @@ const iniNote = computed(() =>
           <dd v-if="iniNote">{{ iniNote }}</dd>
         </dl>
         <p>
-          <button type="button" @click="chooseGameFolder">Pick another folder</button>
-          <button type="button" class="link" @click="forgetGameFolder">Forget it</button>
+          <button v-if="tools.supported" type="button" @click="chooseGameFolder">
+            Pick another folder
+          </button>
+          <button type="button" class="link" @click="forgetGameFolder">
+            {{ tools.via === 'helper' ? 'Disconnect' : 'Forget it' }}
+          </button>
         </p>
       </template>
       <p v-if="tools.error" class="error">{{ tools.error }}</p>
@@ -686,6 +731,24 @@ h4 {
 }
 .present {
   color: var(--done-text);
+}
+.helper {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-left: 3px solid var(--node-border);
+  background: var(--panel);
+}
+.code {
+  width: 110px;
+  background: var(--node);
+  color: var(--text);
+  border: 1px solid var(--node-border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  margin-right: 6px;
 }
 .want {
   display: inline-flex;

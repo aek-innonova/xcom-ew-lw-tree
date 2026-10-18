@@ -33,6 +33,8 @@ allow it).
   in one go (after a reinstall too): a plan first, the originals kept in
   `lwtree-backup/`. The patching is our own implementation of PatcherGUI's
   format, checked byte for byte against PatchUPK (`features/game-tools.md`).
+  For an install under Program Files, or in Firefox and Safari, a small
+  helper program (`helper/`, Go) reaches the files for the page.
 - **Planner:** pick techs or Foundry projects; get the research still needed,
   in order, with time and costs.
 - **Live:** in Chromium browsers, point the page at your SaveData folder

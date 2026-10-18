@@ -12,12 +12,21 @@ import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inif
 import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
-import { folderFiles, type Dir, type GameFiles } from './gamefiles'
+import {
+  WrongCode,
+  folderFiles,
+  helperFiles,
+  helperInfo,
+  helperRunning,
+  type Dir,
+  type GameFiles,
+} from './gamefiles'
 import { stored } from './idb'
 import {
   GAME_INI,
   applyPlan,
   emptyManaged,
+  loadManaged,
   planSetup,
   type Managed,
   type Plan,
@@ -84,6 +93,10 @@ export interface ScriptCheck {
 export const tools = reactive({
   supported: typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function',
   status: 'off' as 'off' | 'needs-permission' | 'reading' | 'ready',
+  /** How the page reaches the game: the browser's folder access, or the helper program. */
+  via: null as 'folder' | 'helper' | null,
+  /** The helper: not tried, not running, the code was wrong. */
+  helper: 'off' as 'off' | 'not-running' | 'wrong-code' | 'connected',
   folder: null as string | null,
   error: null as string | null,
   install: null as Install | null,
@@ -144,24 +157,33 @@ export function installKind(cooked: string[]): InstallKind {
   return 'ew'
 }
 
+const HELPER_KEY = 'lwtree.helper.v1'
+let helperPath = ''
+
 /** Reads what is installed, switches the site to that version and loads its INI. */
 async function readInstall(): Promise<void> {
-  if (!handle) return
+  if (!handle && tools.via !== 'helper') return
   tools.status = 'reading'
   tools.error = null
   tools.packages = {}
   tools.checks = {}
   current = new Map()
   try {
-    const found = await findGameDir(handle)
-    if (!found) {
-      tools.install = null
-      files = null
-      tools.status = 'ready'
-      tools.error = `No game files (XComGame with CookedPCConsole and Config) in ${handle.name}. Pick the game's folder in your Steam library.`
-      return
+    let found: { path: string }
+    if (tools.via === 'helper') found = { path: helperPath }
+    else {
+      const dir = await findGameDir(handle!)
+      if (!dir) {
+        tools.install = null
+        files = null
+        tools.status = 'ready'
+        tools.error = `No game files (XComGame with CookedPCConsole and Config) in ${handle!.name}. Pick the game's folder in your Steam library.`
+        return
+      }
+      files = folderFiles(dir.dir)
+      found = dir
     }
-    files = folderFiles(found.dir)
+    if (!files) return
     const cooked = await files.list('CookedPCConsole')
     const kind = installKind(cooked)
     let ini: string | null = null
@@ -175,16 +197,39 @@ async function readInstall(): Promise<void> {
       }
     }
     tools.install = { kind, path: found.path, ini, cooked }
-    managed =
-      (await stored<Managed | undefined>('state', 'readonly', (s) =>
-        s.get(`managed:${found.path}`),
-      ).catch(() => undefined)) ?? emptyManaged()
+    managed = await loadManaged(files)
     tools.status = 'ready'
     void checkMods()
   } catch (e) {
-    // Permission withdrawn, or the folder went away.
+    // Permission withdrawn, the folder went away, or the helper was closed.
     tools.error = (e as Error).message
-    tools.status = 'needs-permission'
+    tools.status = tools.via === 'helper' ? 'off' : 'needs-permission'
+    if (tools.via === 'helper') tools.helper = 'not-running'
+  }
+}
+
+/**
+ * Connects through the helper program with its pairing code (kept for next
+ * time, so the page reconnects by itself while the helper runs).
+ */
+export async function connectHelper(code: string): Promise<void> {
+  const c = code.trim().toUpperCase()
+  if (!(await helperRunning())) {
+    tools.helper = 'not-running'
+    return
+  }
+  try {
+    const info = await helperInfo(c)
+    helperPath = info.root.replace(/\\/g, '/')
+    files = helperFiles(c)
+    handle = null
+    tools.via = 'helper'
+    tools.helper = 'connected'
+    tools.folder = info.name
+    localStorage.setItem(HELPER_KEY, c)
+    await readInstall()
+  } catch (e) {
+    tools.helper = e instanceof WrongCode ? 'wrong-code' : 'not-running'
   }
 }
 
@@ -222,6 +267,7 @@ export async function chooseGameFolder(): Promise<void> {
     return // cancelled
   }
   handle = dir
+  tools.via = 'folder'
   tools.folder = dir.name
   await stored('handles', 'readwrite', (s) => s.put(dir, KEY)).catch(() => undefined)
   await readInstall()
@@ -241,7 +287,10 @@ export async function forgetGameFolder(): Promise<void> {
   handle = null
   files = null
   current = new Map()
+  localStorage.removeItem(HELPER_KEY)
   Object.assign(tools, {
+    via: null,
+    helper: 'off',
     status: 'off',
     folder: null,
     error: null,
@@ -261,12 +310,19 @@ export async function restoreTools(): Promise<void> {
     (await stored<IniChange[] | undefined>('state', 'readonly', (s) => s.get('settings')).catch(
       () => undefined,
     )) ?? []
+  // The helper first: if its code is known and it runs, it is the way in.
+  const code = localStorage.getItem(HELPER_KEY)
+  if (code && (await helperRunning())) {
+    await connectHelper(code)
+    if (tools.helper === 'connected') return
+  }
   if (!tools.supported) return
   const dir = await stored<Dir | undefined>('handles', 'readonly', (s) => s.get(KEY)).catch(
     () => undefined,
   )
   if (!dir) return
   handle = dir
+  tools.via = 'folder'
   tools.folder = dir.name
   const p = await dir.queryPermission({ mode: 'read' }).catch(() => 'denied' as Permission)
   if (p === 'granted') await readInstall()
@@ -542,9 +598,6 @@ export async function applyPlanNow(): Promise<void> {
   try {
     tools.log = await applyPlan(files, plan)
     managed = plan.managed
-    await stored('state', 'readwrite', (s) =>
-      s.put(JSON.parse(JSON.stringify(managed)), `managed:${tools.install!.path}`),
-    )
     tools.plan = null
   } catch (e) {
     tools.error = `Stopped: ${(e as Error).message}. Your originals are in lwtree-backup/.`

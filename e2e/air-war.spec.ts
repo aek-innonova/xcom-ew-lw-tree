@@ -56,8 +56,14 @@ test('air war in LWR: a squadron flies together, with a difficulty and a fight',
   await page.getByRole('button', { name: '+ Another jet' }).click()
   // A third jet stays home until a pilot has 8 kills.
   await expect(page.getByText('Stays home: the squadron is 2 jets')).toBeVisible()
-  await page.locator('.leg').first().getByLabel('kills').fill('8')
-  await expect(page.getByRole('heading', { name: /Squadron: up to 3 jets/ })).toBeVisible()
+  // Firefox under Playwright now and then drops the input event of a number
+  // field's fill (the field reads 0 again); fill until the page has it.
+  await expect(async () => {
+    await page.locator('.leg').first().getByLabel('kills').fill('8')
+    await expect(page.getByRole('heading', { name: /Squadron: up to 3 jets/ })).toBeVisible({
+      timeout: 1000,
+    })
+  }).toPass()
   await expect(page.getByText(/Stays home/)).toHaveCount(0)
 
   await page.getByRole('combobox', { name: 'Difficulty' }).selectOption({ label: 'Impossible' })
