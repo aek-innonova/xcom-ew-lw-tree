@@ -8,14 +8,7 @@ import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'elect
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import {
-  findGame,
-  gameDirUnder,
-  listInside,
-  readInside,
-  removeInside,
-  writeInside,
-} from './game'
+import { findGame, gameDirUnder, listInside, readInside, removeInside, writeInside } from './game'
 
 const SCHEME = 'app'
 const HOST = 'lwtree'
@@ -28,7 +21,9 @@ const CSP =
 
 // For tests: their own settings, and a game folder given on the command line.
 if (process.env.LWTREE_USER_DATA) app.setPath('userData', process.env.LWTREE_USER_DATA)
-const argGameDir = process.argv.find((a) => a.startsWith('--game-dir='))?.slice('--game-dir='.length)
+const argGameDir = process.argv
+  .find((a) => a.startsWith('--game-dir='))
+  ?.slice('--game-dir='.length)
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -57,7 +52,9 @@ async function saveSettings() {
   await fs.writeFile(settingsFile(), JSON.stringify(settings, null, 1))
 }
 
+/** The game's own save folder (LWTREE_SAVES stands in for it in tests). */
 const defaultSaves = () =>
+  process.env.LWTREE_SAVES ??
   path.join(app.getPath('documents'), 'My Games', 'XCOM - Enemy Within', 'XComGame', 'SaveData')
 
 // --- The bridge ----------------------------------------------------------------
@@ -155,8 +152,14 @@ function bridge(win: BrowserWindow) {
     return settings.savesDir
   })
   handle('saves:default', async () => {
-    const dir = process.env.LWTREE_SAVES ?? defaultSaves()
-    if (!(await fs.stat(dir).then((s) => s.isDirectory()).catch(() => false))) return null
+    const dir = defaultSaves()
+    if (
+      !(await fs
+        .stat(dir)
+        .then((s) => s.isDirectory())
+        .catch(() => false))
+    )
+      return null
     settings.savesDir = dir
     await saveSettings()
     return dir
@@ -164,6 +167,32 @@ function bridge(win: BrowserWindow) {
   handle('saves:forget', async () => {
     delete settings.savesDir
     await saveSettings()
+  })
+  // Open one file through the app's own dialog, starting where it belongs (a
+  // page's file input always opens where the last dialog was).
+  handle('file:open', async (kind) => {
+    const k = str(kind)
+    const defaultPath =
+      k === 'save'
+        ? (settings.savesDir ?? defaultSaves())
+        : settings.gameRoot
+          ? path.join(settings.gameRoot, 'Config')
+          : undefined
+    const r = await dialog.showOpenDialog(win, {
+      title: k === 'save' ? 'A save' : 'DefaultGameCore.ini',
+      properties: ['openFile'],
+      defaultPath,
+      filters:
+        k === 'ini'
+          ? [
+              { name: 'INI', extensions: ['ini'] },
+              { name: 'All files', extensions: ['*'] },
+            ]
+          : [],
+    })
+    const file = r.filePaths[0]
+    if (r.canceled || !file) return null
+    return { name: path.basename(file), data: new Uint8Array(await fs.readFile(file)) }
   })
   handle('saves:list', () => listInside(needSaves(), ''))
   handle('saves:read', (name, start, end) =>
@@ -179,7 +208,10 @@ async function serveSite(request: Request): Promise<Response> {
   const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html'
   const file = path.join(SITE, rel)
   if (path.relative(SITE, file).startsWith('..')) return new Response('not found', { status: 404 })
-  const found = await fs.stat(file).then((s) => s.isFile()).catch(() => false)
+  const found = await fs
+    .stat(file)
+    .then((s) => s.isFile())
+    .catch(() => false)
   const res = await net.fetch(pathToFileURL(found ? file : path.join(SITE, 'index.html')).href)
   const headers = new Headers(res.headers)
   headers.set('Content-Security-Policy', CSP)

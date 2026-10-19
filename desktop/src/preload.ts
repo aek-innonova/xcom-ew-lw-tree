@@ -9,6 +9,7 @@ const call = (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel
 contextBridge.exposeInMainWorld('lwtreeDesktop', {
   info: () => call('app:info'),
   openExternal: (url: string) => call('app:open', url),
+  openFile: (kind: 'save' | 'ini') => call('file:open', kind),
   game: {
     current: () => call('game:current'),
     find: () => call('game:find'),

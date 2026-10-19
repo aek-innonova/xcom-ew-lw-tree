@@ -17,6 +17,8 @@ export interface SaveEntry {
 export interface DesktopApi {
   info(): Promise<{ version: string; platform: string }>
   openExternal(url: string): Promise<void>
+  /** The app's file dialog, starting in the save folder or the game's Config. */
+  openFile(kind: 'save' | 'ini'): Promise<{ name: string; data: Uint8Array } | null>
   game: {
     current(): Promise<DesktopGame | null>
     find(): Promise<{ game: DesktopGame | null; looked: string[] }>

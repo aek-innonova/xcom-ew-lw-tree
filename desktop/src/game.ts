@@ -119,7 +119,10 @@ export async function findGame(): Promise<Found | null> {
   const seen = new Set<string>()
   for (const steam of steams) {
     const libs: string[] = []
-    for (const f of [path.join('steamapps', 'libraryfolders.vdf'), path.join('config', 'libraryfolders.vdf')]) {
+    for (const f of [
+      path.join('steamapps', 'libraryfolders.vdf'),
+      path.join('config', 'libraryfolders.vdf'),
+    ]) {
       const text = await within(LOOK_LIMIT_MS, fs.readFile(path.join(steam, f), 'utf8'), '')
       libs.push(...librariesWithApp(text, STEAM_APP))
     }

@@ -123,3 +123,48 @@ test('the website has no Tools', async () => {
   await expect(web.getByRole('tab', { name: 'Research' })).toBeVisible()
   await expect(web.getByRole('button', { name: 'Tools' })).toHaveCount(0)
 })
+
+test('Load save opens the app’s dialog in the save folder, Load INI in the game’s Config', async () => {
+  const { work, steam, game, saves } = makeGame()
+  app = await electron.launch({
+    executablePath: electronBin,
+    args: [join(root, 'desktop'), `--game-dir=${steam}`],
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: '',
+      LWTREE_SITE: join(root, 'dist'),
+      LWTREE_USER_DATA: join(work, 'userdata'),
+      LWTREE_SAVES: saves,
+    },
+  })
+  const page = await app.firstWindow()
+  await page.evaluate(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
+  await page.reload()
+  await page.getByRole('button', { name: 'Tools' }).click() // finds the game
+  await expect(page.locator('.facts')).toContainText(game)
+  await page.getByRole('button', { name: 'Watch save folder' }).click() // sets the save folder
+  await expect(page.locator('.campaign')).toBeVisible()
+
+  // The native dialog, replaced: it records where it was to open and picks a file.
+  const answer = async (file: string) =>
+    app!.evaluate(({ dialog }, file) => {
+      const g = globalThis as { asked?: string[] }
+      g.asked = []
+      dialog.showOpenDialog = (async (...args: unknown[]) => {
+        const opts = args[args.length - 1] as { defaultPath?: string }
+        g.asked!.push(opts.defaultPath ?? '')
+        return { canceled: false, filePaths: [file] }
+      }) as typeof dialog.showOpenDialog
+    }, file)
+  const asked = () => app!.evaluate(() => (globalThis as { asked?: string[] }).asked)
+
+  await page.getByRole('button', { name: 'Stop watching the save folder' }).click()
+  await answer(join(saves, 'save1779'))
+  await page.getByRole('button', { name: /Load save|Change save/ }).click()
+  await expect(page.locator('.loaded').first()).toContainText('save1779')
+  expect(await asked()).toEqual([saves])
+
+  await answer(join(game, 'Config', 'DefaultGameCore.ini'))
+  await page.getByRole('button', { name: /DefaultGameCore\.ini|Change INI/ }).click()
+  expect(await asked()).toEqual([join(game, 'Config')])
+})

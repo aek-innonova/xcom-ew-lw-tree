@@ -17,6 +17,7 @@ import {
 import { chooseFolder, loadNewestFromFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
 import { GAMES, type GameId } from '@/model/game'
 import { tools } from '@/state/tools'
+import { desktop } from '@/state/desktop'
 
 const emit = defineEmits<{
   find: [hit: { view: 'research' | 'foundry'; id: number }]
@@ -31,6 +32,16 @@ async function onFolder(e: Event) {
   const input = e.target as HTMLInputElement
   await loadNewestFromFolder([...(input.files ?? [])])
   input.value = ''
+}
+
+/**
+ * In the desktop app, its own dialog, which starts in the save folder (or
+ * the game's Config); on the web, the page's file input.
+ */
+async function pick(kind: 'save' | 'ini', input: HTMLInputElement | null) {
+  if (!desktop) return input?.click()
+  const f = await desktop.openFile(kind)
+  if (f) await loadFile(new File([f.data as BlobPart], f.name))
 }
 
 async function onPick(e: Event) {
@@ -191,7 +202,7 @@ function onSearchKey(e: KeyboardEvent) {
         <input ref="folderInput" type="file" webkitdirectory hidden @change="onFolder" />
       </div>
       <div class="file">
-        <button type="button" @click="saveInput?.click()">
+        <button type="button" @click="pick('save', saveInput)">
           {{ state.save ? 'Change save' : 'Load save' }}
         </button>
         <span v-if="state.save" class="loaded" :title="state.save.campaign.description">
@@ -204,7 +215,7 @@ function onSearchKey(e: KeyboardEvent) {
         <input ref="saveInput" type="file" hidden @change="onPick" />
       </div>
       <div class="file">
-        <button type="button" @click="iniInput?.click()">
+        <button type="button" @click="pick('ini', iniInput)">
           {{ state.ini ? 'Change INI' : 'Load DefaultGameCore.ini' }}
         </button>
         <span v-if="state.ini" class="loaded">
