@@ -34,6 +34,7 @@ import {
   safeName,
   writeSettings,
   type BaseChoice,
+  type GameKind,
   type LibrarySettings,
 } from './library'
 import {
@@ -277,7 +278,7 @@ export async function restoreTools(): Promise<void> {
       tools.error = `Could not read your library folder: ${(e as Error).message}`
     }
     tools.settings = choices.ini
-    tools.gameValues = { ...choices.game }
+    tools.gameValues = { ...choices.game?.[gameKind()] }
     tools.base = choices.base ?? 'keep'
     await loadMods()
     await loadBases()
@@ -718,7 +719,13 @@ async function ownIni(current: string | null): Promise<{ text: string; from: str
   return current === null ? null : { text: current, from: 'the game’s file as it is' }
 }
 
+/** The version the game settings are for: the chosen one, else the one installed. */
+function gameKind(): GameKind {
+  return tools.base !== 'keep' ? tools.base : (tools.install?.kind ?? 'lw')
+}
+
 async function loadGameSettings(current: string | null): Promise<void> {
+  tools.gameValues = { ...choices.game?.[gameKind()] }
   const own = await ownIni(current)
   tools.gameSettings = markRaw(own ? findSettings(own.text) : [])
   tools.gameSettingsFrom = own?.from ?? ''
@@ -749,7 +756,7 @@ export async function setGameValue(id: string, value: string | null): Promise<vo
   if (value === null || value.trim() === '' || value.trim() === own) delete next[id]
   else next[id] = value.trim()
   tools.gameValues = next
-  choices.game = { ...next }
+  choices.game = { ...choices.game, [gameKind()]: { ...next } }
   await saveChoices()
 }
 
@@ -759,7 +766,7 @@ export async function adoptHandEdits(): Promise<void> {
   for (const c of tools.handEdits) next[c.def.id] = c.now
   tools.gameValues = next
   tools.handEdits = []
-  choices.game = { ...next }
+  choices.game = { ...choices.game, [gameKind()]: { ...next } }
   await saveChoices()
 }
 
@@ -824,6 +831,14 @@ export async function makePlan(everything = true): Promise<void> {
       tools.busy = 'Working out what changes…'
       tools.plan = markRaw(await planBase(files, wanted, managed, base))
     } else tools.plan = markRaw(await planSetup(files, wanted, managed))
+    if (everything) {
+      const found = new Set(tools.gameSettings.map((d) => d.id))
+      for (const id of Object.keys(tools.gameValues))
+        if (!found.has(id))
+          tools.plan.problems.push(
+            `Your setting ${id} is not in this version's DefaultGameCore.ini; it is left out.`,
+          )
+    }
   } catch (e) {
     tools.error = (e as Error).message
   } finally {

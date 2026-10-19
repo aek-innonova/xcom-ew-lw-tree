@@ -140,11 +140,18 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
         <span v-if="updates.state.error" class="muted">
           · the last check failed: {{ updates.state.error }}</span
         >
-        <span v-else-if="updates.state.lastCheck && !updates.state.ready" class="muted">
+        <span
+          v-else-if="
+            updates.state.lastCheck && !updates.state.ready && !updates.state.shell?.needed
+          "
+          class="muted"
+        >
           · up to date as of {{ new Date(updates.state.lastCheck).toLocaleTimeString() }}</span
         >
-        <template v-if="updates.state.shell && !updates.state.shell.needed">
-          · app {{ updates.state.shell.version }} is out
+        <template v-if="updates.state.shell">
+          · app {{ updates.state.shell.version }} is out<template v-if="updates.state.shell.needed">
+            (the site's newest version needs it)</template
+          >
           <button type="button" @click="installNewApp()">Install it and restart</button>
         </template>
       </p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { freeName, modsIn, orderOf, safeName } from '../library'
+import { freeName, gameOf, modsIn, orderOf, safeName } from '../library'
 
 const f = (path: string) => ({ path, size: 1, modified: 0 })
 
@@ -28,5 +28,14 @@ describe('the library folder', () => {
 
   it('keeps the player order; mods new to it go last, by name', () => {
     expect(orderOf(['b', 'a', 'c', 'z'], ['c', 'gone', 'a'])).toEqual(['c', 'a', 'b', 'z'])
+  })
+
+  it('keeps game settings by version; 0.3.1’s one set becomes Long War’s', () => {
+    expect(gameOf({ 'soldier.hp': '5', 'x.y': 3 })).toEqual({ lw: { 'soldier.hp': '5' } })
+    expect(gameOf({ lwr: { 'soldier.hp': '7' }, ew: {}, zz: { a: '1' } })).toEqual({
+      lwr: { 'soldier.hp': '7' },
+      ew: {},
+    })
+    expect(gameOf(null)).toEqual({})
   })
 })

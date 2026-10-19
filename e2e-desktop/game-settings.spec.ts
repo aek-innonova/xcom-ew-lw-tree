@@ -66,7 +66,8 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await expect(hand).toContainText('Soldiers: Base HP 4 → 5')
   await hand.getByRole('button', { name: 'Keep them as my settings' }).click()
   await expect(hand).toHaveCount(0)
-  const settings = () => JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).game
+  // Kept for Long War, the version installed.
+  const settings = () => JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).game.lw
   expect(settings()).toEqual({ 'soldier.hp': '5' })
 
   // In words: the starting soldiers, the pistol slot, the sniper's color.
