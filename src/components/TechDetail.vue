@@ -167,7 +167,7 @@ const picture = computed(() =>
     <header>
       <div>
         <p class="category">
-          {{ tech.category }} ·
+          {{ tech.category }}<template v-if="game.ufopaedia"> ·</template>
           <a
             v-if="game.ufopaedia"
             :href="techLink(tech)"

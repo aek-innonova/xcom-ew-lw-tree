@@ -150,3 +150,29 @@ Not done:
 - The tree's hover cards, which have a fixed height in the SVG layout.
 - Medals and class icons, which the site has no place for yet.
 - Soldiers (3D): a separate try, to judge first.
+
+## Report (2026-10-19): on the Windows bench
+
+Through the installed app (0.3.1, which took the new site by itself):
+- **Long War 1.0, put in by the app:** every place right and decoded
+  clean.
+  - Research: Xenobiology, and Long War's own Gauss Weapons.
+  - Foundry: SHIV Suppression.
+  - Grey market: 45 of 50 rows with a picture. The other 5 have none in
+    the table, and show none rather than a broken box.
+  - Air war: the game's Interceptor and the 12 UFO cards; Long War's
+    extras share their parent's picture, as in the game.
+  - The first picture is up 5 to 7 s after the app starts.
+- **LWR 2.06, with its own DefaultContent.ini:** the same places all
+  match their names.
+- **Plain Enemy Within:** no table, so no research, Foundry or item
+  pictures, and the panels show none cleanly. The air war still has the
+  game's ships (gfxInterception is the game's own).
+
+Fixed on the way: on the LWR tree a panel's category line ended in a
+bare "·" (the separator before the UFOpaedia link, which only Long War
+has).
+
+Left open:
+- A fallback by name (`Inv_*`, `IC_*`) for plain EW, which has the
+  pictures but not Long War's table. The site models Long War only.

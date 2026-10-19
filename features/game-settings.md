@@ -1,6 +1,6 @@
 ---
 title: "Game settings a player can read: soldiers, the arc thrower, class colours"
-status: in-progress
+status: review
 priority: 3
 dependsOn: [game-tools, game-bases]
 ---
@@ -85,3 +85,52 @@ player uses.
 - On the bench, with Long War put in by the app: the person's changes
   set through the UI, applied, then compared with their hand-edited
   file (ignoring whitespace).
+
+## Report (2026-10-19)
+
+Built and verified on the bench. App 0.3.1 and its site are on staging.
+
+- **The catalogue** (`src/model/gamesettings.ts`) finds each setting by
+  its key together with the comment the version's file gives it:
+  - plain keys, and labelled repeats (class colors);
+  - fields inside struct lines (the soldier's HP and mobility, each item's
+    mobility in `BalanceMods_Classic`);
+  - Long War's alternative lines (the arc thrower in the pistol slot, a
+    checkbox).
+
+  LWR reuses Long War's keys for other things (its
+  `NUM_STARTING_SOLDIERS` is the male gender chance), so key and comment
+  together keep each version's meaning. LWR's own options are listed from
+  their "(LWR Default = …)" comments. Writing a value changes that value
+  only; the rest of the line stays byte for byte.
+- **Colors and headgear** are named from Long War's own Armor Kit codes.
+  The app reads them from the game folder (where Long War's installer
+  puts them) or from the Long War installer's notes (`bases:doc`, new in
+  shell 0.3.1).
+- **Hand edits.** Where the game's file differs from the version's own
+  (the base's, else the original the app kept), the edits are listed
+  and can be kept as the player's settings. On the person's own file
+  that is exactly the 14 changes of their manual.changes.txt.
+- **By version.** Each version keeps its own settings. The bench found
+  the first cut applying Long War values to plain Enemy Within as
+  absolute numbers, and handling missing settings unevenly between LWR
+  and EW. A kept setting the version's file lacks is now named in the
+  plan.
+
+Verified:
+- **Unit tests** on Long War's, LWR's and the person's real files:
+  - each kind of setting;
+  - LWR's reused keys not offered as Long War's;
+  - the person's hand edits read back as exactly their list;
+  - setting those 14 on Long War's own file gives the person's file but
+    for spacing.
+- **An Electron test**: hand edits kept, then a number, a checkbox and a
+  color set and written.
+- **On the bench:**
+  - with Long War put in by the app and the person's file copied over
+    it, the 14 edits were found, kept and applied;
+  - the result equals the person's file ignoring whitespace (2,984
+    lines);
+  - the color dropdowns are named;
+  - on LWR and plain EW, after the per-version fix, nothing of Long
+    War's is applied and nothing is reported.

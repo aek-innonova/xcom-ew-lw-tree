@@ -93,7 +93,7 @@ const picture = computed(() =>
     <header>
       <div>
         <p class="category">
-          Foundry · {{ project.category }} ·
+          Foundry · {{ project.category }}<template v-if="game.ufopaedia"> ·</template>
           <a
             v-if="game.ufopaedia"
             :href="foundryLink(project)"
