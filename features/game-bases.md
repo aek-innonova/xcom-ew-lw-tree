@@ -83,7 +83,8 @@ the library folder.
   library, nothing else. The installers are read in the main process;
   the page sees the unpacked files only through the bridge.
 - Nothing from the game or the mods goes into this repository. The
-  hash table is names, sizes and hashes; flagged to the person.
+  hash table is names, sizes and hashes, which the person confirmed is
+  fine (2026-10-19).
 - Without installers in the library, Tools works as before (the base is
   what is installed, originals as found).
 - A new bridge means a new shell: the bundle's `minShellVersion` goes up
