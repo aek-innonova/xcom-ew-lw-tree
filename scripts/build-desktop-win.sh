@@ -6,8 +6,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-npm run build
-(cd desktop && rm -rf site && cp -r ../dist site && npm run build)
+# The base bundle must be made with copy-site.mjs (npm run site), not a plain
+# copy: it stamps site/.bundle-info.json with the bundle version and leaves out
+# the staging extras. A `cp -r` here shipped a base bundle with no version, so
+# installed apps read their site as 0.0.0 and re-downloaded the same bundle.
+(cd desktop && npm run site && npm run build)
 version=$(node -p "require('./desktop/package.json').version")
 tar czf /tmp/lwtree-desktop.tgz -C desktop package.json package-lock.json electron-builder.yml build dist site
 scp -q /tmp/lwtree-desktop.tgz win:lwtree-desktop.tgz

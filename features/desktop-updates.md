@@ -135,3 +135,24 @@ Verified:
 
 Open: the Windows bench (an installed 0.2.0 taking a new site from
 staging, and a shell update coming back by itself); production.
+
+## Report (2026-10-19): Windows bench, step 1 — a base-version bug
+
+Installed the published 0.2.0 from staging (SHA-256 checked) and opened
+Help. It read **App 0.2.0 · site 0.0.0**, with staging's identical bundle
+(2026.1019.173515) already downloaded and "ready at the next start" — not
+"up to date" as expected. A fresh install re-downloads the same site at
+once.
+
+Cause: the published installer's base bundle has no `.bundle-info.json`,
+so `baseInfo()` falls back to `0.0.0` and every real bundle looks newer.
+`scripts/build-desktop-win.sh` made the base bundle with
+`rm -rf site && cp -r ../dist site`, which skips `copy-site.mjs` and so
+never stamps `.bundle-info.json` (nor leaves out the staging `app/`,
+`bundle/` extras). Confirmed: the published app.asar has `site/index.html`
+but no `site/.bundle-info.json`; an installer built with `npm run dist:win`
+(which uses `copy-site.mjs`) does include it, with the right version.
+
+Fixed `build-desktop-win.sh` to build the base bundle with
+`npm run site`. The published 0.2.0 needs rebuilding and republishing for
+step 1 to read "up to date"; steps 2–3 wait on that.
