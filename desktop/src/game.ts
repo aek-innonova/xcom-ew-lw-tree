@@ -50,7 +50,11 @@ export function regValue(out: string, name: string): string {
   return ''
 }
 
-/** A registry value through Windows' reg tool, 64- then 32-bit view (Steam writes the 32-bit one). */
+/**
+ * A registry value through Windows' reg tool, trying the 64- then the 32-bit
+ * view. The uninstall entry turns up in either: 32-bit (WOW6432Node) on some
+ * machines, 64-bit on others (seen on the Windows test bench), so both are read.
+ */
 async function regQuery(key: string, name: string): Promise<string> {
   if (process.platform !== 'win32') return ''
   for (const view of ['/reg:64', '/reg:32']) {
