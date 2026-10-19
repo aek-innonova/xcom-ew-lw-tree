@@ -165,7 +165,14 @@ test.describe('real game: versions put in and taken out by the app', () => {
           const name = ((await boxes.nth(i).getAttribute('aria-label')) ?? '').slice(
             'Install '.length,
           )
-          const status = page.locator('.script', { hasText: name }).locator('.status')
+          // The status of this checkbox's own script row: the same script name
+          // can appear in two mods (a standalone script and a folder that also
+          // carries it), so scope to the row, not every .script with that text.
+          const status = boxes
+            .nth(i)
+            .locator('xpath=ancestor::*[contains(@class,"script-head")][1]')
+            .locator('.status')
+          // "partly installed" / "installed, with …" both contain "installed".
           await expect(status).toContainText(UNFIT.includes(name) ? 'does not fit' : 'installed', {
             timeout: 60_000,
           })
