@@ -1,6 +1,6 @@
 ---
 title: "Desktop app updates: signed site bundles, and the shell when it must"
-status: in-progress
+status: review
 priority: 3
 dependsOn: [desktop-app]
 ---
@@ -156,3 +156,34 @@ but no `site/.bundle-info.json`; an installer built with `npm run dist:win`
 Fixed `build-desktop-win.sh` to build the base bundle with
 `npm run site`. The published 0.2.0 needs rebuilding and republishing for
 step 1 to read "up to date"; steps 2–3 wait on that.
+
+## Report (2026-10-19): Windows bench, the update round passed
+
+Republished 0.2.0 with the fixed build script and ran the three steps on
+the bench, as a player meets them: the published installer from staging
+(SHA-256 checked), started normally, driven through the app's own UI.
+
+1. **A fresh install is up to date.** Help read "App 0.2.0 · site
+   2026.1019.174630" and, after a check, up to date; nothing downloaded.
+2. **A new site arrives.** Staging got 2026.1019.175330 (a Help text
+   change). "Check for updates" downloaded it and showed the banner;
+   "Restart into it" reloaded the window into it, the page reported good,
+   and two clean starts later it still served 175330 (config: active
+   175330, previous base; no unproven, no bad).
+3. **A new app arrives.** Staging got 0.2.1 and site 2026.1019.175756
+   (the same commit, so also 0.2.1's base). Help offered both; "Install it
+   and restart" downloaded the 111 MB installer, checked it, quit, ran it
+   silently, and 0.2.1 came back by itself: 30 s from the click (17 s
+   download and quit, 13 s install and relaunch). It read "App 0.2.1 ·
+   site 2026.1019.175756", up to date, and stayed so over another start.
+   The downloaded installer was cleaned up; Apps & features shows 0.2.1.
+
+Also: plain `npx vitest run` collected the desktop's Node tests and the
+Playwright specs and reported them as failed files; vitest now leaves them
+to their own runners (`npm run test:desktop`).
+
+Open, for the person:
+- Production: its channel, its key (separate from staging's "lwtree-1")
+  and where that key lives. Prod is held.
+- Code signing: the installer is unsigned, so SmartScreen warns on the
+  first install; the silent self-update does not show it.
