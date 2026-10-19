@@ -11,7 +11,16 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { BundleStore } from './bundles'
 import { DEFAULT_UPDATE, TRUSTED_KEYS } from './keys'
-import { findGame, gameDirUnder, listInside, readInside, removeInside, writeInside } from './game'
+import {
+  findGame,
+  gameDirUnder,
+  inside,
+  listInside,
+  listTree,
+  readInside,
+  removeInside,
+  writeInside,
+} from './game'
 
 const SCHEME = 'app'
 const HOST = 'lwtree'
@@ -78,6 +87,14 @@ async function saveSettings() {
   await fs.mkdir(path.dirname(settingsFile()), { recursive: true })
   await fs.writeFile(settingsFile(), JSON.stringify(settings, null, 1))
 }
+
+/**
+ * The player's library (features/game-bases.md): their mods and the
+ * installers they drop in, in a folder they can see (LWTREE_LIBRARY stands in
+ * for it in tests).
+ */
+const libraryDir = () =>
+  process.env.LWTREE_LIBRARY ?? path.join(app.getPath('documents'), 'Long War Tech Tree')
 
 /** The game's own save folder (LWTREE_SAVES stands in for it in tests). */
 const defaultSaves = () =>
@@ -165,6 +182,34 @@ function bridge(win: BrowserWindow) {
     return writeInside(needGame(), str(p), data)
   })
   handle('game:remove', (p) => removeInside(needGame(), str(p)))
+
+  handle('library:info', async () => {
+    await fs.mkdir(path.join(libraryDir(), 'Mods'), { recursive: true })
+    return { dir: libraryDir() }
+  })
+  handle('library:files', () => listTree(libraryDir()))
+  handle('library:read', (p) => readInside(libraryDir(), str(p)))
+  handle('library:write', (p, data) => {
+    if (!(data instanceof Uint8Array)) throw new Error('bad data')
+    return writeInside(libraryDir(), str(p), data)
+  })
+  // A mod taken out goes to the recycle bin, not away; where there is none, or
+  // the library is a test's (LWTREE_LIBRARY), to the library's own .trash.
+  handle('library:trash', async (p) => {
+    const target = await inside(libraryDir(), str(p))
+    try {
+      if (process.env.LWTREE_LIBRARY) throw new Error('a test library')
+      await shell.trashItem(target)
+    } catch {
+      const bin = path.join(libraryDir(), '.trash', String(Date.now()))
+      await fs.mkdir(bin, { recursive: true })
+      await fs.rename(target, path.join(bin, path.basename(target)))
+    }
+  })
+  handle('library:open', async () => {
+    await fs.mkdir(libraryDir(), { recursive: true })
+    await shell.openPath(libraryDir())
+  })
 
   handle('saves:current', () => settings.savesDir ?? null)
   handle('saves:choose', async () => {

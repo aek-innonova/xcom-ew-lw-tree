@@ -6,7 +6,8 @@
 // files well enough (Chrome hides .ini files and Program Files from pages).
 // The app finds the game the way installers do, or the player chooses the
 // folder; every file goes through its bridge (state/desktop.ts). The mod
-// library is kept in the app's IndexedDB; nothing leaves the machine.
+// library is the player's library folder (state/library.ts); nothing leaves
+// the machine.
 
 import { markRaw, reactive } from 'vue'
 import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
@@ -16,6 +17,17 @@ import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
 import { desktop, desktopFiles } from './desktop'
 import type { GameFiles } from './gamefiles'
 import { stored } from './idb'
+import {
+  MODS,
+  emptySettings,
+  freeName,
+  modsIn,
+  orderOf,
+  readSettings,
+  safeName,
+  writeSettings,
+  type LibrarySettings,
+} from './library'
 import {
   GAME_INI,
   applyPlan,
@@ -60,9 +72,9 @@ export interface ModFile {
 }
 
 export interface Mod {
+  /** Its name in the library's Mods folder. */
   id: string
   name: string
-  addedAt: number
   files: ModFile[]
   /** Option values the player set, by script path, then option name. */
   values: Record<string, Record<string, string>>
@@ -74,8 +86,8 @@ export interface Mod {
   wantFiles?: boolean
 }
 
-/** What is kept in IndexedDB (scripts are parsed again on load). */
-type StoredMod = Omit<Mod, 'files'> & { files: Omit<ModFile, 'script'>[] }
+/** A mod as 0.2 and earlier kept it in IndexedDB (moved to the library once). */
+type StoredMod = Omit<Mod, 'files'> & { addedAt: number; files: Omit<ModFile, 'script'>[] }
 
 export type CheckStatus = RunResult['status'] | 'checking' | 'other-values'
 export interface ScriptCheck {
@@ -93,6 +105,8 @@ export const tools = reactive({
   install: null as Install | null,
   /** Package tables read so far, by lower-case file name; null: not in the install. */
   packages: {} as Record<string, PackageInfo | null | 'reading'>,
+  /** The player's library folder (Documents\Long War Tech Tree). */
+  library: null as string | null,
   mods: [] as Mod[],
   /** Each script's state in the install, by `${mod id}:${path}`. */
   checks: {} as Record<string, ScriptCheck>,
@@ -230,11 +244,20 @@ export async function forgetGameFolder(): Promise<void> {
 /** On start-up in the app: the library, the settings, and the game (found the first time). */
 export async function restoreTools(): Promise<void> {
   if (!desktop) return
-  await loadMods()
-  tools.settings =
-    (await stored<IniChange[] | undefined>('state', 'readonly', (s) => s.get('settings')).catch(
-      () => undefined,
-    )) ?? []
+  const lib = desktop.library
+  if (lib) {
+    try {
+      tools.library = (await lib.info()).dir
+      choices = (await readSettings(lib)) ?? emptySettings()
+      await moveOldLibrary()
+    } catch (e) {
+      tools.error = `Could not read your library folder: ${(e as Error).message}`
+    }
+    tools.settings = choices.ini
+    await loadMods()
+    // A mod copied into the folder by hand turns up when the app is back in front.
+    window.addEventListener('focus', () => void rereadLibrary())
+  }
   if (await desktop.game.current()) await readInstall()
   else await findGameFolder()
 }
@@ -303,7 +326,7 @@ export async function checkMods(): Promise<void> {
   }
 }
 
-// --- The mod library -----------------------------------------------------------
+// --- The mod library: the player's library folder (state/library.ts) -------------
 
 export function fileKind(path: string, text?: string): ModFileKind {
   const name = path.toLowerCase()
@@ -314,35 +337,24 @@ export function fileKind(path: string, text?: string): ModFileKind {
   return 'other'
 }
 
-async function withScripts(m: StoredMod): Promise<Mod> {
-  const out: ModFile[] = []
-  for (const f of m.files) {
-    if (f.kind === 'script') {
-      const text = await f.data.text()
-      out.push({ ...f, script: parseModScript(text, f.path) })
-    } else out.push({ ...f })
-  }
-  return { ...m, files: out }
-}
+/** The player's choices: settings.json in the library. */
+let choices: LibrarySettings = emptySettings()
+/** The library's Mods listing as last read, to see whether it changed. */
+let listing = ''
+let writing = Promise.resolve()
 
-async function loadMods(): Promise<void> {
-  const all = await stored<StoredMod[]>('mods', 'readonly', (s) => s.getAll()).catch(
-    () => [] as StoredMod[],
-  )
-  const mods: Mod[] = []
-  for (const m of all.sort((a, b) => a.addedAt - b.addedAt)) mods.push(await withScripts(m))
-  tools.mods = mods
+/** Writes settings.json, one write at a time. */
+function saveChoices(): Promise<void> {
+  const lib = desktop?.library
+  if (!lib) return Promise.resolve()
+  const snapshot = JSON.parse(JSON.stringify(choices)) as LibrarySettings
+  writing = writing
+    .then(() => writeSettings(lib, snapshot))
+    .catch((e) => {
+      tools.error = `Could not write settings.json in your library: ${(e as Error).message}`
+    })
+  return writing
 }
-
-async function save(m: Mod): Promise<void> {
-  const plain: StoredMod = JSON.parse(
-    JSON.stringify({ ...m, files: m.files.map((f) => ({ ...f, data: null, script: undefined })) }),
-  )
-  plain.files.forEach((f, i) => (f.data = m.files[i]!.data))
-  await stored('mods', 'readwrite', (s) => s.put(plain, m.id))
-}
-
-const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 /** The first paragraph of a README, for a mod whose scripts carry no description. */
 function readmeIntro(text: string): string {
@@ -355,51 +367,137 @@ function readmeIntro(text: string): string {
   )
 }
 
+/** Reads the mods in the library's Mods folder, in the player's order. */
+async function loadMods(): Promise<void> {
+  const lib = desktop?.library
+  if (!lib) {
+    tools.mods = []
+    return
+  }
+  const files = await lib.files()
+  listing = JSON.stringify(files.filter((f) => f.path.startsWith(`${MODS}/`)))
+  const mods: Mod[] = []
+  for (const g of modsIn(files)) {
+    const modFiles: ModFile[] = []
+    let readme: string | undefined
+    for (const f of g.files) {
+      const name = f.rel.split('/').pop()!
+      const textual = /\.(txt|md|ini)$/i.test(name)
+      // Docs and other files are listed, not read.
+      const bytes = textual || /\.(u|upk)$/i.test(name) ? await lib.read(f.path) : null
+      const text = textual && bytes ? new TextDecoder().decode(bytes) : undefined
+      const kind = fileKind(f.rel, text)
+      if (/^readme/i.test(name) && text) readme = readmeIntro(text)
+      modFiles.push({
+        path: f.rel,
+        size: f.size,
+        kind,
+        data: new Blob(bytes ? [bytes as BlobPart] : []),
+        script: kind === 'script' ? parseModScript(text!, f.rel) : undefined,
+      })
+    }
+    // A file on its own in Mods that is not a mod script is not a mod.
+    if (!g.folder && modFiles[0]!.kind !== 'script') continue
+    const c = choices.mods[g.id] ?? {}
+    mods.push({
+      id: g.id,
+      name: g.folder ? g.id : modFiles[0]!.script!.name,
+      files: modFiles,
+      values: c.values ?? {},
+      wanted: c.wanted,
+      wantFiles: c.wantFiles,
+      readme,
+    })
+  }
+  const order = orderOf(
+    mods.map((m) => m.id),
+    choices.order,
+  )
+  tools.mods = order.map((id) => mods.find((m) => m.id === id)!)
+  if (JSON.stringify(order) !== JSON.stringify(choices.order)) {
+    choices.order = order
+    void saveChoices()
+  }
+}
+
+/** Reads the library again if its Mods folder changed (a mod copied in by hand). */
+export async function rereadLibrary(): Promise<void> {
+  const lib = desktop?.library
+  if (!lib) return
+  const files = await lib.files()
+  if (JSON.stringify(files.filter((f) => f.path.startsWith(`${MODS}/`))) === listing) return
+  await loadMods()
+  void checkMods()
+}
+
+export function openLibrary(): void {
+  void desktop?.library?.open()
+}
+
+async function save(m: Mod): Promise<void> {
+  choices.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+  await saveChoices()
+}
+
 /**
- * Adds mods: a script file on its own is one mod; files picked as a folder
- * (they carry a relative path) are one mod named after the folder.
+ * Adds mods to the library: a script file on its own goes into Mods as it
+ * is; files picked as a folder (they carry a relative path) become a folder
+ * there, named after theirs.
  */
 export async function addModFiles(picked: File[]): Promise<number> {
+  const lib = desktop?.library
+  if (!lib) return 0
   const groups = new Map<string, File[]>()
   for (const f of picked) {
     const folder = f.webkitRelativePath.split('/')[0]
     const key = folder && f.webkitRelativePath.includes('/') ? `dir:${folder}` : `file:${f.name}`
     groups.set(key, [...(groups.get(key) ?? []), f])
   }
+  const taken = new Set(
+    (await lib.files())
+      .filter((f) => f.path.startsWith(`${MODS}/`))
+      .map((f) => f.path.split('/')[1]!),
+  )
   let added = 0
   for (const [key, group] of groups) {
-    const modFiles: ModFile[] = []
-    let readme: string | undefined
-    for (const f of group) {
-      const path = key.startsWith('dir:')
-        ? f.webkitRelativePath.split('/').slice(1).join('/')
-        : f.name
-      const text = /\.(txt|md|ini)$/i.test(f.name) ? await f.text() : undefined
-      const kind = fileKind(path, text)
-      if (/^readme/i.test(f.name) && text) readme = readmeIntro(text)
-      modFiles.push({
-        path,
-        size: f.size,
-        kind,
-        data: new Blob([await f.arrayBuffer()]),
-        script: kind === 'script' ? parseModScript(text!, path) : undefined,
-      })
+    if (key.startsWith('file:')) {
+      const f = group[0]!
+      // A lone file that is not a mod script is not a mod.
+      if (fileKind(f.name, await f.text()) !== 'script') continue
+      const id = freeName(safeName(f.name), taken)
+      await lib.write(`${MODS}/${id}`, new Uint8Array(await f.arrayBuffer()))
+      taken.add(id)
+    } else {
+      const id = freeName(safeName(key.slice(4)), taken)
+      for (const f of group) {
+        const rel = f.webkitRelativePath.split('/').slice(1).join('/')
+        await lib.write(`${MODS}/${id}/${rel}`, new Uint8Array(await f.arrayBuffer()))
+      }
+      taken.add(id)
     }
-    // A lone file that is not a mod script is not a mod.
-    if (key.startsWith('file:') && modFiles[0]!.kind !== 'script') continue
-    const name = key.startsWith('dir:') ? key.slice(4) : modFiles[0]!.script!.name
-    const m: Mod = { id: newId(), name, addedAt: Date.now(), files: modFiles, values: {}, readme }
-    await save(m)
-    tools.mods.push(m)
     added++
   }
-  if (added) void checkMods()
+  if (added) {
+    await loadMods()
+    void checkMods()
+  }
   return added
 }
 
+/** Takes a mod out of the library: its files go to the recycle bin. */
 export async function removeMod(id: string): Promise<void> {
+  const lib = desktop?.library
+  if (!lib) return
+  try {
+    await lib.trash(`${MODS}/${id}`)
+  } catch (e) {
+    tools.error = `Could not remove ${id}: ${(e as Error).message}`
+    return
+  }
   tools.mods = tools.mods.filter((m) => m.id !== id)
-  await stored('mods', 'readwrite', (s) => s.delete(id)).catch(() => undefined)
+  delete choices.mods[id]
+  choices.order = choices.order.filter((x) => x !== id)
+  await saveChoices()
 }
 
 /** Sets one option of one script; an empty value goes back to the script's own. */
@@ -428,6 +526,43 @@ export async function setWantFiles(id: string, want: boolean) {
   await save(m)
 }
 
+/**
+ * Mods and settings kept in the app's IndexedDB before the library folder
+ * (0.2 and earlier): written out to the library once, then dropped there.
+ */
+async function moveOldLibrary(): Promise<void> {
+  const lib = desktop?.library
+  if (!lib) return
+  const old = await stored<StoredMod[]>('mods', 'readonly', (s) => s.getAll()).catch(
+    () => [] as StoredMod[],
+  )
+  const oldIni = await stored<IniChange[] | undefined>('state', 'readonly', (s) =>
+    s.get('settings'),
+  ).catch(() => undefined)
+  if (!old.length && !oldIni?.length) return
+  const taken = new Set(
+    (await lib.files())
+      .filter((f) => f.path.startsWith(`${MODS}/`))
+      .map((f) => f.path.split('/')[1]!),
+  )
+  for (const m of old.sort((a, b) => a.addedAt - b.addedAt)) {
+    const only = m.files.length === 1 ? m.files[0]! : null
+    const loose = !!only && only.kind === 'script' && !only.path.includes('/')
+    const id = freeName(safeName(loose ? only!.path : m.name), taken)
+    taken.add(id)
+    for (const f of m.files) {
+      const data = new Uint8Array(await f.data.arrayBuffer())
+      await lib.write(loose ? `${MODS}/${id}` : `${MODS}/${id}/${f.path}`, data)
+    }
+    choices.mods[id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+    choices.order.push(id)
+  }
+  if (oldIni?.length && !choices.ini.length) choices.ini = oldIni
+  await saveChoices()
+  await stored('mods', 'readwrite', (s) => s.clear()).catch(() => undefined)
+  await stored('state', 'readwrite', (s) => s.delete('settings')).catch(() => undefined)
+}
+
 // --- INI settings ----------------------------------------------------------------
 
 const sameSetting = (a: IniChange, b: IniChange) =>
@@ -437,9 +572,8 @@ const sameSetting = (a: IniChange, b: IniChange) =>
 export async function setSetting(entry: IniChange, value: string | null) {
   const rest = tools.settings.filter((s) => !sameSetting(s, entry))
   tools.settings = value === null ? rest : [...rest, { ...entry, value }]
-  await stored('state', 'readwrite', (s) =>
-    s.put(JSON.parse(JSON.stringify(tools.settings)), 'settings'),
-  )
+  choices.ini = JSON.parse(JSON.stringify(tools.settings))
+  await saveChoices()
 }
 
 // --- Putting the setup into the game ---------------------------------------------

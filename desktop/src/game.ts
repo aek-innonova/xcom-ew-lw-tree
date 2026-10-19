@@ -213,3 +213,29 @@ export async function writeInside(root: string, rel: string, data: Uint8Array) {
 export async function removeInside(root: string, rel: string) {
   await fs.rm(await inside(root, rel), { force: true })
 }
+
+/**
+ * Every file under a folder, as paths with "/" (the player's library). Folders
+ * whose names start with "." are passed over; the walk stops at a depth and a
+ * count no library comes near.
+ */
+export async function listTree(root: string, depth = 8, limit = 20000) {
+  const out: { path: string; size: number; modified: number }[] = []
+  async function walk(dir: string, rel: string, d: number) {
+    if (d > depth || out.length >= limit) return
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
+    for (const e of entries) {
+      if (e.name.startsWith('.')) continue
+      const p = path.join(dir, e.name)
+      const r = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) await walk(p, r, d + 1)
+      else if (e.isFile()) {
+        const s = await fs.stat(p).catch(() => null)
+        if (s) out.push({ path: r, size: s.size, modified: s.mtimeMs })
+      }
+      if (out.length >= limit) return
+    }
+  }
+  await walk(root, '', 0)
+  return out
+}

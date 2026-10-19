@@ -13,6 +13,24 @@ export interface SaveEntry {
   lastModified: number
 }
 
+/** A file in the player's library folder (state/library.ts). */
+export interface LibraryFile {
+  path: string
+  size: number
+  modified: number
+}
+/** The player's library folder: Documents\Long War Tech Tree (from shell 0.3.0). */
+export interface DesktopLibrary {
+  info(): Promise<{ dir: string }>
+  files(): Promise<LibraryFile[]>
+  read(path: string): Promise<Uint8Array | null>
+  write(path: string, data: Uint8Array): Promise<void>
+  /** To the recycle bin. */
+  trash(path: string): Promise<void>
+  /** Shows the folder in Explorer. */
+  open(): Promise<void>
+}
+
 /** The shell's bundles and updates (desktop/src/bundles.ts). */
 export interface BundleState {
   shellVersion: string
@@ -41,6 +59,8 @@ export interface DesktopApi {
     write(path: string, data: Uint8Array): Promise<void>
     remove(path: string): Promise<void>
   }
+  /** From shell 0.3.0: check before use. */
+  library?: DesktopLibrary
   /** From shell 0.2.0 (older shells have no updates): check before use. */
   bundle?: {
     state(): Promise<BundleState>

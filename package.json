@@ -51,6 +51,6 @@
     "node": "^22.18.0 || >=24.12.0"
   },
   "lwtree": {
-    "minShellVersion": "0.2.0"
+    "minShellVersion": "0.3.0"
   }
 }

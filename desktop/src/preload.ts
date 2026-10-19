@@ -20,6 +20,14 @@ contextBridge.exposeInMainWorld('lwtreeDesktop', {
     write: (path: string, data: Uint8Array) => call('game:write', path, data),
     remove: (path: string) => call('game:remove', path),
   },
+  library: {
+    info: () => call('library:info'),
+    files: () => call('library:files'),
+    read: (path: string) => call('library:read', path),
+    write: (path: string, data: Uint8Array) => call('library:write', path, data),
+    trash: (path: string) => call('library:trash', path),
+    open: () => call('library:open'),
+  },
   bundle: {
     state: () => call('bundle:state'),
     check: () => call('bundle:check'),

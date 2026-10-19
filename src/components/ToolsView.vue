@@ -2,8 +2,8 @@
 // Tools: the player's game install, their mods and INI settings
 // (features/game-tools.md). Not a board like the others: it works on the
 // game's own files. It reads which version is installed (the site follows
-// it) and whether each mod is in it, keeps the mod library and settings in
-// this browser, and puts the chosen setup into the game: a plan first,
+// it) and whether each mod is in it, keeps the mods and settings in the
+// player's library folder, and puts the chosen setup into the game: a plan first,
 // written only when the player says so, with the originals kept.
 
 import { computed, ref, watch } from 'vue'
@@ -18,6 +18,7 @@ import {
   findGameFolder,
   forgetGameFolder,
   makePlan,
+  openLibrary,
   readPackage,
   removeMod,
   setOption,
@@ -261,14 +262,20 @@ const iniNote = computed(() =>
 
     <section class="block" aria-labelledby="mods-h">
       <h3 id="mods-h">Mods</h3>
-      <p class="muted small">
-        PatcherGUI scripts and mod folders, kept in the app so a reinstall need not mean finding
-        them all again. Tick what you want in the game, set the options, then apply your setup
-        below.
+      <p v-if="tools.library" class="muted small">
+        Your mods are in your library folder, <code>{{ tools.library }}</code>: each folder in its
+        <code>Mods</code> is one mod, and so is a PatcherGUI script on its own there. Copy mods in
+        by hand or add them here; your choices are kept beside them in
+        <code>settings.json</code>. Tick what you want in the game, set the options, then apply
+        your setup below.
       </p>
-      <p>
+      <p v-else class="error small">
+        This version of the app keeps no library folder: update the app (Help, This app).
+      </p>
+      <p v-if="tools.library">
         <button type="button" @click="scriptInput?.click()">Add mod scripts</button>
         <button type="button" @click="folderInput?.click()">Add a mod folder</button>
+        <button type="button" @click="openLibrary">Open the folder</button>
         <input ref="scriptInput" type="file" multiple accept=".txt" hidden @change="onPick" />
         <input
           ref="folderInput"
@@ -290,7 +297,7 @@ const iniNote = computed(() =>
             type="button"
             class="remove"
             :aria-label="`Remove ${m.name}`"
-            title="Remove from the library"
+            title="Remove from the library (its files go to the recycle bin)"
             @click="removeMod(m.id)"
           >
             ×

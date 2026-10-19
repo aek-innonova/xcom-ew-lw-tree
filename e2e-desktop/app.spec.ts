@@ -63,6 +63,7 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
     env: env({
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: join(work, 'userdata'),
+      LWTREE_LIBRARY: join(work, 'library'),
       LWTREE_SAVES: saves,
     }),
   })
@@ -117,6 +118,7 @@ test('the website has no Tools', async () => {
     env: env({
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: join(work, 'u'),
+      LWTREE_LIBRARY: join(work, 'library'),
     }),
   })
   // The same site in a plain window, without the bridge: as on the web.
@@ -142,6 +144,7 @@ test('Load save opens the app’s dialog in the save folder, Load INI in the gam
     env: env({
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: join(work, 'userdata'),
+      LWTREE_LIBRARY: join(work, 'library'),
       LWTREE_SAVES: saves,
     }),
   })

@@ -81,6 +81,7 @@ test.describe('real Long War install', () => {
       env: env({
         LWTREE_SITE: join(root, 'dist'),
         LWTREE_USER_DATA: mkdtempSync(join(tmpdir(), 'lwtree-real-')),
+        LWTREE_LIBRARY: mkdtempSync(join(tmpdir(), 'lwtree-lib-')),
       }),
     })
     const page = await app.firstWindow()
@@ -189,7 +190,11 @@ test.describe('real Long War install', () => {
       electron.launch({
         executablePath: electronBin,
         args: [join(root, 'desktop'), `--game-dir=${GAME}`],
-        env: env({ LWTREE_SITE: join(root, 'dist'), LWTREE_USER_DATA: userData }),
+        env: env({
+          LWTREE_SITE: join(root, 'dist'),
+          LWTREE_USER_DATA: userData,
+          LWTREE_LIBRARY: join(userData, 'library'),
+        }),
       })
 
     // Session 1: set the setup up, start applying, hard-kill mid-write.

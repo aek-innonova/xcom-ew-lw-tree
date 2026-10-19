@@ -79,6 +79,7 @@ async function launch(url: string, pub: string) {
       ...env,
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: mkdtempSync(join(tmpdir(), 'lwtree-upd-')),
+      LWTREE_LIBRARY: mkdtempSync(join(tmpdir(), 'lwtree-lib-')),
       LWTREE_UPDATE_URL: url,
       LWTREE_UPDATE_CHANNEL: 'test',
       LWTREE_UPDATE_KEYS: JSON.stringify({ test: pub }),
