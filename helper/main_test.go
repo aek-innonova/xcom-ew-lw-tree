@@ -41,11 +41,11 @@ const site = "https://xcom.innonova.ch"
 func TestFindsTheGameUnderAnyOfItsFolders(t *testing.T) {
 	g := game(t)
 	for _, p := range []string{g, filepath.Dir(g), filepath.Dir(filepath.Dir(g))} {
-		if got, err := findGame(p); err != nil || got != g {
+		if got, err := findGame(p, func(string) {}); err != nil || got != g {
 			t.Errorf("findGame(%s) = %s, %v", p, got, err)
 		}
 	}
-	if _, err := findGame(t.TempDir()); err == nil {
+	if _, err := findGame(t.TempDir(), func(string) {}); err == nil {
 		t.Error("an empty folder should not count as the game")
 	}
 }
@@ -119,7 +119,7 @@ func TestPrefersEnemyWithinOverEnemyUnknown(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got, _ := findGame(steam); got != g {
+	if got, _ := findGame(steam, func(string) {}); got != g {
 		t.Errorf("findGame(game folder) = %s, want XEW's %s", got, g)
 	}
 }

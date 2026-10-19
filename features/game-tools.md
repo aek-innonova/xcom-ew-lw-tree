@@ -342,3 +342,15 @@ The person pointed the page at their install, and it showed three faults:
   `-dir`: it found `XEW\XComGame`.
 - The page now says, when it finds plain Enemy Within, that Long War lives
   in `XEW\XComGame`.
+
+- **Then it hung with no output** on the person's machine. Most likely the
+  drive scan: it touched every drive letter before anything else, and an
+  offline network drive or an empty card reader can block for long. It
+  also printed nothing until the search was done. Now:
+  - it says it is looking and names each library as it checks it;
+  - it tries the Steam Windows knows about first;
+  - only then does it look at the computer's own fixed drives (Windows'
+    drive type, which does not touch the media);
+  - every look at the disk has a 3-second limit.
+
+  Re-tested on the VM.
