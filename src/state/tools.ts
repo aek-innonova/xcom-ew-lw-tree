@@ -294,7 +294,7 @@ export async function checkMods(): Promise<void> {
     // A mod first seen in the game counts as wanted there.
     if (m.wanted?.[f.path] === undefined) {
       m.wanted = {
-        ...(m.wanted ?? {}),
+        ...m.wanted,
         [f.path]: status === 'installed' || status === 'other-values',
       }
       await save(m)
@@ -308,8 +308,8 @@ export async function checkMods(): Promise<void> {
 export function fileKind(path: string, text?: string): ModFileKind {
   const name = path.toLowerCase()
   if (/\.(u|upk)$/.test(name)) return 'package'
-  if (/\.ini$/.test(name)) return 'config'
-  if (/\.txt$/.test(name) && text !== undefined && /^\s*UPK_FILE\s*=/m.test(text)) return 'script'
+  if (name.endsWith('.ini')) return 'config'
+  if (name.endsWith('.txt') && text !== undefined && /^\s*UPK_FILE\s*=/m.test(text)) return 'script'
   if (/\.(txt|md|pdf|html?)$/.test(name)) return 'doc'
   return 'other'
 }
@@ -406,7 +406,7 @@ export async function removeMod(id: string): Promise<void> {
 export async function setOption(id: string, script: string, option: string, value: string) {
   const m = tools.mods.find((x) => x.id === id)
   if (!m) return
-  const v = { ...(m.values[script] ?? {}) }
+  const v = { ...m.values[script] }
   if (value === '') delete v[option]
   else v[option] = value
   m.values = { ...m.values, [script]: v }
@@ -417,7 +417,7 @@ export async function setOption(id: string, script: string, option: string, valu
 export async function setWanted(id: string, script: string, want: boolean) {
   const m = tools.mods.find((x) => x.id === id)
   if (!m) return
-  m.wanted = { ...(m.wanted ?? {}), [script]: want }
+  m.wanted = { ...m.wanted, [script]: want }
   await save(m)
 }
 
@@ -453,7 +453,7 @@ async function wantedSetup(everything: boolean): Promise<Wanted> {
         wanted.scripts.push({
           label: `${m.name}${scriptsOf(m) > 1 ? ` (${f.path})` : ''}`,
           text: await f.data.text(),
-          values: { ...(m.values[f.path] ?? {}) },
+          values: { ...m.values[f.path] },
         })
     if (m.wantFiles) {
       const own = m.files.filter((f) => f.kind === 'package' || f.kind === 'config')
