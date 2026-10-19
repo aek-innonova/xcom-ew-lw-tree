@@ -97,3 +97,56 @@ What it would take to use them:
 Recommendation: go ahead with research, items, Foundry, facilities, the
 air war's UFOs and craft, and class icons. Leave soldiers out unless the
 person wants to spend real time there.
+
+## Response (2026-10-19)
+
+The person: go ahead with the full feature; the website stays as it is.
+
+## Report (2026-10-19): the pictures in the app
+
+What the app shows, from the player's install
+(`src/state/gameimages.ts`):
+
+- **Research**: each tech's picture at the top of its panel.
+- **Foundry**: each project's picture at the top of its panel.
+- **Grey market**: each item's picture beside its name.
+- **Air war**: the game's interception pictures for the UFOs and the
+  Interceptor. The Firestorm uses its research picture, as the
+  interception screen has no matching view of it. The Skyranger keeps
+  our render; the game has no picture of it.
+
+How it works:
+
+- **Which picture is whose** is the game's own table, not ours. Long War
+  moved it out of code: `UIUtilities.GetTechImagePath` and its siblings
+  read `MultiplayerLoadoutSlots` from `DefaultContent.ini` by category
+  (0 items by item id, 2 research, 3 Foundry, 4 research credits). The
+  app reads that table from the install, so a version that changes it
+  is followed.
+- **The air war's ships** carry the game's image numbers (`image` in
+  `data/airwar.json`): 80 to 85, where Long War's extra UFOs share their
+  parent's. These map to the interception screen's
+  `gfxInterception.alien_*` in code. Those numbers are not in the table.
+- **The packages read** are `XComShell.upk`
+  (`UILibrary_StrategyImages`), `LongWar.upk` (Long War's own `TechImages`,
+  `FoundryImages`, `InventoryImages`, class icons, flags),
+  `gfxInterception_SF.upk` and `UICollection_Strategy_SF.upk`. They are
+  read when the app reads the install, in the background, and decoded
+  only when a picture is first shown (DXT to a canvas, a data URL: the
+  page's security policy allows `data:` images and nothing from
+  outside).
+- Without an install, and on the website, nothing changes.
+
+Verified:
+- On the person's files: every one of the 75 techs, the 46 Foundry
+  projects and the 13 ships but the Skyranger have their picture in the
+  install (`src/state/__tests__/gameimages.spec.ts`; skipped without
+  `samples/`).
+- Looked at in the app (a small game folder with the person's packages
+  and Long War's Config): Xenobiology's and Enhanced Ballistics' panels,
+  the grey market's corpses, the air war's UFOs and Interceptor.
+
+Not done:
+- The tree's hover cards, which have a fixed height in the SVG layout.
+- Medals and class icons, which the site has no place for yet.
+- Soldiers (3D): a separate try, to judge first.

@@ -6,6 +6,7 @@
 import { computed } from 'vue'
 import type { ItemGroup } from '@/model/inventory'
 import { campaign, inventory, showFoundry, showTech, type InventoryRow } from '@/state/store'
+import { gameImages, gamePicture } from '@/state/gameimages'
 
 const GROUPS: ItemGroup[] = [
   'Corpses and wrecks',
@@ -33,6 +34,8 @@ const total = computed(() =>
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 const open = (n: InventoryRow['needs'][number]) =>
   n.for.kind === 'tech' ? showTech(n.for.id) : showFoundry(n.for.id)
+// The game's own picture of an item, in the desktop app (features/game-images.md).
+const picture = (slot: number) => (gameImages.version >= 0 ? gamePicture('item', slot) : null)
 </script>
 
 <template>
@@ -65,7 +68,11 @@ const open = (n: InventoryRow['needs'][number]) =>
           :key="r.item.key"
           :class="{ short: r.stock !== undefined && r.stock < r.needed }"
         >
-          <td>{{ r.item.name }}</td>
+          <td>
+            <img v-if="picture(r.item.slot)" :src="picture(r.item.slot)!" alt="" class="pic" />{{
+              r.item.name
+            }}
+          </td>
           <td class="n">{{ r.stock ?? (campaign ? '–' : '') }}</td>
           <td class="n">{{ r.needed || '' }}</td>
           <td class="n spare">{{ r.spare || '' }}</td>
@@ -84,6 +91,13 @@ const open = (n: InventoryRow['needs'][number]) =>
 </template>
 
 <style scoped>
+.pic {
+  width: 48px;
+  height: 24px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 8px;
+}
 .market {
   flex: 1;
   overflow-y: auto;

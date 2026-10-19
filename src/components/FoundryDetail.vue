@@ -2,6 +2,7 @@
 // The panel for the selected Foundry project.
 
 import { computed } from 'vue'
+import { gameImages, gamePicture } from '@/state/gameimages'
 import {
   foundryCreditReduction,
   foundryProgress,
@@ -81,6 +82,10 @@ const creditRows = computed(() => {
 
 const techDone = (id: number) => campaign.value?.researched[id] ?? false
 const anyGoals = computed(() => state.goals.length + state.foundryGoals.length > 0)
+// The game's own picture of it, in the desktop app (features/game-images.md).
+const picture = computed(() =>
+  gameImages.version >= 0 && project.value ? gamePicture('foundry', project.value.id) : null,
+)
 </script>
 
 <template>
@@ -104,6 +109,7 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
         ×
       </button>
     </header>
+    <img v-if="picture" :src="picture" alt="" class="picture" />
 
     <p v-if="status" class="status" :class="status.state">
       {{ status.label }}
@@ -214,6 +220,14 @@ const anyGoals = computed(() => state.goals.length + state.foundryGoals.length >
 </template>
 
 <style scoped>
+.picture {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 2;
+  object-fit: contain;
+  margin: 2px auto 8px;
+}
 .detail {
   padding: 16px 18px 20px;
 }

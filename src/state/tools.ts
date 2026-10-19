@@ -21,6 +21,7 @@ import { parseCommands, runScript, type RunResult, type Step } from '@/model/mod
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
 import { planBase, type BaseLayer, type BaseSetup } from './baseplan'
+import { loadGameImages } from './gameimages'
 import { desktop, desktopFiles, type BaseFound, type BaseManifest } from './desktop'
 import type { GameFiles } from './gamefiles'
 import { stored } from './idb'
@@ -191,6 +192,8 @@ async function readInstall(): Promise<void> {
     tools.install = { kind, path: game.root, ini, cooked }
     managed = await loadManaged(files)
     await loadGameSettings(iniBytes ? iniText(iniBytes) : null)
+    // The game's own pictures, for the views (features/game-images.md), in the background.
+    void loadGameImages(files)
     tools.status = 'ready'
     void checkMods()
   } catch (e) {
@@ -252,6 +255,7 @@ export async function forgetGameFolder(): Promise<void> {
   if (!desktop) return
   await desktop.game.forget()
   files = null
+  void loadGameImages(null)
   current = new Map()
   Object.assign(tools, {
     status: 'off',

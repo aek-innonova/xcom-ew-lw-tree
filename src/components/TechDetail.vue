@@ -2,6 +2,7 @@
 // The panel for the selected tech: what it costs, what it needs, what it gives.
 
 import { computed } from 'vue'
+import { gameImages, gamePicture } from '@/state/gameimages'
 import {
   applicableCredits,
   creditReductionFor,
@@ -155,6 +156,10 @@ const waysText = computed(() => {
 
 const isResearched = (id: number) => campaign.value?.researched[id] ?? false
 const select = (id: number) => (state.selected = id)
+// The game's own picture of it, in the desktop app (features/game-images.md).
+const picture = computed(() =>
+  gameImages.version >= 0 && tech.value ? gamePicture('tech', tech.value.id) : null,
+)
 </script>
 
 <template>
@@ -176,6 +181,7 @@ const select = (id: number) => (state.selected = id)
       </div>
       <button type="button" class="close" title="Close" @click="state.selected = null">×</button>
     </header>
+    <img v-if="picture" :src="picture" alt="" class="picture" />
 
     <p v-if="status" class="status" :class="status.state">
       {{ status.label }}
@@ -340,6 +346,14 @@ const select = (id: number) => (state.selected = id)
 </template>
 
 <style scoped>
+.picture {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 2;
+  object-fit: contain;
+  margin: 2px auto 8px;
+}
 .detail {
   padding: 16px 18px 20px;
 }
