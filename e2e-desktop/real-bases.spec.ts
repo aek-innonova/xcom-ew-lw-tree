@@ -11,6 +11,8 @@
 //   LWTREE_REAL_LW       = Long War's: { "<path under XComGame>": "sha256:size" }
 //   LWTREE_REAL_LWR      = LWR's, the same
 //   LWTREE_REAL_UNFIT    = comma-separated mod script names expected not to fit LWR
+//   LWTREE_REAL_TICK     = comma-separated script names to tick on LWR (default: all; a
+//                          player ticks one variant of a mod, not its EW and LW ones together)
 
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -33,6 +35,7 @@ const electronBin = join(
 const GAME = process.env.LWTREE_REAL_GAME
 const LIBRARY = process.env.LWTREE_REAL_LIBRARY
 const UNFIT = (process.env.LWTREE_REAL_UNFIT ?? '').split(',').filter(Boolean)
+const TICK = (process.env.LWTREE_REAL_TICK ?? '').split(',').filter(Boolean)
 
 const sha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex')
 
@@ -151,8 +154,14 @@ test.describe('real game: versions put in and taken out by the app', () => {
       expect(exePatched()).toBe(true)
 
       // The person's mods on top, then out again.
-      const boxes = page.getByRole('checkbox', { name: /^Install / })
-      const n = await boxes.count()
+      const all = page.getByRole('checkbox', { name: /^Install / })
+      const ticked: number[] = []
+      for (let i = 0; i < (await all.count()); i++) {
+        const name = ((await all.nth(i).getAttribute('aria-label')) ?? '').slice('Install '.length)
+        if (!TICK.length || TICK.includes(name)) ticked.push(i)
+      }
+      const boxes = { nth: (k: number) => all.nth(ticked[k]!) }
+      const n = ticked.length
       if (n) {
         for (let i = 0; i < n; i++) await boxes.nth(i).check()
         await page.getByRole('button', { name: 'Apply my setup…' }).click()
@@ -172,8 +181,8 @@ test.describe('real game: versions put in and taken out by the app', () => {
             .nth(i)
             .locator('xpath=ancestor::*[contains(@class,"script-head")][1]')
             .locator('.status')
-          // "partly installed" / "installed, with …" both contain "installed".
-          await expect(status).toContainText(UNFIT.includes(name) ? 'does not fit' : 'installed', {
+          // Exactly installed (not "partly installed", not "not installed"), or does not fit.
+          await expect(status).toHaveText(UNFIT.includes(name) ? /^does not fit/ : /^installed$/, {
             timeout: 60_000,
           })
         }
