@@ -128,3 +128,18 @@ settled. The deploy copies the newest installer to staging's `/app/`.
 - Updates (electron-updater needs somewhere to publish) once a public
   download is wanted.
 - The person's own install has not been tried with the app yet.
+
+## Report (2026-10-19): an apply cut short
+
+The Windows bench's LWR round (features/windows-test-env.md) had its test
+close the app before the apply had finished writing. That was a test race,
+but it points at a real risk: a player closing the app mid-apply. The
+record of what the app wrote was saved after the last file, and held one
+hash per file. So after an interrupted apply, the next apply could take a
+file the app had itself just modded for a fresh original (a "reinstall")
+and overwrite its backup with it. The record now keeps every version the
+app has written of each file and is saved before the files are written,
+so any state a file can be left in reads as the app's own. A test cuts an
+apply short after its first file, then puts the originals back. Against
+the old code it restored a modded XComGame.upk; now it restores the true
+original with the backups untouched. 0.1.2.

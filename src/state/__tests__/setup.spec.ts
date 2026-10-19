@@ -75,6 +75,11 @@ describe.skipIf(!existsSync(lwr) || !existsSync(mods))(
       text: text(`${mods}/Mods/LightningReflexes.txt`),
       values: {},
     }
+    const soldier: Wanted['scripts'][number] = {
+      label: 'Soldier Gender',
+      text: text(`${mods}/Mods/SoldierGenderEW.txt`),
+      values: { FemaleProb: '40' },
+    }
     const sl = `${mods}/mod.files/Sightlines-1.4`
     const sightlinesFiles: Wanted['files'][number] = {
       label: 'Sightlines-1.4',
@@ -155,6 +160,50 @@ describe.skipIf(!existsSync(lwr) || !existsSync(mods))(
       await applyPlan(files, plan)
       expect(sha(files.map.get('CookedPCConsole/XComGame.upk')!)).toBe(original)
       expect(sha(files.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk`)!)).toBe(original)
+    })
+
+    it('survives an apply cut short: its own half-written files are never taken for originals', async () => {
+      const files = start()
+      const original = sha(files.map.get('CookedPCConsole/XComGame.upk')!)
+      const ini = sha(files.map.get('Config/DefaultGameCore.ini')!)
+      // A first setup, applied in full.
+      const first = await planSetup(
+        files,
+        { scripts: [lightning], files: [], settings: [] },
+        emptyManaged(),
+      )
+      await applyPlan(files, first)
+      // A second, cut short after its first file (the app closed mid-way).
+      const second = await planSetup(
+        files,
+        { scripts: [lightning], files: [], settings: [setting] },
+        await loadManaged(files),
+      )
+      expect(second.changes.map((c) => c.path)).toEqual(['Config/DefaultGameCore.ini'])
+      const write = files.write
+      let writes = 0
+      files.write = async (p, d) => {
+        if (!p.startsWith(BACKUP) && ++writes > 1) throw new Error('closed')
+        return write(p, d)
+      }
+      const third = await planSetup(
+        files,
+        { scripts: [soldier], files: [], settings: [setting] },
+        await loadManaged(files),
+      )
+      await expect(applyPlan(files, third)).rejects.toThrow('closed')
+      files.write = write
+      // Everything back: the originals, from the first backups, untouched.
+      const back = await planSetup(
+        files,
+        { scripts: [], files: [], settings: [] },
+        await loadManaged(files),
+      )
+      expect(back.changes.filter((c) => c.backup)).toEqual([])
+      await applyPlan(files, back)
+      expect(sha(files.map.get('CookedPCConsole/XComGame.upk')!)).toBe(original)
+      expect(sha(files.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk`)!)).toBe(original)
+      expect(sha(files.map.get('Config/DefaultGameCore.ini')!)).toBe(ini)
     })
 
     it('takes a reinstalled file as the new original', async () => {

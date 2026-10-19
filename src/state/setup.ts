@@ -24,8 +24,12 @@ export const GAME_INI = 'Config/DefaultGameCore.ini'
 export interface Managed {
   /** SHA-256 of each file's original (its backup). */
   originals: Record<string, string>
-  /** SHA-256 of what the page last wrote to each file. */
-  written: Record<string, string>
+  /**
+   * SHA-256 of every version the page has written of each file. All of them,
+   * not the last: a file found in any of these states is the page's own work,
+   * even after an apply that was cut short.
+   */
+  written: Record<string, string[]>
   /** Files the page put there that the game did not have (mod files). */
   created: string[]
 }
@@ -42,11 +46,19 @@ export async function loadManaged(files: GameFiles): Promise<Managed> {
   const b = await files.read(MANIFEST)
   if (!b) return emptyManaged()
   try {
-    return { ...emptyManaged(), ...JSON.parse(new TextDecoder().decode(b)) }
+    const m = { ...emptyManaged(), ...JSON.parse(new TextDecoder().decode(b)) } as Managed
+    // Records from before 2026-10-19 kept one hash per file.
+    for (const [p, v] of Object.entries(m.written as Record<string, string | string[]>))
+      m.written[p] = Array.isArray(v) ? v : [v]
+    return m
   } catch {
     return emptyManaged()
   }
 }
+
+/** Ours: the file is in a state the page wrote. */
+const wroteIt = (managed: Managed, path: string, sha: string) =>
+  managed.written[path]?.includes(sha) ?? false
 
 export interface WantedScript {
   /** Shown in messages: "Lightning Reflexes (LightningReflexes.txt)". */
@@ -96,7 +108,7 @@ async function original(
   const backup = await files.read(`${BACKUP}/${path}`)
   if (known) {
     const sha = await sha256(current)
-    if (sha === managed.written[path] || sha === known) {
+    if (wroteIt(managed, path, sha) || sha === known) {
       if (backup && (await sha256(backup)) === known) return { current, base: backup, fresh: false }
     }
   } else if (backup) {
@@ -110,7 +122,7 @@ async function original(
 export async function planSetup(files: GameFiles, wanted: Wanted, managed: Managed): Promise<Plan> {
   const next: Managed = {
     originals: { ...managed.originals },
-    written: { ...managed.written },
+    written: Object.fromEntries(Object.entries(managed.written).map(([p, v]) => [p, [...v]])),
     created: [...managed.created],
   }
   const changes: Change[] = []
@@ -127,7 +139,8 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
   ) {
     if (fresh || !next.originals[path]) next.originals[path] = await sha256(base)
     if (same(data, current)) return
-    next.written[path] = await sha256(data)
+    const sha = await sha256(data)
+    next.written[path] = [...new Set([...(next.written[path] ?? []), sha])].slice(-50)
     changes.push({
       path,
       action: 'write',
@@ -254,7 +267,11 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
   return { changes, problems, managed: next }
 }
 
-/** Writes a plan: backups first, then each file, each checked by reading it back. */
+/**
+ * Writes a plan: backups first, then the record (so whatever happens next,
+ * every state a file can be left in is known as the page's own), then each
+ * file, each checked by reading it back.
+ */
 export async function applyPlan(files: GameFiles, plan: Plan): Promise<string[]> {
   const log: string[] = []
   for (const c of plan.changes) {
@@ -266,6 +283,8 @@ export async function applyPlan(files: GameFiles, plan: Plan): Promise<string[]>
       log.push(`Kept the original of ${c.path} in ${BACKUP}/`)
     }
   }
+  if (plan.changes.length)
+    await files.write(MANIFEST, new TextEncoder().encode(JSON.stringify(plan.managed, null, 1)))
   for (const c of plan.changes) {
     if (c.action === 'remove') {
       await files.remove(c.path)
@@ -277,7 +296,5 @@ export async function applyPlan(files: GameFiles, plan: Plan): Promise<string[]>
     if (!back || !same(back, c.data!)) throw new Error(`${c.path} did not read back as written`)
     log.push(`${c.action === 'create' ? 'Added' : 'Wrote'} ${c.path}`)
   }
-  if (plan.changes.length)
-    await files.write(MANIFEST, new TextEncoder().encode(JSON.stringify(plan.managed, null, 1)))
   return log
 }
