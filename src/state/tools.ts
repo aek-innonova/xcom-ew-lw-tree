@@ -95,6 +95,8 @@ export const tools = reactive({
   status: 'off' as 'off' | 'needs-permission' | 'reading' | 'ready',
   /** How the page reaches the game: the browser's folder access, or the helper program. */
   via: null as 'folder' | 'helper' | null,
+  /** The browser will not let the page open the game's .ini files (Chrome on Windows). */
+  iniRefused: false,
   /** The helper: not tried, not running, the code was wrong. */
   helper: 'off' as 'off' | 'not-running' | 'wrong-code' | 'connected',
   folder: null as string | null,
@@ -136,10 +138,12 @@ async function child(dir: Dir, name: string): Promise<Dir | null> {
 
 /**
  * The XComGame folder (CookedPCConsole and Config) under whatever was picked:
- * the Steam game folder, XEW, or XComGame itself.
+ * the Steam game folder, XEW, or XComGame itself. Enemy Within (and Long War)
+ * is XEW/XComGame; the game folder's own XComGame is Enemy Unknown's, so XEW
+ * comes first.
  */
 async function findGameDir(root: Dir): Promise<{ dir: Dir; path: string } | null> {
-  const tries: string[][] = [[], ['XComGame'], ['XEW', 'XComGame']]
+  const tries: string[][] = [['XEW', 'XComGame'], [], ['XComGame']]
   for (const steps of tries) {
     let d: Dir | null = root
     for (const s of steps) d = d && (await child(d, s))
@@ -188,6 +192,7 @@ async function readInstall(): Promise<void> {
     const kind = installKind(cooked)
     let ini: string | null = null
     const iniBytes = await files.read(GAME_INI)
+    tools.iniRefused = !iniBytes && (await files.refused(GAME_INI))
     tools.iniEntries = markRaw(iniBytes ? iniEntries(iniText(iniBytes)) : [])
     if (kind !== 'ew') {
       setGame(kind)

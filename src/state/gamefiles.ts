@@ -30,6 +30,12 @@ export interface GameFiles {
   remove(path: string): Promise<void>
   /** Whether writing is allowed; asks the browser when `ask` (needs a click). */
   canWrite(ask: boolean): Promise<boolean>
+  /**
+   * Whether the browser refuses this file's name outright. Chrome hides files
+   * whose extension Safe Browsing rates dangerous on that system from pages
+   * (on Windows that includes .ini): they are not even listed.
+   */
+  refused(path: string): Promise<boolean>
 }
 
 const split = (path: string) => path.split('/').filter(Boolean)
@@ -92,6 +98,18 @@ export function folderFiles(dir: Dir): GameFiles {
       const parts = split(await actual(path))
       const d = await walk(parts.slice(0, -1))
       await d?.removeEntry(parts[parts.length - 1]!)
+    },
+    async refused(path) {
+      const parts = split(path)
+      const d = await walk(parts.slice(0, -1))
+      if (!d) return false
+      try {
+        await d.getFileHandle(parts[parts.length - 1]!)
+        return false
+      } catch (e) {
+        // NotFoundError when it is simply not there; TypeError when the name is not allowed.
+        return (e as Error).name === 'TypeError'
+      }
     },
     async canWrite(ask) {
       const p = await dir.queryPermission({ mode: 'readwrite' }).catch(() => 'denied' as Permission)
@@ -171,6 +189,9 @@ export function helperFiles(code: string, base = HELPER): GameFiles {
     },
     async canWrite() {
       return true
+    },
+    async refused() {
+      return false
     },
   }
 }

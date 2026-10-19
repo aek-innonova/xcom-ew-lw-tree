@@ -48,6 +48,9 @@ function memoryFiles(
     async canWrite() {
       return true
     },
+    async refused() {
+      return false
+    },
   }
 }
 
@@ -194,6 +197,21 @@ describe.skipIf(!existsSync(lwr) || !existsSync(mods))(
       await applyPlan(files, out)
       expect(files.map.has('Config/DefaultSightlines.ini')).toBe(false)
       expect(str(files.map.get('Config/DefaultMutatorLoader.ini'))).not.toContain('Sightlines')
+    })
+
+    it('says so when the browser refuses .ini files (Chrome on Windows), and writes the rest', async () => {
+      const files = start()
+      files.refused = async (p) => /\.ini$/i.test(p)
+      files.read = ((read) => (p: string) => (/\.ini$/i.test(p) ? Promise.resolve(null) : read(p)))(
+        files.read,
+      )
+      const plan = await planSetup(
+        files,
+        { scripts: [lightning], files: [sightlinesFiles], settings: [setting] },
+        emptyManaged(),
+      )
+      expect(plan.problems.join('\n')).toMatch(/Chrome does not let web pages open \.ini files/)
+      expect(plan.changes.map((c) => c.path)).toEqual(['CookedPCConsole/XComGame.upk'])
     })
 
     it('leaves out a mod that does not fit, saying why', async () => {

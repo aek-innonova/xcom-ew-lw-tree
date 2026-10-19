@@ -28,6 +28,10 @@ async function makeInstall(page: Page) {
     const game = await (
       await steam.getDirectoryHandle('XEW', { create: true })
     ).getDirectoryHandle('XComGame', { create: true })
+    // The game folder also holds Enemy Unknown's own XComGame, without Long War.
+    const eu = await steam.getDirectoryHandle('XComGame', { create: true })
+    await eu.getDirectoryHandle('CookedPCConsole', { create: true })
+    await eu.getDirectoryHandle('Config', { create: true })
     const cooked = await game.getDirectoryHandle('CookedPCConsole', { create: true })
     for (const name of ['LongWar.upk', 'LWRebalance.u']) {
       const w = await (await cooked.getFileHandle(name, { create: true })).createWritable()

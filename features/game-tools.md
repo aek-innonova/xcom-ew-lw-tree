@@ -294,3 +294,32 @@ Open, for the person:
   need the same `connect-src` addition. Held, with everything else.
 - **A first real run** on the person's install, ideally on a copy of the
   game folder first.
+
+## Report (2026-10-19): the first real install
+
+The person pointed the page at their install, and it showed three faults:
+
+- **The example path was the person's own** (`I:\Steam\…`), taken from
+  our conversation. It is now a neutral `…\steamapps\common\XCom-Enemy-Unknown`.
+- **Picking XCom-Enemy-Unknown found "Enemy Within without Long War".**
+  The game folder holds Enemy Unknown's own `XComGame` next to `XEW`, and
+  the search tried that first. `XEW/XComGame` now comes first; the browser
+  test's fake install has both, so the old order would fail it.
+- **"No DefaultGameCore.ini found"**: Chrome on Windows does not let web
+  pages open `.ini` files at all. Safe Browsing's file types rate `ini`
+  DANGEROUS on Windows, and File System Access refuses such names
+  (`IsSafePathComponent`) and leaves them out of folder listings
+  (read in Chromium's source 2026-10-19). On Linux they are allowed, which
+  is why no test saw it. The page now tells "refused" from "missing"
+  (TypeError against NotFoundError) and says so:
+  - settings cannot be read or set that way, and the page suggests "Load
+    DefaultGameCore.ini" for the costs, or the helper;
+  - a plan that needs an INI (settings, a mod's INI files) leaves those
+    parts out with the reason and writes the rest (tested).
+
+  So on Windows the browser's folder access covers the package patching
+  only, and the helper program is the way to INI settings and mods' INI
+  files. That makes publishing the helper more worthwhile.
+- The folder line shows only the names below the picked folder: browsers
+  never give pages a full path. The page now says so; through the helper
+  it shows the full path.

@@ -197,13 +197,15 @@ const repeated = (e: IniEntry) =>
 const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
 
 const iniNote = computed(() =>
-  tools.install?.ini && state.ini
-    ? `${tools.install.ini} loaded: the site's costs are this install's.`
-    : tools.install?.kind === 'ew'
-      ? ''
-      : tools.iniEntries.length
-        ? 'DefaultGameCore.ini has no research costs (TechBalance lines) for the site to use.'
-        : 'No DefaultGameCore.ini found in Config.',
+  tools.iniRefused
+    ? 'Chrome does not let web pages open .ini files on Windows, so the page cannot see DefaultGameCore.ini this way. Load it with "Load DefaultGameCore.ini" at the top for its costs, or use the helper program, which can also change it.'
+    : tools.install?.ini && state.ini
+      ? `${tools.install.ini} loaded: the site's costs are this install's.`
+      : tools.install?.kind === 'ew'
+        ? ''
+        : tools.iniEntries.length
+          ? 'DefaultGameCore.ini has no research costs (TechBalance lines) for the site to use.'
+          : 'No DefaultGameCore.ini found in Config.',
 )
 </script>
 
@@ -228,9 +230,9 @@ const iniNote = computed(() =>
             </button>
           </p>
           <p class="muted small">
-            The game's folder in your Steam library, such as
-            <code>I:\Steam\steamapps\common\XCom-Enemy-Unknown</code> (its <code>XEW</code> or
-            <code>XComGame</code> folder works too). Chrome will not open anything under
+            The game's folder in your Steam library:
+            <code>…\steamapps\common\XCom-Enemy-Unknown</code> (or its <code>XEW</code>
+            folder). Chrome will not open anything under
             <code>Program Files</code>, where Steam puts games unless told otherwise: for a game
             there, use the helper program below.
           </p>
@@ -291,6 +293,10 @@ const iniNote = computed(() =>
           <dd>
             <code>{{ tools.install.path }}</code>
             <span v-if="tools.via === 'helper'" class="muted"> · through the helper program</span>
+            <span v-else class="muted">
+              · the folder you picked; browsers show pages only the names below it, never the full
+              path</span
+            >
           </dd>
           <dt>Installed</dt>
           <dd>
@@ -457,7 +463,11 @@ const iniNote = computed(() =>
           </button>
         </li>
       </ul>
-      <p v-if="tools.iniEntries.length">
+      <p v-if="tools.iniRefused" class="muted small">
+        Not through Chrome's folder access on Windows: it does not let web pages open .ini files.
+        The helper program can.
+      </p>
+      <p v-else-if="tools.iniEntries.length">
         <input
           v-model="query"
           type="search"
