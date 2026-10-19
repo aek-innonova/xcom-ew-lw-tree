@@ -23,11 +23,11 @@ describe('the game’s pictures (model/lzo.ts, model/texture.ts)', () => {
     // DXT1: color 0 pure red, color 1 pure blue; every pixel index 1.
     const dxt1 = bytes(0x00, 0xf8, 0x1f, 0x00, 0x55, 0x55, 0x55, 0x55)
     const a = decodeImage('PF_DXT1', dxt1, 4, 4)
-    expect(a.slice(0, 4)).toEqual([0, 0, 255, 255])
+    expect(Array.from(a.slice(0, 4))).toEqual([0, 0, 255, 255])
     // DXT5: alpha 255 → 0 palette, all index 1 (alpha 0); color as above, index 0 (red).
     const dxt5 = bytes(255, 0, 0x49, 0x92, 0x24, 0x49, 0x92, 0x24, 0x00, 0xf8, 0x1f, 0x00, 0, 0, 0, 0)
     const b = decodeImage('PF_DXT5', dxt5, 4, 4)
-    expect(b.slice(0, 4)).toEqual([255, 0, 0, 0])
+    expect(Array.from(b.slice(0, 4))).toEqual([255, 0, 0, 0])
   })
 })
 
