@@ -83,7 +83,10 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       state/setup.ts (plans, backups), model/upk.ts
       (packages), model/modpatch.ts + model/pseudocode.ts (PatcherGUI scripts,
       checked byte for byte against PatchUPK), model/inifile.ts;
-      features/game-tools.md.
+      features/game-tools.md. The library folder (state/library.ts) and Long
+      War / LWR put in by the app (state/baseplan.ts; desktop/src/inno.ts,
+      lzma.ts, zip.ts, bases.ts read the installers; src/data/game-files.json
+      is plain Enemy Within's files by hash): features/game-bases.md.
     - LWR: its own files read the same way (scripts/game_data.py, data/lwr/,
       features/lw-rebalanced.md); its air war, squadrons flying together, is
       model/airwar-lwr.ts. A save does not say which version made it, so the
@@ -108,7 +111,9 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       <p>
         Managing mods and the game's settings needs the game's own files, which a web page cannot
         reach well: the desktop app is this site with <strong>Tools</strong> for that. It finds the
-        game by itself, keeps the originals of every file it changes, and keeps itself up to date.
+        game by itself, puts Long War or LWR into it from their own downloads and takes them out
+        again, keeps your mods in a folder you can see, keeps the originals of every file it
+        changes, and keeps itself up to date.
       </p>
       <p v-if="installer">
         <a :href="`${APP_DIR}${installer}`" download>{{ installer }}</a>

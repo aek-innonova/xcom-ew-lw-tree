@@ -265,6 +265,11 @@ export async function restoreTools(): Promise<void> {
     await loadBases()
     // A mod copied into the folder by hand turns up when the app is back in front.
     window.addEventListener('focus', () => void rereadLibrary())
+    desktop.bases?.onProgress((p) => {
+      const b = tools.bases.find((x) => x.id === p.id)
+      if (b && tools.busy?.startsWith('Unpacking'))
+        tools.busy = `Unpacking ${b.name} from ${b.source}: ${p.done + 1} of ${p.total} files (once)…`
+    })
   }
   if (await desktop.game.current()) await readInstall()
   else await findGameFolder()
