@@ -11,7 +11,12 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test'
 
 const root = resolve(import.meta.dirname, '..')
-const electronBin = join(root, 'desktop/node_modules/electron/dist/electron')
+// The Electron binary shipped with the desktop package: electron.exe on Windows.
+const electronBin = join(
+  root,
+  'desktop/node_modules/electron/dist',
+  process.platform === 'win32' ? 'electron.exe' : 'electron',
+)
 
 function makeGame() {
   const work = mkdtempSync(join(tmpdir(), 'lwtree-app-'))
@@ -38,6 +43,15 @@ function makeGame() {
   return { work, steam, game, saves }
 }
 
+// Electron's env for a launch. ELECTRON_RUN_AS_NODE must be absent, not empty:
+// on Windows an empty value still counts as set, so Electron would run as Node
+// and reject Playwright's --remote-debugging-port. Deleting works on both.
+function env(extra: Record<string, string>) {
+  const e: Record<string, string | undefined> = { ...process.env, ...extra }
+  delete e.ELECTRON_RUN_AS_NODE
+  return e
+}
+
 let app: ElectronApplication | undefined
 test.afterEach(async () => app?.close())
 
@@ -46,13 +60,11 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
   app = await electron.launch({
     executablePath: electronBin,
     args: [join(root, 'desktop'), `--game-dir=${steam}`],
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '',
+    env: env({
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: join(work, 'userdata'),
       LWTREE_SAVES: saves,
-    },
+    }),
   })
   const page = await app.firstWindow()
   await page.evaluate(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
@@ -102,12 +114,10 @@ test('the website has no Tools', async () => {
   app = await electron.launch({
     executablePath: electronBin,
     args: [join(root, 'desktop')],
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '',
+    env: env({
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: join(work, 'u'),
-    },
+    }),
   })
   // The same site in a plain window, without the bridge: as on the web.
   const page = await app.firstWindow()
@@ -129,13 +139,11 @@ test('Load save opens the app’s dialog in the save folder, Load INI in the gam
   app = await electron.launch({
     executablePath: electronBin,
     args: [join(root, 'desktop'), `--game-dir=${steam}`],
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '',
+    env: env({
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: join(work, 'userdata'),
       LWTREE_SAVES: saves,
-    },
+    }),
   })
   const page = await app.firstWindow()
   await page.evaluate(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))

@@ -148,15 +148,14 @@ export async function inside(root: string, rel: string): Promise<string> {
   let p = root
   for (const part of rel.split(/[\\/]/)) {
     if (!part || part === '.' || part === '..') throw new Error('bad path')
-    let next = path.join(p, part)
-    try {
-      await fs.lstat(next)
-    } catch {
-      const names = await fs.readdir(p).catch(() => [] as string[])
-      const same = names.find((n) => n.toLowerCase() === part.toLowerCase())
-      if (same) next = path.join(p, same)
-    }
-    p = next
+    // Resolve to the real on-disk name, whatever case was asked for. Windows'
+    // own case-insensitive lookup would otherwise keep the asked case, so this
+    // reads the directory on both platforms. A part not there yet (a file
+    // about to be written) keeps what was asked.
+    const names = await fs.readdir(p).catch(() => [] as string[])
+    const real =
+      names.find((n) => n === part) ?? names.find((n) => n.toLowerCase() === part.toLowerCase())
+    p = path.join(p, real ?? part)
   }
   const r = path.relative(root, p)
   if (r.startsWith('..') || path.isAbsolute(r)) throw new Error('bad path')

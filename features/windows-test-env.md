@@ -1,6 +1,6 @@
 ---
 title: "A real Windows test bench: Steam, the game, Long War, and the app against them"
-status: planned
+status: in-progress
 priority: 3
 dependsOn: [desktop-app]
 ---

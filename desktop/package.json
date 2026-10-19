@@ -8,9 +8,9 @@
   "author": "Anders Eggers-Krag",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "site": "cd .. && npm run build && rm -rf desktop/site && cp -r dist desktop/site",
+    "site": "cd .. && npm run build && node scripts/copy-site.mjs",
     "start": "npm run build && electron .",
-    "test": "node --test dist/*.test.js",
+    "test": "node --test \"dist/*.test.js\"",
     "dist:win": "npm run site && npm run build && electron-builder --win nsis"
   },
   "devDependencies": {
