@@ -13,6 +13,18 @@ export interface SaveEntry {
   lastModified: number
 }
 
+/** The shell's bundles and updates (desktop/src/bundles.ts). */
+export interface BundleState {
+  shellVersion: string
+  serving: string
+  base: string
+  ready?: string
+  shell?: { version: string; needed: boolean; downloaded: boolean }
+  checking: boolean
+  lastCheck?: string
+  error?: string
+}
+
 /** window.lwtreeDesktop, from desktop/src/preload.ts. */
 export interface DesktopApi {
   info(): Promise<{ version: string; platform: string }>
@@ -28,6 +40,15 @@ export interface DesktopApi {
     list(dir: string): Promise<string[]>
     write(path: string, data: Uint8Array): Promise<void>
     remove(path: string): Promise<void>
+  }
+  /** From shell 0.2.0 (older shells have no updates): check before use. */
+  bundle?: {
+    state(): Promise<BundleState>
+    check(): Promise<BundleState>
+    good(): Promise<void>
+    restart(): Promise<boolean>
+    installShell(): Promise<boolean>
+    onState(f: (s: BundleState) => void): void
   }
   saves: {
     current(): Promise<string | null>

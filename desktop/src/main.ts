@@ -5,9 +5,12 @@
 // player chose; the page never sees Node.
 
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
-import { promises as fs } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { promises as fs, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { BundleStore } from './bundles'
+import { DEFAULT_UPDATE, TRUSTED_KEYS } from './keys'
 import { findGame, gameDirUnder, listInside, readInside, removeInside, writeInside } from './game'
 
 const SCHEME = 'app'
@@ -15,6 +18,8 @@ const HOST = 'lwtree'
 const ORIGIN = `${SCHEME}://${HOST}`
 /** The built site (desktop/site, from the repository's dist/). */
 const SITE = process.env.LWTREE_SITE ?? path.join(__dirname, '..', 'site')
+/** How often to ask for updates while the app runs. */
+const CHECK_EVERY_MS = 6 * 3600_000
 // As on the website, the page can reach nothing but itself.
 const CSP =
   "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
@@ -24,6 +29,28 @@ if (process.env.LWTREE_USER_DATA) app.setPath('userData', process.env.LWTREE_USE
 const argGameDir = process.argv
   .find((a) => a.startsWith('--game-dir='))
   ?.slice('--game-dir='.length)
+
+// --- The site bundle and its updates (bundles.ts, features/desktop-updates.md)
+
+function baseInfo(): { version: string } {
+  try {
+    return JSON.parse(readFileSync(path.join(SITE, '.bundle-info.json'), 'utf8'))
+  } catch {
+    return { version: '0.0.0' }
+  }
+}
+// Tests point the app at their own server and key; LWTREE_UPDATE_URL="" turns updates off.
+const updateUrl = process.env.LWTREE_UPDATE_URL ?? DEFAULT_UPDATE.url
+const bundles = new BundleStore({
+  dir: path.join(app.getPath('userData'), 'bundles'),
+  baseDir: SITE,
+  baseVersion: baseInfo().version,
+  shellVersion: app.getVersion(),
+  keys: process.env.LWTREE_UPDATE_KEYS ? JSON.parse(process.env.LWTREE_UPDATE_KEYS) : TRUSTED_KEYS,
+  updateUrl: updateUrl || undefined,
+  channel: process.env.LWTREE_UPDATE_CHANNEL ?? DEFAULT_UPDATE.channel,
+  fetch: (u) => net.fetch(u, { cache: 'no-store' }),
+})
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -195,6 +222,34 @@ function bridge(win: BrowserWindow) {
     return { name: path.basename(file), data: new Uint8Array(await fs.readFile(file)) }
   })
   handle('saves:list', () => listInside(needSaves(), ''))
+
+  const tell = () => {
+    if (!win.isDestroyed()) win.webContents.send('bundle:state', bundles.state)
+  }
+  handle('bundle:state', () => bundles.state)
+  handle('bundle:check', async () => {
+    const s = await bundles.check()
+    tell()
+    return s
+  })
+  handle('bundle:good', () => bundles.good())
+  handle('bundle:restart', async () => {
+    if (!bundles.activate()) return false
+    await win.webContents.session.clearCache()
+    win.reload()
+    return true
+  })
+  handle('shell:install', async () => {
+    const installer = await bundles.fetchShell()
+    if (!installer) return false
+    // NSIS, per user, silently; it starts the app again when done.
+    spawn(installer, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref()
+    app.quit()
+    return true
+  })
+  const check = () => void bundles.check().then(tell)
+  setTimeout(check, 10_000)
+  setInterval(check, CHECK_EVERY_MS)
   handle('saves:read', (name, start, end) =>
     readInside(needSaves(), path.basename(str(name)), num(start), num(end)),
   )
@@ -206,13 +261,14 @@ async function serveSite(request: Request): Promise<Response> {
   const url = new URL(request.url)
   if (url.host !== HOST) return new Response('not found', { status: 404 })
   const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html'
-  const file = path.join(SITE, rel)
-  if (path.relative(SITE, file).startsWith('..')) return new Response('not found', { status: 404 })
+  const site = bundles.activeDir
+  const file = path.join(site, rel)
+  if (path.relative(site, file).startsWith('..')) return new Response('not found', { status: 404 })
   const found = await fs
     .stat(file)
     .then((s) => s.isFile())
     .catch(() => false)
-  const res = await net.fetch(pathToFileURL(found ? file : path.join(SITE, 'index.html')).href)
+  const res = await net.fetch(pathToFileURL(found ? file : path.join(site, 'index.html')).href)
   const headers = new Headers(res.headers)
   headers.set('Content-Security-Policy', CSP)
   if (rel.endsWith('.js')) headers.set('Content-Type', 'text/javascript')
@@ -251,6 +307,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   await loadSettings()
+  await bundles.start()
   protocol.handle(SCHEME, serveSite)
   await createWindow()
 })

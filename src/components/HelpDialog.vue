@@ -5,6 +5,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { game } from '@/state/store'
 import { desktop } from '@/state/desktop'
+import { checkForUpdates, installNewApp, updates } from '@/state/updates'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -115,6 +116,32 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
           · a test build, not code-signed: Windows may warn ("More info", then "Run anyway") ·
           <a :href="`${APP_DIR}SHA256SUMS`" target="_blank">checksum</a></span
         >
+      </p>
+    </section>
+
+    <section v-if="desktop?.bundle && updates.state">
+      <h3>This app</h3>
+      <p>
+        App {{ updates.state.shellVersion }} · site {{ updates.state.serving
+        }}<template v-if="updates.state.ready">
+          · {{ updates.state.ready }} ready at the next start</template
+        >. It fetches new versions of the site by itself, checks their signature, and asks before it
+        switches.
+      </p>
+      <p>
+        <button type="button" :disabled="updates.state.checking" @click="checkForUpdates()">
+          {{ updates.state.checking ? 'Checking…' : 'Check for updates' }}
+        </button>
+        <span v-if="updates.state.error" class="muted">
+          · the last check failed: {{ updates.state.error }}</span
+        >
+        <span v-else-if="updates.state.lastCheck && !updates.state.ready" class="muted">
+          · up to date as of {{ new Date(updates.state.lastCheck).toLocaleTimeString() }}</span
+        >
+        <template v-if="updates.state.shell && !updates.state.shell.needed">
+          · app {{ updates.state.shell.version }} is out
+          <button type="button" @click="installNewApp()">Install it and restart</button>
+        </template>
       </p>
     </section>
 

@@ -282,8 +282,12 @@ test.describe('real Long War install', () => {
       })
     for (const rel of walk('')) {
       if (rel === 'manifest.json') continue
-      const sha = createHash('sha256').update(readFileSync(join(backup, rel))).digest('hex')
-      expect(`${rel} ${sha}:${readFileSync(join(backup, rel)).length}`).toBe(`${rel} ${before[rel]}`)
+      const sha = createHash('sha256')
+        .update(readFileSync(join(backup, rel)))
+        .digest('hex')
+      expect(`${rel} ${sha}:${readFileSync(join(backup, rel)).length}`).toBe(
+        `${rel} ${before[rel]}`,
+      )
     }
   })
 })

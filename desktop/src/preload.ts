@@ -20,6 +20,16 @@ contextBridge.exposeInMainWorld('lwtreeDesktop', {
     write: (path: string, data: Uint8Array) => call('game:write', path, data),
     remove: (path: string) => call('game:remove', path),
   },
+  bundle: {
+    state: () => call('bundle:state'),
+    check: () => call('bundle:check'),
+    good: () => call('bundle:good'),
+    restart: () => call('bundle:restart'),
+    installShell: () => call('shell:install'),
+    onState: (f: (s: unknown) => void) => {
+      ipcRenderer.on('bundle:state', (_e, s) => f(s))
+    },
+  },
   saves: {
     current: () => call('saves:current'),
     choose: () => call('saves:choose'),

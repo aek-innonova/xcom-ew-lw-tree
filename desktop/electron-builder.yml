@@ -12,6 +12,8 @@ files:
   - dist/**/*
   - "!dist/*.test.js"
   - site/**/*
+  # A dotfile: globs leave it out unless named (the base bundle's version).
+  - site/.bundle-info.json
   - package.json
 win:
   target:

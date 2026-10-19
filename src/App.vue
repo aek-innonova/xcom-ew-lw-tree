@@ -13,6 +13,7 @@ import TechTree from '@/components/TechTree.vue'
 import { loadFile, state, game } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
 import { restoreTools, tools } from '@/state/tools'
+import { installNewApp, restartIntoUpdate, startUpdates, updates } from '@/state/updates'
 
 // Pages opened less often load when first shown.
 const AirWarView = defineAsyncComponent(() => import('@/components/AirWarView.vue'))
@@ -85,6 +86,7 @@ onMounted(() => {
   // Tools is the desktop app's; a website visit that last saw it opens the tree.
   if (state.view === 'tools' && !tools.supported) state.view = 'research'
   void restoreTools()
+  void startUpdates()
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragleave', onDragLeave)
   window.addEventListener('dragover', onDragOver)
@@ -105,6 +107,28 @@ onBeforeUnmount(() => {
     <AppHeader @find="onFind" @help="helpOpen = true" />
     <HelpDialog :open="helpOpen" @close="closeHelp" />
     <CampaignBar />
+    <p
+      v-if="updates.state?.ready && updates.dismissed !== updates.state.ready"
+      class="message info update"
+      role="status"
+    >
+      A new version of the site is ready.
+      <button type="button" class="act" @click="restartIntoUpdate()">Restart into it</button>
+      <button type="button" class="act" @click="updates.dismissed = updates.state.ready">
+        At the next start
+      </button>
+    </p>
+    <p
+      v-else-if="updates.state?.shell?.needed && updates.dismissed !== updates.state.shell.version"
+      class="message info update"
+      role="status"
+    >
+      The site's newest version needs a newer app ({{ updates.state.shell.version }}).
+      <button type="button" class="act" @click="installNewApp()">Install it and restart</button>
+      <button type="button" class="act" @click="updates.dismissed = updates.state.shell.version">
+        Later
+      </button>
+    </p>
     <p v-if="state.message" class="message" :class="state.message.kind" role="status">
       {{ state.message.text }}
       <button type="button" class="dismiss" title="Dismiss" @click="state.message = null">×</button>
@@ -286,6 +310,12 @@ a {
 }
 .message.error {
   background: #3a1518;
+}
+.message.update {
+  background: #10263a;
+}
+.message .act {
+  padding: 2px 10px;
 }
 .dismiss {
   margin-left: auto;

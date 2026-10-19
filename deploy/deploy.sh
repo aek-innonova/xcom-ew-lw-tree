@@ -18,6 +18,13 @@ if [[ -n "$installer" ]]; then
   (cd dist/app && sha256sum "$(cat LATEST)" > SHA256SUMS)
 fi
 
+# The site as a signed bundle for the desktop app's updates
+# (features/desktop-updates.md), when this machine holds the signing key.
+if [[ -f "${LWTREE_BUNDLE_KEY:-$HOME/.config/lwtree/bundle-key.pem}" ]]; then
+  (cd desktop && npm run build >/dev/null)
+  node scripts/publish-bundle.mjs staging
+fi
+
 # --delete-after keeps the old assets in place until the new index.html is up.
 rsync -rlt --delete-after --chmod=D755,F644 dist/ www:/srv/xcom/
 echo "published: https://xcom.innonova.ch"
