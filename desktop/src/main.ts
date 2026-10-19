@@ -6,9 +6,11 @@
 
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
 import { spawn } from 'node:child_process'
-import { promises as fs, readFileSync } from 'node:fs'
+import { createReadStream, promises as fs, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+import { BaseStore } from './bases'
 import { BundleStore } from './bundles'
 import { DEFAULT_UPDATE, TRUSTED_KEYS } from './keys'
 import {
@@ -96,6 +98,18 @@ async function saveSettings() {
 const libraryDir = () =>
   process.env.LWTREE_LIBRARY ?? path.join(app.getPath('documents'), 'Long War Tech Tree')
 
+/**
+ * Where unpacked bases are kept: the machine's own app data (not the roaming
+ * profile; they are large and can be unpacked again). LWTREE_CACHE in tests.
+ */
+const cacheDir = () =>
+  process.env.LWTREE_CACHE ??
+  (process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, 'Long War Tech Tree', 'bases')
+    : path.join(app.getPath('userData'), 'bases'))
+let baseStore: BaseStore | undefined
+const bases = () => (baseStore ??= new BaseStore(libraryDir(), cacheDir()))
+
 /** The game's own save folder (LWTREE_SAVES stands in for it in tests). */
 const defaultSaves = () =>
   process.env.LWTREE_SAVES ??
@@ -111,6 +125,31 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : u
 const needGame = () => {
   if (!settings.gameRoot) throw new Error('no game folder')
   return settings.gameRoot
+}
+/**
+ * A game path: under XComGame, or with "xew:" under XEW (Long War's own
+ * backups, read; XComEW.exe, the one file there the app writes).
+ */
+const EXE = 'Binaries/Win32/XComEW.exe'
+function gamePath(p: string, write = false): { root: string; rel: string } {
+  const root = needGame()
+  if (!p.startsWith('xew:')) return { root, rel: p }
+  const rel = p.slice(4)
+  if (write && rel.toLowerCase() !== EXE.toLowerCase()) throw new Error('not allowed')
+  return { root: path.dirname(root), rel }
+}
+async function hashFile(file: string): Promise<{ size: number; sha256: string } | null> {
+  try {
+    const h = createHash('sha256')
+    let size = 0
+    for await (const chunk of createReadStream(file)) {
+      h.update(chunk as Buffer)
+      size += (chunk as Buffer).length
+    }
+    return { size, sha256: h.digest('hex') }
+  } catch {
+    return null
+  }
 }
 const needSaves = () => {
   if (!settings.savesDir) throw new Error('no save folder')
@@ -175,13 +214,54 @@ function bridge(win: BrowserWindow) {
     delete settings.gameRoot
     await saveSettings()
   })
-  handle('game:read', (p, start, end) => readInside(needGame(), str(p), num(start), num(end)))
+  handle('game:read', (p, start, end) => {
+    const g = gamePath(str(p))
+    return readInside(g.root, g.rel, num(start), num(end))
+  })
   handle('game:list', async (p) => (await listInside(needGame(), str(p))).map((e) => e.name))
   handle('game:write', (p, data) => {
     if (!(data instanceof Uint8Array)) throw new Error('bad data')
-    return writeInside(needGame(), str(p), data)
+    const g = gamePath(str(p), true)
+    return writeInside(g.root, g.rel, data)
   })
   handle('game:remove', (p) => removeInside(needGame(), str(p)))
+  handle('game:hash', async (p) => {
+    const g = gamePath(str(p))
+    return hashFile(await inside(g.root, g.rel))
+  })
+  // A copy into the game, from the game itself or from an unpacked base: to a
+  // temporary file beside the target, then into place at once.
+  handle('game:copy', async (from, to) => {
+    const f = from as { game?: unknown; base?: unknown; path?: unknown }
+    let source: string
+    if (typeof f?.game === 'string') {
+      const g = gamePath(f.game)
+      source = await inside(g.root, g.rel)
+    } else source = await bases().file(str(f?.base), str(f?.path))
+    const g = gamePath(str(to), true)
+    const target = await inside(g.root, g.rel)
+    await fs.mkdir(path.dirname(target), { recursive: true })
+    const tmp = path.join(path.dirname(target), `.lwtree-${process.pid}-${Date.now()}`)
+    try {
+      await fs.copyFile(source, tmp)
+      await fs.rename(tmp, target)
+    } catch (e) {
+      await fs.rm(tmp, { force: true })
+      throw e
+    }
+  })
+
+  // The game versions in the library (bases.ts, features/game-bases.md).
+  handle('bases:list', () => bases().list())
+  handle('bases:unpack', (id) =>
+    bases().unpack(str(id), (done, total) => {
+      if (!win.isDestroyed()) win.webContents.send('bases:progress', { id, done, total })
+    }),
+  )
+  handle(
+    'bases:read',
+    async (id, p) => new Uint8Array(await fs.readFile(await bases().file(str(id), str(p)))),
+  )
 
   handle('library:info', async () => {
     await fs.mkdir(path.join(libraryDir(), 'Mods'), { recursive: true })

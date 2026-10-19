@@ -112,7 +112,7 @@ function block(exe: Uint8Array, at: number): { data: Uint8Array; next: number } 
   const end = at + 9 + stored
   // 4 KiB pieces, each after its CRC.
   const parts: Uint8Array[] = []
-  for (let p = at + 9; p < end; ) {
+  for (let p = at + 9; p < end;) {
     const len = Math.min(4096, end - p - 4)
     if (crc32(exe, p + 4, p + 4 + len) !== u32(exe, p)) throw new Error('damaged installer (block)')
     parts.push(exe.subarray(p + 4, p + 4 + len))
@@ -251,7 +251,8 @@ export function readInnoSetup(exe: Uint8Array): InnoSetup {
     const have = chunks.get(l.chunkOffset)
     if (have && have.length >= need) return have
     const at = data + l.chunkOffset
-    if (indexOf(exe.subarray(at, at + 4), CHUNK_MAGIC) !== 0) throw new Error('damaged installer (chunk)')
+    if (indexOf(exe.subarray(at, at + 4), CHUNK_MAGIC) !== 0)
+      throw new Error('damaged installer (chunk)')
     const body = exe.subarray(at + 4, at + 4 + l.chunkSize)
     // The chunk's full size: the end of the furthest file in it.
     let size = 0

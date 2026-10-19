@@ -19,6 +19,16 @@ contextBridge.exposeInMainWorld('lwtreeDesktop', {
     list: (dir: string) => call('game:list', dir),
     write: (path: string, data: Uint8Array) => call('game:write', path, data),
     remove: (path: string) => call('game:remove', path),
+    hash: (path: string) => call('game:hash', path),
+    copy: (from: unknown, to: string) => call('game:copy', from, to),
+  },
+  bases: {
+    list: () => call('bases:list'),
+    unpack: (id: string) => call('bases:unpack', id),
+    read: (id: string, path: string) => call('bases:read', id, path),
+    onProgress: (f: (p: unknown) => void) => {
+      ipcRenderer.on('bases:progress', (_e, p) => f(p))
+    },
   },
   library: {
     info: () => call('library:info'),

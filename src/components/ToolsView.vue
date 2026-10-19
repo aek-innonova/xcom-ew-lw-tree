@@ -12,6 +12,8 @@ import { optionProblem, scriptFor, type ModTarget } from '@/model/patchupk'
 import {
   addModFiles,
   applyPlanNow,
+  baseAvailable,
+  baseName,
   cancelPlan,
   checkKey,
   chooseGameFolder,
@@ -22,6 +24,7 @@ import {
   readPackage,
   removeMod,
   setOption,
+  setBase,
   setSetting,
   setWanted,
   setWantFiles,
@@ -31,6 +34,9 @@ import {
   type ModFile,
 } from '@/state/tools'
 import { BACKUP } from '@/state/setup'
+import { EXE } from '@/state/baseplan'
+import type { BaseChoice } from '@/state/library'
+import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
 import { state } from '@/state/store'
 
@@ -191,6 +197,26 @@ const repeated = (e: IniEntry) =>
   tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
 
 const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
+/** A planned file as the player knows it (XComEW.exe lives in XEW, the rest in XComGame). */
+const shown = (path: string) => (path === EXE ? 'XEW\\Binaries\\Win32\\XComEW.exe' : path)
+/** What a change keeps first: the game's own, or a file the app did not recognise. */
+function keptText(c: { keep?: { to: string }[] }): string {
+  const k = c.keep ?? []
+  if (!k.length) return ''
+  const aside = k.find((x) => x.to.includes('/found-'))
+  return aside
+    ? ` (the file as it is now kept first in ${aside.to.split('/').slice(0, 2).join('/')}/)`
+    : ' (the game’s own kept first)'
+}
+
+const BASE_CHOICES: { value: BaseChoice; needs: string }[] = [
+  { value: 'keep', needs: '' },
+  { value: 'ew', needs: 'Long War’s installer in your library, to know its files' },
+  { value: 'lw', needs: 'the Long War installer in your library' },
+  { value: 'lwr', needs: 'the Long War installer and the LWR download in your library' },
+]
+const baseLabel = (b: BaseChoice) =>
+  b === 'keep' ? 'Leave it as it is installed' : baseName(b).replace(/^./, (c) => c.toUpperCase())
 
 const iniNote = computed(() =>
   tools.install?.ini && state.ini
@@ -260,14 +286,44 @@ const iniNote = computed(() =>
       <p v-if="tools.error" class="error">{{ tools.error }}</p>
     </section>
 
+    <section v-if="tools.install && desktop?.bases" class="block" aria-labelledby="base-h">
+      <h3 id="base-h">Version in the game</h3>
+      <p class="muted small">
+        The app can put Long War or LWR into the game itself, from their own downloads, and take
+        them out again: drop the Long War installer (<code>Long War EW 1.0 for PC-88-1-0.exe</code>)
+        and the LWR download (its zip, or the folder unpacked) anywhere in your library folder. The
+        version you choose is put in when you apply your setup, under your mods.
+      </p>
+      <ul v-if="tools.bases.length" class="files small">
+        <li v-for="b in tools.bases" :key="b.id">
+          <strong>{{ b.name }}</strong> <span class="muted">from</span> <code>{{ b.source }}</code>
+        </li>
+      </ul>
+      <p v-else class="muted small">Nothing in your library yet.</p>
+      <div class="choices" role="radiogroup" aria-label="Version in the game">
+        <label v-for="c in BASE_CHOICES" :key="c.value" :class="{ off: !baseAvailable(c.value) }">
+          <input
+            type="radio"
+            name="base"
+            :value="c.value"
+            :checked="tools.base === c.value"
+            :disabled="!baseAvailable(c.value) || !!tools.busy"
+            @change="setBase(c.value)"
+          />
+          {{ baseLabel(c.value) }}
+          <span v-if="!baseAvailable(c.value)" class="muted small"> · needs {{ c.needs }}</span>
+        </label>
+      </div>
+    </section>
+
     <section class="block" aria-labelledby="mods-h">
       <h3 id="mods-h">Mods</h3>
       <p v-if="tools.library" class="muted small">
-        Your mods are in your library folder, <code>{{ tools.library }}</code>: each folder in its
-        <code>Mods</code> is one mod, and so is a PatcherGUI script on its own there. Copy mods in
-        by hand or add them here; your choices are kept beside them in
-        <code>settings.json</code>. Tick what you want in the game, set the options, then apply
-        your setup below.
+        Your mods are in your library folder, <code>{{ tools.library }}</code
+        >: each folder in its <code>Mods</code> is one mod, and so is a PatcherGUI script on its own
+        there. Copy mods in by hand or add them here; your choices are kept beside them in
+        <code>settings.json</code>. Tick what you want in the game, set the options, then apply your
+        setup below.
       </p>
       <p v-else class="error small">
         This version of the app keeps no library folder: update the app (Help, This app).
@@ -443,32 +499,49 @@ const iniNote = computed(() =>
 
     <section v-if="tools.install" class="block" aria-labelledby="apply-h">
       <h3 id="apply-h">Into the game</h3>
-      <p class="muted small">
+      <p v-if="tools.base === 'keep'" class="muted small">
         Close the game first. The first time a file changes, its original is copied to
         <code>{{ BACKUP }}/</code> in the XComGame folder; your setup is always built from the
         originals, so taking a mod out takes it out of the game. After a reinstall, apply again: the
         new files become the originals.
+      </p>
+      <p v-else class="muted small">
+        Close the game first. Your setup is built on {{ baseName(tools.base) }}: its own files, and
+        the game's own where it has none. A file of the game's own is copied to
+        <code>{{ BACKUP }}/</code> in the XComGame folder before it is first replaced, and a file
+        the app does not recognise is kept there too, so going back is always possible.
       </p>
       <p v-if="!tools.plan">
         <button type="button" class="primary" :disabled="!!tools.busy" @click="makePlan(true)">
           Apply my setup…
         </button>
         <button type="button" :disabled="!!tools.busy" @click="makePlan(false)">
-          Put the originals back…
+          {{
+            tools.base === 'keep' ? 'Put the originals back…' : `${baseName(tools.base)}, no mods…`
+          }}
         </button>
         <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
       </p>
       <div v-else class="plan" role="region" aria-label="What will change">
         <p v-if="!tools.plan.changes.length">
-          <strong>Nothing to change:</strong> the game already has your setup.
+          <strong>Nothing to change:</strong> the game already has your setup<template
+            v-if="tools.plan.base"
+          >
+            on {{ tools.plan.base }}</template
+          >.
         </p>
         <template v-else>
-          <p><strong>These files will change:</strong></p>
-          <ul>
+          <p>
+            <strong>These files will change</strong
+            ><template v-if="tools.plan.base">, for {{ tools.plan.base }} under your setup</template
+            >:
+          </p>
+          <ul class="changes">
             <li v-for="c in tools.plan.changes" :key="c.path">
-              <code>{{ c.path }}</code> {{ ACTION_TEXT[c.action] }}
+              <code>{{ shown(c.path) }}</code> {{ ACTION_TEXT[c.action] }}
               <span class="muted small">: {{ c.why.join(', ') }}</span>
               <span v-if="c.backup" class="muted small"> (original kept first)</span>
+              <span v-if="c.keep?.length" class="muted small">{{ keptText(c) }}</span>
             </li>
           </ul>
         </template>
@@ -499,6 +572,20 @@ const iniNote = computed(() =>
 </template>
 
 <style scoped>
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  font-size: 13.5px;
+}
+.choices .off {
+  color: var(--muted);
+}
+ul.changes {
+  max-height: 340px;
+  overflow-y: auto;
+}
 .tools {
   flex: 1;
   overflow-y: auto;

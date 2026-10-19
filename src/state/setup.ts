@@ -15,7 +15,7 @@ import { runScript } from '@/model/modpatch'
 import { parseCommands } from '@/model/modpatch'
 import { iniBytes, iniText, mergeIni, setIniValues, type IniChange } from '@/model/inifile'
 import { Package } from '@/model/upk'
-import { sha256, type GameFiles } from './gamefiles'
+import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
 
 export const BACKUP = 'lwtree-backup'
 export const GAME_INI = 'Config/DefaultGameCore.ini'
@@ -81,8 +81,14 @@ export interface Change {
   action: 'write' | 'create' | 'remove'
   why: string[]
   data?: Uint8Array
+  /** Written by copying (a base's file, or the game's own from where it is kept), not from data. */
+  source?: CopySource
+  /** SHA-256 of what is written (checked after a copy). */
+  sha256?: string
   /** The file's current bytes become its original: copy them to the backup first. */
   backup?: Uint8Array
+  /** Copies made before the file changes (the game's own, or a file the app does not know). */
+  keep?: { from: string; to: string; sha256: string }[]
 }
 export interface Plan {
   changes: Change[]
@@ -90,6 +96,8 @@ export interface Plan {
   problems: string[]
   /** Managed as it will be once the plan is written. */
   managed: Managed
+  /** The base the plan puts in, when one was chosen (features/game-bases.md). */
+  base?: string
 }
 
 const same = (a: Uint8Array, b: Uint8Array) =>
@@ -278,7 +286,15 @@ export async function applyPlan(
   progress?: (done: number, total: number, path: string) => void,
 ): Promise<string[]> {
   const log: string[] = []
+  const copied = async (from: CopySource, to: string, sha: string) => {
+    await files.copy!(from, to)
+    if ((await hashOf(files, to))?.sha256 !== sha) throw new Error(`${to} did not copy whole`)
+  }
   for (const c of plan.changes) {
+    for (const k of c.keep ?? []) {
+      await copied({ game: k.from }, k.to, k.sha256)
+      log.push(`Kept ${k.from} as ${k.to}`)
+    }
     if (c.backup) {
       await files.write(`${BACKUP}/${c.path}`, c.backup)
       const back = await files.read(`${BACKUP}/${c.path}`)
@@ -296,9 +312,12 @@ export async function applyPlan(
       log.push(`Removed ${c.path}`)
       continue
     }
-    await files.write(c.path, c.data!)
-    const back = await files.read(c.path)
-    if (!back || !same(back, c.data!)) throw new Error(`${c.path} did not read back as written`)
+    if (c.source) await copied(c.source, c.path, c.sha256!)
+    else {
+      await files.write(c.path, c.data!)
+      const back = await files.read(c.path)
+      if (!back || !same(back, c.data!)) throw new Error(`${c.path} did not read back as written`)
+    }
     log.push(`${c.action === 'create' ? 'Added' : 'Wrote'} ${c.path}`)
   }
   return log

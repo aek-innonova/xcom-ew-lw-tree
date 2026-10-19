@@ -77,8 +77,8 @@ the library folder.
   - A file in a state the app does not recognise (not the game's own,
     not a base's, not something the app wrote) is copied to
     `lwtree-backup/` before it is replaced, and the plan says so.
-  - A file is never removed unless the app knows the game does not have
-    it and it is a base's or the app's own.
+  - A file is removed only when the game does not have it, and one the
+    app does not recognise is kept aside first.
 - The bridge reaches the game folder (`XEW`, for the exe) and the
   library, nothing else. The installers are read in the main process;
   the page sees the unpacked files only through the bridge.

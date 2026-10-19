@@ -2,7 +2,7 @@
 // the app's bridge, and the shapes the rest of the site already uses on top of
 // it: GameFiles for Tools, a folder handle for the save-folder watcher.
 
-import type { GameFiles } from './gamefiles'
+import type { CopySource, GameFiles } from './gamefiles'
 
 export interface DesktopGame {
   root: string
@@ -29,6 +29,21 @@ export interface DesktopLibrary {
   trash(path: string): Promise<void>
   /** Shows the folder in Explorer. */
   open(): Promise<void>
+}
+
+/** A game version in the library (desktop/src/bases.ts). */
+export interface BaseFound {
+  id: string
+  kind: 'lw' | 'lwr'
+  name: string
+  version: string
+  source: string
+  unpacked: boolean
+}
+export interface BaseManifest extends Omit<BaseFound, 'unpacked'> {
+  files: { path: string; size: number; sha256: string }[]
+  deletes: string[]
+  exePatches: { description: string; find: string; replace: string }[]
 }
 
 /** The shell's bundles and updates (desktop/src/bundles.ts). */
@@ -58,9 +73,19 @@ export interface DesktopApi {
     list(dir: string): Promise<string[]>
     write(path: string, data: Uint8Array): Promise<void>
     remove(path: string): Promise<void>
+    /** From shell 0.3.0. */
+    hash?(path: string): Promise<{ size: number; sha256: string } | null>
+    copy?(from: CopySource, to: string): Promise<void>
   }
   /** From shell 0.3.0: check before use. */
   library?: DesktopLibrary
+  /** The game versions in the library, from shell 0.3.0. */
+  bases?: {
+    list(): Promise<BaseFound[]>
+    unpack(id: string): Promise<BaseManifest>
+    read(id: string, path: string): Promise<Uint8Array>
+    onProgress(f: (p: { id: string; done: number; total: number }) => void): void
+  }
   /** From shell 0.2.0 (older shells have no updates): check before use. */
   bundle?: {
     state(): Promise<BundleState>
@@ -102,6 +127,8 @@ export function desktopFiles(api: DesktopApi): GameFiles {
     write: (path, data) => api.game.write(path, data),
     remove: (path) => api.game.remove(path),
     canWrite: async () => true,
+    hash: api.game.hash && ((path) => api.game.hash!(path)),
+    copy: api.game.copy && ((from, to) => api.game.copy!(from, to)),
   }
 }
 

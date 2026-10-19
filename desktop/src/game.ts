@@ -228,11 +228,10 @@ export async function listTree(root: string, depth = 8, limit = 20000) {
       if (e.name.startsWith('.')) continue
       const p = path.join(dir, e.name)
       const r = rel ? `${rel}/${e.name}` : e.name
-      if (e.isDirectory()) await walk(p, r, d + 1)
-      else if (e.isFile()) {
-        const s = await fs.stat(p).catch(() => null)
-        if (s) out.push({ path: r, size: s.size, modified: s.mtimeMs })
-      }
+      // Links are followed (stat), as Explorer would.
+      const s = await fs.stat(p).catch(() => null)
+      if (s?.isDirectory()) await walk(p, r, d + 1)
+      else if (s?.isFile()) out.push({ path: r, size: s.size, modified: s.mtimeMs })
       if (out.length >= limit) return
     }
   }

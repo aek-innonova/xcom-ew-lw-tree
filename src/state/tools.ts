@@ -14,7 +14,8 @@ import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inif
 import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
-import { desktop, desktopFiles } from './desktop'
+import { planBase, type BaseLayer, type BaseSetup } from './baseplan'
+import { desktop, desktopFiles, type BaseFound, type BaseManifest } from './desktop'
 import type { GameFiles } from './gamefiles'
 import { stored } from './idb'
 import {
@@ -26,6 +27,7 @@ import {
   readSettings,
   safeName,
   writeSettings,
+  type BaseChoice,
   type LibrarySettings,
 } from './library'
 import {
@@ -108,6 +110,10 @@ export const tools = reactive({
   /** The player's library folder (Documents\Long War Tech Tree). */
   library: null as string | null,
   mods: [] as Mod[],
+  /** Long War and LWR as the library holds them (installers, zips, folders). */
+  bases: [] as BaseFound[],
+  /** The game version the player wants under the mods ('keep': as installed). */
+  base: 'keep' as BaseChoice,
   /** Each script's state in the install, by `${mod id}:${path}`. */
   checks: {} as Record<string, ScriptCheck>,
   /** The install's DefaultGameCore.ini, as settings. */
@@ -254,7 +260,9 @@ export async function restoreTools(): Promise<void> {
       tools.error = `Could not read your library folder: ${(e as Error).message}`
     }
     tools.settings = choices.ini
+    tools.base = choices.base ?? 'keep'
     await loadMods()
+    await loadBases()
     // A mod copied into the folder by hand turns up when the app is back in front.
     window.addEventListener('focus', () => void rereadLibrary())
   }
@@ -425,9 +433,91 @@ export async function rereadLibrary(): Promise<void> {
   const lib = desktop?.library
   if (!lib) return
   const files = await lib.files()
+  void loadBases()
   if (JSON.stringify(files.filter((f) => f.path.startsWith(`${MODS}/`))) === listing) return
   await loadMods()
   void checkMods()
+}
+
+// --- The game version under the mods (features/game-bases.md) --------------------
+
+async function loadBases(): Promise<void> {
+  if (!desktop?.bases) return
+  try {
+    tools.bases = await desktop.bases.list()
+  } catch (e) {
+    tools.error = `Could not look through your library: ${(e as Error).message}`
+  }
+}
+
+/** The Long War and LWR the library holds that a choice would use. */
+function basesFor(choice: BaseChoice): { lw?: BaseFound; lwr?: BaseFound } {
+  const lws = tools.bases.filter((b) => b.kind === 'lw')
+  const lw = lws.find((b) => b.version === '1.0') ?? lws[0]
+  const lwr = tools.bases
+    .filter((b) => b.kind === 'lwr')
+    .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
+  return choice === 'lw' ? { lw } : choice === 'lwr' ? { lw, lwr } : {}
+}
+
+/** Whether the library holds what a choice needs. */
+export function baseAvailable(choice: BaseChoice): boolean {
+  if (choice === 'keep') return true
+  if (choice === 'ew') return tools.bases.length > 0
+  const { lw, lwr } = basesFor(choice)
+  return choice === 'lw' ? !!lw : !!lw && !!lwr
+}
+export function baseName(choice: BaseChoice): string {
+  const { lw, lwr } = basesFor(choice)
+  if (choice === 'ew') return 'plain Enemy Within'
+  if (choice === 'lw') return lw?.name ?? 'Long War'
+  if (choice === 'lwr') return lwr?.name ?? 'Long War Rebalanced'
+  return 'as installed'
+}
+
+export async function setBase(choice: BaseChoice): Promise<void> {
+  tools.base = choice
+  tools.plan = null
+  choices.base = choice
+  await saveChoices()
+}
+
+const layerOf = (m: BaseManifest): BaseLayer => ({
+  id: m.id,
+  kind: m.kind,
+  name: m.name,
+  files: new Map(m.files.map((f) => [f.path.toLowerCase(), f])),
+  deletes: m.deletes,
+  exePatches: m.exePatches,
+})
+
+/** Everything the planner needs for a base: every base in the library unpacked, the game's own files. */
+async function baseSetup(choice: BaseChoice): Promise<BaseSetup> {
+  const api = desktop!.bases!
+  const known: BaseLayer[] = []
+  for (const b of tools.bases) {
+    tools.busy = b.unpacked
+      ? `Reading ${b.name}…`
+      : `Unpacking ${b.name} from ${b.source} (once; Long War takes a little while)…`
+    known.push(layerOf(await api.unpack(b.id)))
+  }
+  const { lw, lwr } = basesFor(choice)
+  const layers = [lw, lwr].filter(Boolean).map((b) => known.find((k) => k.id === b!.id)!)
+  const table = (await import('@/data/game-files.json')).default as unknown as Record<
+    string,
+    [number, string]
+  >
+  const game = new Map(
+    Object.entries(table).map(([p, [size, sha256]]) => [p.toLowerCase(), { size, sha256 }]),
+  )
+  tools.bases = tools.bases.map((b) => ({ ...b, unpacked: true }))
+  return {
+    name: baseName(choice),
+    layers,
+    known,
+    game,
+    read: (layer, path) => api.read(layer.id, path),
+  }
 }
 
 export function openLibrary(): void {
@@ -622,7 +712,12 @@ export async function makePlan(everything = true): Promise<void> {
   tools.error = null
   tools.busy = 'Working out what changes…'
   try {
-    tools.plan = markRaw(await planSetup(files, await wantedSetup(everything), managed))
+    const wanted = await wantedSetup(everything)
+    if (tools.base !== 'keep' && desktop?.bases && baseAvailable(tools.base)) {
+      const base = await baseSetup(tools.base)
+      tools.busy = 'Working out what changes…'
+      tools.plan = markRaw(await planBase(files, wanted, managed, base))
+    } else tools.plan = markRaw(await planSetup(files, wanted, managed))
   } catch (e) {
     tools.error = (e as Error).message
   } finally {
