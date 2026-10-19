@@ -238,3 +238,29 @@ status before reading it. `planSetup`/`applyPlan` are correct.
 `scripts/build-desktop-win.sh` (unchanged; `dist:win` is the VM path).
 The Steam login is left in place, to be logged out and deauthorized when
 the bench is retired.
+
+## Report (2026-10-19): the cut-short apply fix (0.1.2), on the real install
+
+The risk the earlier test race pointed at was real and is fixed in 0.1.2
+(`setup.ts`: the record keeps every version the app wrote, not just the
+last, and is saved before the writes, so a file left modded by a
+half-done apply is known as the app's own and its backup is never
+overwritten). Built and installed 0.1.2 on the VM and checked the fix
+where it matters — a real kill mid-apply on the LWR install.
+
+The new bench scenario (`e2e-desktop/real-install.spec.ts`, gated on
+`LWTREE_REAL_CRASH`) sets a multi-file setup up, starts applying, and
+hard-kills the app the instant the first package reaches disk. It can't
+wait on the log — `tools.log` is assigned in one go only after the whole
+apply — so it watches the package file on disk and kills on the first
+change. Then it reopens on the same user data, applies again, puts the
+originals back, and checks byte-for-byte against the baseline and that
+every backup still holds the true original.
+
+On the run, the kill landed after `XComGame.upk` and before
+`XComStrategyGame.upk` and the INI: session two's apply plan listed only
+the latter two, because the reopened app recognised the modded
+`XComGame.upk` as its own write (not a reinstall), kept the true backup,
+and left it in place. The restore took all three back to their originals,
+byte-for-byte, with the backups intact. The scenario fails on 0.1.1 and
+passes on 0.1.2. Baseline and the independent `restore-check` agree.
