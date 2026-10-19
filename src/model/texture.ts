@@ -8,7 +8,9 @@
 // data: its source art and its mips, each as bulk data (flags, element
 // count, size on disk, offset in file, then the bytes when they are inline).
 
-import { lzoDecompress } from './lzo'
+import { unchunk } from './lzo'
+
+export { unchunk }
 import type { Package } from './upk'
 
 export interface TextureInfo {
@@ -118,25 +120,6 @@ export function readTexture(pkg: Package, index: number): TextureInfo {
   }
 }
 
-/** Bytes stored as an LZO "chunk": tag, block size, sizes, the block table, the blocks. */
-export function unchunk(b: Uint8Array, size: number): Uint8Array {
-  const r = new R(b, 0)
-  if (r.u32() !== 0x9e2a83c1) throw new Error('not a compressed chunk')
-  const blockSize = r.i32()
-  r.i32() // compressed size
-  const total = r.i32()
-  const n = Math.ceil(total / blockSize)
-  const blocks = Array.from({ length: n }, () => ({ c: r.i32(), u: r.i32() }))
-  const out = new Uint8Array(size)
-  let o = 0
-  for (const bl of blocks) {
-    out.set(lzoDecompress(b.subarray(r.o, r.o + bl.c), bl.u), o)
-    r.o += bl.c
-    o += bl.u
-  }
-  return out
-}
-
 /** The largest mip the texture has bytes for, or where in the cache it is. */
 export function largestMip(t: TextureInfo): Mip | undefined {
   return t.mips.find((m) => m.where !== 'none')
@@ -151,7 +134,12 @@ const rgb565 = (c: number): [number, number, number] => [
 ]
 
 /** DXT1, DXT3 or DXT5 (or uncompressed BGRA) to RGBA, row by row. */
-export function decodeImage(format: string, data: Uint8Array, w: number, h: number): Uint8ClampedArray {
+export function decodeImage(
+  format: string,
+  data: Uint8Array,
+  w: number,
+  h: number,
+): Uint8ClampedArray {
   const out = new Uint8ClampedArray(w * h * 4)
   if (format === 'PF_A8R8G8B8') {
     for (let i = 0; i < w * h; i++) {
@@ -204,7 +192,8 @@ export function decodeImage(format: string, data: Uint8Array, w: number, h: numb
           ? [a, b, a.map((x, i) => (2 * x + b[i]!) / 3), a.map((x, i) => (x + 2 * b[i]!) / 3)]
           : [a, b, a.map((x, i) => (x + b[i]!) / 2), [0, 0, 0]]
       const transparent = format === 'PF_DXT1' && c0 <= c1
-      const idx = (data[p + 4]! | (data[p + 5]! << 8) | (data[p + 6]! << 16) | (data[p + 7]! << 24)) >>> 0
+      const idx =
+        (data[p + 4]! | (data[p + 5]! << 8) | (data[p + 6]! << 16) | (data[p + 7]! << 24)) >>> 0
       for (let i = 0; i < 16; i++) {
         const x = bx * 4 + (i & 3)
         const y = by * 4 + (i >> 2)

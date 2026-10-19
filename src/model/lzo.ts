@@ -101,3 +101,23 @@ export function lzoDecompress(src: Uint8Array, size: number): Uint8Array {
   if (op !== size) throw new Error(`LZO: ${op} bytes, not ${size}`)
   return out
 }
+
+/** Bytes stored as an LZO "chunk": tag, block size, sizes, the block table, the blocks. */
+export function unchunk(b: Uint8Array, size: number): Uint8Array {
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength)
+  if (v.getUint32(0, true) !== 0x9e2a83c1) throw new Error('not a compressed chunk')
+  const blockSize = v.getInt32(4, true)
+  const total = v.getInt32(12, true)
+  const n = Math.ceil(total / blockSize)
+  let p = 16 + 8 * n
+  const out = new Uint8Array(size)
+  let o = 0
+  for (let i = 0; i < n; i++) {
+    const c = v.getInt32(16 + 8 * i, true)
+    const u = v.getInt32(20 + 8 * i, true)
+    out.set(lzoDecompress(b.subarray(p, p + c), u), o)
+    p += c
+    o += u
+  }
+  return out
+}

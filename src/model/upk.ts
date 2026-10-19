@@ -8,7 +8,7 @@
 // an import's with its package ("Core.Object.Name"); a name used more than
 // once carries "_N" (N = number − 1).
 
-import { lzoDecompress } from './lzo'
+import { lzoDecompress, unchunk } from './lzo'
 
 export interface UpkImport {
   className: string
@@ -425,6 +425,9 @@ export function decompressPackage(b: Uint8Array): Uint8Array {
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength)
   const r = new Reader(b)
   if (r.u32() !== TAG) throw new Error('not an Unreal package')
+  // A package compressed whole (with a .uncompressed_size beside it): one LZO
+  // chunk, the package inside.
+  if (v.getInt32(4, true) === 0x20000) return decompressPackage(unchunk(b, v.getInt32(12, true)))
   const version = r.i16()
   r.i16()
   r.i32() // header size
