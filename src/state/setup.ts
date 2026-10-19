@@ -272,7 +272,11 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
  * every state a file can be left in is known as the page's own), then each
  * file, each checked by reading it back.
  */
-export async function applyPlan(files: GameFiles, plan: Plan): Promise<string[]> {
+export async function applyPlan(
+  files: GameFiles,
+  plan: Plan,
+  progress?: (done: number, total: number, path: string) => void,
+): Promise<string[]> {
   const log: string[] = []
   for (const c of plan.changes) {
     if (c.backup) {
@@ -285,7 +289,8 @@ export async function applyPlan(files: GameFiles, plan: Plan): Promise<string[]>
   }
   if (plan.changes.length)
     await files.write(MANIFEST, new TextEncoder().encode(JSON.stringify(plan.managed, null, 1)))
-  for (const c of plan.changes) {
+  for (const [i, c] of plan.changes.entries()) {
+    progress?.(i, plan.changes.length, c.path)
     if (c.action === 'remove') {
       await files.remove(c.path)
       log.push(`Removed ${c.path}`)

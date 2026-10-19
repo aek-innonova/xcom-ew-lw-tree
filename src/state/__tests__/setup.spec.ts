@@ -114,7 +114,11 @@ describe.skipIf(!existsSync(lwr) || !existsSync(mods))(
         ['CookedPCConsole/XComGame.upk', 'write', true],
         ['Config/DefaultGameCore.ini', 'write', true],
       ])
-      await applyPlan(files, plan)
+      const steps: string[] = []
+      await applyPlan(files, plan, (done, total, path) =>
+        steps.push(`${done + 1}/${total} ${path}`),
+      )
+      expect(steps).toEqual(['1/2 CookedPCConsole/XComGame.upk', '2/2 Config/DefaultGameCore.ini'])
       expect(sha(files.map.get('CookedPCConsole/XComGame.upk')!)).toBe(LIGHTNING_PATCHUPK)
       expect(sha(files.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk`)!)).toBe(sha(original))
       expect(str(files.map.get('Config/DefaultGameCore.ini'))).toContain(

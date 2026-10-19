@@ -506,7 +506,9 @@ export async function applyPlanNow(): Promise<void> {
   const plan = tools.plan
   tools.busy = 'Writing…'
   try {
-    tools.log = await applyPlan(files, plan)
+    tools.log = await applyPlan(files, plan, (done, total, path) => {
+      tools.busy = `Writing ${done + 1} of ${total}: ${path}`
+    })
     managed = plan.managed
     tools.plan = null
   } catch (e) {
