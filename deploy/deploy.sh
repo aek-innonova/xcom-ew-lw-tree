@@ -6,8 +6,16 @@ cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" != "--skip-build" ]]; then
   npm run build
-  # The helper program, offered from the Tools page (helper/README.md).
-  scripts/build-helper.sh
+fi
+
+# The desktop app's installer, if one has been built (scripts/build-desktop-win.sh):
+# a test copy for staging, offered from Help.
+installer=$(ls -t desktop/release/LongWarTechTree-Setup-*.exe 2>/dev/null | head -1 || true)
+if [[ -n "$installer" ]]; then
+  mkdir -p dist/app
+  cp "$installer" dist/app/
+  basename "$installer" > dist/app/LATEST
+  (cd dist/app && sha256sum "$(cat LATEST)" > SHA256SUMS)
 fi
 
 # --delete-after keeps the old assets in place until the new index.html is up.

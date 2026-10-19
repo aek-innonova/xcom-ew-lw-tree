@@ -1,0 +1,26 @@
+{
+  "name": "lwtree-desktop",
+  "productName": "Long War Tech Tree",
+  "version": "0.1.0",
+  "description": "The Long War Tech Tree site as a Windows app, with the game's files in reach (features/desktop-app.md)",
+  "private": true,
+  "main": "dist/main.js",
+  "author": "Anders Eggers-Krag",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "site": "cd .. && npm run build && rm -rf desktop/site && cp -r dist desktop/site",
+    "start": "npm run build && electron .",
+    "test": "node --test dist/*.test.js",
+    "dist:win": "npm run site && npm run build && electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "@types/node": "24.6.1",
+    "electron": "44.9.0",
+    "electron-builder": "26.15.3",
+    "typescript": "6.0.3"
+  },
+  "allowScripts": {
+    "electron@44.9.0": true,
+    "electron-winstaller": false
+  }
+}

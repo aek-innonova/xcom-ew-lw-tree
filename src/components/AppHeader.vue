@@ -16,6 +16,7 @@ import {
 } from '@/state/store'
 import { chooseFolder, loadNewestFromFolder, resumeWatch, stopWatch, watcher } from '@/state/watch'
 import { GAMES, type GameId } from '@/model/game'
+import { tools } from '@/state/tools'
 
 const emit = defineEmits<{
   find: [hit: { view: 'research' | 'foundry'; id: number }]
@@ -218,6 +219,7 @@ function onSearchKey(e: KeyboardEvent) {
 
     <p class="privacy">Nothing is uploaded.</p>
     <button
+      v-if="tools.supported"
       type="button"
       class="help-button"
       :class="{ on: state.view === 'tools' }"

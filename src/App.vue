@@ -12,7 +12,7 @@ import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
 import { loadFile, state, game } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
-import { restoreTools } from '@/state/tools'
+import { restoreTools, tools } from '@/state/tools'
 
 // Pages opened less often load when first shown.
 const AirWarView = defineAsyncComponent(() => import('@/components/AirWarView.vue'))
@@ -82,6 +82,8 @@ async function onFind(hit: { view: 'research' | 'foundry'; id: number }) {
 
 onMounted(() => {
   void restoreWatch()
+  // Tools is the desktop app's; a website visit that last saw it opens the tree.
+  if (state.view === 'tools' && !tools.supported) state.view = 'research'
   void restoreTools()
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragleave', onDragLeave)
@@ -112,7 +114,7 @@ onBeforeUnmount(() => {
       <FoundryTree v-else-if="state.view === 'foundry'" ref="foundryTree" />
       <HistoryView v-else-if="state.view === 'history'" />
       <GreyMarketView v-else-if="state.view === 'market'" />
-      <ToolsView v-else-if="state.view === 'tools'" />
+      <ToolsView v-else-if="state.view === 'tools' && tools.supported" />
       <AirWarView v-else />
       <aside v-if="sideOpen" class="side">
         <TechDetail v-if="state.view === 'research'" />

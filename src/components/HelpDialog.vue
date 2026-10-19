@@ -4,11 +4,23 @@
 
 import { onMounted, ref, watch } from 'vue'
 import { game } from '@/state/store'
+import { desktop } from '@/state/desktop'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
+
+/** The desktop app's installer, when this copy of the site has one (deploy/deploy.sh puts it in app/). */
+const APP_DIR = `${import.meta.env.BASE_URL}app/`
+const installer = ref<string | null>(null)
+if (!desktop)
+  fetch(`${APP_DIR}LATEST`)
+    .then(async (r) => {
+      const name = r.ok ? (await r.text()).trim() : ''
+      installer.value = /^LongWarTechTree-Setup-[\w.-]+\.exe$/.test(name) ? name : null
+    })
+    .catch(() => (installer.value = null))
 const copied = ref<string | null>(null)
 
 watch(
@@ -66,7 +78,8 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       features/air-war.md), ships and weapons from the INI via
       scripts/upk_airwar.py; odds are thousands of simulated fights. No save
       records a fight, so they are checked against the script, not history.
-    - Tools: state/tools.ts, state/setup.ts (plans, backups), model/upk.ts
+    - Tools (desktop app only, desktop/): state/tools.ts, state/desktop.ts,
+      state/setup.ts (plans, backups), model/upk.ts
       (packages), model/modpatch.ts + model/pseudocode.ts (PatcherGUI scripts,
       checked byte for byte against PatchUPK), model/inifile.ts;
       features/game-tools.md.
@@ -89,11 +102,28 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
 
     <p class="lead">Your files are read in this browser. Nothing is uploaded.</p>
 
+    <section v-if="!desktop">
+      <h3>Desktop app <span class="opt">Windows</span></h3>
+      <p>
+        Managing mods and the game's settings needs the game's own files, which a web page cannot
+        reach well: the desktop app is this site with <strong>Tools</strong> for that. It finds the
+        game by itself and keeps the originals of every file it changes.
+      </p>
+      <p v-if="installer">
+        <a :href="`${APP_DIR}${installer}`" download>{{ installer }}</a>
+        <span class="muted">
+          · a test build, not code-signed: Windows may warn ("More info", then "Run anyway") ·
+          <a :href="`${APP_DIR}SHA256SUMS`" target="_blank">checksum</a></span
+        >
+      </p>
+    </section>
+
     <section>
       <h3>Version</h3>
       <p>
         Long War 1.0 or Long War Rebalanced: pick yours at the top left. A save does not say which
-        one it was played with; your game folder does (<strong>Tools</strong>, Chrome or Edge).
+        one it was played with in Long War 1.0 (LWR's saves say so; the desktop app's Tools reads
+        the install).
       </p>
     </section>
 
@@ -183,6 +213,9 @@ section {
 .lead {
   margin: 0;
   font-size: 14.5px;
+}
+.muted {
+  color: var(--muted);
 }
 .opt {
   margin-left: 6px;

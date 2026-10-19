@@ -32,9 +32,9 @@ export interface Managed {
 export const emptyManaged = (): Managed => ({ originals: {}, written: {}, created: [] })
 
 /**
- * The bookkeeping lives beside the backups, in the game folder: whichever
- * way the page reaches the install (folder access or the helper, any
- * browser), it finds the same record.
+ * The bookkeeping lives beside the backups, in the game folder: it goes with
+ * the install, not with the app's own data (a reinstall of the app, or a
+ * second copy, finds the same record).
  */
 export const MANIFEST = `${BACKUP}/manifest.json`
 
@@ -212,12 +212,6 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
       if (f.kind === 'config') {
         const existing = config.find((c) => lower(c) === lower(name))
         const path = `Config/${existing ?? name}`
-        if (await files.refused(path)) {
-          problems.push(
-            `${m.label}: ${path} cannot be written by the page (Chrome does not let web pages open .ini files on Windows); the helper program can.`,
-          )
-          continue
-        }
         if (existing && !managed.created.includes(path))
           editConfig(path, (t) => mergeIni(t, iniText(f.data)), m.label)
         else {
@@ -244,11 +238,7 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
   for (const [path, edits] of configEdits) {
     const o = await original(files, path, managed)
     if (!o.current || !o.base) {
-      problems.push(
-        (await files.refused(path))
-          ? `${path} cannot be opened by the page: Chrome does not let web pages open .ini files on Windows. The helper program can.`
-          : `${path} is not in this install.`,
-      )
+      problems.push(`${path} is not in this install.`)
       continue
     }
     let text = iniText(o.base)

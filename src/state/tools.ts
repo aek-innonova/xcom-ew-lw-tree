@@ -1,26 +1,20 @@
-// The Tools page's state (features/game-tools.md): the player's game folder,
-// what is installed there, their mod library and INI settings kept in this
-// browser, and putting all of it into the game.
+// The Tools page's state (features/game-tools.md, features/desktop-app.md):
+// the player's game folder, what is installed there, their mod library and
+// INI settings, and putting all of it into the game.
 //
-// The folder is picked once (File System Access, Chromium) and its handle
-// kept in IndexedDB like the save folder's. Reading needs only read access;
-// writing asks the browser for more when the player applies their setup.
-// Mods are kept whole in IndexedDB; nothing leaves the browser.
+// Tools exists only in the desktop app: a web page cannot reach the game's
+// files well enough (Chrome hides .ini files and Program Files from pages).
+// The app finds the game the way installers do, or the player chooses the
+// folder; every file goes through its bridge (state/desktop.ts). The mod
+// library is kept in the app's IndexedDB; nothing leaves the machine.
 
 import { markRaw, reactive } from 'vue'
 import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
 import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
-import {
-  WrongCode,
-  folderFiles,
-  helperFiles,
-  helperInfo,
-  helperRunning,
-  type Dir,
-  type GameFiles,
-} from './gamefiles'
+import { desktop, desktopFiles } from './desktop'
+import type { GameFiles } from './gamefiles'
 import { stored } from './idb'
 import {
   GAME_INI,
@@ -33,7 +27,6 @@ import {
   type Wanted,
 } from './setup'
 import { loadIni, setGame, state } from './store'
-import type { Permission } from './watch'
 
 export type InstallKind = 'lw' | 'lwr' | 'ew'
 
@@ -91,15 +84,11 @@ export interface ScriptCheck {
 }
 
 export const tools = reactive({
-  supported: typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function',
-  status: 'off' as 'off' | 'needs-permission' | 'reading' | 'ready',
-  /** How the page reaches the game: the browser's folder access, or the helper program. */
-  via: null as 'folder' | 'helper' | null,
-  /** The browser will not let the page open the game's .ini files (Chrome on Windows). */
-  iniRefused: false,
-  /** The helper: not tried, not running, the code was wrong. */
-  helper: 'off' as 'off' | 'not-running' | 'wrong-code' | 'connected',
-  folder: null as string | null,
+  /** Tools runs in the desktop app only. */
+  supported: !!desktop,
+  status: 'off' as 'off' | 'reading' | 'ready',
+  /** Where the app looked for the game when it could not find it. */
+  looked: [] as string[],
   error: null as string | null,
   install: null as Install | null,
   /** Package tables read so far, by lower-case file name; null: not in the install. */
@@ -117,41 +106,14 @@ export const tools = reactive({
   log: [] as string[],
 })
 
-let handle: Dir | null = null
 let files: GameFiles | null = null
 let managed: Managed = emptyManaged()
 /** The install's packages as they are now, by lower-case name (for the checks). */
 let current = new Map<string, Package | null>()
-const KEY = 'gamefolder'
 const lower = (s: string) => s.toLowerCase()
 export const checkKey = (m: Mod, f: ModFile) => `${m.id}:${f.path}`
 
 // --- The game folder -----------------------------------------------------------
-
-async function child(dir: Dir, name: string): Promise<Dir | null> {
-  try {
-    return await dir.getDirectoryHandle(name)
-  } catch {
-    return null
-  }
-}
-
-/**
- * The XComGame folder (CookedPCConsole and Config) under whatever was picked:
- * the Steam game folder, XEW, or XComGame itself. Enemy Within (and Long War)
- * is XEW/XComGame; the game folder's own XComGame is Enemy Unknown's, so XEW
- * comes first.
- */
-async function findGameDir(root: Dir): Promise<{ dir: Dir; path: string } | null> {
-  const tries: string[][] = [['XEW', 'XComGame'], [], ['XComGame']]
-  for (const steps of tries) {
-    let d: Dir | null = root
-    for (const s of steps) d = d && (await child(d, s))
-    if (d && (await child(d, 'CookedPCConsole')) && (await child(d, 'Config')))
-      return { dir: d, path: [root.name, ...steps].join('/') }
-  }
-  return null
-}
 
 /** LWR ships LWRebalance.u; Long War 1.0 LongWar.upk; neither is plain Enemy Within. */
 export function installKind(cooked: string[]): InstallKind {
@@ -161,38 +123,26 @@ export function installKind(cooked: string[]): InstallKind {
   return 'ew'
 }
 
-const HELPER_KEY = 'lwtree.helper.v1'
-let helperPath = ''
-
 /** Reads what is installed, switches the site to that version and loads its INI. */
 async function readInstall(): Promise<void> {
-  if (!handle && tools.via !== 'helper') return
-  tools.status = 'reading'
-  tools.error = null
+  if (!desktop) return
   tools.packages = {}
   tools.checks = {}
   current = new Map()
+  const game = await desktop.game.current()
+  if (!game) {
+    Object.assign(tools, { status: 'off', install: null, iniEntries: [] })
+    files = null
+    return
+  }
+  tools.status = 'reading'
+  tools.error = null
   try {
-    let found: { path: string }
-    if (tools.via === 'helper') found = { path: helperPath }
-    else {
-      const dir = await findGameDir(handle!)
-      if (!dir) {
-        tools.install = null
-        files = null
-        tools.status = 'ready'
-        tools.error = `No game files (XComGame with CookedPCConsole and Config) in ${handle!.name}. Pick the game's folder in your Steam library.`
-        return
-      }
-      files = folderFiles(dir.dir)
-      found = dir
-    }
-    if (!files) return
+    files = desktopFiles(desktop)
     const cooked = await files.list('CookedPCConsole')
     const kind = installKind(cooked)
     let ini: string | null = null
     const iniBytes = await files.read(GAME_INI)
-    tools.iniRefused = !iniBytes && (await files.refused(GAME_INI))
     tools.iniEntries = markRaw(iniBytes ? iniEntries(iniText(iniBytes)) : [])
     if (kind !== 'ew') {
       setGame(kind)
@@ -201,47 +151,20 @@ async function readInstall(): Promise<void> {
         if (state.ini) ini = 'DefaultGameCore.ini'
       }
     }
-    tools.install = { kind, path: found.path, ini, cooked }
+    tools.install = { kind, path: game.root, ini, cooked }
     managed = await loadManaged(files)
     tools.status = 'ready'
     void checkMods()
   } catch (e) {
-    // Permission withdrawn, the folder went away, or the helper was closed.
     tools.error = (e as Error).message
-    tools.status = tools.via === 'helper' ? 'off' : 'needs-permission'
-    if (tools.via === 'helper') tools.helper = 'not-running'
-  }
-}
-
-/**
- * Connects through the helper program with its pairing code (kept for next
- * time, so the page reconnects by itself while the helper runs).
- */
-export async function connectHelper(code: string): Promise<void> {
-  const c = code.trim().toUpperCase()
-  if (!(await helperRunning())) {
-    tools.helper = 'not-running'
-    return
-  }
-  try {
-    const info = await helperInfo(c)
-    helperPath = info.root.replace(/\\/g, '/')
-    files = helperFiles(c)
-    handle = null
-    tools.via = 'helper'
-    tools.helper = 'connected'
-    tools.folder = info.name
-    localStorage.setItem(HELPER_KEY, c)
-    await readInstall()
-  } catch (e) {
-    tools.helper = e instanceof WrongCode ? 'wrong-code' : 'not-running'
+    tools.status = 'off'
   }
 }
 
 /** A package's tables, read once per install (only the header part of the file). */
 export async function readPackage(name: string): Promise<void> {
   const key = lower(name)
-  if (!files || !tools.install || key in tools.packages) return
+  if (!desktop || !tools.install || key in tools.packages) return
   const real = tools.install.cooked.find((c) => lower(c) === key)
   if (!real) {
     tools.packages[key] = null
@@ -249,12 +172,12 @@ export async function readPackage(name: string): Promise<void> {
   }
   tools.packages[key] = 'reading'
   try {
-    const file = (await files.file(`CookedPCConsole/${real}`))!
-    const head = new Uint8Array(await file.slice(0, 64).arrayBuffer())
+    const path = `CookedPCConsole/${real}`
+    const head = (await desktop.game.read(path, 0, 64))!
     const size = headerSizeOf(head)
-    const pk = readUpk(new Uint8Array(await file.slice(0, size).arrayBuffer()))
+    const pk = readUpk((await desktop.game.read(path, 0, size))!)
     tools.packages[key] = {
-      size: file.size,
+      size: 0,
       compressed: pk.compressed,
       exports: markRaw(new Set(exportsByPath(pk).keys())),
     }
@@ -263,25 +186,24 @@ export async function readPackage(name: string): Promise<void> {
   }
 }
 
-export async function chooseGameFolder(): Promise<void> {
-  if (!window.showDirectoryPicker) return
-  let dir: Dir
-  try {
-    dir = (await window.showDirectoryPicker({ id: 'xcom-game', mode: 'read' })) as unknown as Dir
-  } catch {
-    return // cancelled
-  }
-  handle = dir
-  tools.via = 'folder'
-  tools.folder = dir.name
-  await stored('handles', 'readwrite', (s) => s.put(dir, KEY)).catch(() => undefined)
+/** Finds the game the way installers do (Steam's registration with Windows). */
+export async function findGameFolder(): Promise<void> {
+  if (!desktop) return
+  tools.status = 'reading'
+  const r = await desktop.game.find()
+  tools.looked = r.game ? [] : r.looked
   await readInstall()
 }
 
-export async function reconnectGameFolder(): Promise<void> {
-  if (!handle) return
-  const p = await handle.requestPermission({ mode: 'read' }).catch(() => 'denied' as Permission)
-  if (p === 'granted') await readInstall()
+/** The player chooses the folder. */
+export async function chooseGameFolder(): Promise<void> {
+  if (!desktop) return
+  const r = await desktop.game.choose()
+  tools.error = r.error
+  if (r.game) {
+    tools.looked = []
+    await readInstall()
+  }
 }
 
 export async function rereadInstall(): Promise<void> {
@@ -289,49 +211,32 @@ export async function rereadInstall(): Promise<void> {
 }
 
 export async function forgetGameFolder(): Promise<void> {
-  handle = null
+  if (!desktop) return
+  await desktop.game.forget()
   files = null
   current = new Map()
-  localStorage.removeItem(HELPER_KEY)
   Object.assign(tools, {
-    via: null,
-    helper: 'off',
     status: 'off',
-    folder: null,
     error: null,
     install: null,
     packages: {},
     checks: {},
     iniEntries: [],
     plan: null,
+    looked: [],
   })
-  await stored('handles', 'readwrite', (s) => s.delete(KEY)).catch(() => undefined)
 }
 
-/** On start-up: the library, the settings, and the folder picked before if the browser still lets the page read it. */
+/** On start-up in the app: the library, the settings, and the game (found the first time). */
 export async function restoreTools(): Promise<void> {
+  if (!desktop) return
   await loadMods()
   tools.settings =
     (await stored<IniChange[] | undefined>('state', 'readonly', (s) => s.get('settings')).catch(
       () => undefined,
     )) ?? []
-  // The helper first: if its code is known and it runs, it is the way in.
-  const code = localStorage.getItem(HELPER_KEY)
-  if (code && (await helperRunning())) {
-    await connectHelper(code)
-    if (tools.helper === 'connected') return
-  }
-  if (!tools.supported) return
-  const dir = await stored<Dir | undefined>('handles', 'readonly', (s) => s.get(KEY)).catch(
-    () => undefined,
-  )
-  if (!dir) return
-  handle = dir
-  tools.via = 'folder'
-  tools.folder = dir.name
-  const p = await dir.queryPermission({ mode: 'read' }).catch(() => 'denied' as Permission)
-  if (p === 'granted') await readInstall()
-  else tools.status = 'needs-permission'
+  if (await desktop.game.current()) await readInstall()
+  else await findGameFolder()
 }
 
 // --- Is it installed? ------------------------------------------------------------

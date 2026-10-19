@@ -25,16 +25,15 @@ allow it).
 - **Two versions:** Long War 1.0 and LWR 2.06, switched in the header. LWR's
   tree, Foundry, research speed, costs, bonuses and air war are read from its
   own files the same way as Long War 1.0's.
-- **Tools** (beside Help): point the page at your game folder (Chrome, Edge;
-  not under Program Files) and it tells Long War 1.0 from LWR, switches to
-  it and loads the install's INI. Keep your PatcherGUI mods and mod folders
-  in the browser with their options, see whether each is installed, set
-  DefaultGameCore.ini values by name, and apply the whole setup to the game
-  in one go (after a reinstall too): a plan first, the originals kept in
-  `lwtree-backup/`. The patching is our own implementation of PatcherGUI's
-  format, checked byte for byte against PatchUPK (`features/game-tools.md`).
-  For an install under Program Files, or in Firefox and Safari, a small
-  helper program (`helper/`, Go) reaches the files for the page.
+- **Desktop app** (`desktop/`, Electron, Windows): the same site with the
+  game's files in reach, and **Tools**, which only the app has. It finds the
+  game the way installers do and tells Long War 1.0 from LWR. Keep your
+  PatcherGUI mods and mod folders with their options, see whether each is
+  installed, set DefaultGameCore.ini values by name, and apply the whole
+  setup to the game in one go (after a reinstall too): a plan first, the
+  originals kept in `lwtree-backup/`. The patching is our own implementation
+  of PatcherGUI's format, checked byte for byte against PatchUPK
+  (`features/game-tools.md`, `features/desktop-app.md`).
 - **Planner:** pick techs or Foundry projects; get the research still needed,
   in order, with time and costs.
 - **Live:** in Chromium browsers, point the page at your SaveData folder

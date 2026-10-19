@@ -15,11 +15,10 @@ import {
   cancelPlan,
   checkKey,
   chooseGameFolder,
-  connectHelper,
+  findGameFolder,
   forgetGameFolder,
   makePlan,
   readPackage,
-  reconnectGameFolder,
   removeMod,
   setOption,
   setSetting,
@@ -35,20 +34,6 @@ import type { IniEntry } from '@/model/inifile'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
-const pairing = ref('')
-/**
- * The helper's builds, served by the site itself (scripts/build-helper.sh
- * puts them in dist/helper/ on deploy). VERSION says whether this copy of the
- * site has them (a dev server does not).
- */
-const HELPER_DIR = `${import.meta.env.BASE_URL}helper/`
-const helperBuild = ref<string | null>(null)
-fetch(`${HELPER_DIR}VERSION`)
-  .then(async (r) => {
-    const v = r.ok ? (await r.text()).trim() : ''
-    helperBuild.value = /^[\w.-]{1,40}$/.test(v) ? v : null
-  })
-  .catch(() => (helperBuild.value = null))
 const folderInput = ref<HTMLInputElement | null>(null)
 const added = ref<string | null>(null)
 
@@ -207,15 +192,13 @@ const repeated = (e: IniEntry) =>
 const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
 
 const iniNote = computed(() =>
-  tools.iniRefused
-    ? 'Chrome does not let web pages open .ini files on Windows, so the page cannot see DefaultGameCore.ini this way. Load it with "Load DefaultGameCore.ini" at the top for its costs, or use the helper program, which can also change it.'
-    : tools.install?.ini && state.ini
-      ? `${tools.install.ini} loaded: the site's costs are this install's.`
-      : tools.install?.kind === 'ew'
-        ? ''
-        : tools.iniEntries.length
-          ? 'DefaultGameCore.ini has no research costs (TechBalance lines) for the site to use.'
-          : 'No DefaultGameCore.ini found in Config.',
+  tools.install?.ini && state.ini
+    ? `${tools.install.ini} loaded: the site's costs are this install's.`
+    : tools.install?.kind === 'ew'
+      ? ''
+      : tools.iniEntries.length
+        ? 'DefaultGameCore.ini has no research costs (TechBalance lines) for the site to use.'
+        : 'No DefaultGameCore.ini found in Config.',
 )
 </script>
 
@@ -232,56 +215,36 @@ const iniNote = computed(() =>
 
     <section class="block" aria-labelledby="folder-h">
       <h3 id="folder-h">Game folder</h3>
-      <template v-if="tools.status === 'off'">
-        <template v-if="tools.supported">
-          <p>
-            <button type="button" class="primary" @click="chooseGameFolder">
-              Pick the game folder
-            </button>
-          </p>
-          <p class="muted small">
-            The game's folder in your Steam library:
-            <code>…\steamapps\common\XCom-Enemy-Unknown</code> (or its <code>XEW</code>
-            folder). Chrome will not open anything under
-            <code>Program Files</code>, where Steam puts games unless told otherwise: for a game
-            there, use the helper program below.
-          </p>
-        </template>
-        <p v-else class="muted">
-          This browser cannot open a folder (Chrome and Edge can); the helper program below does it
-          for the page. The mod library works here either way.
-        </p>
-      </template>
-      <template v-else-if="tools.status === 'needs-permission'">
+      <p v-if="tools.status === 'reading'" class="muted">Reading the game's files…</p>
+      <template v-else-if="tools.status === 'off'">
         <p>
-          <button type="button" class="primary" @click="reconnectGameFolder">
-            Reconnect {{ tools.folder }}
-          </button>
-          <button type="button" class="link" @click="forgetGameFolder">Forget it</button>
+          <button type="button" class="primary" @click="findGameFolder">Find the game</button>
+          <button type="button" @click="chooseGameFolder">Choose the folder…</button>
+        </p>
+        <p v-if="tools.looked.length" class="muted small">
+          Steam's records did not lead to the game. Looked in:
+          <template v-for="l in tools.looked" :key="l"
+            ><br /><code>{{ l }}</code></template
+          >
         </p>
         <p class="muted small">
-          The browser asks again after a reload before the page may read it.
+          The app finds the game the way installers do, from what Steam told Windows. Or choose its
+          folder: <code>XCom-Enemy-Unknown</code>, or its <code>XEW</code>.
         </p>
       </template>
-      <p v-else-if="tools.status === 'reading'" class="muted">Reading {{ tools.folder }}…</p>
       <template v-else>
         <dl v-if="tools.install" class="facts">
           <dt>Folder</dt>
           <dd>
             <code>{{ tools.install.path }}</code>
-            <span v-if="tools.via === 'helper'" class="muted"> · through the helper program</span>
-            <span v-else class="muted">
-              · the folder you picked; browsers show pages only the names below it, never the full
-              path</span
-            >
           </dd>
           <dt>Installed</dt>
           <dd>
             <strong>{{ KIND_NAME[tools.install.kind] }}</strong>
             <span v-if="tools.install.kind === 'ew'" class="muted">
               · this site models Long War only. Long War is installed into
-              <code>XEW\XComGame</code>; if it is there, point the page (or the helper's
-              <code>-dir</code>) at the game folder or its <code>XEW</code>.</span
+              <code>XEW\XComGame</code>; if it is there, choose the game folder or its
+              <code>XEW</code>.</span
             >
             <span v-else class="muted"> · the site now shows this version</span>
           </dd>
@@ -289,84 +252,19 @@ const iniNote = computed(() =>
           <dd v-if="iniNote">{{ iniNote }}</dd>
         </dl>
         <p>
-          <button v-if="tools.supported" type="button" @click="chooseGameFolder">
-            Pick another folder
-          </button>
-          <button type="button" class="link" @click="forgetGameFolder">
-            {{ tools.via === 'helper' ? 'Disconnect' : 'Forget it' }}
-          </button>
+          <button type="button" @click="chooseGameFolder">Choose another folder…</button>
+          <button type="button" class="link" @click="forgetGameFolder">Forget it</button>
         </p>
       </template>
-      <div
-        v-if="tools.via !== 'helper' && tools.status !== 'reading'"
-        class="helper"
-        role="group"
-        aria-label="Helper program"
-      >
-        <p>
-          <strong>{{
-            tools.status === 'off' ? 'Or use the helper program' : 'The helper program'
-          }}</strong
-          >: a small program you run on the computer with the game, which lets this page read and
-          write the game's files, wherever it is installed and in any browser.
-          <template v-if="tools.iniRefused"
-            >Chrome will not open your INI files for the page; the helper can.</template
-          >
-          Download it, start it, and enter the pairing code it shows.
-        </p>
-        <p v-if="helperBuild" class="downloads">
-          <a :href="`${HELPER_DIR}lwtree-helper.exe`" download class="download"
-            >Download lwtree-helper.exe</a
-          >
-          <span class="muted small">
-            Windows · build {{ helperBuild }} · also for
-            <a :href="`${HELPER_DIR}lwtree-helper-linux`" download>Linux</a> and
-            <a :href="`${HELPER_DIR}lwtree-helper-macos`" download>macOS</a> ·
-            <a :href="`${HELPER_DIR}SHA256SUMS`" target="_blank">checksums</a>
-          </span>
-        </p>
-        <p v-else class="muted small">
-          This copy of the site has no helper builds; build it from <code>helper/</code> in the
-          repository (<code>scripts/build-helper.sh</code>).
-        </p>
-        <p v-if="helperBuild" class="muted small">
-          Windows may warn that it does not know the program (it is not code-signed): choose "More
-          info", then "Run anyway".
-        </p>
-        <p>
-          <input
-            v-model="pairing"
-            class="code"
-            placeholder="ABCD-EFGH"
-            aria-label="Pairing code"
-            @keydown.enter="connectHelper(pairing)"
-          />
-          <button type="button" :disabled="!pairing.trim()" @click="connectHelper(pairing)">
-            Use the helper program
-          </button>
-          <span v-if="tools.helper === 'not-running'" class="error small"
-            >The page cannot reach the helper. Is it running? If the browser asked whether this site
-            may reach apps or devices on this computer, allow it, and try again.</span
-          >
-          <span v-else-if="tools.helper === 'wrong-code'" class="error small"
-            >That is not the code the helper shows.</span
-          >
-        </p>
-        <p class="muted small">
-          It answers only this site, only on this computer, and only to a page with its code; it
-          changes nothing by itself. It finds a Steam install by itself, or start it with
-          <code>-dir "path to the game"</code>.
-        </p>
-      </div>
       <p v-if="tools.error" class="error">{{ tools.error }}</p>
     </section>
 
     <section class="block" aria-labelledby="mods-h">
       <h3 id="mods-h">Mods</h3>
       <p class="muted small">
-        PatcherGUI scripts and mod folders, kept in this browser so a reinstall need not mean
-        finding them all again. Tick what you want in the game, set the options, then apply your
-        setup below.
+        PatcherGUI scripts and mod folders, kept in the app so a reinstall need not mean finding
+        them all again. Tick what you want in the game, set the options, then apply your setup
+        below.
       </p>
       <p>
         <button type="button" @click="scriptInput?.click()">Add mod scripts</button>
@@ -503,11 +401,7 @@ const iniNote = computed(() =>
           </button>
         </li>
       </ul>
-      <p v-if="tools.iniRefused" class="muted small">
-        Not through Chrome's folder access on Windows: it does not let web pages open .ini files.
-        The helper program can.
-      </p>
-      <p v-else-if="tools.iniEntries.length">
+      <p v-if="tools.iniEntries.length">
         <input
           v-model="query"
           type="search"
@@ -781,34 +675,6 @@ h4 {
 }
 .present {
   color: var(--done-text);
-}
-.helper {
-  margin-top: 10px;
-  padding: 6px 12px;
-  border-left: 3px solid var(--node-border);
-  background: var(--panel);
-}
-.download {
-  display: inline-block;
-  padding: 4px 10px;
-  margin-right: 8px;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 13px;
-}
-.code {
-  width: 110px;
-  background: var(--node);
-  color: var(--text);
-  border: 1px solid var(--node-border);
-  border-radius: 4px;
-  padding: 3px 8px;
-  font: inherit;
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  margin-right: 6px;
 }
 .want {
   display: inline-flex;

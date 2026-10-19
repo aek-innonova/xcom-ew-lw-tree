@@ -1,0 +1,28 @@
+# The Windows installer (features/desktop-app.md), built on Windows
+# (scripts/build-desktop-win.sh does it on the Windows VM). Not code-signed
+# yet: the person decides about using the existing certificate; the exe gets
+# its icon and version details all the same.
+appId: ch.innonova.lwtree
+productName: Long War Tech Tree
+copyright: Anders Eggers-Krag
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - "!dist/*.test.js"
+  - site/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  signExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  artifactName: LongWarTechTree-Setup-${version}.exe

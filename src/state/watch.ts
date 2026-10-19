@@ -10,6 +10,7 @@
 
 import { reactive } from 'vue'
 import { fileKey, isSaveName, newestSave, type FileInfo } from '@/model/live'
+import { desktop, desktopSaveFolder } from './desktop'
 import { stored as storedIn } from './idb'
 import { importSaves, loadSave, state } from './store'
 
@@ -37,7 +38,10 @@ export const POLL_MS = 3000
 const MAX_TRIES = 5
 
 export const watcher = reactive({
-  supported: typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function',
+  // In the desktop app through its bridge; on the web, Chromium's folder access.
+  supported:
+    !!desktop ||
+    (typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function'),
   status: 'off' as 'off' | 'needs-permission' | 'watching',
   folder: null as string | null,
   /** The save last loaded from the folder. */
@@ -116,8 +120,23 @@ function stopTimer() {
   timer = undefined
 }
 
+/** In the app: the save folder it found or the player chose, as a folder handle. */
+function useDesktopFolder(folder: string) {
+  handle = desktopSaveFolder(desktop!, folder) as unknown as DirectoryHandle
+  loadedKey = null
+  watcher.folder = handle.name
+  watcher.error = null
+  startTimer()
+}
+
 /** Asks the player for the folder and starts watching it. */
 export async function chooseFolder(): Promise<void> {
+  if (desktop) {
+    // The game's usual SaveData if it is there, else the player picks.
+    const folder = (await desktop.saves.useDefault()) ?? (await desktop.saves.choose())
+    if (folder) useDesktopFolder(folder)
+    return
+  }
   if (!window.showDirectoryPicker) return
   let dir: DirectoryHandle
   try {
@@ -135,6 +154,11 @@ export async function chooseFolder(): Promise<void> {
 
 /** On start-up: picks up a folder chosen before, if the browser still allows it. */
 export async function restoreWatch(): Promise<void> {
+  if (desktop) {
+    const folder = await desktop.saves.current()
+    if (folder) useDesktopFolder(folder)
+    return
+  }
   if (!watcher.supported) return
   const dir = await stored<DirectoryHandle | undefined>('readonly', (s) => s.get(KEY)).catch(
     () => undefined,
@@ -158,6 +182,7 @@ export async function resumeWatch(): Promise<void> {
 
 export async function stopWatch(): Promise<void> {
   stopTimer()
+  if (desktop) await desktop.saves.forget()
   handle = null
   loadedKey = null
   failing = null

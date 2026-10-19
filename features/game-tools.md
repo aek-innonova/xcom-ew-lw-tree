@@ -364,3 +364,9 @@ The person pointed the page at their install, and it showed three faults:
   registered Steam's folder), and says each place it looks. On the VM,
   with only the uninstall entry, and then with only the library list
   naming a second library, it went straight to `XEW\XComGame`.
+
+## 2026-10-19: Tools moves into the desktop app
+
+The person's call: a web page will never give Tools the access it needs,
+so Tools exists only in the desktop app (features/desktop-app.md), and the
+helper program and the web route are retired.
