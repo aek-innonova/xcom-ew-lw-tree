@@ -354,3 +354,13 @@ The person pointed the page at their install, and it showed three faults:
   - every look at the disk has a 3-second limit.
 
   Re-tested on the VM.
+
+- **The person's point: searching drives is the wrong idea**; the LW and
+  LWR installers find the game at once. The drive scan is gone. Steam
+  registers the game with Windows: the uninstall entry "Steam App 200510"
+  (XCOM: Enemy Unknown; Enemy Within lives in its folder) has its
+  InstallLocation. Steam's libraryfolders.vdf also lists which library
+  holds which app. The helper reads the first, else the second (from the
+  registered Steam's folder), and says each place it looks. On the VM,
+  with only the uninstall entry, and then with only the library list
+  naming a second library, it went straight to `XEW\XComGame`.

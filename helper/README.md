@@ -16,9 +16,11 @@ See `features/game-tools.md` for the whole feature.
    (`/helper/`, put there by `scripts/build-helper.sh` on deploy), with
    `SHA256SUMS`. Windows SmartScreen may warn, as it does for any program
    that is not code-signed: "More info", then "Run anyway".
-2. Start it. It finds a Steam install of the game by itself (the default
-   library and any listed in Steam's `libraryfolders.vdf`, or the folder it
-   is started from); otherwise start it from a command prompt with
+2. Start it. It finds the game the way installers do: the install folder
+   Steam registered with Windows for the game (app 200510, XCOM: Enemy
+   Unknown, which Enemy Within is part of), or else the Steam library that
+   Steam's own list says holds it. It does not search drives. If it cannot
+   tell, start it from a command prompt with
    `lwtree-helper -dir "D:\Games\XCom-Enemy-Unknown"`.
 3. It shows a pairing code. In the Tools page choose "Use the helper
    program" and enter it. The code is kept (on both sides), so next time the

@@ -150,7 +150,40 @@ func regValue(out, name string) string {
 	return ""
 }
 
-// registeredSteam: where Windows says Steam is installed (any drive).
+// steamApp is XCOM: Enemy Unknown's Steam app id; Enemy Within (and Long War
+// in it) is installed inside its folder.
+const steamApp = "200510"
+
+// regQuery reads one registry value with Windows' own reg tool (both the
+// 64- and 32-bit views: Steam writes its entries in the 32-bit one).
+func regQuery(key, name string) string {
+	for _, view := range []string{"/reg:64", "/reg:32"} {
+		out, ok := within(lookLimit, func() []byte {
+			b, _ := exec.Command("reg", "query", key, "/v", name, view).Output()
+			return b
+		})
+		if v := regValue(string(out), name); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// registeredGame: the game's folder as Steam registered it with Windows
+// (its uninstall entry, the same thing an installer reads).
+func registeredGame() string {
+	if runtime.GOOS != "windows" {
+		return ""
+	}
+	for _, root := range []string{`HKLM`, `HKCU`} {
+		if v := regQuery(root+`\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App `+steamApp, "InstallLocation"); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// registeredSteam: where Windows says Steam is installed.
 func registeredSteam() []string {
 	if runtime.GOOS != "windows" {
 		if home, err := os.UserHomeDir(); err == nil {
@@ -159,41 +192,46 @@ func registeredSteam() []string {
 		return nil
 	}
 	var roots []string
-	for _, q := range [][2]string{
-		{`HKCU\Software\Valve\Steam`, "SteamPath"},
-		{`HKLM\SOFTWARE\WOW6432Node\Valve\Steam`, "InstallPath"},
-		{`HKLM\SOFTWARE\Valve\Steam`, "InstallPath"},
-	} {
-		out, ok := within(lookLimit, func() []byte {
-			b, _ := exec.Command("reg", "query", q[0], "/v", q[1]).Output()
-			return b
-		})
-		if v := regValue(string(out), q[1]); ok && v != "" {
-			roots = append(roots, v)
-		}
+	if v := regQuery(`HKCU\Software\Valve\Steam`, "SteamPath"); v != "" {
+		roots = append(roots, v)
+	}
+	if v := regQuery(`HKLM\SOFTWARE\Valve\Steam`, "InstallPath"); v != "" {
+		roots = append(roots, v)
 	}
 	return roots
 }
 
-// libraries: a Steam folder and the libraries its libraryfolders.vdf lists
-// (Steam keeps the list in steamapps, and newer versions in config too).
-func libraries(steam string) []string {
-	libs := []string{steam}
+// libraryOfApp: from Steam's libraryfolders.vdf (in steamapps, and in config
+// on newer Steam), the library whose "apps" list holds the app; with an older
+// file that lists only paths, every library it names.
+func libraryOfApp(steam, app string) []string {
+	var libs []string
 	for _, f := range []string{filepath.Join("steamapps", "libraryfolders.vdf"), filepath.Join("config", "libraryfolders.vdf")} {
 		b, _ := within(lookLimit, func() []byte {
 			b, _ := os.ReadFile(filepath.Join(steam, f))
 			return b
 		})
-		for _, m := range libraryPath.FindAllStringSubmatch(string(b), -1) {
-			libs = append(libs, strings.ReplaceAll(m[1], `\\`, `\`))
+		text := string(b)
+		paths := libraryPath.FindAllStringSubmatchIndex(text, -1)
+		for i, m := range paths {
+			path := strings.ReplaceAll(text[m[2]:m[3]], `\\`, `\`)
+			end := len(text)
+			if i+1 < len(paths) {
+				end = paths[i+1][0]
+			}
+			block := text[m[1]:end]
+			if !strings.Contains(block, `"apps"`) || strings.Contains(block, `"`+app+`"`) {
+				libs = append(libs, path)
+			}
 		}
 	}
-	return libs
+	return append(libs, steam)
 }
 
 // findGame looks, in order, at -dir, the folder the helper was started from,
-// the libraries of the Steam Windows knows about, then the usual Steam folders
-// on the computer's own drives; say reports each library as it goes.
+// the game's folder as Steam registered it with Windows, then the Steam
+// library that Steam's own list says holds the game. It does not search
+// drives. say reports where it looks.
 func findGame(given string, say func(string)) (string, error) {
 	if given != "" {
 		if g := gameDirUnder(given); g != "" {
@@ -211,35 +249,27 @@ func findGame(given string, say func(string)) (string, error) {
 			}
 		}
 	}
-	seen := map[string]bool{}
 	var looked []string
-	try := func(lib string) string {
-		k := strings.ToLower(filepath.Clean(lib))
-		if seen[k] {
-			return ""
-		}
-		seen[k] = true
-		if !isDir(lib) {
-			return ""
-		}
-		dir := filepath.Join(lib, "steamapps", "common", "XCom-Enemy-Unknown")
+	check := func(dir string) string {
 		say(dir)
 		looked = append(looked, "  "+dir)
 		return gameDirUnder(dir)
 	}
-	for _, steam := range registeredSteam() {
-		for _, lib := range libraries(steam) {
-			if g := try(lib); g != "" {
-				return g, nil
-			}
+	if dir := registeredGame(); dir != "" {
+		if g := check(dir); g != "" {
+			return g, nil
 		}
 	}
-	for _, drive := range fixedDrives() {
-		for _, sub := range []string{`Program Files (x86)\Steam`, `Program Files\Steam`, "Steam", "SteamLibrary", `Games\Steam`, `Games\SteamLibrary`} {
-			for _, lib := range libraries(filepath.Join(drive, sub)) {
-				if g := try(lib); g != "" {
-					return g, nil
-				}
+	seen := map[string]bool{}
+	for _, steam := range registeredSteam() {
+		for _, lib := range libraryOfApp(steam, steamApp) {
+			if k := strings.ToLower(filepath.Clean(lib)); seen[k] {
+				continue
+			} else {
+				seen[k] = true
+			}
+			if g := check(filepath.Join(lib, "steamapps", "common", "XCom-Enemy-Unknown")); g != "" {
+				return g, nil
 			}
 		}
 	}

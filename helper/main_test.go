@@ -133,3 +133,37 @@ func TestReadsSteamsPlaceFromTheRegistry(t *testing.T) {
 		t.Errorf("regValue with spaces = %q", got)
 	}
 }
+
+func TestFindsTheLibraryThatHoldsTheGame(t *testing.T) {
+	steam := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(steam, "steamapps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	vdf := `"libraryfolders"
+{
+	"0"
+	{
+		"path"		"C:\\Program Files (x86)\\Steam"
+		"apps"
+		{
+			"228980"		"123"
+		}
+	}
+	"1"
+	{
+		"path"		"I:\\Games\\Steam"
+		"apps"
+		{
+			"200510"		"456"
+			"225340"		"7"
+		}
+	}
+}`
+	if err := os.WriteFile(filepath.Join(steam, "steamapps", "libraryfolders.vdf"), []byte(vdf), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := libraryOfApp(steam, "200510")
+	if len(got) != 2 || got[0] != `I:\Games\Steam` {
+		t.Errorf("libraryOfApp = %q", got)
+	}
+}
