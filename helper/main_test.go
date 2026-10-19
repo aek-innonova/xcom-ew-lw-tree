@@ -110,3 +110,26 @@ func TestWritesListsAndRemoves(t *testing.T) {
 		t.Errorf("removed file still there: %d", w.Code)
 	}
 }
+
+func TestPrefersEnemyWithinOverEnemyUnknown(t *testing.T) {
+	g := game(t)
+	steam := filepath.Dir(filepath.Dir(g)) // XCom-Enemy-Unknown
+	for _, d := range []string{"CookedPCConsole", "Config"} {
+		if err := os.MkdirAll(filepath.Join(steam, "XComGame", d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, _ := findGame(steam); got != g {
+		t.Errorf("findGame(game folder) = %s, want XEW's %s", got, g)
+	}
+}
+
+func TestReadsSteamsPlaceFromTheRegistry(t *testing.T) {
+	out := "\r\nHKEY_CURRENT_USER\\Software\\Valve\\Steam\r\n    SteamPath    REG_SZ    i:/steam\r\n\r\n"
+	if got := regValue(out, "SteamPath"); got != filepath.FromSlash("i:/steam") {
+		t.Errorf("regValue = %q", got)
+	}
+	if got := regValue("    InstallPath    REG_SZ    C:\\Program Files (x86)\\Steam\r\n", "InstallPath"); got != `C:\Program Files (x86)\Steam` {
+		t.Errorf("regValue with spaces = %q", got)
+	}
+}

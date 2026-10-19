@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -98,9 +99,11 @@ func isGameDir(p string) bool {
 	return true
 }
 
-// gameDirUnder finds XComGame at or below p (the game folder or XEW).
+// gameDirUnder finds XComGame at or below p (the game folder or XEW). Enemy
+// Within, and Long War with it, is XEW/XComGame; the game folder's own
+// XComGame is Enemy Unknown's, so XEW comes first.
 func gameDirUnder(p string) string {
-	for _, c := range []string{p, filepath.Join(p, "XComGame"), filepath.Join(p, "XEW", "XComGame")} {
+	for _, c := range []string{filepath.Join(p, "XEW", "XComGame"), p, filepath.Join(p, "XComGame")} {
 		if isGameDir(c) {
 			return c
 		}
@@ -110,27 +113,74 @@ func gameDirUnder(p string) string {
 
 var libraryPath = regexp.MustCompile(`"path"\s+"([^"]+)"`)
 
-// steamLibraries lists Steam library folders from libraryfolders.vdf.
+// regValue reads one value out of `reg query` output
+// ("    SteamPath    REG_SZ    i:/steam").
+func regValue(out, name string) string {
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 3 && strings.EqualFold(f[0], name) && strings.HasPrefix(f[1], "REG_") {
+			v := strings.TrimSpace(line[strings.Index(line, f[1])+len(f[1]):])
+			return filepath.FromSlash(v)
+		}
+	}
+	return ""
+}
+
+// windowsSteamRoots: where Windows says Steam is (it can be on any drive),
+// then the usual places on every drive.
+func windowsSteamRoots() []string {
+	var roots []string
+	for _, q := range [][2]string{
+		{`HKCU\Software\Valve\Steam`, "SteamPath"},
+		{`HKLM\SOFTWARE\WOW6432Node\Valve\Steam`, "InstallPath"},
+		{`HKLM\SOFTWARE\Valve\Steam`, "InstallPath"},
+	} {
+		if out, err := exec.Command("reg", "query", q[0], "/v", q[1]).Output(); err == nil {
+			if v := regValue(string(out), q[1]); v != "" {
+				roots = append(roots, v)
+			}
+		}
+	}
+	for d := 'C'; d <= 'Z'; d++ {
+		drive := string(d) + `:\`
+		if _, err := os.Stat(drive); err != nil {
+			continue
+		}
+		for _, sub := range []string{`Program Files (x86)\Steam`, `Program Files\Steam`, "Steam", "SteamLibrary", `Games\Steam`, `Games\SteamLibrary`} {
+			roots = append(roots, filepath.Join(drive, sub))
+		}
+	}
+	return roots
+}
+
+// steamLibraries lists Steam library folders: Steam's own and those in its
+// libraryfolders.vdf.
 func steamLibraries() []string {
 	var roots []string
 	if runtime.GOOS == "windows" {
-		for _, env := range []string{"ProgramFiles(x86)", "ProgramFiles"} {
-			if v := os.Getenv(env); v != "" {
-				roots = append(roots, filepath.Join(v, "Steam"))
-			}
-		}
+		roots = windowsSteamRoots()
 	} else if home, err := os.UserHomeDir(); err == nil {
 		roots = append(roots, filepath.Join(home, ".steam", "steam"), filepath.Join(home, ".local", "share", "Steam"))
 	}
 	var libs []string
-	for _, r := range roots {
-		libs = append(libs, r)
-		b, err := os.ReadFile(filepath.Join(r, "steamapps", "libraryfolders.vdf"))
-		if err != nil {
-			continue
+	seen := map[string]bool{}
+	add := func(p string) {
+		if k := strings.ToLower(filepath.Clean(p)); !seen[k] {
+			seen[k] = true
+			libs = append(libs, p)
 		}
-		for _, m := range libraryPath.FindAllStringSubmatch(string(b), -1) {
-			libs = append(libs, strings.ReplaceAll(m[1], `\\`, `\`))
+	}
+	for _, r := range roots {
+		add(r)
+		// Steam keeps its library list in steamapps (and newer versions in config too).
+		for _, f := range []string{filepath.Join("steamapps", "libraryfolders.vdf"), filepath.Join("config", "libraryfolders.vdf")} {
+			b, err := os.ReadFile(filepath.Join(r, f))
+			if err != nil {
+				continue
+			}
+			for _, m := range libraryPath.FindAllStringSubmatch(string(b), -1) {
+				add(strings.ReplaceAll(m[1], `\\`, `\`))
+			}
 		}
 	}
 	return libs
@@ -154,12 +204,22 @@ func findGame(given string) (string, error) {
 			}
 		}
 	}
+	var looked []string
 	for _, lib := range steamLibraries() {
-		if g := gameDirUnder(filepath.Join(lib, "steamapps", "common", "XCom-Enemy-Unknown")); g != "" {
+		if _, err := os.Stat(lib); err != nil {
+			continue
+		}
+		dir := filepath.Join(lib, "steamapps", "common", "XCom-Enemy-Unknown")
+		if g := gameDirUnder(dir); g != "" {
 			return g, nil
 		}
+		looked = append(looked, "  "+dir)
 	}
-	return "", errors.New("could not find the game; start the helper with -dir \"<the game's folder>\"")
+	msg := "could not find the game"
+	if len(looked) > 0 {
+		msg += "; looked in:\n" + strings.Join(looked, "\n")
+	}
+	return "", errors.New(msg + "\nStart the helper with -dir \"<the game's folder>\", e.g. lwtree-helper.exe -dir \"D:\\SteamLibrary\\steamapps\\common\\XCom-Enemy-Unknown\"")
 }
 
 // --- The pairing code --------------------------------------------------------

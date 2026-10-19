@@ -279,7 +279,9 @@ const iniNote = computed(() =>
           <dd>
             <strong>{{ KIND_NAME[tools.install.kind] }}</strong>
             <span v-if="tools.install.kind === 'ew'" class="muted">
-              · this site models Long War only</span
+              · this site models Long War only. Long War is installed into
+              <code>XEW\XComGame</code>; if it is there, point the page (or the helper's
+              <code>-dir</code>) at the game folder or its <code>XEW</code>.</span
             >
             <span v-else class="muted"> · the site now shows this version</span>
           </dd>

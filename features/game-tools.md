@@ -323,3 +323,22 @@ The person pointed the page at their install, and it showed three faults:
 - The folder line shows only the names below the picked folder: browsers
   never give pages a full path. The page now says so; through the helper
   it shows the full path.
+
+## Report (2026-10-19): the helper on the person's machine
+
+- **It took Enemy Unknown's XComGame**, the same lookup-order fault as the
+  page's. `XEW/XComGame` now comes first in the helper too (Go test).
+- **It did not find the game by itself.** It only looked under Program
+  Files. Steam can be installed anywhere, and the person's game is in a
+  library on another drive. Now it:
+  - asks Windows where Steam is (`reg query` of Steam's SteamPath and
+    InstallPath);
+  - reads Steam's library list from both `steamapps\` and `config\`;
+  - checks the usual Steam folders on every drive;
+  - if it still fails, lists the libraries it looked in.
+
+  Tested on the Windows VM: Steam registered at an odd place, the game in a
+  second library with both XComGame folders, the helper started without
+  `-dir`: it found `XEW\XComGame`.
+- The page now says, when it finds plain Enemy Within, that Long War lives
+  in `XEW\XComGame`.
