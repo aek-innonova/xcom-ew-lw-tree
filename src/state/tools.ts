@@ -10,6 +10,12 @@
 // the machine.
 
 import { markRaw, reactive } from 'vue'
+import {
+  armorKitCodes,
+  findSettings,
+  settingsChanged,
+  type FoundSetting,
+} from '@/model/gamesettings'
 import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
 import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
@@ -120,6 +126,16 @@ export const tools = reactive({
   iniEntries: [] as IniEntry[],
   /** The player's INI settings. */
   settings: [] as IniChange[],
+  /** Game settings the version's DefaultGameCore.ini has, with its own values (model/gamesettings.ts). */
+  gameSettings: [] as FoundSetting[],
+  /** Whose values those are: "Long War 1.0", or "the file as the app found it". */
+  gameSettingsFrom: '',
+  /** The player's game settings, by id. */
+  gameValues: {} as Record<string, string>,
+  /** Where the game's file now differs from the version's own (edits made by hand). */
+  handEdits: [] as { def: FoundSetting; own: string; now: string }[],
+  /** Long War's Armor Kit codes: what the color and headgear numbers look like. */
+  codes: { colors: new Map<string, string>(), headgear: new Map<string, string>() },
   /** Putting the setup into the game. */
   plan: null as Plan | null,
   busy: null as string | null,
@@ -173,6 +189,7 @@ async function readInstall(): Promise<void> {
     }
     tools.install = { kind, path: game.root, ini, cooked }
     managed = await loadManaged(files)
+    await loadGameSettings(iniBytes ? iniText(iniBytes) : null)
     tools.status = 'ready'
     void checkMods()
   } catch (e) {
@@ -260,6 +277,7 @@ export async function restoreTools(): Promise<void> {
       tools.error = `Could not read your library folder: ${(e as Error).message}`
     }
     tools.settings = choices.ini
+    tools.gameValues = { ...choices.game }
     tools.base = choices.base ?? 'keep'
     await loadMods()
     await loadBases()
@@ -485,6 +503,8 @@ export async function setBase(choice: BaseChoice): Promise<void> {
   tools.plan = null
   choices.base = choice
   await saveChoices()
+  const current = files ? await files.read(GAME_INI) : null
+  await loadGameSettings(current ? iniText(current) : null)
 }
 
 const layerOf = (m: BaseManifest): BaseLayer => ({
@@ -671,10 +691,91 @@ export async function setSetting(entry: IniChange, value: string | null) {
   await saveChoices()
 }
 
+// --- Game settings in the player's words (features/game-settings.md) ------------
+
+/**
+ * The version's own DefaultGameCore.ini: the chosen base's (if the library
+ * holds it unpacked), else the original the app kept, else the file as it is.
+ */
+async function ownIni(current: string | null): Promise<{ text: string; from: string } | null> {
+  if (!files) return null
+  if (tools.base !== 'keep' && tools.base !== 'ew' && desktop?.bases) {
+    const { lw, lwr } = basesFor(tools.base)
+    const top = tools.base === 'lwr' ? lwr : lw
+    if (top?.unpacked) {
+      try {
+        return {
+          text: iniText(await desktop.bases.read(top.id, GAME_INI)),
+          from: `${top.name}’s own`,
+        }
+      } catch {
+        // not in that base: below
+      }
+    }
+  }
+  const kept = await files.read(`lwtree-backup/${GAME_INI}`)
+  if (kept) return { text: iniText(kept), from: 'the original the app kept' }
+  return current === null ? null : { text: current, from: 'the game’s file as it is' }
+}
+
+async function loadGameSettings(current: string | null): Promise<void> {
+  const own = await ownIni(current)
+  tools.gameSettings = markRaw(own ? findSettings(own.text) : [])
+  tools.gameSettingsFrom = own?.from ?? ''
+  // Hand edits: where the file differs from the version's own, other than by
+  // the player's settings already.
+  tools.handEdits = markRaw(
+    own && current !== null && own.text !== current
+      ? settingsChanged(own.text, current).filter((c) => tools.gameValues[c.def.id] !== c.now)
+      : [],
+  )
+  // Long War's Armor Kit codes: beside the game (its installer put them there), or in its base.
+  let codes = files
+    ? await files.read('xew:Long_War_EW_Armor_Kit_Codes.txt').catch(() => null)
+    : null
+  for (const b of tools.bases.filter((x) => x.kind === 'lw' && x.unpacked))
+    codes ??=
+      (await desktop?.bases?.doc?.(b.id, 'Long_War_EW_Armor_Kit_Codes.txt').catch(() => null)) ??
+      null
+  tools.codes = markRaw(
+    codes ? armorKitCodes(iniText(codes)) : { colors: new Map(), headgear: new Map() },
+  )
+}
+
+/** Sets (or, with null or the version's own value, drops) one game setting. */
+export async function setGameValue(id: string, value: string | null): Promise<void> {
+  const own = tools.gameSettings.find((s) => s.id === id)?.value
+  const next = { ...tools.gameValues }
+  if (value === null || value.trim() === '' || value.trim() === own) delete next[id]
+  else next[id] = value.trim()
+  tools.gameValues = next
+  choices.game = { ...next }
+  await saveChoices()
+}
+
+/** The game's file as edited by hand becomes the player's settings. */
+export async function adoptHandEdits(): Promise<void> {
+  const next = { ...tools.gameValues }
+  for (const c of tools.handEdits) next[c.def.id] = c.now
+  tools.gameValues = next
+  tools.handEdits = []
+  choices.game = { ...next }
+  await saveChoices()
+}
+
 // --- Putting the setup into the game ---------------------------------------------
 
 async function wantedSetup(everything: boolean): Promise<Wanted> {
-  const wanted: Wanted = { scripts: [], files: [], settings: everything ? [...tools.settings] : [] }
+  const wanted: Wanted = {
+    scripts: [],
+    files: [],
+    settings: everything ? [...tools.settings] : [],
+    named: everything
+      ? tools.gameSettings
+          .filter((d) => tools.gameValues[d.id] !== undefined)
+          .map((def) => ({ def, value: tools.gameValues[def.id]! }))
+      : [],
+  }
   if (!everything) return wanted
   for (const m of tools.mods) {
     for (const f of m.files)

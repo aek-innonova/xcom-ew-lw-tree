@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('lwtreeDesktop', {
     list: () => call('bases:list'),
     unpack: (id: string) => call('bases:unpack', id),
     read: (id: string, path: string) => call('bases:read', id, path),
+    doc: (id: string, name: string) => call('bases:doc', id, name),
     onProgress: (f: (p: unknown) => void) => {
       ipcRenderer.on('bases:progress', (_e, p) => f(p))
     },

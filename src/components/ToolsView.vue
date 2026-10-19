@@ -24,7 +24,9 @@ import {
   readPackage,
   removeMod,
   setOption,
+  adoptHandEdits,
   setBase,
+  setGameValue,
   setSetting,
   setWanted,
   setWantFiles,
@@ -38,6 +40,7 @@ import { EXE } from '@/state/baseplan'
 import type { BaseChoice } from '@/state/library'
 import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
+import type { FoundSetting } from '@/model/gamesettings'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
@@ -195,6 +198,48 @@ function onSetting(e: { section: string; key: string; occurrence: number }, valu
 }
 const repeated = (e: IniEntry) =>
   tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
+
+// Game settings, by group, in the catalogue's order.
+const gameQuery = ref<Record<string, string>>({})
+const gameGroups = computed(() => {
+  const groups = new Map<string, FoundSetting[]>()
+  for (const d of tools.gameSettings) groups.set(d.group, [...(groups.get(d.group) ?? []), d])
+  return [...groups].map(([name, items]) => {
+    const mine = items.filter((d) => d.id in tools.gameValues).length
+    return { name, items, mine, open: items.length <= 20 || mine > 0 }
+  })
+})
+function shownItems(g: { name: string; items: FoundSetting[] }) {
+  const q = (gameQuery.value[g.name] ?? '').toLowerCase().trim()
+  return q ? g.items.filter((d) => d.name.toLowerCase().includes(q)) : g.items
+}
+/** The setting's help, unless it only says the name again (class colors). */
+const helpOf = (d: FoundSetting) => {
+  const h = d.help || d.comment
+  return h.toLowerCase() === d.name.toLowerCase() ? '' : h
+}
+const gameValue = (d: FoundSetting) => tools.gameValues[d.id] ?? d.value
+/** Colors and headgear by Long War's own names, when the app has them. */
+function pick(d: FoundSetting): [string, string][] | null {
+  const table =
+    d.type === 'color' ? tools.codes.colors : d.type === 'headgear' ? tools.codes.headgear : null
+  if (!table?.size) return null
+  const rows: [string, string][] = d.type === 'headgear' ? [['-1', 'no change']] : []
+  rows.push(...table)
+  const v = gameValue(d)
+  if (!rows.some(([k]) => k === v)) rows.unshift([v, 'not in Long War’s list'])
+  return rows
+}
+function shownValue(d: FoundSetting, v: string): string {
+  if (d.type === 'toggle') return v === 'on' ? 'yes' : 'no'
+  const name =
+    d.type === 'color'
+      ? tools.codes.colors.get(v)
+      : d.type === 'headgear'
+        ? tools.codes.headgear.get(v)
+        : undefined
+  return name ? `${v}, ${name}` : v
+}
 
 const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
 /** A planned file as the player knows it (XComEW.exe lives in XEW, the rest in XComGame). */
@@ -433,11 +478,122 @@ const iniNote = computed(() =>
       </article>
     </section>
 
-    <section class="block" aria-labelledby="settings-h">
-      <h3 id="settings-h">Settings</h3>
+    <section v-if="tools.gameSettings.length" class="block" aria-labelledby="game-h">
+      <h3 id="game-h">Game settings</h3>
       <p class="muted small">
-        Values in the game's DefaultGameCore.ini, with the file's own comment on each; yours are set
-        when you apply your setup.
+        Soldiers, rookies, the arc thrower, class colors and more, as the game's DefaultGameCore.ini
+        has them; beside each, {{ tools.gameSettingsFrom }} value. Yours are written when you apply
+        your setup, and kept for the next install or version.
+      </p>
+      <div v-if="tools.handEdits.length" class="hand" role="region" aria-label="Edits by hand">
+        <p>
+          <strong
+            >The game's file differs from {{ tools.gameSettingsFrom }} in
+            {{ tools.handEdits.length }} setting{{
+              tools.handEdits.length === 1 ? '' : 's'
+            }}</strong
+          >, edited by hand or by another tool:
+        </p>
+        <ul class="small">
+          <li v-for="c in tools.handEdits" :key="c.def.id">
+            {{ c.def.group }}: {{ c.def.name }}
+            <span class="muted">{{ shownValue(c.def, c.own) }} →</span>
+            {{ shownValue(c.def, c.now) }}
+          </li>
+        </ul>
+        <p>
+          <button type="button" class="primary" @click="adoptHandEdits">
+            Keep them as my settings
+          </button>
+          <span class="muted small">
+            so they come back after a reinstall or with another version</span
+          >
+        </p>
+      </div>
+      <details
+        v-for="g in gameGroups"
+        :key="g.name"
+        class="group"
+        :open="g.open"
+        :aria-label="g.name"
+      >
+        <summary>
+          {{ g.name }}
+          <span class="muted small"
+            >{{ g.items.length }}<template v-if="g.mine"> · {{ g.mine }} yours</template></span
+          >
+        </summary>
+        <input
+          v-if="g.items.length > 20"
+          v-model="gameQuery[g.name]"
+          type="search"
+          class="search"
+          :placeholder="`Find in ${g.name.toLowerCase()}…`"
+          :aria-label="`Find in ${g.name}`"
+        />
+        <table class="options game">
+          <colgroup>
+            <col class="name" />
+            <col class="value" />
+            <col />
+          </colgroup>
+          <tbody>
+            <tr v-for="d in shownItems(g)" :key="d.id" :class="{ mine: d.id in tools.gameValues }">
+              <th>
+                <label :for="`gs-${d.id}`">{{ d.name }}</label>
+              </th>
+              <td class="input">
+                <input
+                  v-if="d.type === 'toggle'"
+                  :id="`gs-${d.id}`"
+                  type="checkbox"
+                  :checked="gameValue(d) === 'on'"
+                  @change="
+                    setGameValue(d.id, ($event.target as HTMLInputElement).checked ? 'on' : 'off')
+                  "
+                />
+                <select
+                  v-else-if="pick(d)"
+                  :id="`gs-${d.id}`"
+                  :value="gameValue(d)"
+                  @change="setGameValue(d.id, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="[k, v] in pick(d)!" :key="k" :value="k">{{ k }} · {{ v }}</option>
+                </select>
+                <input
+                  v-else
+                  :id="`gs-${d.id}`"
+                  class="num"
+                  :value="tools.gameValues[d.id] ?? ''"
+                  :placeholder="d.value"
+                  @change="setGameValue(d.id, ($event.target as HTMLInputElement).value)"
+                />
+                <button
+                  v-if="d.id in tools.gameValues"
+                  type="button"
+                  class="remove"
+                  :aria-label="`Back to ${tools.gameSettingsFrom} value of ${d.name}`"
+                  :title="`Back to ${shownValue(d, d.value)}`"
+                  @click="setGameValue(d.id, null)"
+                >
+                  ×
+                </button>
+              </td>
+              <td class="help small">
+                <template v-if="helpOf(d)">{{ helpOf(d) }} </template>
+                <span class="muted">({{ shownValue(d, d.value) }})</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+
+    <section class="block" aria-labelledby="settings-h">
+      <h3 id="settings-h">Any line of DefaultGameCore.ini</h3>
+      <p class="muted small">
+        For everything else: values in the game's DefaultGameCore.ini, found by searching, with the
+        file's own comment on each; yours are set when you apply your setup.
       </p>
       <ul v-if="tools.settings.length" class="settings">
         <li v-for="s in tools.settings" :key="`${s.section}/${s.key}/${s.occurrence}`">
@@ -581,6 +737,40 @@ const iniNote = computed(() =>
 }
 .choices .off {
   color: var(--muted);
+}
+.hand {
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 8px 0;
+}
+.hand ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+details.group {
+  margin: 6px 0;
+}
+details.group summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+table.game {
+  table-layout: fixed;
+  width: 100%;
+}
+table.game col.name {
+  width: 250px;
+}
+table.game col.value {
+  width: 290px;
+}
+table.game select {
+  max-width: 250px;
+}
+tr.mine th {
+  color: var(--accent);
 }
 ul.changes {
   max-height: 340px;

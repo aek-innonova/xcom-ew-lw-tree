@@ -15,6 +15,7 @@ import { runScript } from '@/model/modpatch'
 import { parseCommands } from '@/model/modpatch'
 import { iniBytes, iniText, mergeIni, setIniValues, type IniChange } from '@/model/inifile'
 import { Package } from '@/model/upk'
+import { applySettings, type SettingDef } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
 
 export const BACKUP = 'lwtree-backup'
@@ -74,6 +75,8 @@ export interface Wanted {
   scripts: WantedScript[]
   files: WantedFiles[]
   settings: IniChange[]
+  /** Game settings in the player's words (model/gamesettings.ts), by their definitions. */
+  named?: { def: SettingDef; value: string }[]
 }
 
 export interface Change {
@@ -213,6 +216,19 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
     configEdits.set(path, [...(configEdits.get(path) ?? []), edit])
     reason(path, r)
   }
+  // The game settings first (features/game-settings.md); a line set by key below wins.
+  const named = wanted.named ?? []
+  if (named.length)
+    editConfig(
+      GAME_INI,
+      (t) => {
+        const { text, missing } = applySettings(t, named)
+        for (const m of missing)
+          problems.push(`“${m.name}” is not in DefaultGameCore.ini; it is left out.`)
+        return text
+      },
+      `${named.length} game setting${named.length === 1 ? '' : 's'}`,
+    )
   if (wanted.settings.length)
     editConfig(
       GAME_INI,

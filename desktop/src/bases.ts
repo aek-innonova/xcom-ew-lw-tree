@@ -38,6 +38,8 @@ export interface BaseManifest {
   deletes: string[]
   /** Byte patches to Binaries\Win32\XComEW.exe. */
   exePatches: ExePatch[]
+  /** Its own notes (text files beside the game folder), kept in docs/. */
+  docs?: string[]
 }
 /** A base found in the library, unpacked or not. */
 export type BaseFound = Omit<BaseManifest, 'files' | 'deletes' | 'exePatches'> & {
@@ -204,7 +206,8 @@ export class BaseStore {
     progress?: (done: number, total: number) => void,
   ): Promise<BaseManifest> {
     const have = await this.manifest(id)
-    if (have) return have
+    // Long War unpacked by 0.3.0 kept no notes: unpacked again, once.
+    if (have && (have.kind !== 'lw' || have.docs)) return have
     const found = (await this.list()).find((b) => b.id === id)
     if (!found) throw new Error('that base is no longer in the library')
     const dir = path.join(this.cache, id)
@@ -218,6 +221,7 @@ export class BaseStore {
       files.push({ path: rel, size: data.length, sha256: sha(data) })
     }
     let deletes: string[] = []
+    const docs: string[] = []
     let exePatches: ExePatch[] = []
     try {
       if (found.kind === 'lw') {
@@ -228,6 +232,15 @@ export class BaseStore {
             (x) => x.destination.toLowerCase() === `{app}\\long war files\\${name}`,
           )
           return f ? new TextDecoder('windows-1252').decode(setup.read(f)) : ''
+        }
+        // Long War's own notes beside the game folder: the Armor Kit codes name
+        // the class colors and headgear numbers (features/game-settings.md).
+        for (const f of setup.files.filter((x) => /^\{app\}\\[^\\]+\.txt$/i.test(x.destination))) {
+          const name = f.destination.slice('{app}\\'.length)
+          const p = path.join(tmp, 'docs', name)
+          await fs.mkdir(path.dirname(p), { recursive: true })
+          await fs.writeFile(p, setup.read(f))
+          docs.push(name)
         }
         deletes = deletesIn(own('run_init.bat'))
         exePatches = exePatchesIn(own('long_war_ew_config_exe.xml') || '<x/>')
@@ -265,7 +278,7 @@ export class BaseStore {
         }
       }
       const { unpacked: _, ...rest } = found
-      const manifest: BaseManifest = { ...rest, files, deletes, exePatches }
+      const manifest: BaseManifest = { ...rest, files, deletes, exePatches, docs }
       // The manifest last: a base without one was not unpacked whole.
       await fs.writeFile(path.join(tmp, 'manifest.json'), JSON.stringify(manifest))
       await fs.rm(dir, { recursive: true, force: true })
@@ -275,6 +288,14 @@ export class BaseStore {
       await fs.rm(tmp, { recursive: true, force: true })
       throw e
     }
+  }
+
+  /** One of a base's own notes, or null. */
+  async doc(id: string, name: string): Promise<Uint8Array | null> {
+    const m = await this.manifest(id)
+    const real = m?.docs?.find((d) => d.toLowerCase() === name.toLowerCase())
+    if (!real) return null
+    return new Uint8Array(await fs.readFile(path.join(this.cache, id, 'docs', real)))
   }
 
   /** A base file's place in the cache. */

@@ -171,6 +171,12 @@ test(
         'Prevent Phone Home',
       ],
     )
+    // Long War's own notes, for the class colors' names.
+    assert.ok(m.docs?.includes('Long_War_EW_Armor_Kit_Codes.txt'))
+    assert.match(
+      new TextDecoder().decode((await store.doc(lw.id, 'long_war_ew_armor_kit_codes.txt'))!),
+      /^Colors/m,
+    )
     assert.equal((await store.unpack(lwr.id)).files.length, 149)
   },
 )

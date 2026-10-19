@@ -15,6 +15,7 @@
 import { iniBytes, iniText, mergeIni, setIniValues } from '@/model/inifile'
 import { parseCommands, runScript } from '@/model/modpatch'
 import { Package } from '@/model/upk'
+import { applySettings } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
 import { BACKUP, GAME_INI, type Change, type Managed, type Plan, type Wanted } from './setup'
 
@@ -270,6 +271,19 @@ export async function planBase(
   const edits = new Map<string, { edit: (t: string) => string; why: string }[]>()
   const editConfig = (path: string, edit: (t: string) => string, why: string) =>
     edits.set(path, [...(edits.get(path) ?? []), { edit, why }])
+  // The game settings first (features/game-settings.md); a line set by key below wins.
+  const named = wanted.named ?? []
+  if (named.length)
+    editConfig(
+      GAME_INI,
+      (t) => {
+        const { text, missing } = applySettings(t, named)
+        for (const m of missing)
+          problems.push(`“${m.name}” is not in ${base.name}'s DefaultGameCore.ini; it is left out.`)
+        return text
+      },
+      `${named.length} game setting${named.length === 1 ? '' : 's'}`,
+    )
   if (wanted.settings.length)
     editConfig(
       GAME_INI,

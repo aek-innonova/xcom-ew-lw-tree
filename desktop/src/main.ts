@@ -258,6 +258,7 @@ function bridge(win: BrowserWindow) {
       if (!win.isDestroyed()) win.webContents.send('bases:progress', { id, done, total })
     }),
   )
+  handle('bases:doc', (id, name) => bases().doc(str(id), str(name)))
   handle(
     'bases:read',
     async (id, p) => new Uint8Array(await fs.readFile(await bases().file(str(id), str(p)))),

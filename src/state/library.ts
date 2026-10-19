@@ -29,6 +29,8 @@ export interface LibrarySettings {
   ini: IniChange[]
   /** The game version under the mods: kept as installed, or put in by the app. */
   base?: BaseChoice
+  /** Game settings in the player's words, by id (model/gamesettings.ts). */
+  game?: Record<string, string>
 }
 export type BaseChoice = 'keep' | 'ew' | 'lw' | 'lwr'
 export const emptySettings = (): LibrarySettings => ({ order: [], mods: {}, ini: [] })
@@ -47,6 +49,10 @@ export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings
       mods: s.mods && typeof s.mods === 'object' ? s.mods : {},
       ini: Array.isArray(s.ini) ? s.ini : [],
       base: (['keep', 'ew', 'lw', 'lwr'] as const).find((b) => b === s.base),
+      game:
+        s.game && typeof s.game === 'object'
+          ? Object.fromEntries(Object.entries(s.game).filter(([, v]) => typeof v === 'string'))
+          : {},
     }
   } catch {
     await lib.write(`settings (unreadable ${Date.now()}).json`, b)

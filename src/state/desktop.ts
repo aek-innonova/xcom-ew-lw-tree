@@ -84,6 +84,8 @@ export interface DesktopApi {
     list(): Promise<BaseFound[]>
     unpack(id: string): Promise<BaseManifest>
     read(id: string, path: string): Promise<Uint8Array>
+    /** A base's own notes (Long War's Armor Kit codes). */
+    doc(id: string, name: string): Promise<Uint8Array | null>
     onProgress(f: (p: { id: string; done: number; total: number }) => void): void
   }
   /** From shell 0.2.0 (older shells have no updates): check before use. */
