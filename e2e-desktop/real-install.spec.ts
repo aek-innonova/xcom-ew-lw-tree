@@ -122,32 +122,36 @@ test.describe('real Long War install', () => {
     await expect(plan).toBeVisible({ timeout: 30_000 })
     const planText = (await plan.textContent()) ?? ''
     await plan.getByRole('button', { name: 'Write these changes' }).click()
-    await expect(page.locator('.log')).toBeVisible({ timeout: 60_000 })
+    // The plan clears only once applyPlan has written every file; waiting on the
+    // log text alone would match the first write and race the rest.
+    await expect(plan).toBeHidden({ timeout: 60_000 })
     const logText = (await page.locator('.log').textContent()) ?? ''
     console.log('--- plan ---\n' + planText.trim())
     console.log('--- log ---\n' + logText.trim())
 
-    // Each wanted script reads installed, unless it was expected not to fit.
-    await settled()
+    // Read each script's final status after applying (collect now, assert after
+    // the restore, so an unexpected status can never leave the game modified).
+    // Wait past the transient "checking…" / "reading your install…" texts.
+    const FINAL = /^(installed|not installed|partly installed|does not fit this install)/
+    const status: Record<string, string> = {}
     for (const s of scripts) {
       const name = basename(s)
-      const status = page
+      const loc = page
         .locator('article.mod', { has: page.getByLabel(`Install ${name}`) })
         .locator('.status')
         .first()
-      if (UNFIT.includes(name)) {
-        await expect(status).toContainText('does not fit')
-        console.log(`EXPECTED-UNFIT ${name}: ${(await status.textContent())?.trim()}`)
-      } else {
-        await expect(status).toHaveText('installed', { timeout: 30_000 })
-      }
+      await expect(loc).toHaveText(FINAL, { timeout: 60_000 })
+      status[name] = (await loc.textContent())?.trim() ?? ''
+      console.log(`STATUS ${name}: ${status[name]}`)
     }
 
     // Put the originals back.
     await page.getByRole('button', { name: 'Put the originals back…' }).click()
     await expect(plan).toBeVisible({ timeout: 30_000 })
     await plan.getByRole('button', { name: 'Write these changes' }).click()
-    await expect(page.locator('.log')).toContainText(/Wrote|Removed|Nothing/, { timeout: 60_000 })
+    // Wait for the write to finish (plan clears) before closing, or the last
+    // files of the restore would be cut off.
+    await expect(plan).toBeHidden({ timeout: 60_000 })
 
     await app.close()
     app = undefined
@@ -158,5 +162,11 @@ test.describe('real Long War install', () => {
     const missing = Object.keys(before).filter((k) => !(k in after))
     const added = Object.keys(after).filter((k) => !(k in before))
     expect({ changed, missing, added }).toEqual({ changed: [], missing: [], added: [] })
+
+    // Then the statuses: expected-unfit scripts say so, the rest read installed.
+    for (const name of Object.keys(status)) {
+      if (UNFIT.includes(name)) expect(status[name]).toContain('does not fit')
+      else expect(status[name]).toBe('installed')
+    }
   })
 })
