@@ -12,10 +12,10 @@ See `features/game-tools.md` for the whole feature.
 
 ## Using it
 
-1. Download it from the release the Tools page links to (`helper-v…`), and
-   check it against `SHA256SUMS` if you like. Windows SmartScreen may warn,
-   as it does for any program that is not code-signed: "More info", then
-   "Run anyway".
+1. Download it from the Tools page: the site serves its own builds
+   (`/helper/`, put there by `scripts/build-helper.sh` on deploy), with
+   `SHA256SUMS`. Windows SmartScreen may warn, as it does for any program
+   that is not code-signed: "More info", then "Run anyway".
 2. Start it. It finds a Steam install of the game by itself (the default
    library and any listed in Steam's `libraryfolders.vdf`, or the folder it
    is started from); otherwise start it from a command prompt with
@@ -48,5 +48,7 @@ Go, standard library only:
     go test ./...
     GOOS=windows GOARCH=amd64 go build -o lwtree-helper.exe .
 
-A tag `helper-vX.Y.Z` builds and publishes the release
-(`.github/workflows/helper.yml`).
+`scripts/build-helper.sh` builds the Windows, Linux and macOS programs into
+`dist/helper/` for the site (the deploy runs it). A tag `helper-vX.Y.Z`
+would also publish them as a GitHub release (`.github/workflows/helper.yml`);
+not used yet.

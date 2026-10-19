@@ -36,9 +36,19 @@ import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
 const pairing = ref('')
-/** The helper's release (helper/README.md; tags helper-v…, not the site's v… releases). */
-const HELPER_VERSION = '1.0.0'
-const HELPER_DOWNLOAD = `https://github.com/aek-innonova/xcom-ew-lw-tree/releases/tag/helper-v${HELPER_VERSION}`
+/**
+ * The helper's builds, served by the site itself (scripts/build-helper.sh
+ * puts them in dist/helper/ on deploy). VERSION says whether this copy of the
+ * site has them (a dev server does not).
+ */
+const HELPER_DIR = `${import.meta.env.BASE_URL}helper/`
+const helperBuild = ref<string | null>(null)
+fetch(`${HELPER_DIR}VERSION`)
+  .then(async (r) => {
+    const v = r.ok ? (await r.text()).trim() : ''
+    helperBuild.value = /^[\w.-]{1,40}$/.test(v) ? v : null
+  })
+  .catch(() => (helperBuild.value = null))
 const folderInput = ref<HTMLInputElement | null>(null)
 const added = ref<string | null>(null)
 
@@ -245,9 +255,26 @@ const iniNote = computed(() =>
           <p>
             <strong>Or use the helper program</strong>: a small program you run on the computer with
             the game, which lets this page read and write the game's files, wherever it is installed
-            and in any browser.
-            <a :href="HELPER_DOWNLOAD" target="_blank" rel="noopener">Download it</a> (Windows),
-            start it, and enter the pairing code it shows.
+            and in any browser. Download it, start it, and enter the pairing code it shows.
+          </p>
+          <p v-if="helperBuild" class="downloads">
+            <a :href="`${HELPER_DIR}lwtree-helper.exe`" download class="download"
+              >Download lwtree-helper.exe</a
+            >
+            <span class="muted small">
+              Windows · build {{ helperBuild }} · also for
+              <a :href="`${HELPER_DIR}lwtree-helper-linux`" download>Linux</a> and
+              <a :href="`${HELPER_DIR}lwtree-helper-macos`" download>macOS</a> ·
+              <a :href="`${HELPER_DIR}SHA256SUMS`" target="_blank">checksums</a>
+            </span>
+          </p>
+          <p v-else class="muted small">
+            This copy of the site has no helper builds; build it from <code>helper/</code> in the
+            repository (<code>scripts/build-helper.sh</code>).
+          </p>
+          <p v-if="helperBuild" class="muted small">
+            Windows may warn that it does not know the program (it is not code-signed): choose "More
+            info", then "Run anyway".
           </p>
           <p>
             <input
@@ -747,6 +774,16 @@ h4 {
   padding: 6px 12px;
   border-left: 3px solid var(--node-border);
   background: var(--panel);
+}
+.download {
+  display: inline-block;
+  padding: 4px 10px;
+  margin-right: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13px;
 }
 .code {
   width: 110px;

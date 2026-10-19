@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" != "--skip-build" ]]; then
   npm run build
+  # The helper program, offered from the Tools page (helper/README.md).
+  scripts/build-helper.sh
 fi
 
 # --delete-after keeps the old assets in place until the new index.html is up.

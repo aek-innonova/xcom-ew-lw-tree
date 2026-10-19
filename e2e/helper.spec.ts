@@ -88,3 +88,19 @@ test('tools through the helper: reads the install, writes a setting, puts it bac
   await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
   expect(readFileSync(ini, 'latin1')).toContain('NUM_STARTING_SOLDIERS=12\r\n')
 })
+
+test('the Tools page offers the site’s own build of the helper', async ({ page }) => {
+  // eslint-disable-next-line playwright/no-skipped-test -- the deploy builds it into dist/helper/
+  test.skip(
+    !existsSync(resolve(import.meta.dirname, '../dist/helper/VERSION')),
+    'no helper build in dist/',
+  )
+  await page.addInitScript(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Tools' }).click()
+  const link = page.getByRole('link', { name: 'Download lwtree-helper.exe' })
+  await expect(link).toBeVisible()
+  const r = await page.request.get((await link.getAttribute('href'))!)
+  expect(r.status()).toBe(200)
+  expect((await r.body()).subarray(0, 2).toString()).toBe('MZ') // a Windows program
+})
