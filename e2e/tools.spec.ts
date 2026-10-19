@@ -71,6 +71,8 @@ test('tools: reads the install, follows its version, keeps mods and their option
   await expect(page.locator('.facts')).toContainText('Long War Rebalanced 2.06')
   await expect(page.getByLabel('Game version')).toHaveValue('lwr')
   await expect(page.locator('.facts')).toContainText('DefaultGameCore.ini loaded')
+  // The helper stays on offer with a folder picked (it was hidden once).
+  await expect(page.getByRole('group', { name: 'Helper program' })).toBeVisible()
 
   await page.locator('input[type=file][accept=".txt"]').setInputFiles({
     name: 'TestMod.txt',

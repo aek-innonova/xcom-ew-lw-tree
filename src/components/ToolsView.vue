@@ -251,56 +251,6 @@ const iniNote = computed(() =>
           This browser cannot open a folder (Chrome and Edge can); the helper program below does it
           for the page. The mod library works here either way.
         </p>
-        <div class="helper" role="group" aria-label="Helper program">
-          <p>
-            <strong>Or use the helper program</strong>: a small program you run on the computer with
-            the game, which lets this page read and write the game's files, wherever it is installed
-            and in any browser. Download it, start it, and enter the pairing code it shows.
-          </p>
-          <p v-if="helperBuild" class="downloads">
-            <a :href="`${HELPER_DIR}lwtree-helper.exe`" download class="download"
-              >Download lwtree-helper.exe</a
-            >
-            <span class="muted small">
-              Windows · build {{ helperBuild }} · also for
-              <a :href="`${HELPER_DIR}lwtree-helper-linux`" download>Linux</a> and
-              <a :href="`${HELPER_DIR}lwtree-helper-macos`" download>macOS</a> ·
-              <a :href="`${HELPER_DIR}SHA256SUMS`" target="_blank">checksums</a>
-            </span>
-          </p>
-          <p v-else class="muted small">
-            This copy of the site has no helper builds; build it from <code>helper/</code> in the
-            repository (<code>scripts/build-helper.sh</code>).
-          </p>
-          <p v-if="helperBuild" class="muted small">
-            Windows may warn that it does not know the program (it is not code-signed): choose "More
-            info", then "Run anyway".
-          </p>
-          <p>
-            <input
-              v-model="pairing"
-              class="code"
-              placeholder="ABCD-EFGH"
-              aria-label="Pairing code"
-              @keydown.enter="connectHelper(pairing)"
-            />
-            <button type="button" :disabled="!pairing.trim()" @click="connectHelper(pairing)">
-              Use the helper program
-            </button>
-            <span v-if="tools.helper === 'not-running'" class="error small"
-              >The page cannot reach the helper. Is it running? If the browser asked whether this
-              site may reach apps or devices on this computer, allow it, and try again.</span
-            >
-            <span v-else-if="tools.helper === 'wrong-code'" class="error small"
-              >That is not the code the helper shows.</span
-            >
-          </p>
-          <p class="muted small">
-            It answers only this site, only on this computer, and only to a page with its code; it
-            changes nothing by itself. It finds a Steam install by itself, or start it with
-            <code>-dir "path to the game"</code>.
-          </p>
-        </div>
       </template>
       <template v-else-if="tools.status === 'needs-permission'">
         <p>
@@ -345,6 +295,67 @@ const iniNote = computed(() =>
           </button>
         </p>
       </template>
+      <div
+        v-if="tools.via !== 'helper' && tools.status !== 'reading'"
+        class="helper"
+        role="group"
+        aria-label="Helper program"
+      >
+        <p>
+          <strong>{{
+            tools.status === 'off' ? 'Or use the helper program' : 'The helper program'
+          }}</strong
+          >: a small program you run on the computer with the game, which lets this page read and
+          write the game's files, wherever it is installed and in any browser.
+          <template v-if="tools.iniRefused"
+            >Chrome will not open your INI files for the page; the helper can.</template
+          >
+          Download it, start it, and enter the pairing code it shows.
+        </p>
+        <p v-if="helperBuild" class="downloads">
+          <a :href="`${HELPER_DIR}lwtree-helper.exe`" download class="download"
+            >Download lwtree-helper.exe</a
+          >
+          <span class="muted small">
+            Windows · build {{ helperBuild }} · also for
+            <a :href="`${HELPER_DIR}lwtree-helper-linux`" download>Linux</a> and
+            <a :href="`${HELPER_DIR}lwtree-helper-macos`" download>macOS</a> ·
+            <a :href="`${HELPER_DIR}SHA256SUMS`" target="_blank">checksums</a>
+          </span>
+        </p>
+        <p v-else class="muted small">
+          This copy of the site has no helper builds; build it from <code>helper/</code> in the
+          repository (<code>scripts/build-helper.sh</code>).
+        </p>
+        <p v-if="helperBuild" class="muted small">
+          Windows may warn that it does not know the program (it is not code-signed): choose "More
+          info", then "Run anyway".
+        </p>
+        <p>
+          <input
+            v-model="pairing"
+            class="code"
+            placeholder="ABCD-EFGH"
+            aria-label="Pairing code"
+            @keydown.enter="connectHelper(pairing)"
+          />
+          <button type="button" :disabled="!pairing.trim()" @click="connectHelper(pairing)">
+            Use the helper program
+          </button>
+          <span v-if="tools.helper === 'not-running'" class="error small"
+            >The page cannot reach the helper. Is it running? If the browser asked whether this site
+            may reach apps or devices on this computer, allow it, and try again.</span
+          >
+          <span v-else-if="tools.helper === 'wrong-code'" class="error small"
+            >That is not the code the helper shows.</span
+          >
+        </p>
+        <p class="muted small">
+          It answers only this site, only on this computer, and only to a page with its code; it
+          changes nothing by itself. It finds a Steam install by itself, or start it with
+          <code>-dir "path to the game"</code>.
+        </p>
+      </div>
       <p v-if="tools.error" class="error">{{ tools.error }}</p>
     </section>
 
