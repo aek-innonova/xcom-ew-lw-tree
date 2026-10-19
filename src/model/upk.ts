@@ -8,6 +8,8 @@
 // an import's with its package ("Core.Object.Name"); a name used more than
 // once carries "_N" (N = number − 1).
 
+import { lzoDecompress } from './lzo'
+
 export interface UpkImport {
   className: string
   name: string
@@ -412,4 +414,62 @@ export function exportsByPath(pk: Upk): Map<string, number> {
   const m = new Map<string, number>()
   pk.exports.forEach((e, i) => m.set(e.fullName, i))
   return m
+}
+
+/**
+ * A compressed package made whole (features/game-images.md): its summary as
+ * stored, then every chunk's LZO blocks unpacked in place, and the summary
+ * told it is not compressed any more, so it reads like any other package.
+ */
+export function decompressPackage(b: Uint8Array): Uint8Array {
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength)
+  const r = new Reader(b)
+  if (r.u32() !== TAG) throw new Error('not an Unreal package')
+  const version = r.i16()
+  r.i16()
+  r.i32() // header size
+  r.fstr()
+  r.u32()
+  r.o += 4 * 7 // names, exports, imports: counts and offsets; depends offset
+  if (version >= 623) r.o += 16
+  r.o += 16
+  const generations = r.i32()
+  r.o += 12 * generations
+  r.o += 8 // engine and cooker versions
+  const flagsAt = r.o
+  const flags = r.i32()
+  const count = r.i32()
+  if (!flags && !count) return b
+  if (flags !== 2) throw new Error(`a package compression the app does not read (${flags})`)
+  const chunks = Array.from({ length: count }, () => ({
+    uOff: r.i32(),
+    uSize: r.i32(),
+    cOff: r.i32(),
+    cSize: r.i32(),
+  }))
+  const size = Math.max(...chunks.map((c) => c.uOff + c.uSize))
+  const out = new Uint8Array(size)
+  out.set(b.subarray(0, chunks[0]!.uOff))
+  for (const c of chunks) {
+    let p = c.cOff
+    if (v.getUint32(p, true) !== TAG) throw new Error('damaged package (chunk)')
+    const blockSize = v.getInt32(p + 4, true)
+    const total = v.getInt32(p + 12, true)
+    const n = Math.ceil(total / blockSize)
+    const blocks = Array.from({ length: n }, (_, i) => ({
+      c: v.getInt32(p + 16 + 8 * i, true),
+      u: v.getInt32(p + 20 + 8 * i, true),
+    }))
+    p += 16 + 8 * n
+    let o = c.uOff
+    for (const bl of blocks) {
+      out.set(lzoDecompress(b.subarray(p, p + bl.c), bl.u), o)
+      p += bl.c
+      o += bl.u
+    }
+  }
+  // Not compressed any more.
+  new DataView(out.buffer).setInt32(flagsAt, 0, true)
+  new DataView(out.buffer).setInt32(flagsAt + 4, 0, true)
+  return out
 }
