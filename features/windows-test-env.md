@@ -184,3 +184,57 @@ packages; it is a genuine option to weigh, not something this run needs.
 - `scripts/build-desktop-win.sh` left as is; it ships built artifacts and
   runs electron-builder on the VM, unaffected by the script changes, and
   `npm run dist:win` is now the simpler VM-local path.
+
+## Report (2026-10-19): the finder fallback, and LWR 2.06
+
+The three items held over are done: the finder's library-list fallback
+run literally, LWR 2.06 on the bench over Long War 1.0, and the
+mods'-files flow on a real install. All through the installed app.
+
+**The finder fallback, literally.** The "needs a person" caveat was
+wrong. UAC on this VM is `EnableLUA=1` with `ConsentPromptBehaviorAdmin=0`
+and `PromptOnSecureDesktop=0`: token filtering is on (a normal process is
+Medium integrity, so the `HKLM` write got Access denied), but elevation
+is *silent* — no prompt. So `Start-Process -Verb RunAs` elevates with no
+UI. The person's "UAC is off" meant "no prompts," not "no filtering." I
+exported the uninstall entry, deleted it elevated (silent), confirmed it
+was gone from HKLM and absent from HKCU, and ran the installed app's
+`findGame()`: it still returned `C:\SteamLibrary\…\XEW\XComGame`, reaching
+it through `libraryfolders.vdf` (the `looked` path was the library). Then
+I imported the export back and confirmed the entry and `findGame()` were
+as before. Both finder paths are now proven end to end on real data.
+
+**LWR 2.06 over Long War 1.0.** Installed by the UFOpaedia manual method
+(its own installer's readme says odd/non-Steam setups should copy by
+hand): `Config`, `Localization`, `CookedPCConsole`, `Movies` copied into
+`XEW\XComGame`. The app then read the install as **LWR** (`LWRebalance.u`
+present). A fresh baseline was taken (5081 files). Through Tools, the
+person's five scripts: **Enhanced Tactical Info does not fit** —
+"UICollection_Tactical_SF.upk: gfxUnitGermanMode.UnitGermanMode (line
+3885): neither the original code nor the modded code is there", left out
+of the plan with that reason (as on Linux); **EXALT Reminder, Lightning
+Reflexes, Sightlines_LW and Soldier Gender read installed**. The restore
+left all 5081 files byte-for-byte.
+
+**The mods'-files flow (Sightlines-1.4 folder, "Put its files into the
+game"), on LWR.** The app did the right thing for a version that already
+ships Sightlines: it did **not** copy `Sightlines.u` (the game has LWR's),
+did **not** touch `DefaultMutatorLoader.ini` (LWR already lists
+`Sightlines.SightlineMutator`), and **did** merge the mod's lines into
+`DefaultSightlines.ini` (original kept first). Restore reverted it
+byte-for-byte.
+
+**A bug the LWR round found — in the bench spec, not the app.** The spec
+closed the app as soon as the log showed "Wrote", which matched the first
+file and raced the rest of `applyPlan`; LWR's restore writes more files,
+so two were left unwritten and the byte check failed. The app writes
+atomically (temp file then rename), so the files were simply not
+rewritten, not corrupted — a second restore reverted them cleanly, which
+is how I told a test race from a real defect. The spec now waits for the
+plan to clear (every write done) before closing, and for a script's final
+status before reading it. `planSetup`/`applyPlan` are correct.
+
+**Still not done:** launching the game (no GPU, as agreed) and
+`scripts/build-desktop-win.sh` (unchanged; `dist:win` is the VM path).
+The Steam login is left in place, to be logged out and deauthorized when
+the bench is retired.
