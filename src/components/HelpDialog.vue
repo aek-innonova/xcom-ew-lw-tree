@@ -108,7 +108,7 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       <p>
         Managing mods and the game's settings needs the game's own files, which a web page cannot
         reach well: the desktop app is this site with <strong>Tools</strong> for that. It finds the
-        game by itself and keeps the originals of every file it changes.
+        game by itself, keeps the originals of every file it changes, and keeps itself up to date.
       </p>
       <p v-if="installer">
         <a :href="`${APP_DIR}${installer}`" download>{{ installer }}</a>
