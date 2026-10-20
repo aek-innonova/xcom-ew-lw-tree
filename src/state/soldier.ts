@@ -176,6 +176,8 @@ export interface Paint {
   /** The material's own colors: the armor's default top and bottom, the skin's or hair's color. */
   primary: Color
   secondary: Color
+  /** Armor: the glow where the specular map's green says (the material's color × strength), if given. */
+  glow?: Color
 }
 export interface DrawMesh {
   mesh: SkelMesh
@@ -312,7 +314,12 @@ async function paints(p: Package, file: string, mesh: SkelMesh): Promise<Paint[]
           ? v.SkinColor
           : v.ColorMod) ?? [1, 1, 1, 1]
       const normal = kind === 'armor' || kind === 'skin' ? await tex('Normal') : null
-      return { kind, diffuse, mask, normal, primary: own, secondary: v.CMODB ?? own }
+      const ems = v.EmsColor_EmsValue
+      const strength = m.scalars.EmsValue ?? ems?.[3] ?? 1
+      const glow: Color | undefined = ems
+        ? [ems[0] * strength, ems[1] * strength, ems[2] * strength, 1]
+        : undefined
+      return { kind, diffuse, mask, normal, primary: own, secondary: v.CMODB ?? own, glow }
     }),
   )
 }

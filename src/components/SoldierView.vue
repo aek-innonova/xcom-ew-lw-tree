@@ -54,6 +54,7 @@ precision mediump float;
 uniform sampler2D uDif; uniform sampler2D uMask; uniform sampler2D uNrm; uniform bool uHasNrm;
 uniform int uKind; uniform bool uHasDif; uniform bool uHasMask;
 uniform vec3 uTop; uniform vec3 uBottom; uniform vec3 uColor; uniform vec2 uMeans;
+uniform vec3 uGlow; uniform bool uHasGlow;
 varying vec3 vN; varying vec2 vUV; varying vec4 vT;
 void main() {
   vec4 d = uHasDif ? texture2D(uDif, vUV) : vec4(0.55, 0.55, 0.55, 1.0);
@@ -89,7 +90,11 @@ void main() {
   float shine = (uKind == 0 && uHasMask) ? texture2D(uMask, vUV).r : (uKind == 1 ? 0.15 : 0.05);
   vec3 h = normalize(normalize(vec3(0.45, 0.7, 0.6)) + vec3(0.0, 0.0, 1.0));
   float spec = shine * pow(max(dot(n, h), 0.0), 28.0) * 0.9;
-  gl_FragColor = vec4(c * li + vec3(spec), 1.0);
+  // Lights on the armor glow where the specular map's green says, unlit: in the
+  // material's glow color, else the texture's own.
+  float g = (uKind == 0 && uHasMask) ? texture2D(uMask, vUV).g : 0.0;
+  vec3 glow = g * (uHasGlow ? uGlow * 0.5 : d.rgb * 1.5);
+  gl_FragColor = vec4(c * li + vec3(spec) + glow, 1.0);
 }`
 
 const srgb = (c: Color | null): [number, number, number] | null =>
@@ -317,13 +322,14 @@ function draw() {
       if (!paint) continue
       const kind = { armor: 0, skin: 1, hair: 2, plain: 3 }[paint.kind]
       g.uniform1i(u('uKind'), kind)
+      // All three made before any is bound: making one binds it to the active unit.
       const dif = glTexture(paint.diffuse)
       const mask = glTexture(paint.mask)
+      const nrm = glTexture(paint.normal)
       g.activeTexture(g.TEXTURE0)
       g.bindTexture(g.TEXTURE_2D, dif)
       g.activeTexture(g.TEXTURE1)
       g.bindTexture(g.TEXTURE_2D, mask)
-      const nrm = glTexture(paint.normal)
       g.activeTexture(g.TEXTURE2)
       g.bindTexture(g.TEXTURE_2D, nrm)
       g.uniform1i(u('uHasNrm'), nrm ? 1 : 0)
@@ -336,6 +342,8 @@ function draw() {
         (paint.kind === 'hair' ? srgb(props.hair ?? null) : null) ?? srgb(paint.primary)!,
       )
       g.uniform2fv(u('uMeans'), maskMeans(paint.diffuse, paint.mask))
+      g.uniform1i(u('uHasGlow'), paint.glow ? 1 : 0)
+      g.uniform3fv(u('uGlow'), srgb(paint.glow ?? null) ?? [0, 0, 0])
       g.drawElements(g.TRIANGLES, s.count, up.type, s.first * (up.type === g.UNSIGNED_INT ? 4 : 2))
     }
   }

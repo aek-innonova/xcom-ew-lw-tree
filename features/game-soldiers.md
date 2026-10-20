@@ -119,7 +119,10 @@ settings (`src/components/SoldierPreview.vue`, `SoldierView.vue`,
   map).
 - **Hair:** colored from the `HairColor` palette.
 - **Shading:** our own, not the game's. Diffuse, normal map, a highlight
-  from the specular map's red, plain lights.
+  from the specular map's red, plain lights. Lights on the armor glow
+  where the specular map's green says (about 2% of it), in the material's
+  `EmsColor_EmsValue` (Carapace white, Ghost and Archangel light blue),
+  else the texture's own color (Titan).
 
 **In the app:**
 - **Choices:** whose color (each class, or the rookie with the rookie's
@@ -147,7 +150,12 @@ Verified:
   as it moves; frames 1.5 s apart differ around the head and shoulders.
   CPU while visible about 2.6 cores (software WebGL), 0.2% scrolled away,
   1.7% minimized, 0.2–0.9% with Windows' animation effects off. Hence
-  still without a GPU.
+  still without a GPU; still, it measured 0.0%.
+- Standing still showed a fault the animation had hidden: making a texture
+  binds it, and the normal map was made after the tint masks were bound,
+  so the first frame tinted by the normal map. Each later frame was
+  right; a still soldier would have kept the wrong one. All of a
+  section's textures are now made before any is bound.
 
 Not done:
 - The game's own lighting and reflections (cube maps).
