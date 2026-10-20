@@ -72,6 +72,13 @@ test('game settings: hand edits kept, then set in words and written', async () =
   const settings = () => JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).game.lw
   expect(settings()).toEqual({ 'soldier.hp': '5' })
 
+  // The Tools page scrolls inside itself: nothing in it makes the window's page taller
+  // (the class table's hidden labels once did, and the whole app scrolled away).
+  await expect(page.getByRole('button', { name: 'Show Sniper on the soldier' })).toBeVisible()
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight),
+  ).toBeLessThanOrEqual(0)
+
   // In words: the starting soldiers, the pistol slot, the sniper's color.
   await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).fill('60')
   await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).press('Enter')

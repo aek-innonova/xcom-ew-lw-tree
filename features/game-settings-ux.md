@@ -1,6 +1,6 @@
 ---
 title: "Game settings in the player's terms: rules per version, not the INI passed through"
-status: in-progress
+status: review
 priority: 3
 dependsOn: [game-settings, game-soldiers]
 ---
@@ -141,3 +141,20 @@ Not done:
 - Plain EW still finds only the eight settings it found before; its file
   has few comments to tie a setting to.
 - The "Any line of DefaultGameCore.ini" section is unchanged.
+- On the bench (the person's install, site 2026.1020.163521):
+  - **Long War:** Mobility 6, psi gift 25 %, Scout 18 from the table's
+    list and Medikit 0 were written as `ROOKIE_MOBILITY=106`,
+    `PSI_GIFT_CHANCE=0.25`, `HQ_BASE_POWER = 18` and `iMobility=0`. Only
+    the value token changed on each line, beside the person's own 14.
+  - **LWR:** game speed 5, unit stats off and War Record popups off were
+    written as `5f`, `0.0f` and `1`, and nothing else changed.
+  - Class rows, × and the limits behave as meant.
+- The bench found that the class table's hidden labels, placed against the
+  page rather than the Tools scroller, made the whole window scrollable:
+  wheel far enough and the app scrolled off into a blank window. The
+  scroller is now their positioned ancestor. The desktop e2e checks that
+  the page is no taller than the window; without the fix it fails by 575
+  px.
+- Also from that round: an emptied field goes back to the version's
+  value; a refused value says what was kept ("At most 10; kept 4"); LWR's
+  "Leater Jacket" is spelled right.

@@ -264,6 +264,7 @@ const headgear = computed(() =>
   font: inherit;
 }
 .cell {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;

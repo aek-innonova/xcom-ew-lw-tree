@@ -29,15 +29,24 @@ watch(value, () => (error.value = ''))
 const shown = computed(() => fieldsOf(format.value, value.value))
 
 function commit(fields: string[]) {
+  // Emptied: back to the version's own.
+  if (fields.every((f) => f.trim() === '')) {
+    error.value = ''
+    emit('set', null)
+    return
+  }
   const r = valueOf(format.value, fields, props.def.value)
   if ('error' in r) {
-    error.value = r.error
+    // Said, and the field shows the value kept, until the next try.
+    error.value = `${r.error}; kept ${shown.value.join(' and ')}`
+    for (const [k, el] of inputs.value.entries()) if (el) el.value = shown.value[k] ?? ''
     return
   }
   error.value = ''
   emit('set', r.value)
 }
 const input = (e: Event) => (e.target as HTMLInputElement).value
+const inputs = ref<(HTMLInputElement | null)[]>([])
 function onPart(k: number, e: Event) {
   const next = [...shown.value]
   next[k] = input(e)
@@ -92,6 +101,7 @@ const chosen = computed(
         <span class="muted">{{ format.parts[0] }}</span>
         <input
           :id="id"
+          :ref="(el) => (inputs[0] = el as HTMLInputElement | null)"
           type="number"
           class="num short"
           min="0"
@@ -104,6 +114,7 @@ const chosen = computed(
       <span class="part">
         <span class="muted">{{ format.parts[1] }}</span>
         <input
+          :ref="(el) => (inputs[1] = el as HTMLInputElement | null)"
           type="number"
           class="num short"
           min="0"
@@ -118,6 +129,7 @@ const chosen = computed(
       <span v-if="format.kind === 'times'" class="muted unit">×</span>
       <input
         :id="id"
+        :ref="(el) => (inputs[0] = el as HTMLInputElement | null)"
         type="number"
         step="any"
         class="num"
@@ -125,6 +137,7 @@ const chosen = computed(
         :max="limits.max"
         :value="shown[0]"
         @change="commit([input($event)])"
+        @input="error = ''"
       />
       <span v-if="format.kind === 'percent'" class="muted unit">%</span>
       <span v-else-if="format.kind === 'hours'" class="muted unit"

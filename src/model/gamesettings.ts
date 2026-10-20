@@ -635,6 +635,9 @@ function itemHeadings(raw: string[]): (string | undefined)[] {
   return out
 }
 
+/** Item names as a file spells them wrongly. */
+const SPELLING: Record<string, string> = { 'Leater Jacket': 'Leather Jacket' }
+
 const SECTIONS: Record<string, string> = {
   'beam lasers': 'Laser weapons',
   'gauss weaponry': 'Gauss weapons',
@@ -711,6 +714,7 @@ export function listedSettings(text: string): SettingDef[] {
       }
     }
     if (!name) continue
+    name = SPELLING[name] ?? name
     out.push({
       id: `item-mobility.${eType}`,
       group: 'Item mobility',

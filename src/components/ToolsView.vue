@@ -891,6 +891,8 @@ ul.changes {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px 32px;
+  /* Anything placed absolutely inside stays inside the scroller, not the page. */
+  position: relative;
 }
 /* The page scrolls at the window's edge; its text keeps a readable width,
    the game settings (the soldier beside the class table) a wider one. */
