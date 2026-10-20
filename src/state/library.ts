@@ -38,6 +38,8 @@ export interface LibrarySettings {
   game?: Partial<Record<GameKind, Record<string, string>>>
   /** Setups the player saved by name, to go back to (features/game-setups.md). */
   setups?: Record<string, SavedSetup>
+  /** The setup last used or saved: the current choices came from it. */
+  setupFrom?: string
 }
 
 /** Everything that makes up a setup, as it was when saved. */
@@ -82,6 +84,7 @@ export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings
               ]),
             )
           : {},
+      setupFrom: typeof s.setupFrom === 'string' ? s.setupFrom : undefined,
     }
   } catch {
     await lib.write(`settings (unreadable ${Date.now()}).json`, b)

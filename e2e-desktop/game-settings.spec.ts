@@ -138,18 +138,36 @@ test('game settings: hand edits kept, then set in words and written', async () =
     'item.73.cost': '120',
   })
 
-  // Saved by name, changed, and back again (features/game-setups.md).
-  await page.getByLabel('Name for this setup').fill('Sixty')
-  await page.getByRole('button', { name: 'Save this setup' }).click()
-  await expect(page.getByText('in use')).toBeVisible()
-  await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).fill('70')
-  await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).press('Enter')
-  await expect(page.getByText('in use')).toHaveCount(0)
-  await page.getByLabel('Name for this setup').fill('Seventy')
-  await page.getByRole('button', { name: 'Save this setup' }).click()
-  await page.getByRole('button', { name: 'Use Sixty' }).click()
-  await expect(page.getByRole('spinbutton', { name: 'Soldiers at the start' })).toHaveValue('60')
-  await expect(page.getByRole('button', { name: 'Use Seventy' })).toBeVisible()
+  // Saved by name from the setup bar, changed, and back again (features/game-setups.md).
+  const bar = page.getByRole('region', { name: 'Your setup' })
+  const pick = bar.getByRole('combobox', { name: 'Your setup' })
+  const saveAs = async (name: string) => {
+    await pick.selectOption({ label: 'Save as a new setup…' })
+    const field = bar.getByLabel('Name for this setup')
+    // A name is offered: the version and what is set.
+    await expect(field).toHaveValue(/^Long War · .*settings?$/)
+    await field.fill(name)
+    await bar.getByRole('button', { name: 'Save', exact: true }).click()
+  }
+  const start = page.getByRole('spinbutton', { name: 'Soldiers at the start' })
+  await saveAs('Sixty')
+  await expect(bar.getByText('in use')).toBeVisible()
+  await start.fill('70')
+  await start.press('Enter')
+  await expect(bar.getByText('changed since saved')).toBeVisible()
+  await saveAs('Seventy')
+  await pick.selectOption('Sixty')
+  await expect(start).toHaveValue('60')
+  // Unsaved choices are not lost without asking.
+  await start.fill('65')
+  await start.press('Enter')
+  await pick.selectOption('Seventy')
+  await expect(bar).toContainText('Your choices now are not saved.')
+  await bar.getByRole('button', { name: 'Switch to Seventy' }).click()
+  await expect(start).toHaveValue('70')
+  await pick.selectOption('Sixty')
+  await expect(start).toHaveValue('60')
+  await expect(bar.getByText('in use')).toBeVisible()
   const saved = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).setups
   expect(Object.keys(saved).sort()).toEqual(['Seventy', 'Sixty'])
   expect(saved.Seventy.game.lw['campaign.starting-soldiers']).toBe('70')

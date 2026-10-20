@@ -133,6 +133,8 @@ export const tools = reactive({
   setups: [] as { name: string; saved: string }[],
   /** The saved setup the choices now match, if any. */
   setupInUse: null as string | null,
+  /** The saved setup last used or saved: the one the current choices came from. */
+  setupFrom: null as string | null,
   /** Long War and LWR as the library holds them (installers, zips, folders). */
   bases: [] as BaseFound[],
   /** The game version the player wants under the mods ('keep': as installed). */
@@ -892,6 +894,31 @@ function listSetups() {
     .map(([name, s]) => ({ name, saved: s.saved }))
     .sort((a, b) => b.saved.localeCompare(a.saved))
   tools.setupInUse = setupInUse()
+  const from = tools.setupInUse ?? choices.setupFrom ?? null
+  tools.setupFrom = from && choices.setups?.[from] ? from : null
+}
+
+/**
+ * A name for the setup as it is now, to offer when saving: the version, how
+ * many mods are ticked and settings set ("Long War 1.0 · 2 mods · 14
+ * settings"), made unique among the saved ones.
+ */
+export function suggestSetupName(): string {
+  const version =
+    tools.base !== 'keep'
+      ? baseName(tools.base)
+      : ({ lw: 'Long War', lwr: 'Long War Rebalanced', ew: 'Enemy Within' } as const)[
+          tools.install?.kind ?? 'lw'
+        ]
+  const mods = tools.mods.filter((m) => Object.values(m.wanted ?? {}).some(Boolean)).length
+  const settings = Object.keys(tools.gameValues).length + tools.settings.length
+  const parts = [version.replace(/^plain /, '').replace(/^\w/, (c) => c.toUpperCase())]
+  if (mods) parts.push(`${mods} mod${mods === 1 ? '' : 's'}`)
+  if (settings) parts.push(`${settings} setting${settings === 1 ? '' : 's'}`)
+  const base = parts.join(' · ')
+  let name = base
+  for (let n = 2; tools.setups.some((x) => x.name === name); n++) name = `${base} (${n})`
+  return name
 }
 
 /** Saves the setup as it is now under a name (replacing one of that name). */
@@ -899,6 +926,7 @@ export async function saveSetup(name: string): Promise<void> {
   const n = name.trim()
   if (!n) return
   choices.setups = { ...choices.setups, [n]: { saved: new Date().toISOString(), ...snapshot() } }
+  choices.setupFrom = n
   listSetups()
   await saveChoices()
 }
@@ -926,8 +954,10 @@ export async function useSetup(name: string): Promise<void> {
   choices.base = s.base
   tools.base = s.base
   tools.plan = null
+  choices.setupFrom = name
   const current = files ? await files.read(GAME_INI) : null
   await loadGameSettings(current ? iniText(current) : null)
+  listSetups()
   await saveChoices()
   void checkMods()
 }
@@ -936,6 +966,7 @@ export async function deleteSetup(name: string): Promise<void> {
   const next = { ...choices.setups }
   delete next[name]
   choices.setups = next
+  if (choices.setupFrom === name) delete choices.setupFrom
   listSetups()
   await saveChoices()
 }

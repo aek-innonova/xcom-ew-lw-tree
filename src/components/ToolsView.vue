@@ -25,9 +25,6 @@ import {
   removeMod,
   setOption,
   adoptHandEdits,
-  deleteSetup,
-  saveSetup,
-  useSetup,
   setBase,
   setSetting,
   setWanted,
@@ -47,6 +44,7 @@ import { describe, PLAIN } from '@/model/settingformat'
 import SettingRow from './SettingRow.vue'
 import SoldierLooks from './SoldierLooks.vue'
 import SoldierStats from './SoldierStats.vue'
+import SetupBar from './SetupBar.vue'
 import ItemsPanel from './ItemsPanel.vue'
 import { state } from '@/state/store'
 
@@ -234,12 +232,6 @@ function shownValue(d: FoundSetting, v: string): string {
   return name ? `${v}, ${name}` : describe(d.format ?? PLAIN, v)
 }
 
-const setupName = ref('')
-async function onSaveSetup() {
-  await saveSetup(setupName.value)
-  setupName.value = ''
-}
-
 const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
 /** A planned file as the player knows it (XComEW.exe lives in XEW, the rest in XComGame). */
 const shown = (path: string) => (path === EXE ? 'XEW\\Binaries\\Win32\\XComEW.exe' : path)
@@ -283,6 +275,7 @@ const iniNote = computed(() =>
         and confirm what it will write.
       </p>
     </header>
+    <SetupBar v-if="tools.library" />
 
     <section class="block" aria-labelledby="folder-h">
       <h3 id="folder-h">Game folder</h3>
@@ -606,52 +599,6 @@ const iniNote = computed(() =>
       </table>
     </section>
 
-    <section v-if="tools.library" class="block" aria-labelledby="setups-h">
-      <h3 id="setups-h">Saved setups</h3>
-      <p class="muted small">
-        Everything above under a name: the version, which mods are ticked and their options, the
-        game and INI settings. Use one to have all of it back, then apply it.
-      </p>
-      <ul v-if="tools.setups.length" class="saved">
-        <li v-for="x in tools.setups" :key="x.name">
-          <strong>{{ x.name }}</strong>
-          <span class="muted small"> · saved {{ new Date(x.saved).toLocaleString() }}</span>
-          <span v-if="tools.setupInUse === x.name" class="present small"> · in use</span>
-          <button
-            v-else
-            type="button"
-            :aria-label="`Use ${x.name}`"
-            :disabled="!!tools.busy"
-            @click="useSetup(x.name)"
-          >
-            Use it
-          </button>
-          <button
-            type="button"
-            class="remove"
-            :aria-label="`Delete ${x.name}`"
-            title="Delete this saved setup"
-            @click="deleteSetup(x.name)"
-          >
-            ×
-          </button>
-        </li>
-      </ul>
-      <form class="save-setup" @submit.prevent="onSaveSetup">
-        <input
-          v-model="setupName"
-          type="text"
-          placeholder="A name: LW ironman, LWR with all mods…"
-          aria-label="Name for this setup"
-        />
-        <button type="submit" :disabled="!setupName.trim()">
-          {{
-            tools.setups.some((x) => x.name === setupName.trim()) ? 'Replace it' : 'Save this setup'
-          }}
-        </button>
-      </form>
-    </section>
-
     <section v-if="tools.install" class="block" aria-labelledby="apply-h">
       <h3 id="apply-h">Into the game</h3>
       <p v-if="tools.base === 'keep'" class="muted small">
@@ -667,9 +614,9 @@ const iniNote = computed(() =>
         the app does not recognise is kept there too, so going back is always possible.
       </p>
       <p v-if="!tools.plan">
-        <button type="button" class="primary" :disabled="!!tools.busy" @click="makePlan(true)">
-          Apply my setup…
-        </button>
+        <span class="small"
+          >Your setup goes in with <strong>Apply my setup…</strong> at the top. Or:</span
+        >
         <button type="button" :disabled="!!tools.busy" @click="makePlan(false)">
           {{
             tools.base === 'keep' ? 'Put the originals back…' : `${baseName(tools.base)}, no mods…`
@@ -737,26 +684,6 @@ const iniNote = computed(() =>
 .choices .off {
   color: var(--muted);
 }
-ul.saved {
-  list-style: none;
-  padding: 0;
-  margin: 6px 0;
-}
-ul.saved li {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 3px 0;
-  font-size: 13.5px;
-}
-form.save-setup {
-  display: flex;
-  gap: 6px;
-  margin: 6px 0;
-}
-form.save-setup input {
-  flex: 0 1 320px;
-}
 .hand {
   border: 1px solid var(--accent);
   border-radius: 4px;
@@ -819,6 +746,10 @@ ul.changes {
 }
 .tools > .wide {
   max-width: 1400px;
+}
+/* The setup bar runs the page's width. */
+.tools > .setup-bar {
+  max-width: none;
 }
 .top h2 {
   margin: 0;
