@@ -34,16 +34,21 @@ let uploads: { upload: Upload; meshIndex: number }[] = []
 const texCache = new WeakMap<Texture, WebGLTexture>()
 
 const VS = `
-attribute vec3 aPos; attribute vec3 aNrm; attribute vec2 aUV;
+attribute vec3 aPos; attribute vec3 aNrm; attribute vec2 aUV; attribute vec4 aTan;
 uniform mat4 uMVP; uniform mat4 uModel;
-varying vec3 vN; varying vec2 vUV;
-void main() { gl_Position = uMVP * vec4(aPos, 1.0); vN = (uModel * vec4(aNrm, 0.0)).xyz; vUV = aUV; }`
+varying vec3 vN; varying vec2 vUV; varying vec4 vT;
+void main() {
+  gl_Position = uMVP * vec4(aPos, 1.0);
+  vN = (uModel * vec4(aNrm, 0.0)).xyz;
+  vT = vec4((uModel * vec4(aTan.xyz, 0.0)).xyz, aTan.w);
+  vUV = aUV;
+}`
 const FS = `
 precision mediump float;
-uniform sampler2D uDif; uniform sampler2D uMask;
+uniform sampler2D uDif; uniform sampler2D uMask; uniform sampler2D uNrm; uniform bool uHasNrm;
 uniform int uKind; uniform bool uHasDif; uniform bool uHasMask;
 uniform vec3 uTop; uniform vec3 uBottom; uniform vec3 uColor; uniform vec2 uMeans;
-varying vec3 vN; varying vec2 vUV;
+varying vec3 vN; varying vec2 vUV; varying vec4 vT;
 void main() {
   vec4 d = uHasDif ? texture2D(uDif, vUV) : vec4(0.55, 0.55, 0.55, 1.0);
   vec3 c = d.rgb;
@@ -65,9 +70,20 @@ void main() {
   }
   if (uKind == 2) { if (d.a < 0.35) discard; c = d.r * uColor * 1.5; }
   vec3 n = normalize(vN);
+  if (uHasNrm) {
+    // The normal map, in the surface's own frame (tangent, bitangent, normal).
+    vec3 t = normalize(vT.xyz - n * dot(n, vT.xyz));
+    vec3 b = cross(n, t) * vT.w;
+    vec3 m = texture2D(uNrm, vUV).rgb * 2.0 - 1.0;
+    n = normalize(t * m.x + b * m.y + n * max(m.z, 0.2));
+  }
   float li = 0.38 + 0.68 * max(dot(n, normalize(vec3(0.45, 0.7, 0.6))), 0.0)
     + 0.22 * max(dot(n, normalize(vec3(-0.7, -0.2, 0.25))), 0.0);
-  gl_FragColor = vec4(c * li, 1.0);
+  // A highlight where the specular map says the surface shines (armor: its red channel).
+  float shine = (uKind == 0 && uHasMask) ? texture2D(uMask, vUV).r : (uKind == 1 ? 0.15 : 0.05);
+  vec3 h = normalize(normalize(vec3(0.45, 0.7, 0.6)) + vec3(0.0, 0.0, 1.0));
+  float spec = shine * pow(max(dot(n, h), 0.0), 28.0) * 0.9;
+  gl_FragColor = vec4(c * li + vec3(spec), 1.0);
 }`
 
 const srgb = (c: Color | null): [number, number, number] | null =>
@@ -124,6 +140,7 @@ function compile() {
   g.bindAttribLocation(p, 0, 'aPos')
   g.bindAttribLocation(p, 1, 'aNrm')
   g.bindAttribLocation(p, 2, 'aUV')
+  g.bindAttribLocation(p, 3, 'aTan')
   g.linkProgram(p)
   program = p
 }
@@ -161,6 +178,7 @@ function upload() {
     buf(m.positions, 0, 3)
     buf(m.normals, 1, 3)
     buf(m.uvs, 2, 2)
+    buf(m.tangents, 3, 4)
     const ib = g.createBuffer()
     g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, ib)
     g.bufferData(g.ELEMENT_ARRAY_BUFFER, m.indices, g.STATIC_DRAW)
@@ -237,6 +255,7 @@ function draw() {
   g.uniformMatrix4fv(u('uModel'), false, mul(toCam, model))
   g.uniform1i(u('uDif'), 0)
   g.uniform1i(u('uMask'), 1)
+  g.uniform1i(u('uNrm'), 2)
   for (const { upload: up, meshIndex } of uploads) {
     const dm = props.soldier!.meshes[meshIndex]!
     g.bindVertexArray(up.vao)
@@ -251,6 +270,10 @@ function draw() {
       g.bindTexture(g.TEXTURE_2D, dif)
       g.activeTexture(g.TEXTURE1)
       g.bindTexture(g.TEXTURE_2D, mask)
+      const nrm = glTexture(paint.normal)
+      g.activeTexture(g.TEXTURE2)
+      g.bindTexture(g.TEXTURE_2D, nrm)
+      g.uniform1i(u('uHasNrm'), nrm ? 1 : 0)
       g.uniform1i(u('uHasDif'), dif ? 1 : 0)
       g.uniform1i(u('uHasMask'), mask ? 1 : 0)
       g.uniform3fv(u('uTop'), srgb(props.top) ?? srgb(paint.primary)!)

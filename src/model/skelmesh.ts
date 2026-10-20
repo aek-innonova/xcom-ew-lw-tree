@@ -30,6 +30,8 @@ export interface SkelMesh {
   normals: Float32Array
   /** u, v per vertex (the first set). */
   uvs: Float32Array
+  /** x, y, z of the tangent and the bitangent's sign, per vertex (for normal maps). */
+  tangents: Float32Array
 }
 
 class R {
@@ -173,11 +175,17 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
   const fullUVs = stride === 16 + 12 + 8 * uvSets
   const positions = new Float32Array(3 * n)
   const normals = new Float32Array(3 * n)
+  const tangents = new Float32Array(4 * n)
   const uvs = new Float32Array(2 * n)
   for (let i = 0; i < n; i++) {
     const at = r.o + i * stride
     // Normal[0] (tangent), Normal[2] (normal), bone indices, bone weights, position, UVs.
-    for (let k = 0; k < 3; k++) normals[3 * i + k] = unpackNormal(pkg.bytes[at + 4 + k]!)
+    for (let k = 0; k < 3; k++) {
+      normals[3 * i + k] = unpackNormal(pkg.bytes[at + 4 + k]!)
+      tangents[4 * i + k] = unpackNormal(pkg.bytes[at + k]!)
+    }
+    // The normal's fourth byte carries the bitangent's sign.
+    tangents[4 * i + 3] = pkg.bytes[at + 7]! >= 128 ? 1 : -1
     const v = new DataView(pkg.bytes.buffer, pkg.bytes.byteOffset + at + 16, stride - 16)
     for (let k = 0; k < 3; k++) positions[3 * i + k] = v.getFloat32(4 * k, true)
     if (fullUVs) {
@@ -190,7 +198,7 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
   }
   if (stride !== 16 + 12 + (fullUVs ? 8 : 4) * uvSets)
     throw new Error('the mesh is not laid out as expected (vertex size)')
-  return { materials, bones, sections, indices, vertexCount, positions, normals, uvs }
+  return { materials, bones, sections, indices, vertexCount, positions, normals, uvs, tangents }
 }
 
 type Quat = [number, number, number, number]
@@ -232,6 +240,7 @@ export function placeMesh(
 ): SkelMesh {
   const positions = new Float32Array(m.positions.length)
   const normals = new Float32Array(m.normals.length)
+  const tangents = new Float32Array(m.tangents.length)
   for (let i = 0; i < m.vertexCount; i++) {
     const p = rotate(
       at.rotation,
@@ -240,10 +249,13 @@ export function placeMesh(
       m.positions[3 * i + 2]!,
     )
     const n = rotate(at.rotation, m.normals[3 * i]!, m.normals[3 * i + 1]!, m.normals[3 * i + 2]!)
+    const t = rotate(at.rotation, m.tangents[4 * i]!, m.tangents[4 * i + 1]!, m.tangents[4 * i + 2]!)
     for (let k = 0; k < 3; k++) {
       positions[3 * i + k] = p[k]! + at.position[k]!
       normals[3 * i + k] = n[k]!
+      tangents[4 * i + k] = t[k]!
     }
+    tangents[4 * i + 3] = m.tangents[4 * i + 3]!
   }
-  return { ...m, positions, normals }
+  return { ...m, positions, normals, tangents }
 }

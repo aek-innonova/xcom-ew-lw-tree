@@ -109,6 +109,8 @@ export interface Paint {
   diffuse: Texture | null
   /** The armor's tint masks (the specular map: alpha the top color, blue the bottom). */
   mask: Texture | null
+  /** The normal map, where the material has one. */
+  normal: Texture | null
   /** The material's own colors: the armor's default top and bottom, the skin's or hair's color. */
   primary: Color
   secondary: Color
@@ -219,6 +221,7 @@ async function paints(p: Package, file: string, mesh: SkelMesh): Promise<Paint[]
         kind: 'plain',
         diffuse: null,
         mask: null,
+        normal: null,
         primary: [1, 1, 1, 1],
         secondary: [1, 1, 1, 1],
       }
@@ -243,7 +246,8 @@ async function paints(p: Package, file: string, mesh: SkelMesh): Promise<Paint[]
         : kind === 'skin'
           ? v.SkinColor
           : v.ColorMod) ?? [1, 1, 1, 1]
-      return { kind, diffuse, mask, primary: own, secondary: v.CMODB ?? own }
+      const normal = kind === 'armor' || kind === 'skin' ? await tex('Normal') : null
+      return { kind, diffuse, mask, normal, primary: own, secondary: v.CMODB ?? own }
     }),
   )
 }
