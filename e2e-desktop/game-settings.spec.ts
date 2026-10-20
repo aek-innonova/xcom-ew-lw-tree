@@ -19,6 +19,8 @@ const ini = (hp: string, color: string) =>
     '[XComGame.XGTacticalGameCore]',
     `Characters=( strName="", iType=eChar_Soldier,    HP=${hp},  Offense=65,  Mobility=13, Will=30, Defense=0 )`,
     'NUM_STARTING_SOLDIERS=40',
+    'ROOKIE_MOBILITY=104\t\t\t; xxyy: xx = Point cost for defense; yy = Point cost for mobility',
+    'PSI_GIFT_CHANCE=0.45\t\t; Chance of successful training if soldier Will equals the target',
     `HQ_BASE_POWER = ${color}\t\t\t; Sniper Color`,
     'Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,        iRange=27 )',
     ';Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=eWP_Pistol,iRange=27 );',
@@ -71,29 +73,43 @@ test('game settings: hand edits kept, then set in words and written', async () =
   expect(settings()).toEqual({ 'soldier.hp': '5' })
 
   // In words: the starting soldiers, the pistol slot, the sniper's color.
-  await page.getByRole('textbox', { name: 'Soldiers at the start' }).fill('60')
-  await page.getByRole('textbox', { name: 'Soldiers at the start' }).press('Enter')
+  await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).fill('60')
+  await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).press('Enter')
   await page.getByLabel('In the pistol slot').check()
-  await page.getByRole('textbox', { name: 'Sniper color' }).fill('16')
-  await page.getByRole('textbox', { name: 'Sniper color' }).press('Enter')
+  await page.getByRole('spinbutton', { name: 'Sniper color' }).fill('16')
+  await page.getByRole('spinbutton', { name: 'Sniper color' }).press('Enter')
+  // In the setting's terms, written in the file's: Long War's xxyy, a fraction as a percentage.
+  const mobility = page.getByRole('spinbutton', {
+    name: 'Point costs of defense and mobility: Mobility',
+  })
+  await expect(mobility).toHaveValue('4')
+  await mobility.fill('6')
+  await mobility.press('Enter')
+  const gift = page.getByRole('spinbutton', { name: 'Chance of the psi gift' })
+  await expect(gift).toHaveValue('45')
+  await gift.fill('25')
+  await gift.press('Enter')
+  await expect(page.getByText('the original the app kept: Defense 1, mobility 4')).toBeVisible()
   await expect.poll(settings).toEqual({
     'soldier.hp': '5',
     'campaign.starting-soldiers': '60',
     'arcthrower.pistol': 'on',
     'class.sniper.color': '16',
+    'rookie.cost-defense-mobility': '106',
+    'psi.gift': '0.25',
   })
 
   // Saved by name, changed, and back again (features/game-setups.md).
   await page.getByLabel('Name for this setup').fill('Sixty')
   await page.getByRole('button', { name: 'Save this setup' }).click()
   await expect(page.getByText('in use')).toBeVisible()
-  await page.getByRole('textbox', { name: 'Soldiers at the start' }).fill('70')
-  await page.getByRole('textbox', { name: 'Soldiers at the start' }).press('Enter')
+  await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).fill('70')
+  await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).press('Enter')
   await expect(page.getByText('in use')).toHaveCount(0)
   await page.getByLabel('Name for this setup').fill('Seventy')
   await page.getByRole('button', { name: 'Save this setup' }).click()
   await page.getByRole('button', { name: 'Use Sixty' }).click()
-  await expect(page.getByRole('textbox', { name: 'Soldiers at the start' })).toHaveValue('60')
+  await expect(page.getByRole('spinbutton', { name: 'Soldiers at the start' })).toHaveValue('60')
   await expect(page.getByRole('button', { name: 'Use Seventy' })).toBeVisible()
   const saved = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).setups
   expect(Object.keys(saved).sort()).toEqual(['Seventy', 'Sixty'])
@@ -101,12 +117,14 @@ test('game settings: hand edits kept, then set in words and written', async () =
 
   await page.getByRole('button', { name: 'Apply my setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
-  await expect(plan).toContainText('4 game settings')
+  await expect(plan).toContainText('6 game settings')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
   await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
   expect(readFileSync(join(game, 'Config', 'DefaultGameCore.ini'), 'latin1')).toBe(
     ini('5', '16')
       .replace('NUM_STARTING_SOLDIERS=40', 'NUM_STARTING_SOLDIERS=60')
+      .replace('ROOKIE_MOBILITY=104', 'ROOKIE_MOBILITY=106')
+      .replace('PSI_GIFT_CHANCE=0.45', 'PSI_GIFT_CHANCE=0.25')
       .replace(
         '\nWeapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,',
         '\n;Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,',

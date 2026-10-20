@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // A soldier in a class's colors, beside the class color settings
-// (features/game-soldiers.md, features/game-settings.md): choose the armor,
-// the gender and whose color to see; the soldier follows the setting's value,
-// yours or the version's own.
+// (features/game-soldiers.md, features/game-settings-ux.md): the class is the
+// row picked in the table beside it; here the armor, gender, face and hair.
+// The soldier follows the setting's value, yours or the version's own.
 
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { FoundSetting } from '@/model/gamesettings'
@@ -26,13 +26,11 @@ const props = defineProps<{ colors: FoundSetting[]; headgear: FoundSetting[] }>(
 
 const armor = ref<Armor>('Kevlar')
 const gender = ref<Gender>('Male')
-const whose = ref(props.colors[0]?.id ?? '')
-// Using a class's color or headgear row puts that class on the soldier.
-watch(
-  () => tools.soldierFor,
-  (id) => {
-    if (props.colors.some((c) => c.id === id)) whose.value = id
-  },
+// The class picked in the table (a color or headgear row in use), else the first.
+const whose = computed(() =>
+  props.colors.some((c) => c.id === tools.soldierFor)
+    ? tools.soldierFor
+    : (props.colors[0]?.id ?? ''),
 )
 const head = ref(0)
 const hair = ref(0)
@@ -117,6 +115,16 @@ const tint = computed(() => {
 
 <template>
   <div class="preview">
+    <p class="who">
+      <strong>{{ (setting?.name ?? '').replace(/ (armor )?color$/i, '') }}</strong
+      >&nbsp;
+      <span class="muted"
+        >color {{ code
+        }}<template v-if="tools.codes.colors.get(String(code))">
+          · {{ tools.codes.colors.get(String(code)) }}</template
+        ></span
+      >
+    </p>
     <div class="view">
       <SoldierView
         :soldier="soldier"
@@ -128,18 +136,13 @@ const tint = computed(() => {
     </div>
     <div class="controls small">
       <label>
-        Color of
-        <select v-model="whose" aria-label="Whose color the soldier wears">
-          <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-      <label>
         Armor
         <select v-model="armor" aria-label="The soldier's armor">
           <option v-for="a in ARMORS" :key="a" :value="a">{{ a }}</option>
         </select>
       </label>
       <label>
+        Gender
         <select v-model="gender" aria-label="The soldier's gender">
           <option value="Male">Male</option>
           <option value="Female">Female</option>
@@ -182,8 +185,8 @@ const tint = computed(() => {
         }}: the class's headgear setting.
       </p>
       <p class="muted">
-        Color {{ code }}, drawn from your install. Drag to turn it. Our own shader, so close to the
-        game's look rather than the same.
+        Drawn from your install; drag to turn it. Our own shading: close to the game’s look, not the
+        same.
       </p>
     </div>
   </div>
@@ -192,13 +195,17 @@ const tint = computed(() => {
 <style scoped>
 .preview {
   display: flex;
-  gap: 14px;
-  margin: 8px 0 10px;
+  flex-direction: column;
+  gap: 10px;
+  width: 280px;
+}
+.who {
+  margin: 0;
 }
 .view {
   position: relative;
-  width: 260px;
-  height: 400px;
+  width: 280px;
+  height: 420px;
   flex: none;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -214,7 +221,6 @@ const tint = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 300px;
 }
 .swatches {
   display: flex;
@@ -236,8 +242,17 @@ const tint = computed(() => {
 .swatches button.on {
   outline: 2px solid var(--accent);
 }
+.controls select {
+  background: var(--node);
+  color: var(--text);
+  border: 1px solid var(--node-border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font: inherit;
+}
 .controls label {
-  display: flex;
+  display: grid;
+  grid-template-columns: 56px 1fr;
   gap: 8px;
   align-items: baseline;
 }

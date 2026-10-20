@@ -43,8 +43,11 @@ import { EXE } from '@/state/baseplan'
 import type { BaseChoice } from '@/state/library'
 import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
-import type { FoundSetting } from '@/model/gamesettings'
-import SoldierPreview from './SoldierPreview.vue'
+import { GROUPS, type FoundSetting } from '@/model/gamesettings'
+import { describe, PLAIN } from '@/model/settingformat'
+import SettingField from './SettingField.vue'
+import SettingRow from './SettingRow.vue'
+import SoldierLooks from './SoldierLooks.vue'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
@@ -203,60 +206,42 @@ function onSetting(e: { section: string; key: string; occurrence: number }, valu
 const repeated = (e: IniEntry) =>
   tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
 
-/** A class's (or the rookie's) color, headgear or deco row in use: the soldier wears that class. */
-function showOnSoldier(id: string) {
-  const m = /^class\.(\w+)\.(color|headgear)$/.exec(id)
-  if (m) tools.soldierFor = `class.${m[1]}.color`
-  else if (id.startsWith('look.rookie-')) tools.soldierFor = 'look.rookie-color'
-}
-
-// The rookie's armor color, previewed with the classes'.
-const appearanceColors = computed(() =>
-  tools.gameSettings.filter((d) =>
-    ['look.rookie-color', 'look.rookie-headgear', 'look.rookie-deco'].includes(d.id),
-  ),
-)
-
-// Game settings, by group, in the catalogue's order.
+// Game settings, by group, in the rules' order (model/gamesettings.ts GROUPS).
 const gameQuery = ref<Record<string, string>>({})
 const gameGroups = computed(() => {
   const groups = new Map<string, FoundSetting[]>()
   for (const d of tools.gameSettings) groups.set(d.group, [...(groups.get(d.group) ?? []), d])
-  return [...groups].map(([name, items]) => {
-    const mine = items.filter((d) => d.id in tools.gameValues).length
-    return { name, items, mine, open: items.length <= 20 || mine > 0 }
-  })
+  const order = GROUPS.map((g) => g.name)
+  const rank = (name: string) => (order.includes(name) ? order.indexOf(name) : order.length)
+  return [...groups]
+    .sort(([a], [b]) => rank(a) - rank(b))
+    .map(([name, items]) => {
+      const mine = items.filter((d) => d.id in tools.gameValues).length
+      const help = GROUPS.find((g) => g.name === name)?.help ?? ''
+      return { name, items, mine, help, open: items.length <= 30 || mine > 0 }
+    })
 })
-function shownItems(g: { name: string; items: FoundSetting[] }) {
-  const q = (gameQuery.value[g.name] ?? '').toLowerCase().trim()
-  return q ? g.items.filter((d) => d.name.toLowerCase().includes(q)) : g.items
+/** Item mobility under the file's own headings, found by name. */
+function itemSections(items: FoundSetting[]) {
+  const q = (gameQuery.value['Item mobility'] ?? '').toLowerCase().trim()
+  const out = new Map<string, FoundSetting[]>()
+  for (const d of items) {
+    if (q && !d.name.toLowerCase().includes(q)) continue
+    const k = d.section ?? 'Other items'
+    out.set(k, [...(out.get(k) ?? []), d])
+  }
+  return [...out].map(([name, list]) => ({ name, items: list }))
 }
-/** The setting's help, unless it only says the name again (class colors). */
-const helpOf = (d: FoundSetting) => {
-  const h = d.help || d.comment
-  return h.toLowerCase() === d.name.toLowerCase() ? '' : h
-}
-const gameValue = (d: FoundSetting) => tools.gameValues[d.id] ?? d.value
-/** Colors and headgear by Long War's own names, when the app has them. */
-function pick(d: FoundSetting): [string, string][] | null {
-  const table =
-    d.type === 'color' ? tools.codes.colors : d.type === 'headgear' ? tools.codes.headgear : null
-  if (!table?.size) return null
-  const rows: [string, string][] = d.type === 'headgear' ? [['-1', 'no change']] : []
-  rows.push(...table)
-  const v = gameValue(d)
-  if (!rows.some(([k]) => k === v)) rows.unshift([v, 'not in Long War’s list'])
-  return rows
-}
+/** A value in words, as its setting describes it (hand edits). */
 function shownValue(d: FoundSetting, v: string): string {
-  if (d.type === 'toggle') return v === 'on' ? 'yes' : 'no'
+  if (d.type === 'toggle') return v === 'on' ? 'on' : 'off'
   const name =
     d.type === 'color'
       ? tools.codes.colors.get(v)
       : d.type === 'headgear'
         ? tools.codes.headgear.get(v)
         : undefined
-  return name ? `${v}, ${name}` : v
+  return name ? `${v}, ${name}` : describe(d.format ?? PLAIN, v)
 }
 
 const setupName = ref('')
@@ -511,12 +496,13 @@ const iniNote = computed(() =>
       </article>
     </section>
 
-    <section v-if="tools.gameSettings.length" class="block" aria-labelledby="game-h">
+    <section v-if="tools.gameSettings.length" class="block wide" aria-labelledby="game-h">
       <h3 id="game-h">Game settings</h3>
       <p class="muted small">
-        Soldiers, rookies, the arc thrower, class colors and more, as the game's DefaultGameCore.ini
-        has them; beside each, {{ tools.gameSettingsFrom }} value. Yours are written when you apply
-        your setup, and kept for the next install or version.
+        Soldiers, rookies, the arc thrower, class colors and more, from the game's
+        DefaultGameCore.ini. Each shows its value now; the ones you change are marked, with
+        {{ tools.gameSettingsFrom }} beside them. Yours are written when you apply your setup, and
+        kept for the next install or version.
       </p>
       <div v-if="tools.handEdits.length" class="hand" role="region" aria-label="Edits by hand">
         <p>
@@ -556,79 +542,54 @@ const iniNote = computed(() =>
             >{{ g.items.length }}<template v-if="g.mine"> · {{ g.mine }} yours</template></span
           >
         </summary>
-        <SoldierPreview
-          v-if="g.name === 'Class colors'"
-          :colors="[...g.items, ...appearanceColors].filter((d) => d.type === 'color')"
-          :headgear="[...g.items, ...appearanceColors].filter((d) => d.type !== 'color')"
-        />
-        <input
-          v-if="g.items.length > 20"
-          v-model="gameQuery[g.name]"
-          type="search"
-          class="search"
-          :placeholder="`Find in ${g.name.toLowerCase()}…`"
-          :aria-label="`Find in ${g.name}`"
-        />
-        <table class="options game">
-          <colgroup>
-            <col class="name" />
-            <col class="value" />
-            <col />
-          </colgroup>
-          <tbody>
-            <tr
-              v-for="d in shownItems(g)"
-              :key="d.id"
-              :class="{ mine: d.id in tools.gameValues }"
-              @focusin="showOnSoldier(d.id)"
-            >
-              <th>
+        <p v-if="g.help" class="group-help small">{{ g.help }}</p>
+        <SoldierLooks v-if="g.name === 'Class colors'" :items="g.items" />
+        <template v-else-if="g.name === 'Item mobility'">
+          <input
+            v-model="gameQuery[g.name]"
+            type="search"
+            class="search"
+            placeholder="Find an item…"
+            :aria-label="`Find in ${g.name}`"
+          />
+          <section
+            v-for="sec in itemSections(g.items)"
+            :key="sec.name"
+            class="items"
+            :aria-label="sec.name"
+          >
+            <h4>{{ sec.name }}</h4>
+            <div class="item-grid">
+              <div
+                v-for="d in sec.items"
+                :key="d.id"
+                class="item"
+                :class="{ mine: d.id in tools.gameValues }"
+              >
                 <label :for="`gs-${d.id}`">{{ d.name }}</label>
-              </th>
-              <td class="input">
-                <input
-                  v-if="d.type === 'toggle'"
-                  :id="`gs-${d.id}`"
-                  type="checkbox"
-                  :checked="gameValue(d) === 'on'"
-                  @change="
-                    setGameValue(d.id, ($event.target as HTMLInputElement).checked ? 'on' : 'off')
-                  "
-                />
-                <select
-                  v-else-if="pick(d)"
-                  :id="`gs-${d.id}`"
-                  :value="gameValue(d)"
-                  @change="setGameValue(d.id, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option v-for="[k, v] in pick(d)!" :key="k" :value="k">{{ k }} · {{ v }}</option>
-                </select>
-                <input
-                  v-else
-                  :id="`gs-${d.id}`"
-                  class="num"
-                  :value="tools.gameValues[d.id] ?? ''"
-                  :placeholder="d.value"
-                  @change="setGameValue(d.id, ($event.target as HTMLInputElement).value)"
+                <SettingField
+                  :def="d"
+                  :mine="tools.gameValues[d.id]"
+                  @set="(v) => setGameValue(d.id, v)"
                 />
                 <button
                   v-if="d.id in tools.gameValues"
                   type="button"
-                  class="remove"
+                  class="undo"
                   :aria-label="`Undo your value: ${d.name}`"
-                  :title="`Back to ${shownValue(d, d.value)}`"
+                  :title="`Back to ${tools.gameSettingsFrom}: ${d.value}`"
                   @click="setGameValue(d.id, null)"
                 >
                   ×
                 </button>
-              </td>
-              <td class="help small">
-                <template v-if="helpOf(d)">{{ helpOf(d) }} </template>
-                <span class="muted">({{ shownValue(d, d.value) }})</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </div>
+            </div>
+          </section>
+          <p v-if="!itemSections(g.items).length" class="muted small">No item by that name.</p>
+        </template>
+        <div v-else class="rows">
+          <SettingRow v-for="d in g.items" :key="d.id" :def="d" />
+        </div>
       </details>
     </section>
 
@@ -865,18 +826,59 @@ details.group summary {
   font-size: 13.5px;
   font-weight: 600;
 }
-table.game {
-  table-layout: fixed;
-  width: 100%;
+.group-help {
+  margin: 4px 0 6px;
+  color: var(--muted);
 }
-table.game col.name {
-  width: 250px;
+/* Name, editor, what is particular to it: rows line up across a group. */
+.rows {
+  display: grid;
+  grid-template-columns: minmax(170px, 17rem) 300px minmax(0, 1fr);
+  margin: 4px 0 8px;
 }
-table.game col.value {
-  width: 290px;
+@media (max-width: 1000px) {
+  .rows {
+    grid-template-columns: minmax(140px, 14rem) minmax(0, 1fr);
+  }
 }
-table.game select {
-  max-width: 250px;
+.items h4 {
+  margin: 10px 0 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 2px 18px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 1px 0;
+}
+.item label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item.mine label {
+  color: var(--accent);
+}
+.item :deep(.num) {
+  width: 58px;
+}
+.undo {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
 }
 tr.mine th {
   color: var(--accent);
@@ -889,7 +891,14 @@ ul.changes {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px 32px;
+}
+/* The page scrolls at the window's edge; its text keeps a readable width,
+   the game settings (the soldier beside the class table) a wider one. */
+.tools > * {
   max-width: 980px;
+}
+.tools > .wide {
+  max-width: 1400px;
 }
 .top h2 {
   margin: 0;

@@ -150,6 +150,14 @@ function armorKits(): Promise<string[]> {
   return kitNames
 }
 
+/** The decos Long War suggests for the rookie (its Kevlar ones), by number: "67" → "Kevlar 0". */
+export async function kevlarDecos(): Promise<[string, string][]> {
+  return (await armorKits()).flatMap((name, i) => {
+    const m = /^eKit_Deco_Kevlar(\d+)$/.exec(name)
+    return m ? [[String(i), `Kevlar ${m[1]}`] as [string, string]] : []
+  })
+}
+
 let looks: Promise<Looks> | null = null
 /** The install's heads and hair. */
 export function gameLooks(): Promise<Looks> {

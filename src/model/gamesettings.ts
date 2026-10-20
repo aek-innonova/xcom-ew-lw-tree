@@ -7,6 +7,11 @@
 // NUM_STARTING_SOLDIERS is the chance a soldier is male), so a setting is
 // found by its key together with the comment the version's file gives it,
 // never by the key alone. A setting the file does not have is not offered.
+//
+// Each setting also says what kind of value it is (settingformat.ts), so it
+// is edited and described in the player's terms (features/game-settings-ux.md).
+
+import { type Format } from './settingformat'
 
 export type Place =
   /** A KEY=value line whose comment matches (an empty comment: /^$/). */
@@ -24,9 +29,13 @@ export interface SettingDef {
   id: string
   group: string
   name: string
-  /** Shown under the name; else the file's own comment. */
+  /** Shown beside it; else the file's own comment. "" for none: the group says it. */
   help?: string
-  type: 'number' | 'toggle' | 'color' | 'headgear'
+  type: 'number' | 'toggle' | 'color' | 'headgear' | 'deco'
+  /** How a number is edited and described (a plain number when not given). */
+  format?: Format
+  /** A part of its group (item mobility: the file's own heading, "Grenades"). */
+  section?: string
   place: Place
 }
 
@@ -169,11 +178,11 @@ function locate(
 
 // --- The catalogue ----------------------------------------------------------------
 
-const soldier = (field: string, name: string, help: string): SettingDef => ({
+const soldier = (field: string, name: string): SettingDef => ({
   id: `soldier.${field.toLowerCase()}`,
   group: 'Soldiers',
   name,
-  help,
+  help: '',
   type: 'number',
   place: { kind: 'field', key: 'Characters', select: ['iType', 'eChar_Soldier'], field },
 })
@@ -193,6 +202,14 @@ const key = (
   ...extra,
 })
 
+const hours: Format = { kind: 'hours', min: 0 }
+/** "Defense" → "defense", but "HP" stays. */
+const lower = (w: string) => (w === w.toUpperCase() ? w : w.toLowerCase())
+const points = (a: string, b: string): Partial<SettingDef> => ({
+  format: { kind: 'pair', parts: [a, b] },
+  help: `Build points a point of ${lower(a)} costs, and of ${lower(b)}.`,
+})
+
 /** Settings named by hand, each tied to its key and the comment that says what it is. */
 export const CATALOGUE: SettingDef[] = [
   // The campaign
@@ -202,6 +219,7 @@ export const CATALOGUE: SettingDef[] = [
     'Soldiers at the start',
     'NUM_STARTING_SOLDIERS',
     /^$/,
+    { format: { kind: 'number', min: 1 } },
   ),
   key(
     'campaign.soldier-cost',
@@ -209,79 +227,88 @@ export const CATALOGUE: SettingDef[] = [
     'Cost of a new soldier',
     'SOLDIER_COST',
     /^All Difficulties$/,
+    { format: { kind: 'number', unit: 'credits', min: 0 } },
   ),
-  key('campaign.barracks', 'Campaign', 'Barracks capacity', 'BARRACKS_CAPACITY', /^$/),
+  key('campaign.barracks', 'Campaign', 'Barracks capacity', 'BARRACKS_CAPACITY', /^$/, {
+    format: { kind: 'number', min: 1 },
+  }),
   // Soldiers: the midpoints rookies are rolled around
-  soldier(
-    'HP',
-    'Base HP',
-    'The rookie midpoint; with balanced rookies, ranges run from the minimum below.',
-  ),
-  soldier('Mobility', 'Base mobility', 'The rookie midpoint.'),
-  soldier('Offense', 'Base aim', 'The rookie midpoint.'),
-  soldier('Will', 'Base will', 'The rookie midpoint.'),
-  soldier('Defense', 'Base defense', ''),
+  soldier('HP', 'Base HP'),
+  soldier('Mobility', 'Base mobility'),
+  soldier('Offense', 'Base aim'),
+  soldier('Will', 'Base will'),
+  soldier('Defense', 'Base defense'),
   // Rookies
-  key('rookie.min-hp', 'Rookies', 'Minimum starting HP', 'HIGH_WILL', /Minimum Starting hp/i, {
-    help: 'Range: from this to (2 × base HP − this). The key is called HIGH_WILL; Long War uses it for HP.',
+  key('rookie.min-hp', 'Rookies', 'Lowest starting HP', 'HIGH_WILL', /Minimum Starting hp/i, {
+    help: 'Rolled from this to as far above base HP. The key is HIGH_WILL; Long War uses it for HP.',
   }),
   key(
     'rookie.min-mobility',
     'Rookies',
-    'Minimum starting mobility',
+    'Lowest starting mobility',
     'LOW_MOBILITY',
     /Minimum starting mobility/i,
+    { help: 'Rolled from this to as far above base mobility.' },
   ),
-  key('rookie.min-aim', 'Rookies', 'Minimum starting aim', 'LOW_AIM', /Minimum starting aim/i),
-  key('rookie.min-will', 'Rookies', 'Minimum starting will', 'LOW_WILL', /Minimum Starting Will/i),
+  key('rookie.min-aim', 'Rookies', 'Lowest starting aim', 'LOW_AIM', /Minimum starting aim/i, {
+    help: 'Rolled from this to as far above base aim.',
+  }),
+  key('rookie.min-will', 'Rookies', 'Lowest starting will', 'LOW_WILL', /Minimum Starting Will/i, {
+    help: 'Rolled from this to as far above base will.',
+  }),
   key(
     'rookie.defense',
     'Rookies',
-    'Starting defense (relative)',
+    'Starting defense',
     'HIGH_MOBILITY',
     /Relative starting defense/i,
+    { help: 'Added to base defense and the armor’s.' },
   ),
-  key('rookie.cost-aim', 'Rookies', 'Point cost of aim', 'ROOKIE_AIM', /Point cost for aim/i),
+  key('rookie.cost-aim', 'Rookies', 'Point cost of aim', 'ROOKIE_AIM', /Point cost for aim/i, {
+    help: 'Build points a point of aim costs.',
+  }),
   key(
     'rookie.cost-defense-mobility',
     'Rookies',
-    'Point costs: defense, mobility',
+    'Point costs of defense and mobility',
     'ROOKIE_MOBILITY',
     /xx = Point cost for defense/i,
-    {
-      help: 'Four digits, xxyy: xx is the cost of defense, yy of mobility (104: 1 and 4).',
-    },
+    points('Defense', 'Mobility'),
   ),
   key(
     'rookie.cost-hp-will',
     'Rookies',
-    'Point costs: HP, will',
+    'Point costs of HP and will',
     'ROOKIE_STARTING_WILL',
     /xx = Point cost for hit points/i,
-    {
-      help: 'Four digits, xxyy: xx is the cost of HP, yy of will (301: 3 and 1).',
-    },
+    points('HP', 'Will'),
   ),
   key(
     'rookie.armor-mobility',
     'Rookies',
-    'Mobility for Tac Armor on recruits',
+    'Tac Armor from mobility',
     'SOLDIER_COST_HARD',
     /auto-equip Tac Armor/i,
+    { help: 'A recruit with at least this mobility comes in Tac Armor rather than a Tac Vest.' },
   ),
   key(
     'rookie.rifle-aim',
     'Rookies',
-    'Aim for an Assault Rifle on recruits',
+    'Assault Rifle from aim',
     'SOLDIER_COST_CLASSIC',
     /auto-equip Assault Rifle/i,
+    { help: 'A recruit with at least this aim comes with an Assault Rifle rather than a Carbine.' },
   ),
   key(
     'rookie.least-common-class',
     'Rookies',
-    'Chance of the least common class',
+    'Leaning to the least common class',
     'LATE_UFO_CHANCE',
     /least common/i,
+    {
+      format: { kind: 'number', min: 0, max: 100 },
+      help: '0: classes at random; 100: always the class the barracks has least of. 33 gives it about half the time, 10 about a third.',
+    },
   ),
   // Psionics
   key(
@@ -290,39 +317,55 @@ export const CATALOGUE: SettingDef[] = [
     'Chance of the psi gift',
     'PSI_GIFT_CHANCE',
     /Chance of successful training/i,
+    {
+      format: { kind: 'percent', fraction: true },
+      help: 'For a soldier whose will equals the target; Long War suggests 25 % for More Than Human.',
+    },
   ),
-  key('psi.hours', 'Psionics', 'Psi training hours', 'PSI_TRAINING_HOURS', /^$/),
+  key('psi.hours', 'Psionics', 'Psi training', 'PSI_TRAINING_HOURS', /^$/, { format: hours }),
   key(
     'psi.slots',
     'Psionics',
-    'Training slots (psi, gene, cybernetics)',
+    'Training slots',
     'PSI_NUM_TRAINING_SLOTS',
     /Number of soldier slots/i,
+    {
+      format: { kind: 'number', min: 1 },
+      help: 'Soldiers training at once in the Psionic Labs, the Genetics Lab and the Cybernetics Lab.',
+    },
   ),
   // Injuries and fatigue
   key(
     'injury.max-hours',
     'Injuries and fatigue',
-    'Longest injury (hours)',
+    'Longest injury',
     'BASE_DAYS_INJURED',
     /max hours a soldier can be injured/i,
+    { format: hours },
   ),
   key(
     'injury.fatigue-scale',
     'Injuries and fatigue',
-    'Fatigue (% of normal)',
+    'Fatigue',
     'RAND_DAYS_INJURED_TANK',
     /scaler for fatigue/i,
+    {
+      format: { kind: 'percent', max: 1000 },
+      help: '100 % is Long War’s own; 0 % leaves only the fixed additions.',
+    },
   ),
   key(
     'injury.officer-fatigue',
     'Injuries and fatigue',
-    'Fatigue hours per officer level',
+    'Fatigue per officer rank',
     'SPECIES_POINT_LIMIT',
     /fatigue per officer level/i,
+    { format: hours },
   ),
   // SHIVs
-  key('shiv.repair-hours', 'SHIVs', 'Repair time (hours)', 'BASE_DAYS_INJURED_TANK', /^hours$/i),
+  key('shiv.repair-hours', 'SHIVs', 'Repair time', 'BASE_DAYS_INJURED_TANK', /^hours$/i, {
+    format: hours,
+  }),
   key('shiv.alloy-hp', 'SHIVs', 'Alloy SHIV HP bonus', 'ALLOY_SHIV_HP_BONUS', /hp bonuses/i),
   key('shiv.hover-hp', 'SHIVs', 'Hover SHIV HP bonus', 'HOVER_SHIV_HP_BONUS', /^$|hp bonuses/i),
   // The arc thrower
@@ -330,24 +373,22 @@ export const CATALOGUE: SettingDef[] = [
     id: 'arcthrower.pistol',
     group: 'Arc thrower',
     name: 'In the pistol slot',
-    help: 'The arc thrower takes the pistol slot instead of a small-item slot (Long War’s own alternative line; said to misbehave on a covert operative).',
+    help: 'Instead of a small-item slot: Long War’s own alternative line, said to misbehave on a covert operative.',
     type: 'toggle',
     place: { kind: 'alt', key: 'Weapons', select: ['iType', 'eItem_ArcThrower'], on: /eWP_Pistol/ },
   },
   key(
     'arcthrower.stun',
     'Arc thrower',
-    'Stun chance (× the game’s)',
+    'Stun chance',
     'UFO_PSI_LINK_SURVIVE',
     /(arc thrower|stun rifle) stun chances/i,
-    {
-      help: '1 is the game’s own stun chances; 0.5 half of them.',
-    },
+    { format: { kind: 'times', min: 0 }, help: 'Times the game’s own stun chances.' },
   ),
-  // Appearance
+  // The rookie's look, with the classes'
   key(
     'look.rookie-color',
-    'Appearance',
+    'Class colors',
     'Rookie armor color',
     'DEFENDER_MEDIKIT',
     /Rookie armor color/i,
@@ -355,20 +396,262 @@ export const CATALOGUE: SettingDef[] = [
   ),
   key(
     'look.rookie-deco',
-    'Appearance',
+    'Class colors',
     'Rookie armor deco',
     'COUNCIL_STAT_BONUS',
     /Rookie armor deco/i,
+    { type: 'deco' },
   ),
   key(
     'look.rookie-headgear',
-    'Appearance',
+    'Class colors',
     'Rookie headgear',
     'ShowUFOsOnMission',
     /Rookie headgear/i,
     { type: 'headgear' },
   ),
 ]
+
+/** What each group's numbers mean, said once at its top; and the order groups come in. */
+export const GROUPS: { name: string; help: string }[] = [
+  { name: 'Campaign', help: '' },
+  {
+    name: 'Soldiers',
+    help: 'The stats every soldier starts from; rookies are rolled around them.',
+  },
+  { name: 'Rookies', help: 'How recruits’ stats are rolled, and what they are issued.' },
+  { name: 'Psionics', help: '' },
+  { name: 'Injuries and fatigue', help: '' },
+  { name: 'SHIVs', help: '' },
+  { name: 'Arc thrower', help: '' },
+  { name: 'Combat', help: '' },
+  { name: 'Second wave', help: 'Numbers for second wave options, when they are on.' },
+  { name: 'Interface', help: '' },
+  {
+    name: 'Class colors',
+    help: 'Each class’s armor color and headgear, numbered as in Long War’s Armor Kit list, and the rookie’s look. Pick a row to see it on the soldier.',
+  },
+  {
+    name: 'Item mobility',
+    help: 'What carrying each item does to a soldier’s mobility: below 0 slows them down.',
+  },
+  { name: 'LWR options', help: 'Options LWR’s file lists that the app has no place for yet.' },
+]
+
+/**
+ * LWR's options, each on a key that means something else in Long War, told
+ * apart by its "(LWR Default = …)" comment; named and placed by hand. `about`
+ * must match the comment too, so a key that changes meaning falls back to
+ * the comment's own words.
+ */
+const LWR: Record<string, Partial<SettingDef> & { about: RegExp; name: string; group: string }> = {
+  NUM_STARTING_SOLDIERS: {
+    about: /gender chance/i,
+    name: 'Chance a recruit is male',
+    group: 'Soldiers',
+    format: { kind: 'percent' },
+    help: '',
+  },
+  EXALT_LOOT3: {
+    about: /post-mission stats/i,
+    name: 'Stat gains after missions',
+    group: 'Soldiers',
+    format: { kind: 'number', min: 1, max: 255 },
+    help: 'Lower makes them less likely.',
+  },
+  LAB_MINIMUM: {
+    about: /quirk/i,
+    name: 'Chance of quirks after missions',
+    group: 'Soldiers',
+    format: { kind: 'percent', max: 50 },
+    help: 'Divided by a modifier for the campaign’s length.',
+  },
+  BARRACKS_CAPACITY: {
+    about: /extra fatigue/i,
+    name: 'Extra fatigue per mission done',
+    group: 'Injuries and fatigue',
+    format: { kind: 'percent', max: 1000 },
+    help: 'For each mission the soldier has completed.',
+  },
+  HIGH_AIM: {
+    about: /guard rails/i,
+    name: 'Panic guard rails',
+    group: 'Campaign',
+    format: { kind: 'switch', on: 1, off: 0 },
+    help: 'At the end of each month panic rises with the months passed and falls with the countries lost.',
+  },
+  WORKSHOP_MINIMUM: {
+    about: /alien levels/i,
+    name: 'Alien levels to double alien growth',
+    group: 'Campaign',
+    format: { kind: 'number', min: 1 },
+    help: 'Brutal and Impossible only; Brutal takes half as many again.',
+  },
+  BASE_DAYS_INJURED: {
+    about: /Psychic Tether/i,
+    name: 'Psychic Tether strength',
+    group: 'Combat',
+    format: { kind: 'percent' },
+    help: '100 % stops all movement away; 0 % all but turns it off.',
+  },
+  RAND_DAYS_INJURED_TANK: {
+    about: /panic when they take damage/i,
+    name: 'Panic from damage over',
+    group: 'Combat',
+    format: { kind: 'percent' },
+    help: 'A soldier rolls for panic on losing more than this share of the HP left; 100 % never.',
+  },
+  DASHING_REACTION_MODIFIER: {
+    about: /environmental damage/i,
+    name: 'Environmental damage',
+    group: 'Combat',
+    format: { kind: 'times', min: 0, max: 10 },
+    help: '× 0: none ever; × 1: LWR’s own; × 10: all cover is paper.',
+  },
+  REFLECT_DMG: {
+    about: /Blitzkrieg/i,
+    name: 'Blitzkrieg: seconds per unit',
+    group: 'Second wave',
+    format: { kind: 'number', unit: 'seconds', min: 1, max: 60 },
+    help: 'A turn lasts this times the units in play; the reserve timer starts at this many minutes.',
+  },
+  MIND_CONTROL_DIFFICULTY: {
+    about: /Wild West/i,
+    name: 'Wild West: damage',
+    group: 'Second wave',
+    format: { kind: 'times', min: 1, max: 100 },
+    help: 'Every shot does this many times its damage.',
+  },
+  SW_MORE_POWER: {
+    about: /Wolverine Blood/i,
+    name: 'Wolverine Blood: fatigue and injury time',
+    group: 'Second wave',
+    format: { kind: 'times', min: 0, max: 1 },
+    help: '× 0: none at all; × 1: Wolverine Blood changes nothing.',
+  },
+  REACTION_PENALTY: {
+    about: /game speed/i,
+    name: 'Game speed',
+    group: 'Interface',
+    format: { kind: 'number', min: 1, max: 10 },
+    help: 'In the game, Alt-F7 slows it by 1, Alt-F8 speeds it up, Alt-F9 resets it.',
+  },
+  PSI_GIFT_CHANCE: {
+    about: /reveal cinematic/i,
+    name: 'Pod reveal cinematics',
+    group: 'Interface',
+    format: { kind: 'percent' },
+    help: 'Chance one plays when a pod is revealed.',
+  },
+  PSI_TRAINING_HOURS: {
+    about: /shot cinematic/i,
+    name: 'Shot cinematics',
+    group: 'Interface',
+    format: { kind: 'percent' },
+    help: 'Chance one plays when a shot triggers it; few shots do, so even 100 % shows few.',
+  },
+  SPECIES_POINT_LIMIT: {
+    about: /barracks sorted/i,
+    name: 'Barracks order',
+    group: 'Interface',
+    format: {
+      kind: 'choice',
+      options: [
+        [1, 'by class'],
+        [0, 'by rank, as in Long War'],
+      ],
+    },
+    help: 'A change shows after the next mission.',
+  },
+  HQ_STARTING_MONEY: {
+    about: /Mouse Buttons/i,
+    name: 'Mouse buttons in combat',
+    group: 'Interface',
+    format: {
+      kind: 'choice',
+      options: [
+        [1, 'shown'],
+        [2, 'hidden'],
+      ],
+    },
+    help: '',
+  },
+  SW_COVER_INCREASE: {
+    about: /unit stats/i,
+    name: 'Unit stats shown and recorded',
+    group: 'Interface',
+    format: { kind: 'switch', on: 1, off: 0 },
+    help: 'Bottom left in combat, after a mission and in the barracks.',
+  },
+  CB_AIRANDSPACE_BONUS: {
+    about: /War Record/i,
+    name: 'War Record popups',
+    group: 'Interface',
+    format: { kind: 'switch', on: 0, off: 1 },
+    help: '',
+  },
+  SW_RARE_PSI: {
+    about: /popup message/i,
+    name: 'Popup messages last',
+    group: 'Interface',
+    format: { kind: 'number', unit: 'seconds', min: 0 },
+    help: 'Over a unit, in combat.',
+  },
+  RAND_DAYS_INJURED: {
+    about: /bradford/i,
+    name: 'Bradford’s objective briefings',
+    group: 'Interface',
+    format: { kind: 'number', unit: 'missions', min: 0 },
+    help: 'He stops after this many covert extractions or data recoveries.',
+  },
+  SOLDIER_COST_CLASSIC: {
+    about: /tint of armors/i,
+    name: 'Armor colors on promotion to Lance Corporal',
+    group: 'Class colors',
+    format: {
+      kind: 'choice',
+      options: [
+        [1, 'LWR’s own'],
+        [0, 'the class colors here only'],
+      ],
+    },
+    help: '',
+  },
+}
+
+/** The file's heading over each line of its item list ("; Grenades", ";Ballistic Weapons"). */
+function itemHeadings(raw: string[]): (string | undefined)[] {
+  const out: (string | undefined)[] = []
+  let at: string | undefined
+  let inList = false
+  const item = /^\s*(ItemBalance_Normal|BalanceMods_Classic)\s*=/i
+  raw.forEach((l, i) => {
+    if (/extra weapon and armor stat configuration/i.test(l)) inList = true
+    const c = /^\s*;\s*([A-Za-z][\w '&/-]{1,40}?)\s*$/.exec(l)
+    // A heading: a short comment not over an item (an item's name is), not a field's notes.
+    if (inList && c && !item.test(raw[i + 1] ?? '') && !/^i[A-Z]/.test(c[1]!)) at = c[1]
+    out.push(inList ? at : undefined)
+  })
+  return out
+}
+
+const SECTIONS: Record<string, string> = {
+  'beam lasers': 'Laser weapons',
+  'gauss weaponry': 'Gauss weapons',
+  'pulse laser weaponry': 'Pulse weapons',
+  'plasma weaponry': 'Plasma weapons',
+  arc: 'Arc weapons',
+  'shiv small items': 'SHIV items',
+  'anti-armor module': 'SHIV items',
+  'mec armors': 'MEC suits',
+  'mec large items': 'MEC weapons',
+  'mec small items': 'MEC items',
+  'joint mec/shiv small items': 'MEC and SHIV items',
+}
+/** The file's heading as a section: its own words, but small items are small items whoever carries them. */
+const sectionName = (h: string) =>
+  SECTIONS[h.toLowerCase()] ??
+  (/small items/i.test(h) ? 'Small items' : h.charAt(0).toUpperCase() + h.slice(1).toLowerCase())
 
 /**
  * Settings the file lists itself:
@@ -398,16 +681,20 @@ export function listedSettings(text: string): SettingDef[] {
       )
     const lwr = /^\(LWR Default = ([^)]*)\)\s*(.*)$/.exec(l.comment)
     if (lwr) {
-      const what = optionName(lwr[2]!)
-      out.push(
-        key(`lwr.${l.key.toLowerCase()}`, 'LWR options', what || l.key, l.key, /^\(LWR Default/, {
-          help: lwr[2],
-        }),
-      )
+      const known = LWR[l.key.toUpperCase()]
+      const id = `lwr.${l.key.toLowerCase()}`
+      if (known && known.about.test(lwr[2]!)) {
+        const { about: _about, name, group, ...extra } = known
+        out.push(key(id, group, name, l.key, /^\(LWR Default/, extra))
+      } else {
+        const what = optionName(lwr[2]!)
+        out.push(key(id, 'LWR options', what || l.key, l.key, /^\(LWR Default/, { help: lwr[2] }))
+      }
     }
   }
   // Item mobility: the BalanceMods_Classic line under a "; Name" comment.
   const raw = text.split(/\r?\n/)
+  const headings = itemHeadings(raw)
   for (const l of ls) {
     if (l.off || !same(l.key, 'BalanceMods_Classic')) continue
     const f = fields(l.raw, l.start, l.end)
@@ -428,8 +715,9 @@ export function listedSettings(text: string): SettingDef[] {
       id: `item-mobility.${eType}`,
       group: 'Item mobility',
       name,
-      help: 'Mobility while carried (negative slows the soldier).',
+      help: '',
       type: 'number',
+      section: headings[l.n] ? sectionName(headings[l.n]!) : undefined,
       place: {
         kind: 'field',
         key: 'BalanceMods_Classic',
@@ -443,7 +731,10 @@ export function listedSettings(text: string): SettingDef[] {
 
 /** A short name out of an LWR option's comment: its first clause, plainly. */
 export function optionName(comment: string): string {
-  let s = comment.split(' [')[0]!.split(/(?<=\w)\.\s|:\s/)[0]!.trim()
+  let s = comment
+    .split(' [')[0]!
+    .split(/(?<=\w)\.\s|:\s/)[0]!
+    .trim()
   if (/^Float for /i.test(s)) s = s.replace(/^Float for (the )?/i, '').split(' (')[0]!
   s = s.replace(/\s*\((?:min|max|minimum|maximum)[^)]*\)/gi, '').replace(/\.$/, '')
   s = s.charAt(0).toUpperCase() + s.slice(1)

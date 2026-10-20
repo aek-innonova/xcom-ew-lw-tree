@@ -36,7 +36,7 @@ describe('game settings in a player’s words (model/gamesettings.ts)', () => {
     expect(s.get('soldier.hp')?.value).toBe('4') // not the civilian's, not a nested HP
     expect(s.get('soldier.mobility')?.value).toBe('13')
     expect(s.get('campaign.starting-soldiers')?.value).toBe('40') // the uncommented one
-    expect(s.get('lwr.num_starting_soldiers')?.name).toBe('Male gender chance')
+    expect(s.get('lwr.num_starting_soldiers')?.name).toBe('Chance a recruit is male')
     expect(s.get('rookie.min-hp')?.value).toBe('3')
     expect(s.get('class.sniper.color')?.value).toBe('32')
     expect(s.get('class.sniper.headgear')?.type).toBe('headgear')
@@ -139,11 +139,38 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
     expect(s.has('campaign.starting-soldiers')).toBe(false)
     expect(s.has('psi.gift')).toBe(false)
     expect(s.get('lwr.num_starting_soldiers')).toMatchObject({
-      name: 'Male gender chance',
+      name: 'Chance a recruit is male',
       value: '75',
     })
     expect(s.has('arcthrower.pistol')).toBe(false) // LWR has no alternative line
     expect(s.get('soldier.hp')?.value).toBe('6')
+  })
+
+  it('LWR: every option named and placed by hand, none left to its comment', () => {
+    const s = findSettings(read(LWR))
+    const lwr = s.filter((d) => d.id.startsWith('lwr.'))
+    expect(lwr.length).toBe(22)
+    expect(lwr.filter((d) => d.group === 'LWR options').map((d) => d.name)).toEqual([])
+    expect(byId(read(LWR)).get('lwr.species_point_limit')).toMatchObject({
+      name: 'Barracks order',
+      group: 'Interface',
+      format: { kind: 'choice' },
+    })
+  })
+
+  it('item mobility by the file’s own headings, the small items together', () => {
+    for (const file of [LW, LWR]) {
+      const items = findSettings(read(file)).filter((d) => d.group === 'Item mobility')
+      const of = (name: string) => items.find((d) => d.name === name)?.section
+      expect(items.every((d) => d.section)).toBe(true)
+      expect(of('HE Grenade')).toBe('Grenades')
+      expect(of('Carapace Armor')).toBe('Armor')
+      expect(of('Laser Rifle')).toBe('Laser weapons')
+      expect(of('Plasma Rifle')).toBe('Plasma weapons')
+      expect(of('Medikit')).toBe('Small items')
+      expect(of('Alien Trophy')).toBe('Small items')
+      expect(of(file === LW ? 'MEC-1 Paladin' : 'MEC1 Paladin')).toBe('MEC suits')
+    }
   })
 
   it('the person’s hand edits, read back as settings: exactly their list', () => {
