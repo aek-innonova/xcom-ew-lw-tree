@@ -156,7 +156,7 @@ const gridStyle = computed(() =>
 )
 /** A jet just hit: the Firestorm's hologram turns red for a moment, as in the game. */
 const hitNow = (k: number) =>
-  seen.value.some((e) => e.kind === 'hit' && e.to === k && t.value - e.time < 0.35)
+  !over.value && seen.value.some((e) => e.kind === 'hit' && e.to === k && t.value - e.time < 0.35)
 /** The game's button face for Aim, Dodge and Break off: ready, in use, or not to be had. */
 function face(u: 'aim' | 'dodge' | 'boost' | 'abort'): string | undefined {
   const a = art.value
@@ -173,7 +173,8 @@ const jetAt = (k: number) => ({ x: 90, y: H.value / 2 + (k - (n.value - 1) / 2) 
 const at = (who: number) => (who < 0 ? UFO.value : jetAt(who))
 const FLIGHT = 0.3
 const inFlight = computed(() =>
-  seen.value
+  // Over: nothing more in the air.
+  (over.value ? [] : seen.value)
     .filter((e) => e.kind === 'shot' && t.value - e.time <= FLIGHT + 0.15)
     .map((e, i) => {
       const from = at(e.from!)
@@ -371,6 +372,7 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
               :width="art.projectile(s.weapon).width"
               :height="art.projectile(s.weapon).height"
               :transform="`translate(${s.x} ${s.y})${art.projectile(s.weapon).upright ? ` rotate(${s.angle + 90})` : ''}`"
+              :class="{ 'ufo-shot': s.ufo }"
               :opacity="s.fade"
             />
             <circle

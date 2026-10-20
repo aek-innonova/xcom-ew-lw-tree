@@ -68,6 +68,10 @@
     animation: none;
   }
 }
+.ufo-shot {
+  /* The UFO's shots red, so whose shot is whose shows (the game's plasma is green for both). */
+  filter: hue-rotate(250deg) saturate(1.6);
+}
 .hit-flash {
   /* A hit jet flashes red, as the game draws it (the Firestorm has its own red picture). */
   filter: hue-rotate(170deg) saturate(3);

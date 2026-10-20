@@ -38,7 +38,7 @@ watch(
     if (open && !dialog.value.open) dialog.value.showModal?.()
     else if (!open && dialog.value.open) dialog.value.close()
     if (open && props.atUpdates)
-      void nextTick(() => appSection.value?.scrollIntoView({ block: 'start' }))
+      void nextTick(() => appSection.value?.scrollIntoView({ block: 'start', behavior: 'instant' }))
   },
 )
 onMounted(() => {
@@ -133,7 +133,12 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       </p>
     </section>
 
-    <section v-if="desktop?.bundle && updates.state" id="this-app" ref="appSection">
+    <section
+      v-if="desktop?.bundle && updates.state"
+      id="this-app"
+      ref="appSection"
+      class="this-app"
+    >
       <h3>This app</h3>
       <UpdatePanel />
     </section>
@@ -342,5 +347,9 @@ code {
   text-align: center;
   color: var(--muted);
   flex: none;
+}
+/* Opened at the app's updates: its heading in view, not under the top edge. */
+.this-app {
+  scroll-margin-top: 16px;
 }
 </style>

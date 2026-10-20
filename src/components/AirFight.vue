@@ -161,8 +161,10 @@ const picture = (type: number) => `${import.meta.env.BASE_URL}ships/${type}.webp
 /** The game's interception art, in the app with a game to read. */
 const art = computed(() => interceptionArt())
 /** The jet just hit: the Firestorm's hologram turns red for a moment, as in the game. */
-const jetHit = computed(() =>
-  seen.value.some((e) => e.kind === 'hit' && e.target === 1 && t.value - e.time < 0.35),
+const jetHit = computed(
+  () =>
+    !over.value &&
+    seen.value.some((e) => e.kind === 'hit' && e.target === 1 && t.value - e.time < 0.35),
 )
 const jetArt = computed(() => art.value?.ship(leg.value.craft.type, jetHit.value) ?? null)
 const ufoArt = computed(() => art.value?.ship(props.ufo.type) ?? null)
@@ -185,7 +187,8 @@ const JET = { x: 90, y: 95 }
 const UFO = { x: 550, y: 95 }
 const FLIGHT = 0.3
 const inFlight = computed(() =>
-  seen.value
+  // Over: nothing more in the air.
+  (over.value ? [] : seen.value)
     .filter((e) => e.kind === 'shot' && t.value - e.time <= FLIGHT + 0.15)
     .map((e, i) => {
       const s = e.shot!
@@ -355,6 +358,7 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
               :width="art.projectile(s.weapon).width"
               :height="art.projectile(s.weapon).height"
               :transform="`translate(${s.x} ${s.y})${art.projectile(s.weapon).upright ? ` rotate(${s.angle + 90})` : ''}`"
+              :class="{ 'ufo-shot': s.source === 0 }"
               :opacity="s.fade"
             />
             <circle

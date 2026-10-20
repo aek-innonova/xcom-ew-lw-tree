@@ -128,4 +128,8 @@ button.primary {
   border: none;
   font-weight: 600;
 }
+button.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 </style>

@@ -29,10 +29,11 @@ export async function startUpdates(): Promise<void> {
   if (!b) return
   b.onState((s) => (updates.state = s))
   updates.state = await b.state()
-  // The page came up: the bundle it runs is good (an update that never says
-  // so is rolled back at the next start).
-  await b.good()
   sayWhatIsNew(updates.state)
+  // The page came up: the bundle it runs is good (an update that never says
+  // so is rolled back at the next start). Its tidying can fail on a file the
+  // installer still holds (just after an update); that is no reason to stop.
+  await b.good().catch(() => undefined)
 }
 
 /** "Updated to app 0.3.6", "Now on site 2026.1020…": once, after a restart into it. */
@@ -47,7 +48,8 @@ function sayWhatIsNew(s: BundleState | null) {
   const parts: string[] = []
   if (seen.shell && seen.shell !== s.shellVersion) parts.push(`app ${s.shellVersion}`)
   if (seen.site && seen.site !== s.serving) parts.push(`site ${s.serving}`)
-  if (parts.length) state.message = { kind: 'info', text: `Updated: now on ${parts.join(' and ')}.` }
+  if (parts.length)
+    state.message = { kind: 'info', text: `Updated: now on ${parts.join(' and ')}.` }
   try {
     localStorage.setItem(SEEN, JSON.stringify({ shell: s.shellVersion, site: s.serving }))
   } catch {
