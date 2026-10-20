@@ -1,6 +1,6 @@
 ---
 title: "Items in the game settings: every item's numbers, not just its mobility"
-status: in-progress
+status: review
 priority: 3
 dependsOn: [game-settings-ux]
 ---
@@ -107,3 +107,15 @@ Verified:
   `iCash=120`, and its mobility shows −2.
 - Screenshots: the arc thrower's, the carapace's and the assault rifle's
   cards.
+- On the bench (the person's install, site 2026.1020.172432):
+  - The person's arc thrower mobility edit came through the rename, marked
+    as theirs, and is still written.
+  - Assault rifle damage 5, carapace HP 6, mimic beacon meld 30 and
+    medikit mobility 0 were written as exactly those four fields, beside the
+    person's 14 lines.
+  - The stats table's ranges match 2 × base − lowest, and the female face
+    looks right zoomed in. Nothing is cut off at 1280 × 752.
+- From the bench's notes: the weapon line's part is "When used" (a
+  medikit has one too). Build costs a version leaves to the game (−1) are
+  said in one sentence ("Its cost, build time and engineers are not set in
+  this file") instead of as empty fields.

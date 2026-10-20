@@ -56,7 +56,7 @@ const picked = computed(
 
 const PARTS: [ItemPart, string][] = [
   ['build', 'To build'],
-  ['weapon', 'As a weapon'],
+  ['weapon', 'When used'],
   ['armor', 'As armor'],
   ['carried', 'Carried'],
 ]
@@ -73,6 +73,7 @@ const parts = computed(() => {
     // Armor has its own mobility and defense; aim from carrying is for armor only.
     if (armor && (id === 'mobility' || id === 'carried-defense')) return false
     if (!armor && id === 'carried-aim') return false
+    if (unsetHere(d)) return false
     return !(QUIET.has(id) && numberOf(d.value) === 0)
   }
   return PARTS.map(([part, title]) => ({
@@ -84,8 +85,18 @@ const parts = computed(() => {
 const picture = computed(() =>
   gameImages.version >= 0 && picked.value ? gamePicture('item', picked.value.type) : null,
 )
+const SHORT: Record<string, string> = {
+  Credits: 'cost',
+  'Days to build': 'build time',
+  'Engineers needed': 'engineers',
+}
+/** Build fields Long War leaves to the game (−1): said once, the field not shown unless set. */
+const unsetHere = (d: FoundSetting) =>
+  d.item?.part === 'build' && numberOf(d.value) === -1 && !(d.id in tools.gameValues)
 const notSetHere = computed(() =>
-  parts.value.some((p) => p.part === 'build' && p.fields.some((d) => numberOf(d.value) === -1)),
+  (picked.value?.fields ?? [])
+    .filter(unsetHere)
+    .map((d) => SHORT[d.item!.label] ?? d.item!.label.toLowerCase()),
 )
 </script>
 
@@ -121,11 +132,12 @@ const notSetHere = computed(() =>
         <h4>{{ picked.name }}</h4>
         <span class="muted small">{{ picked.section }}</span>
       </header>
+      <p v-if="notSetHere.length" class="muted small unset">
+        Its {{ notSetHere.join(', ').replace(/, ([^,]*)$/, ' and $1') }} to build are not set in
+        this file: the game’s own apply.
+      </p>
       <section v-for="p in parts" :key="p.part" class="part" :aria-label="p.title">
         <h5>{{ p.title }}</h5>
-        <p v-if="p.part === 'build' && notSetHere" class="muted small">
-          A blank one is not set in this file: the game’s own applies.
-        </p>
         <div class="rows">
           <SettingRow v-for="d in p.fields" :key="d.id" :def="d" :label="d.item!.label" />
         </div>
@@ -213,8 +225,8 @@ const notSetHere = computed(() =>
   letter-spacing: 0.04em;
   color: var(--muted);
 }
-.part p {
-  margin: 0 0 4px;
+.unset {
+  margin: 8px 0 0;
 }
 .rows {
   display: grid;
