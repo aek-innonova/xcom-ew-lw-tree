@@ -7,6 +7,8 @@
 
 import { computed, shallowRef } from 'vue'
 import type { FoundSetting } from '@/model/gamesettings'
+import { numberOf } from '@/model/settingformat'
+import lwrTints from '../../data/lwr/class-tints.json'
 import type { PaletteEntry } from '@/model/material'
 import { armorPalette, kevlarDecos } from '@/state/soldier'
 import { setGameValue, tools } from '@/state/tools'
@@ -70,15 +72,46 @@ const decoChoices = computed<[string, string][] | null>(() =>
   decos.value.length ? [['-1', 'the armor’s own'], ...decos.value] : null,
 )
 
+/**
+ * LWR's own class colours (data/lwr/class-tints.json, from its mutator): with
+ * its "armor colors on promotion" option at 1, LWR sets each class's tint
+ * itself at Lance Corporal, and again for some perks; the INI's class colours
+ * apply only with it at 0.
+ */
+const LWR_OPTION = 'lwr.soldier_cost_classic'
+const lwrOwn = computed(() => {
+  const d = props.items.find((x) => x.id === LWR_OPTION)
+  return !!d && numberOf(tools.gameValues[d.id] ?? d.value) === 1
+})
+type LwrClass = { class: string; tint: number; byPerk: { name: string; tint: number }[] }
+const lwrClass = (name: string) =>
+  lwrOwn.value ? (lwrTints.classes as LwrClass[]).find((c) => c.class === name) : undefined
+/** Perks that change the class's colour, in words: "In The Zone: 15 · red with yellow". */
+const perkColors = (c: LwrClass) =>
+  c.byPerk
+    .filter((p) => p.tint !== c.tint)
+    .map((p) => `${p.name}: ${p.tint}${colorName(p.tint) ? ` · ${colorName(p.tint)}` : ''}`)
+    .join('; ')
+const colorName = (n: number) => (n === 0 ? 'the armor’s own' : tools.codes.colors.get(String(n)))
+/** The colours the soldier wears where LWR sets them, by color setting id. */
+const codes = computed<Record<string, number>>(() =>
+  Object.fromEntries(
+    looks.value.flatMap((l) => {
+      const c = lwrClass(l.name)
+      return l.color && c ? [[l.color.id, c.tint]] : []
+    }),
+  ),
+)
+
 const palette = shallowRef<PaletteEntry[]>([])
 void armorPalette().then((p) => (palette.value = p))
 const valueOf = (d?: FoundSetting) => (d ? (tools.gameValues[d.id] ?? d.value) : '')
 /** Long War's color n is the palette's entry n − 1; 0 is the armor's own (no swatch). */
-const swatch = (d?: FoundSetting) => {
-  const n = Number(valueOf(d))
+const swatchOf = (n: number) => {
   const e = n >= 1 ? palette.value[n - 1] : undefined
   return e ? [css(e.primary), css(e.secondary)] : null
 }
+const swatch = (d?: FoundSetting) => swatchOf(Number(valueOf(d)))
 const css = (c: number[]) =>
   `rgb(${c
     .slice(0, 3)
@@ -96,6 +129,11 @@ const headgear = computed(() =>
   <div class="looks">
     <div class="layout">
       <div class="table-side">
+        <p v-if="lwrOwn" class="lwr-note small">
+          LWR colours each class itself at its promotion to Lance Corporal, and again for some perks
+          chosen later: those colours are shown. The class colours in the INI apply instead with
+          “Armor colors on promotion to Lance Corporal” below set to “the class colors here only”.
+        </p>
         <table class="classes">
           <thead>
             <tr>
@@ -124,7 +162,25 @@ const headgear = computed(() =>
                 </button>
               </th>
               <td>
-                <span v-if="l.color" class="cell" :class="{ mine: mine(l.color) }">
+                <span v-if="l.color && lwrClass(l.name)" class="cell lwr">
+                  <span class="swatch" aria-hidden="true">
+                    <template v-if="swatchOf(lwrClass(l.name)!.tint)">
+                      <i :style="{ background: swatchOf(lwrClass(l.name)!.tint)![0] }" />
+                      <i :style="{ background: swatchOf(lwrClass(l.name)!.tint)![1] }" />
+                    </template>
+                  </span>
+                  <span>
+                    {{ lwrClass(l.name)!.tint }}
+                    <template v-if="colorName(lwrClass(l.name)!.tint)">
+                      · {{ colorName(lwrClass(l.name)!.tint) }}</template
+                    >
+                    <span class="tag">LWR’s own</span>
+                    <span v-if="perkColors(lwrClass(l.name)!)" class="perks"
+                      >later, with {{ perkColors(lwrClass(l.name)!) }}</span
+                    >
+                  </span>
+                </span>
+                <span v-else-if="l.color" class="cell" :class="{ mine: mine(l.color) }">
                   <span class="swatch" aria-hidden="true">
                     <template v-if="swatch(l.color)">
                       <i :style="{ background: swatch(l.color)![0] }" />
@@ -170,7 +226,7 @@ const headgear = computed(() =>
           <SettingRow v-for="d in others" :key="d.id" :def="d" />
         </div>
       </div>
-      <SoldierPreview class="soldier-side" :colors="colors" :headgear="headgear" />
+      <SoldierPreview class="soldier-side" :colors="colors" :headgear="headgear" :codes="codes" />
     </div>
   </div>
 </template>
@@ -241,6 +297,27 @@ const headgear = computed(() =>
 }
 .cell :deep(select) {
   max-width: 220px;
+}
+.lwr-note {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+.cell.lwr {
+  align-items: flex-start;
+  font-size: 13px;
+}
+.tag {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.perks {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
 }
 .swatch {
   display: inline-flex;

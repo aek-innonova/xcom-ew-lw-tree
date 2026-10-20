@@ -962,6 +962,54 @@ export async function useSetup(name: string): Promise<void> {
   void checkMods()
 }
 
+/**
+ * The choices back to what the game has now (features/game-setups.md): the
+ * version as installed; the mods ticked whose scripts are in the game (one in
+ * it with other option values than the player's set keeps the script's own);
+ * the game settings the game's file has where they differ from the version's
+ * own; the INI lines the file already has. Applied, it changes nothing.
+ */
+export async function resetToGame(): Promise<void> {
+  if (!files) return
+  tools.base = 'keep'
+  choices.base = 'keep'
+  for (const m of tools.mods) {
+    const scripts = m.files.filter((f) => f.kind === 'script')
+    const status = (f: ModFile) => tools.checks[checkKey(m, f)]?.status
+    m.wanted = Object.fromEntries(
+      scripts.map((f) => [f.path, status(f) === 'installed' || status(f) === 'other-values']),
+    )
+    m.values = Object.fromEntries(
+      Object.entries(m.values).filter(
+        ([path]) => !scripts.some((f) => f.path === path && status(f) === 'other-values'),
+      ),
+    )
+    choices.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+  }
+  // INI lines: those the game's file already has.
+  tools.settings = tools.settings.filter(
+    (c) =>
+      tools.iniEntries.find(
+        (e) => e.section === c.section && e.key === c.key && e.occurrence === c.occurrence,
+      )?.value === c.value,
+  )
+  choices.ini = tools.settings
+  // Game settings: everything the file has that the version's own does not.
+  tools.gameValues = {}
+  choices.game = { ...choices.game, [gameKind()]: {} }
+  tools.plan = null
+  const current = await files.read(GAME_INI)
+  await loadGameSettings(current ? iniText(current) : null)
+  const values = Object.fromEntries(tools.handEdits.map((c) => [c.def.id, c.now]))
+  tools.gameValues = values
+  tools.handEdits = []
+  choices.game = { ...choices.game, [gameKind()]: { ...values } }
+  delete choices.setupFrom
+  listSetups()
+  await saveChoices()
+  void checkMods()
+}
+
 export async function deleteSetup(name: string): Promise<void> {
   const next = { ...choices.setups }
   delete next[name]

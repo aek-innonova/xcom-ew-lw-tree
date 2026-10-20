@@ -87,3 +87,26 @@ button"
   there opens the same console.
 - On the bench: the steps showed under the button, about 2.5 s to
   "Nothing to change", and nothing was written.
+
+## Response (2026-10-20)
+
+"maybe a button to reset the tool to either what is actually configured in
+the game or what a saved preset contains so if you play around you have a
+way to get back"
+
+## Report (2026-10-20): back to the game, or to the setup
+
+- The setup list has "Back to what the game has now…" (`resetToGame`):
+  - The version as installed.
+  - The mods ticked whose scripts are in the game. One in the game with
+    other option values keeps its own.
+  - The game settings the game's file has where they differ from the
+    version's own.
+  - The INI lines the file already has.
+
+  Applied, it changes nothing. It asks first when the choices now are not
+  saved.
+- When the choices came from a saved setup and changed since, "Undo my
+  changes to Sixty" goes back to it.
+- Desktop e2e: a change undone back to Sixty; a change, then back to what
+  the game has, then Apply says "Nothing to change".

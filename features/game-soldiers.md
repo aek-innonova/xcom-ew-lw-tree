@@ -163,3 +163,34 @@ Not done:
 - The game's own lighting and reflections (cube maps).
 - Animation: the one idle; no fidgets, poses or salutes to choose.
 - Weapons and the MEC suits.
+
+## Response (2026-10-20)
+
+"do the class colors actually make sense and map properly to LWR, the
+models seemed different when i tried it"
+
+## Report (2026-10-20): LWR's own class colours
+
+- **Long War:** class colours are the INI's (HQ_BASE_POWER), applied when
+  a soldier gets their class.
+- **LWR:** with its option SOLDIER_COST_CLASSIC at 1 (LWR's own, the
+  default), its mutator sets each class's tint itself at the promotion to
+  Lance Corporal, and again for some perks chosen later
+  (RebalanceMutator.ChangeArmorTint in LWRebalance.u). The INI's class
+  colours are not used then. With the option at 0 the mutator does nothing
+  and the INI's colours apply.
+- The class table showed the INI's colours in LWR, so the soldier wore
+  colours LWR never gives. That is the likely difference seen.
+- `scripts/lwr_class_tints.py` reads LWR's colours from its script into
+  `data/lwr/class-tints.json`:
+  - The class from EnergyToClass. Sniper 6, Scout 3, Rocketeer 23, Gunner
+    2, Medic 4, Engineer 21, Assault 5, Infantry 11; the MEC classes too.
+  - The perks by their names in the game (through EPerkType and the INT),
+    e.g. Sniper with In The Zone 15, with Mayhem 22.
+- In LWR at its own setting, the table shows those colours, marked "LWR's
+  own", with the perk colours beneath, and the soldier wears them. A note
+  says the INI's colours apply with the option set to "the class colors
+  here only".
+- LWR's DefaultContent.ini (heads, hair, armor kits, decos) is the same as
+  Long War's but for one light armor's deco (Kestrel: Skeleton's, not
+  Ghost's).

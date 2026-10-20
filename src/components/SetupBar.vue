@@ -6,11 +6,21 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import ApplyConsole from './ApplyConsole.vue'
-import { deleteSetup, makePlan, saveSetup, suggestSetupName, tools, useSetup } from '@/state/tools'
+import {
+  deleteSetup,
+  makePlan,
+  resetToGame,
+  saveSetup,
+  suggestSetupName,
+  tools,
+  useSetup,
+} from '@/state/tools'
 
 const NEW = '\u0000new'
 const SAVE = '\u0000save'
 const DELETE = '\u0000delete'
+const UNDO = '\u0000undo'
+const GAME = '\u0000game'
 
 /** What the list shows as chosen: the setup in use, else the changed one it came from. */
 const current = computed(() => tools.setupInUse ?? (tools.setupFrom ? `${tools.setupFrom}*` : ''))
@@ -41,11 +51,20 @@ async function onPick(e: Event) {
   deleting.value = false
   if (v === NEW) return startNaming()
   if (v === SAVE && tools.setupFrom) return saveSetup(tools.setupFrom)
+  // Back to the saved setup, dropping the changes since: asked for by name.
+  if (v === UNDO && tools.setupFrom) return useSetup(tools.setupFrom)
   if (v === DELETE) {
     deleting.value = true
     return
   }
   if (v === current.value || !v) return
+  if (v === GAME) {
+    if (unsaved.value && hasChoices.value) {
+      switching.value = GAME
+      return
+    }
+    return toGame()
+  }
   // Choices not saved anywhere would be lost: ask first.
   if (unsaved.value && (tools.setupFrom || hasChoices.value)) {
     switching.value = v
@@ -68,13 +87,22 @@ async function onSave() {
   if (switching.value) {
     const next = switching.value
     switching.value = null
-    await useSetup(next)
+    if (next === GAME) await toGame()
+    else await useSetup(next)
   }
 }
 async function switchAnyway() {
   const next = switching.value
   switching.value = null
-  if (next) await useSetup(next)
+  if (next === GAME) await toGame()
+  else if (next) await useSetup(next)
+}
+/** Said for a moment after the choices are set to the game's. */
+const notice = ref('')
+async function toGame() {
+  await resetToGame()
+  notice.value = 'Now what the game has: applying changes nothing.'
+  setTimeout(() => (notice.value = ''), 6000)
 }
 async function onDelete() {
   const n = tools.setupInUse ?? tools.setupFrom
@@ -115,6 +143,8 @@ watch(
         <option v-for="x in tools.setups" :key="x.name" :value="x.name">{{ x.name }}</option>
         <option disabled>──────────</option>
         <option v-if="changed" :value="SAVE">Save the changes to {{ tools.setupFrom }}</option>
+        <option v-if="changed" :value="UNDO">Undo my changes to {{ tools.setupFrom }}</option>
+        <option v-if="tools.install" :value="GAME">Back to what the game has now…</option>
         <option :value="NEW">Save as a new setup…</option>
         <option v-if="tools.setupInUse || tools.setupFrom" :value="DELETE">
           Delete {{ tools.setupInUse ?? tools.setupFrom }}…
@@ -138,7 +168,9 @@ watch(
     <span v-else-if="switching" class="ask small">
       Your choices now are not saved.
       <button type="button" @click="startNaming">Save them first…</button>
-      <button type="button" @click="switchAnyway">Switch to {{ switching }}</button>
+      <button type="button" @click="switchAnyway">
+        {{ switching === GAME ? 'Use what the game has' : `Switch to ${switching}` }}
+      </button>
       <button type="button" @click="switching = null">Cancel</button>
     </span>
     <span v-else-if="deleting" class="ask small">
@@ -146,6 +178,7 @@ watch(
       <button type="button" @click="onDelete">Delete it</button>
       <button type="button" @click="deleting = false">Cancel</button>
     </span>
+    <span v-else-if="notice" class="state small present" role="status">{{ notice }}</span>
     <span v-else-if="tools.setupInUse" class="state small present">in use</span>
     <span v-else-if="changed" class="state small muted">changed since saved</span>
 

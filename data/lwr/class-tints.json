@@ -1,0 +1,358 @@
+{
+ "generated": "by scripts/lwr_class_tints.py from LWRebalance.u (RebalanceMutator.ChangeArmorTint)",
+ "option": "SOLDIER_COST_CLASSIC",
+ "classes": [
+  {
+   "energy": 11,
+   "class": "Sniper",
+   "tint": 6,
+   "byPerk": [
+    {
+     "perk": 14,
+     "name": "In The Zone",
+     "tint": 15
+    },
+    {
+     "perk": 13,
+     "name": "Double Tap",
+     "tint": 6
+    },
+    {
+     "perk": 93,
+     "name": "Mayhem",
+     "tint": 22
+    }
+   ]
+  },
+  {
+   "energy": 12,
+   "class": "Rocketeer",
+   "tint": 23,
+   "byPerk": [
+    {
+     "perk": 91,
+     "name": "Smoke and Mirrors",
+     "tint": 13
+    },
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 23
+    },
+    {
+     "perk": 126,
+     "name": "Light 'Em Up",
+     "tint": 12
+    }
+   ]
+  },
+  {
+   "energy": 13,
+   "class": "Medic",
+   "tint": 4,
+   "byPerk": [
+    {
+     "perk": 91,
+     "name": "Smoke and Mirrors",
+     "tint": 4
+    },
+    {
+     "perk": 17,
+     "name": "Will to Survive",
+     "tint": 28
+    },
+    {
+     "perk": 54,
+     "name": "Sentinel",
+     "tint": 27
+    }
+   ]
+  },
+  {
+   "energy": 14,
+   "class": "Assault",
+   "tint": 5,
+   "byPerk": [
+    {
+     "perk": 6,
+     "name": "Run and Gun",
+     "tint": 17
+    },
+    {
+     "perk": 17,
+     "name": "Will to Survive",
+     "tint": 5
+    },
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 19
+    }
+   ]
+  },
+  {
+   "energy": 21,
+   "class": "Scout",
+   "tint": 3,
+   "byPerk": [
+    {
+     "perk": 91,
+     "name": "Smoke and Mirrors",
+     "tint": 0
+    },
+    {
+     "perk": 167,
+     "name": "Hit and Run",
+     "tint": 25
+    },
+    {
+     "perk": 116,
+     "name": "Bullseye",
+     "tint": 3
+    }
+   ]
+  },
+  {
+   "energy": 22,
+   "class": "Gunner",
+   "tint": 2,
+   "byPerk": [
+    {
+     "perk": 17,
+     "name": "Will to Survive",
+     "tint": 2
+    },
+    {
+     "perk": 93,
+     "name": "Mayhem",
+     "tint": 30
+    },
+    {
+     "perk": 54,
+     "name": "Sentinel",
+     "tint": 26
+    }
+   ]
+  },
+  {
+   "energy": 23,
+   "class": "Engineer",
+   "tint": 21,
+   "byPerk": [
+    {
+     "perk": 13,
+     "name": "Double Tap",
+     "tint": 16
+    },
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 21
+    },
+    {
+     "perk": 91,
+     "name": "Smoke and Mirrors",
+     "tint": 8
+    }
+   ]
+  },
+  {
+   "energy": 24,
+   "class": "Infantry",
+   "tint": 11,
+   "byPerk": [
+    {
+     "perk": 17,
+     "name": "Will to Survive",
+     "tint": 11
+    },
+    {
+     "perk": 54,
+     "name": "Sentinel",
+     "tint": 18
+    },
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 20
+    }
+   ]
+  },
+  {
+   "energy": 31,
+   "class": "Jaeger",
+   "tint": 6,
+   "byPerk": [
+    {
+     "perk": 116,
+     "name": "Bullseye",
+     "tint": 15
+    },
+    {
+     "perk": 40,
+     "name": "Close Combat Specialist",
+     "tint": 6
+    },
+    {
+     "perk": 36,
+     "name": "Rapid Fire",
+     "tint": 22
+    }
+   ]
+  },
+  {
+   "energy": 32,
+   "class": "Goliath",
+   "tint": 2,
+   "byPerk": [
+    {
+     "perk": 23,
+     "name": "Sentry",
+     "tint": 2
+    },
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 30
+    },
+    {
+     "perk": 13,
+     "name": "Double Tap",
+     "tint": 26
+    }
+   ]
+  },
+  {
+   "energy": 33,
+   "class": "Shogun",
+   "tint": 23,
+   "byPerk": [
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 16
+    },
+    {
+     "perk": 43,
+     "name": "Fortified",
+     "tint": 21
+    },
+    {
+     "perk": 167,
+     "name": "Hit and Run",
+     "tint": 8
+    }
+   ]
+  },
+  {
+   "energy": 34,
+   "class": "Marauder",
+   "tint": 5,
+   "byPerk": [
+    {
+     "perk": 40,
+     "name": "Close Combat Specialist",
+     "tint": 17
+    },
+    {
+     "perk": 43,
+     "name": "Fortified",
+     "tint": 5
+    },
+    {
+     "perk": 23,
+     "name": "Sentry",
+     "tint": 19
+    }
+   ]
+  },
+  {
+   "energy": 41,
+   "class": "Jaeger",
+   "tint": 6,
+   "byPerk": [
+    {
+     "perk": 116,
+     "name": "Bullseye",
+     "tint": 15
+    },
+    {
+     "perk": 40,
+     "name": "Close Combat Specialist",
+     "tint": 6
+    },
+    {
+     "perk": 36,
+     "name": "Rapid Fire",
+     "tint": 22
+    }
+   ]
+  },
+  {
+   "energy": 42,
+   "class": "Goliath",
+   "tint": 2,
+   "byPerk": [
+    {
+     "perk": 23,
+     "name": "Sentry",
+     "tint": 2
+    },
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 30
+    },
+    {
+     "perk": 13,
+     "name": "Double Tap",
+     "tint": 26
+    }
+   ]
+  },
+  {
+   "energy": 43,
+   "class": "Shogun",
+   "tint": 23,
+   "byPerk": [
+    {
+     "perk": 24,
+     "name": "Grenadier",
+     "tint": 16
+    },
+    {
+     "perk": 43,
+     "name": "Fortified",
+     "tint": 21
+    },
+    {
+     "perk": 167,
+     "name": "Hit and Run",
+     "tint": 8
+    }
+   ]
+  },
+  {
+   "energy": 44,
+   "class": "Marauder",
+   "tint": 5,
+   "byPerk": [
+    {
+     "perk": 40,
+     "name": "Close Combat Specialist",
+     "tint": 17
+    },
+    {
+     "perk": 43,
+     "name": "Fortified",
+     "tint": 5
+    },
+    {
+     "perk": 23,
+     "name": "Sentry",
+     "tint": 19
+    }
+   ]
+  }
+ ]
+}

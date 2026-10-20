@@ -195,4 +195,21 @@ test('game settings: hand edits kept, then set in words and written', async () =
         'Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=eWP_Pistol',
       ),
   )
+
+  // Played with, then back (features/game-setups.md): the changes to the
+  // setup undone, or the choices set to what the game has, which then
+  // changes nothing.
+  await plan.getByRole('button', { name: 'Close' }).click()
+  await start.fill('99')
+  await start.press('Enter')
+  await pick.selectOption({ label: 'Undo my changes to Sixty' })
+  await expect(start).toHaveValue('60')
+  await start.fill('99')
+  await start.press('Enter')
+  await pick.selectOption({ label: 'Back to what the game has now…' })
+  await bar.getByRole('button', { name: 'Use what the game has' }).click()
+  await expect(bar).toContainText('Now what the game has')
+  await expect(start).toHaveValue('60')
+  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  await expect(plan).toContainText('Nothing to change')
 })

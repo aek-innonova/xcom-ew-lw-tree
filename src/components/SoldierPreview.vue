@@ -22,7 +22,12 @@ import {
 import { tools } from '@/state/tools'
 import SoldierView from './SoldierView.vue'
 
-const props = defineProps<{ colors: FoundSetting[]; headgear: FoundSetting[] }>()
+const props = defineProps<{
+  colors: FoundSetting[]
+  headgear: FoundSetting[]
+  /** Colours set by the version rather than the setting (LWR's own), by color setting id. */
+  codes?: Record<string, number>
+}>()
 
 const armor = ref<Armor>('Kevlar')
 const gender = ref<Gender>('Male')
@@ -105,7 +110,11 @@ async function load() {
 watch([armor, gender, head, hair, headgear, deco], load, { immediate: true })
 
 const setting = computed(() => props.colors.find((c) => c.id === whose.value))
-const code = computed(() => Number(tools.gameValues[whose.value] ?? setting.value?.value ?? 0))
+const code = computed(
+  () =>
+    props.codes?.[whose.value] ??
+    Number(tools.gameValues[whose.value] ?? setting.value?.value ?? 0),
+)
 const tint = computed(() => {
   const own = soldier.value?.meshes[0]?.paints.find((p) => p.kind === 'armor')
   if (!own || !palette.value.length) return { top: null, bottom: null }
