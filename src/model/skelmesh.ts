@@ -192,3 +192,58 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
     throw new Error('the mesh is not laid out as expected (vertex size)')
   return { materials, bones, sections, indices, vertexCount, positions, normals, uvs }
 }
+
+type Quat = [number, number, number, number]
+const qmul = (a: Quat, b: Quat): Quat => [
+  a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+  a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+  a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+  a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+]
+function rotate(q: Quat, x: number, y: number, z: number): [number, number, number] {
+  const r = qmul(qmul(q, [x, y, z, 0]), [-q[0], -q[1], -q[2], q[3]])
+  return [r[0], r[1], r[2]]
+}
+
+/** Each bone's place in the mesh's space, in the rest pose (rotations as stored, parents first). */
+export function boneWorld(
+  bones: MeshBone[],
+): { rotation: Quat; position: [number, number, number] }[] {
+  const out: { rotation: Quat; position: [number, number, number] }[] = []
+  bones.forEach((b, i) => {
+    if (i === 0 || b.parent < 0 || b.parent >= i) {
+      out.push({ rotation: [...b.rotation], position: [...b.position] })
+      return
+    }
+    const p = out[b.parent]!
+    const t = rotate(p.rotation, ...b.position)
+    out.push({
+      rotation: qmul(p.rotation, b.rotation),
+      position: [t[0] + p.position[0], t[1] + p.position[1], t[2] + p.position[2]],
+    })
+  })
+  return out
+}
+
+/** A mesh moved to a place (a bone's, for hair on its socket): positions and normals. */
+export function placeMesh(
+  m: SkelMesh,
+  at: { rotation: Quat; position: [number, number, number] },
+): SkelMesh {
+  const positions = new Float32Array(m.positions.length)
+  const normals = new Float32Array(m.normals.length)
+  for (let i = 0; i < m.vertexCount; i++) {
+    const p = rotate(
+      at.rotation,
+      m.positions[3 * i]!,
+      m.positions[3 * i + 1]!,
+      m.positions[3 * i + 2]!,
+    )
+    const n = rotate(at.rotation, m.normals[3 * i]!, m.normals[3 * i + 1]!, m.normals[3 * i + 2]!)
+    for (let k = 0; k < 3; k++) {
+      positions[3 * i + k] = p[k]! + at.position[k]!
+      normals[3 * i + k] = n[k]!
+    }
+  }
+  return { ...m, positions, normals }
+}

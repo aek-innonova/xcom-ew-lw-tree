@@ -35,6 +35,11 @@ const CHECK_EVERY_MS = 6 * 3600_000
 const CSP =
   "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 
+// WebGL (the 3D soldier, features/game-soldiers.md) on a machine without a
+// GPU Chromium will use: its software renderer. Chromium calls it unsafe for
+// untrusted pages; this window only ever loads the app's own site.
+app.commandLine.appendSwitch('enable-unsafe-swiftshader')
+
 // For tests: their own settings, and a game folder given on the command line.
 if (process.env.LWTREE_USER_DATA) app.setPath('userData', process.env.LWTREE_USER_DATA)
 const argGameDir = process.argv

@@ -44,6 +44,7 @@ import type { BaseChoice } from '@/state/library'
 import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
 import type { FoundSetting } from '@/model/gamesettings'
+import SoldierPreview from './SoldierPreview.vue'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
@@ -201,6 +202,11 @@ function onSetting(e: { section: string; key: string; occurrence: number }, valu
 }
 const repeated = (e: IniEntry) =>
   tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
+
+// The rookie's armor color, previewed with the classes'.
+const appearanceColors = computed(() =>
+  tools.gameSettings.filter((d) => d.id === 'look.rookie-color'),
+)
 
 // Game settings, by group, in the catalogue's order.
 const gameQuery = ref<Record<string, string>>({})
@@ -541,6 +547,10 @@ const iniNote = computed(() =>
             >{{ g.items.length }}<template v-if="g.mine"> · {{ g.mine }} yours</template></span
           >
         </summary>
+        <SoldierPreview
+          v-if="g.name === 'Class colors'"
+          :colors="[...g.items, ...appearanceColors].filter((d) => d.type === 'color')"
+        />
         <input
           v-if="g.items.length > 20"
           v-model="gameQuery[g.name]"
