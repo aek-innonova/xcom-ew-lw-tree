@@ -1,8 +1,10 @@
 ---
 title: "Game settings a player can read: soldiers, the arc thrower, class colours"
-status: review
+status: done
 priority: 3
-dependsOn: [game-tools, game-bases]
+dependsOn:
+  - game-tools
+  - game-bases
 ---
 
 ## Purpose

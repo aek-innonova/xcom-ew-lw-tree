@@ -1,8 +1,7 @@
 ---
 title: A help window
-status: review
+status: done
 priority: 5
-dependsOn: []
 ---
 
 ## Purpose

@@ -1,8 +1,9 @@
 ---
 title: "Items in the game settings: every item's numbers, not just its mobility"
-status: review
+status: done
 priority: 3
-dependsOn: [game-settings-ux]
+dependsOn:
+  - game-settings-ux
 ---
 
 ## Purpose

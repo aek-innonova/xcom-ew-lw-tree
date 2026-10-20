@@ -1,8 +1,10 @@
 ---
 title: Show the campaign's progress on the tree
-status: review
+status: done
 priority: 4
-dependsOn: [save-parser, tree-view]
+dependsOn:
+  - save-parser
+  - tree-view
 ---
 
 ## Purpose

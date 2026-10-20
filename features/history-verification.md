@@ -1,8 +1,11 @@
 ---
 title: Settle the open questions with the person's save history
-status: review
+status: done
 priority: 3
-dependsOn: [campaign-bonuses, foundry-tree, campaign-stats]
+dependsOn:
+  - campaign-bonuses
+  - foundry-tree
+  - campaign-stats
 ---
 
 ## Purpose

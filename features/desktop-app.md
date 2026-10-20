@@ -1,8 +1,9 @@
 ---
 title: "Desktop app: the site with the game's files in reach"
-status: review
+status: done
 priority: 3
-dependsOn: [game-tools]
+dependsOn:
+  - game-tools
 ---
 
 ## Purpose

@@ -1,8 +1,9 @@
 ---
 title: "Tools: the game install, mods and settings"
-status: review
+status: done
 priority: 3
-dependsOn: [lw-rebalanced]
+dependsOn:
+  - lw-rebalanced
 ---
 
 ## Purpose

@@ -1,8 +1,10 @@
 ---
-title: "The player's library folder, and Long War installed by the app"
-status: review
+title: The player's library folder, and Long War installed by the app
+status: done
 priority: 3
-dependsOn: [desktop-app, game-tools]
+dependsOn:
+  - desktop-app
+  - game-tools
 ---
 
 ## Purpose

@@ -1,8 +1,9 @@
 ---
 title: Research credits, made concrete
-status: review
+status: done
 priority: 5
-dependsOn: [history-verification]
+dependsOn:
+  - history-verification
 ---
 
 ## Purpose

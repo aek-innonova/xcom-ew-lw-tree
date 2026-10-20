@@ -1,8 +1,7 @@
 ---
 title: Publish at xcom.innonova.ch
-status: review
+status: done
 priority: 0
-dependsOn: []
 ---
 
 ## Purpose

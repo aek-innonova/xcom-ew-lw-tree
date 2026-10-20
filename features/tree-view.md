@@ -1,8 +1,7 @@
 ---
 title: The visual tech tree
-status: review
+status: done
 priority: 3
-dependsOn: []
 ---
 
 ## Purpose

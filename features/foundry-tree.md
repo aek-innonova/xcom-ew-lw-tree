@@ -1,8 +1,9 @@
 ---
 title: The Foundry projects alongside the research tree
-status: review
+status: done
 priority: 6
-dependsOn: [progress-overlay]
+dependsOn:
+  - progress-overlay
 ---
 
 ## Purpose

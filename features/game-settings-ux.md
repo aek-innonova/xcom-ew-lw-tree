@@ -1,8 +1,11 @@
 ---
-title: "Game settings in the player's terms: rules per version, not the INI passed through"
-status: review
+title: "Game settings in the player's terms: rules per version, not the INI
+  passed through"
+status: done
 priority: 3
-dependsOn: [game-settings, game-soldiers]
+dependsOn:
+  - game-settings
+  - game-soldiers
 ---
 
 ## Purpose

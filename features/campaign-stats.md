@@ -1,8 +1,9 @@
 ---
 title: Campaign statistics, including the aliens' hidden counters
-status: review
+status: done
 priority: 6
-dependsOn: [save-parser]
+dependsOn:
+  - save-parser
 ---
 
 ## Purpose

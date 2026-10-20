@@ -1,8 +1,9 @@
 ---
 title: Grey market inventory
-status: review
+status: done
 priority: 5
-dependsOn: [save-parser]
+dependsOn:
+  - save-parser
 ---
 
 ## Purpose

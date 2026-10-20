@@ -1,8 +1,10 @@
 ---
-title: "A real Windows test bench: Steam, the game, Long War, and the app against them"
-status: review
+title: "A real Windows test bench: Steam, the game, Long War, and the app
+  against them"
+status: done
 priority: 3
-dependsOn: [desktop-app]
+dependsOn:
+  - desktop-app
 ---
 
 ## Purpose

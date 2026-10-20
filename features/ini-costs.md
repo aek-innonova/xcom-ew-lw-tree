@@ -1,8 +1,7 @@
 ---
 title: Load the player's DefaultGameCore.ini for costs
-status: review
+status: done
 priority: 2
-dependsOn: []
 ---
 
 ## Purpose

@@ -1,8 +1,7 @@
 ---
 title: Read XCOM EW saves in the browser
-status: review
+status: done
 priority: 1
-dependsOn: []
 ---
 
 ## Purpose

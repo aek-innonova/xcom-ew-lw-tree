@@ -1,8 +1,10 @@
 ---
 title: Follow the save folder live
-status: review
+status: done
 priority: 4
-dependsOn: [save-parser, progress-overlay]
+dependsOn:
+  - save-parser
+  - progress-overlay
 ---
 
 ## Purpose

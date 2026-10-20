@@ -1,8 +1,9 @@
 ---
-title: "Soldiers in 3D in the app (a time-boxed try)"
-status: review
+title: Soldiers in 3D in the app (a time-boxed try)
+status: done
 priority: 5
-dependsOn: [game-images]
+dependsOn:
+  - game-images
 ---
 
 ## Purpose

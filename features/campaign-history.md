@@ -1,8 +1,10 @@
 ---
 title: Campaign history over time
-status: review
+status: done
 priority: 4
-dependsOn: [live-saves, campaign-stats]
+dependsOn:
+  - live-saves
+  - campaign-stats
 ---
 
 ## Purpose

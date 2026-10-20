@@ -1,8 +1,9 @@
 ---
 title: Starting, country and continent bonuses in the calculations
-status: review
+status: done
 priority: 5
-dependsOn: [progress-overlay]
+dependsOn:
+  - progress-overlay
 ---
 
 ## Purpose

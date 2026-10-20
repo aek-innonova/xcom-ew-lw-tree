@@ -1,8 +1,10 @@
 ---
 title: Long War Rebalanced (LWR) alongside Long War 1.0
-status: review
+status: done
 priority: 3
-dependsOn: [game-script-rules, air-war]
+dependsOn:
+  - game-script-rules
+  - air-war
 ---
 
 ## Purpose

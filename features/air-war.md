@@ -1,8 +1,9 @@
 ---
 title: Air war simulator
-status: review
+status: done
 priority: 4
-dependsOn: [game-script-rules]
+dependsOn:
+  - game-script-rules
 ---
 
 ## Purpose

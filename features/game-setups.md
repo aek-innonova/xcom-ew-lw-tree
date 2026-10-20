@@ -1,8 +1,10 @@
 ---
-title: "Setups saved by name"
-status: review
+title: Setups saved by name
+status: done
 priority: 3
-dependsOn: [game-settings, game-bases]
+dependsOn:
+  - game-settings
+  - game-bases
 ---
 
 ## Purpose

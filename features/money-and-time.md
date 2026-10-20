@@ -1,8 +1,10 @@
 ---
-title: "Money, materials and research time explained in the campaign bar and tech details"
-status: review
+title: Money, materials and research time explained in the campaign bar and tech
+  details
+status: done
 priority: 4
-dependsOn: [campaign-stats]
+dependsOn:
+  - campaign-stats
 ---
 
 ## Purpose

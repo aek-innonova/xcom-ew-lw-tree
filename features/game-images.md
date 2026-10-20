@@ -1,8 +1,9 @@
 ---
-title: "The game's own pictures in the app (a time-boxed try first)"
-status: review
+title: The game's own pictures in the app (a time-boxed try first)
+status: done
 priority: 4
-dependsOn: [desktop-app]
+dependsOn:
+  - desktop-app
 ---
 
 ## Purpose

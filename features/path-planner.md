@@ -1,8 +1,9 @@
 ---
 title: Plan the research path to a goal
-status: review
+status: done
 priority: 5
-dependsOn: [progress-overlay]
+dependsOn:
+  - progress-overlay
 ---
 
 ## Purpose

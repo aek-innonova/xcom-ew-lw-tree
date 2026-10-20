@@ -1,8 +1,9 @@
 ---
 title: "Desktop app updates: signed site bundles, and the shell when it must"
-status: review
+status: done
 priority: 3
-dependsOn: [desktop-app]
+dependsOn:
+  - desktop-app
 ---
 
 ## Purpose

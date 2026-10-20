@@ -1,8 +1,10 @@
 ---
 title: Research rules from the game's own script
-status: review
+status: done
 priority: 5
-dependsOn: [research-credits, grey-market]
+dependsOn:
+  - research-credits
+  - grey-market
 ---
 
 ## Purpose

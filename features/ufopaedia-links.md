@@ -1,8 +1,7 @@
 ---
 title: Links to UFOpaedia
-status: review
+status: done
 priority: 6
-dependsOn: []
 ---
 
 ## Purpose
