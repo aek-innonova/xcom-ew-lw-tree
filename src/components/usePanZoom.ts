@@ -39,15 +39,51 @@ export function usePanZoom(opts: {
     view.value = { k, x: (w - g.width * k) / 2, y: Math.max(MARGIN, (h - g.height * k) / 2) }
   }
 
-  /** Centres a node, after the detail panel (if it is opening) has taken its space. */
+  /** Whether a node is wholly in view (inside the margin) at the current view. */
+  function inView(id: number): boolean {
+    const box = geo.value.nodes.get(id)
+    if (!box) return false
+    const { w, h } = size()
+    const { x, y, k } = view.value
+    const left = x + box.x * k
+    const top = y + box.y * k
+    return (
+      left >= MARGIN &&
+      top >= MARGIN &&
+      left + NODE_W * k <= w - MARGIN &&
+      top + NODE_H * k <= h - MARGIN
+    )
+  }
+
+  /** Keeps the board's edges at the view's: no empty space panned into view. */
+  function clamp(v: { x: number; y: number; k: number }) {
+    const { w, h } = size()
+    const g = geo.value
+    const along = (pos: number, span: number, room: number) =>
+      span + 2 * MARGIN <= room
+        ? (room - span) / 2
+        : Math.min(MARGIN, Math.max(room - MARGIN - span, pos))
+    return { k: v.k, x: along(v.x, g.width * v.k, w), y: along(v.y, g.height * v.k, h) }
+  }
+
+  /**
+   * Brings a node into view, after the detail panel (if it is opening) has
+   * taken its space: left as it is when the node is already in view, else
+   * centred, as far as the board's edges allow.
+   */
   async function centerOn(id: number) {
     const box = geo.value.nodes.get(id)
     if (!box) return
-    autoFit = false
     await nextTick()
+    if (inView(id)) return
+    autoFit = false
     const { w, h } = size()
     const k = Math.max(view.value.k, 0.9)
-    view.value = { k, x: w / 2 - (box.x + NODE_W / 2) * k, y: h / 2 - (box.y + NODE_H / 2) * k }
+    view.value = clamp({
+      k,
+      x: w / 2 - (box.x + NODE_W / 2) * k,
+      y: h / 2 - (box.y + NODE_H / 2) * k,
+    })
   }
 
   function zoomAt(px: number, py: number, factor: number) {
