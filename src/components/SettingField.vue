@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // One game setting's editor, in the setting's own terms
-// (features/game-settings-ux.md): two fields for Long War's "xxyy" point
-// costs, a percentage for a fraction, a checkbox for LWR's 0 and 1, a list
-// of meanings for a choice. What it emits is the file's own form
+// (features/game-settings-ux.md): a percentage for a fraction, a checkbox
+// for LWR's 0 and 1, a list of meanings for a choice. What it emits is the file's own form
 // (model/settingformat.ts); a value it cannot write is said, not sent.
 
 import { computed, ref, watch } from 'vue'
@@ -38,7 +37,7 @@ function commit(fields: string[]) {
   const r = valueOf(format.value, fields, props.def.value)
   if ('error' in r) {
     // Said, and the field shows the value kept, until the next try.
-    error.value = `${r.error}; kept ${shown.value.join(' and ')}`
+    error.value = `${r.error}; kept ${shown.value[0]}`
     for (const [k, el] of inputs.value.entries()) if (el) el.value = shown.value[k] ?? ''
     return
   }
@@ -47,11 +46,6 @@ function commit(fields: string[]) {
 }
 const input = (e: Event) => (e.target as HTMLInputElement).value
 const inputs = ref<(HTMLInputElement | null)[]>([])
-function onPart(k: number, e: Event) {
-  const next = [...shown.value]
-  next[k] = input(e)
-  commit(next)
-}
 const choices = computed<[string, string][]>(() => {
   const own = props.options ?? []
   // A value the list does not name still shows as itself.
@@ -96,35 +90,6 @@ const chosen = computed(
     >
       <option v-for="[k, v] in format.options" :key="k" :value="String(k)">{{ v }}</option>
     </select>
-    <template v-else-if="format.kind === 'pair'">
-      <span class="part">
-        <span class="muted">{{ format.parts[0] }}</span>
-        <input
-          :id="id"
-          :ref="(el) => (inputs[0] = el as HTMLInputElement | null)"
-          type="number"
-          class="num short"
-          min="0"
-          max="99"
-          :value="shown[0]"
-          :aria-label="`${def.name}: ${format.parts[0]}`"
-          @change="onPart(0, $event)"
-        />
-      </span>
-      <span class="part">
-        <span class="muted">{{ format.parts[1] }}</span>
-        <input
-          :ref="(el) => (inputs[1] = el as HTMLInputElement | null)"
-          type="number"
-          class="num short"
-          min="0"
-          max="99"
-          :value="shown[1]"
-          :aria-label="`${def.name}: ${format.parts[1]}`"
-          @change="onPart(1, $event)"
-        />
-      </span>
-    </template>
     <template v-else>
       <span v-if="format.kind === 'times'" class="muted unit">×</span>
       <input
@@ -160,12 +125,6 @@ const chosen = computed(
   gap: 6px;
   white-space: nowrap;
 }
-.part {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-right: 6px;
-}
 input.num,
 select {
   background: var(--node);
@@ -181,9 +140,6 @@ select {
 }
 .num {
   width: 76px;
-}
-.num.short {
-  width: 52px;
 }
 .unit {
   font-size: 12px;

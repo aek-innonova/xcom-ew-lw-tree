@@ -5,6 +5,7 @@
 // beside them. A folder the player can see, back up and copy mods into by
 // hand; the app reads it when it starts and when it changes.
 
+import { splitOldValues } from '@/model/gamesettings'
 import type { IniChange } from '@/model/inifile'
 import type { DesktopLibrary, LibraryFile } from './desktop'
 
@@ -72,7 +73,15 @@ export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings
       ini: Array.isArray(s.ini) ? s.ini : [],
       base: (['keep', 'ew', 'lw', 'lwr'] as const).find((b) => b === s.base),
       game: gameOf(s.game),
-      setups: s.setups && typeof s.setups === 'object' ? s.setups : {},
+      setups:
+        s.setups && typeof s.setups === 'object'
+          ? Object.fromEntries(
+              Object.entries(s.setups).map(([name, setup]) => [
+                name,
+                { ...setup, game: gameOf(setup?.game) ?? {} },
+              ]),
+            )
+          : {},
     }
   } catch {
     await lib.write(`settings (unreadable ${Date.now()}).json`, b)
@@ -82,13 +91,17 @@ export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings
 
 /**
  * The game settings by version. 0.3.1 kept one set for every version; it was
- * only ever made on Long War (the bench), so it becomes Long War's.
+ * only ever made on Long War (the bench), so it becomes Long War's. Settings
+ * since split in two come back as their parts.
  */
 export function gameOf(g: unknown): LibrarySettings['game'] {
   if (!g || typeof g !== 'object') return {}
   const o = g as Record<string, unknown>
-  if (Object.values(o).some((v) => typeof v === 'string')) return { lw: stringsOf(o) }
-  return Object.fromEntries(KINDS.filter((k) => k in o).map((k) => [k, stringsOf(o[k])]))
+  if (Object.values(o).some((v) => typeof v === 'string'))
+    return { lw: splitOldValues(stringsOf(o)) }
+  return Object.fromEntries(
+    KINDS.filter((k) => k in o).map((k) => [k, splitOldValues(stringsOf(o[k]))]),
+  )
 }
 
 export async function writeSettings(lib: DesktopLibrary, s: LibrarySettings): Promise<void> {

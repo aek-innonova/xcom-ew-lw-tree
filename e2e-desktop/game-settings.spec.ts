@@ -20,6 +20,7 @@ const ini = (hp: string, color: string) =>
     `Characters=( strName="", iType=eChar_Soldier,    HP=${hp},  Offense=65,  Mobility=13, Will=30, Defense=0 )`,
     'NUM_STARTING_SOLDIERS=40',
     'ROOKIE_MOBILITY=104\t\t\t; xxyy: xx = Point cost for defense; yy = Point cost for mobility',
+    'ROOKIE_STARTING_WILL=301\t\t; xxyy: xx = Point cost for hit points; yy = Point cost for will',
     'PSI_GIFT_CHANCE=0.45\t\t; Chance of successful training if soldier Will equals the target',
     `HQ_BASE_POWER = ${color}\t\t\t; Sniper Color`,
     'Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,        iRange=27 )',
@@ -47,6 +48,18 @@ test('game settings: hand edits kept, then set in words and written', async () =
   writeFileSync(join(game, 'lwtree-backup', 'Config', 'DefaultGameCore.ini'), ini('4', '32'))
   writeFileSync(join(game, 'Config', 'DefaultGameCore.ini'), ini('5', '32'))
   const library = join(work, 'library')
+  // Kept by an earlier app: HP and will costs as one setting (xxyy), 305: HP
+  // 3 as Long War has it, will 5.
+  mkdirSync(library)
+  writeFileSync(
+    join(library, 'settings.json'),
+    JSON.stringify({
+      order: [],
+      mods: {},
+      ini: [],
+      game: { lw: { 'rookie.cost-hp-will': '305' } },
+    }),
+  )
   app = await electron.launch({
     executablePath: electronBin,
     args: [join(root, 'desktop'), `--game-dir=${steam}`],
@@ -70,7 +83,8 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await expect(hand).toHaveCount(0)
   // Kept for Long War, the version installed.
   const settings = () => JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).game.lw
-  expect(settings()).toEqual({ 'soldier.hp': '5' })
+  // The old combined value came back as its one changed half.
+  expect(settings()).toEqual({ 'soldier.hp': '5', 'rookie.cost-will': '5' })
 
   // The Tools page scrolls inside itself: nothing in it makes the window's page taller
   // (the class table's hidden labels once did, and the whole app scrolled away).
@@ -85,24 +99,26 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await page.getByLabel('In the pistol slot').check()
   await page.getByRole('spinbutton', { name: 'Sniper color' }).fill('16')
   await page.getByRole('spinbutton', { name: 'Sniper color' }).press('Enter')
-  // In the setting's terms, written in the file's: Long War's xxyy, a fraction as a percentage.
-  const mobility = page.getByRole('spinbutton', {
-    name: 'Point costs of defense and mobility: Mobility',
-  })
+  // Long War's two point costs in one value: each its own setting, the
+  // other half kept; a fraction as a percentage.
+  const mobility = page.getByRole('spinbutton', { name: 'Point cost of mobility' })
   await expect(mobility).toHaveValue('4')
+  await expect(page.getByRole('spinbutton', { name: 'Point cost of will' })).toHaveValue('5')
   await mobility.fill('6')
   await mobility.press('Enter')
   const gift = page.getByRole('spinbutton', { name: 'Chance of the psi gift' })
   await expect(gift).toHaveValue('45')
   await gift.fill('25')
   await gift.press('Enter')
-  await expect(page.getByText('the original the app kept: Defense 1, mobility 4')).toBeVisible()
+  // Said under each of the player's values: base HP's and the mobility cost's own are both 4.
+  await expect(page.getByText('the original the app kept: 4', { exact: true })).toHaveCount(2)
   await expect.poll(settings).toEqual({
     'soldier.hp': '5',
     'campaign.starting-soldiers': '60',
     'arcthrower.pistol': 'on',
     'class.sniper.color': '16',
-    'rookie.cost-defense-mobility': '106',
+    'rookie.cost-will': '5',
+    'rookie.cost-mobility': '6',
     'psi.gift': '0.25',
   })
 
@@ -124,13 +140,14 @@ test('game settings: hand edits kept, then set in words and written', async () =
 
   await page.getByRole('button', { name: 'Apply my setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
-  await expect(plan).toContainText('6 game settings')
+  await expect(plan).toContainText('7 game settings')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
   await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
   expect(readFileSync(join(game, 'Config', 'DefaultGameCore.ini'), 'latin1')).toBe(
     ini('5', '16')
       .replace('NUM_STARTING_SOLDIERS=40', 'NUM_STARTING_SOLDIERS=60')
       .replace('ROOKIE_MOBILITY=104', 'ROOKIE_MOBILITY=106')
+      .replace('ROOKIE_STARTING_WILL=301', 'ROOKIE_STARTING_WILL=305')
       .replace('PSI_GIFT_CHANCE=0.45', 'PSI_GIFT_CHANCE=0.25')
       .replace(
         '\nWeapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,',

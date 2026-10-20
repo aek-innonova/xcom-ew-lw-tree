@@ -24,8 +24,9 @@ sit better beside the class colors, with a class picked by clicking its row.
 and is edited and described that way; the file's form is only how it is
 written:
 
-- **Two numbers in one** (Long War's `xxyy` point costs): two fields,
-  "Defense 1, Mobility 4", written back as `104`.
+- **Two numbers in one** (Long War's `xxyy` point costs): one setting
+  each ("Point cost of defense", "Point cost of mobility"), as the player
+  thinks of them; the app writes both halves back into the one value.
 - **A percentage stored as a fraction** (psi gift 0.45): edited as 45 %.
 - **A multiplier** (arc thrower stun 0.61): "× 0.61".
 - **Hours**: with days beside them where it helps ("1320 hours, 55 days").
@@ -158,3 +159,29 @@ Not done:
 - Also from that round: an emptied field goes back to the version's
   value; a refused value says what was kept ("At most 10; kept 4"); LWR's
   "Leater Jacket" is spelled right.
+
+## Response (2026-10-20)
+
+On the point costs shown as two fields on one row: "why are they on the
+same line, it doesn't make any sense to the user?"
+
+## Report (2026-10-20): one setting per point cost
+
+- Long War's two point costs per value (`ROOKIE_MOBILITY` = defense ×
+  100 + mobility, `ROOKIE_STARTING_WILL` = HP × 100 + will) are now four
+  settings, beside "Point cost of aim". A setting reads its half (the
+  place's `digits`: `xx` or `yy`), and writing it keeps the line's other
+  half as it is then, so both can change in one apply (`1206`). A half over
+  99 is reported as not writable, and the line is left alone. The group's
+  text says once what a point cost is; the rows carry no help.
+- Values saved before the split (the person's 103, in settings.json and in
+  saved setups) come back as their halves. A half equal to the version's
+  own is dropped, from the current choices and the setups alike, so a
+  setup still reads as in use. The person's 103 becomes mobility 3.
+- The two-fields-in-one-row editor is gone.
+
+Verified: unit tests for reading and writing a half, both halves in one
+apply, the refusal over 99, and the old values split. The desktop e2e
+starts from a settings.json holding the old combined value (305). It
+checks that it comes back as will 5 only, that mobility 6 is written as
+`ROOKIE_MOBILITY=106`, and that will stays `ROOKIE_STARTING_WILL=305`.

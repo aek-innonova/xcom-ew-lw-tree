@@ -14,8 +14,6 @@ export type Format =
   | { kind: 'percent'; fraction?: boolean; min?: number; max?: number }
   /** A multiplier: 1 is the game's own. */
   | { kind: 'times'; min?: number; max?: number }
-  /** Two numbers in one, "xxyy": the first × 100 plus the second. */
-  | { kind: 'pair'; parts: [string, string] }
   /** On or off, by the numbers the file uses for each. */
   | { kind: 'switch'; on: number; off: number }
   /** One of a few meanings, by the number the file uses for each. */
@@ -41,13 +39,9 @@ export function styled(n: number, like: string): string {
 
 const trim = (n: number) => String(Number(n.toPrecision(10)))
 
-/** The fields a player edits for a value: one, or two for a pair. */
+/** What the player edits for a value. */
 export function fieldsOf(f: Format, value: string): string[] {
   const n = numberOf(value)
-  if (f.kind === 'pair') {
-    if (Number.isNaN(n)) return ['', '']
-    return [String(Math.trunc(n / 100)), String(Math.abs(n) % 100)]
-  }
   if (Number.isNaN(n)) return [value.trim()]
   if (f.kind === 'percent' && f.fraction) return [trim(n * 100)]
   if (f.kind === 'switch') return [n === f.on ? 'on' : 'off']
@@ -56,7 +50,6 @@ export function fieldsOf(f: Format, value: string): string[] {
 
 /** The range a field allows, as the format says. */
 export function limitsOf(f: Format): { min?: number; max?: number } {
-  if (f.kind === 'pair') return { min: 0, max: 99 }
   if (f.kind === 'switch' || f.kind === 'choice') return {}
   if (f.kind === 'percent') return { min: f.min ?? 0, max: f.max ?? 100 }
   return { min: f.min, max: f.max }
@@ -80,12 +73,6 @@ export function valueOf(
     if (max !== undefined && n > max) return { error: `At most ${max}` }
     return null
   }
-  if (f.kind === 'pair') {
-    const [a, b] = nums as [number, number]
-    for (const n of nums)
-      if (!Number.isInteger(n) || n < 0 || n > 99) return { error: 'Whole numbers, 0 to 99' }
-    return { value: styled(a * 100 + b, like) }
-  }
   const n = nums[0]!
   const bad = out(n)
   if (bad) return bad
@@ -99,11 +86,6 @@ export function describe(f: Format, value: string): string {
   const n = numberOf(value)
   if (Number.isNaN(n)) return value
   switch (f.kind) {
-    case 'pair': {
-      const [a, b] = fieldsOf(f, value)
-      const p1 = f.parts[1] === f.parts[1].toUpperCase() ? f.parts[1] : f.parts[1].toLowerCase()
-      return `${f.parts[0]} ${a}, ${p1} ${b}`
-    }
     case 'percent':
       return `${trim(f.fraction ? n * 100 : n)} %`
     case 'times':

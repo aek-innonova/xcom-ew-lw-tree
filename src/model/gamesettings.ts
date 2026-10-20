@@ -14,8 +14,12 @@
 import { type Format } from './settingformat'
 
 export type Place =
-  /** A KEY=value line whose comment matches (an empty comment: /^$/). */
-  | { kind: 'key'; key: string; comment: RegExp }
+  /**
+   * A KEY=value line whose comment matches (an empty comment: /^$/).
+   * "digits": one of two numbers Long War packs into one value as xxyy, the
+   * first (xx) or the second (yy); written back without touching the other.
+   */
+  | { kind: 'key'; key: string; comment: RegExp; digits?: 'xx' | 'yy' }
   /** A field of a struct line, the line picked by another field (iType=eChar_Soldier). */
   | { kind: 'field'; key: string; select: [string, string]; field: string }
   /**
@@ -154,14 +158,23 @@ function selected(ls: Line[], key: string, select: [string, string]): Line[] {
 function locate(
   ls: Line[],
   place: Place,
-): { line: Line; span?: [number, number]; value: string; other?: Line } | null {
+): { line: Line; span?: [number, number]; value: string; whole?: string; other?: Line } | null {
   if (place.kind === 'key') {
     const line = ls.find((l) => !l.off && same(l.key, place.key) && place.comment.test(l.comment))
     if (!line) return null
     const v = line.raw.slice(line.start, line.end)
     const lead = /^\s*/.exec(v)![0].length
     const span: [number, number] = [line.start + lead, line.start + v.trimEnd().length]
-    return { line, span, value: line.raw.slice(span[0], span[1]) }
+    const whole = line.raw.slice(span[0], span[1])
+    if (!place.digits) return { line, span, value: whole }
+    const n = Number(whole)
+    if (!Number.isInteger(n) || n < 0) return null
+    return {
+      line,
+      span,
+      whole,
+      value: String(place.digits === 'xx' ? Math.trunc(n / 100) : n % 100),
+    }
   }
   if (place.kind === 'field') {
     const line = selected(ls, place.key, place.select).find((l) => !l.off)
@@ -192,22 +205,22 @@ const key = (
   name: string,
   k: string,
   comment: RegExp,
-  extra: Partial<SettingDef> = {},
+  { digits, ...extra }: Partial<SettingDef> & { digits?: 'xx' | 'yy' } = {},
 ): SettingDef => ({
   id,
   group,
   name,
   type: 'number',
-  place: { kind: 'key', key: k, comment },
+  place: { kind: 'key', key: k, comment, ...(digits ? { digits } : {}) },
   ...extra,
 })
 
 const hours: Format = { kind: 'hours', min: 0 }
-/** "Defense" → "defense", but "HP" stays. */
-const lower = (w: string) => (w === w.toUpperCase() ? w : w.toLowerCase())
-const points = (a: string, b: string): Partial<SettingDef> => ({
-  format: { kind: 'pair', parts: [a, b] },
-  help: `Build points a point of ${lower(a)} costs, and of ${lower(b)}.`,
+/** One of two point costs Long War keeps in one value (xxyy). */
+const cost = (digits: 'xx' | 'yy'): Partial<SettingDef> & { digits: 'xx' | 'yy' } => ({
+  digits,
+  format: { kind: 'number', min: 0, max: 99 },
+  help: '',
 })
 
 /** Settings named by hand, each tied to its key and the comment that says what it is. */
@@ -265,23 +278,39 @@ export const CATALOGUE: SettingDef[] = [
     { help: 'Added to base defense and the armor’s.' },
   ),
   key('rookie.cost-aim', 'Rookies', 'Point cost of aim', 'ROOKIE_AIM', /Point cost for aim/i, {
-    help: 'Build points a point of aim costs.',
+    help: '',
   }),
   key(
-    'rookie.cost-defense-mobility',
+    'rookie.cost-hp',
     'Rookies',
-    'Point costs of defense and mobility',
-    'ROOKIE_MOBILITY',
-    /xx = Point cost for defense/i,
-    points('Defense', 'Mobility'),
-  ),
-  key(
-    'rookie.cost-hp-will',
-    'Rookies',
-    'Point costs of HP and will',
+    'Point cost of HP',
     'ROOKIE_STARTING_WILL',
     /xx = Point cost for hit points/i,
-    points('HP', 'Will'),
+    cost('xx'),
+  ),
+  key(
+    'rookie.cost-will',
+    'Rookies',
+    'Point cost of will',
+    'ROOKIE_STARTING_WILL',
+    /xx = Point cost for hit points/i,
+    cost('yy'),
+  ),
+  key(
+    'rookie.cost-defense',
+    'Rookies',
+    'Point cost of defense',
+    'ROOKIE_MOBILITY',
+    /xx = Point cost for defense/i,
+    cost('xx'),
+  ),
+  key(
+    'rookie.cost-mobility',
+    'Rookies',
+    'Point cost of mobility',
+    'ROOKIE_MOBILITY',
+    /xx = Point cost for defense/i,
+    cost('yy'),
   ),
   key(
     'rookie.armor-mobility',
@@ -419,7 +448,10 @@ export const GROUPS: { name: string; help: string }[] = [
     name: 'Soldiers',
     help: 'The stats every soldier starts from; rookies are rolled around them.',
   },
-  { name: 'Rookies', help: 'How recruits’ stats are rolled, and what they are issued.' },
+  {
+    name: 'Rookies',
+    help: 'How recruits’ stats are rolled, and what they are issued. A point cost is the build points a recruit spends on one point of that stat.',
+  },
   { name: 'Psionics', help: '' },
   { name: 'Injuries and fatigue', help: '' },
   { name: 'SHIVs', help: '' },
@@ -783,7 +815,20 @@ export function applySettings(
       continue
     }
     const [s, e] = at.span!
-    rows[at.line.n] = at.line.raw.slice(0, s) + value + at.line.raw.slice(e)
+    let text = value
+    if (def.place.kind === 'key' && def.place.digits) {
+      // One half of xxyy: the other half as the line has it now.
+      const n = Number(at.whole)
+      const part = Number(value)
+      if (!Number.isInteger(part) || part < 0 || part > 99) {
+        missing.push(def)
+        continue
+      }
+      text = String(
+        def.place.digits === 'xx' ? part * 100 + (n % 100) : Math.trunc(n / 100) * 100 + part,
+      )
+    }
+    rows[at.line.n] = at.line.raw.slice(0, s) + text + at.line.raw.slice(e)
   }
   return { text: rows.join(eol), missing }
 }
@@ -821,4 +866,28 @@ export function armorKitCodes(text: string): {
     }
   }
   return { colors, headgear }
+}
+
+/**
+ * Values saved before a setting was split: Long War's two point costs in one
+ * value (xxyy) were one setting until 2026-10-20, and are one setting each now.
+ */
+const SPLIT: Record<string, [string, string]> = {
+  'rookie.cost-defense-mobility': ['rookie.cost-defense', 'rookie.cost-mobility'],
+  'rookie.cost-hp-will': ['rookie.cost-hp', 'rookie.cost-will'],
+}
+/** The settings that came out of a split one. */
+export const SPLIT_PARTS = new Set(Object.values(SPLIT).flat())
+
+export function splitOldValues(values: Record<string, string>): Record<string, string> {
+  const out = { ...values }
+  for (const [old, [xx, yy]] of Object.entries(SPLIT)) {
+    if (!(old in out)) continue
+    const n = Number(out[old])
+    delete out[old]
+    if (!Number.isInteger(n) || n < 0) continue
+    out[xx] ??= String(Math.trunc(n / 100))
+    out[yy] ??= String(n % 100)
+  }
+  return out
 }

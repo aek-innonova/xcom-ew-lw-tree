@@ -1,19 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { describe as say, fieldsOf, styled, valueOf, type Format } from '../settingformat'
 
-const pair: Format = { kind: 'pair', parts: ['Defense', 'Mobility'] }
-
 describe('settings in the player’s terms, written in the file’s (model/settingformat.ts)', () => {
-  it('Long War’s xxyy: two numbers in, one out', () => {
-    expect(fieldsOf(pair, '104')).toEqual(['1', '4'])
-    expect(fieldsOf(pair, '1204')).toEqual(['12', '4'])
-    expect(valueOf(pair, ['2', '5'], '104')).toEqual({ value: '205' })
-    expect(valueOf(pair, ['0', '7'], '104')).toEqual({ value: '7' })
-    expect(valueOf(pair, ['1', '100'], '104')).toEqual({ error: 'Whole numbers, 0 to 99' })
-    expect(say(pair, '104')).toBe('Defense 1, mobility 4')
-    expect(say({ kind: 'pair', parts: ['HP', 'Will'] }, '301')).toBe('HP 3, will 1')
-  })
-
   it('a percentage the file keeps as a fraction', () => {
     const f: Format = { kind: 'percent', fraction: true }
     expect(fieldsOf(f, '0.45')).toEqual(['45'])

@@ -12,6 +12,7 @@
 import { markRaw, reactive } from 'vue'
 import {
   CATALOGUE,
+  SPLIT_PARTS,
   armorKitCodes,
   findSettings,
   settingsChanged,
@@ -738,6 +739,25 @@ async function ownIni(current: string | null): Promise<{ text: string; from: str
   return current === null ? null : { text: current, from: 'the game’s file as it is' }
 }
 
+/**
+ * A split setting's half saved equal to the version's own is none of the
+ * player's: Long War's point costs were one value (xxyy) until 2026-10-20,
+ * and a saved 103 comes back as defense 1 (Long War's own) and mobility 3.
+ * Taken out of the current choices and the saved setups alike, so a setup
+ * still reads as in use.
+ */
+function pruneSplitHalves(kind: GameKind) {
+  const own = new Map(
+    tools.gameSettings.filter((d) => SPLIT_PARTS.has(d.id)).map((d) => [d.id, d.value]),
+  )
+  const pruned = (v?: Record<string, string>) =>
+    v && Object.fromEntries(Object.entries(v).filter(([id, x]) => own.get(id) !== x))
+  tools.gameValues = pruned(tools.gameValues)!
+  if (choices.game?.[kind]) choices.game = { ...choices.game, [kind]: pruned(choices.game[kind]) }
+  for (const s of Object.values(choices.setups ?? {}))
+    if (s.game?.[kind]) s.game = { ...s.game, [kind]: pruned(s.game[kind]) }
+}
+
 /** The version the game settings are for: the chosen one, else the one installed. */
 function gameKind(): GameKind {
   return tools.base !== 'keep' ? tools.base : (tools.install?.kind ?? 'lw')
@@ -748,6 +768,7 @@ async function loadGameSettings(current: string | null): Promise<void> {
   const own = await ownIni(current)
   tools.gameSettings = markRaw(own ? findSettings(own.text) : [])
   tools.gameSettingsFrom = own?.from ?? ''
+  pruneSplitHalves(gameKind())
   // Hand edits: where the file differs from the version's own, other than by
   // the player's settings already.
   tools.handEdits = markRaw(

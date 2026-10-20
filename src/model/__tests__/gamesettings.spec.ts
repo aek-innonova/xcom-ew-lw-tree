@@ -6,6 +6,7 @@ import {
   armorKitCodes,
   findSettings,
   settingsChanged,
+  splitOldValues,
   type SettingDef,
 } from '../gamesettings'
 
@@ -14,6 +15,7 @@ const FILE = [
   'Characters=( strName="", iType=eChar_Civilian,   HP=3,  Mobility=11, kInventory=( iArmor=eItem_NONE, HP=99 ) )',
   'Characters=( strName="", iType=eChar_Soldier,    HP=4,  Offense=65,  Mobility=13, ShieldHP=0, kInventory=( iArmor=eItem_NONE ), eClass=eSC_None )',
   'NUM_STARTING_SOLDIERS=40',
+  'ROOKIE_MOBILITY=104\t\t\t; xxyy: xx = Point cost for defense; yy = Point cost for mobility',
   'HIGH_WILL=3\t\t\t\t\t; Minimum Starting hp for rookie; midpoint set by soldier character entry',
   'HQ_BASE_POWER = 32\t\t\t; Sniper Color',
   'HQ_BASE_POWER = -1\t\t\t; Sniper Headgear',
@@ -43,6 +45,36 @@ describe('game settings in a player’s words (model/gamesettings.ts)', () => {
     expect(s.get('arcthrower.pistol')?.value).toBe('off')
     expect(s.get('item-mobility.73')).toMatchObject({ name: 'Arc Thrower', value: '-2' })
     expect(s.has('psi.gift')).toBe(false) // not in this file: not offered
+  })
+
+  it('Long War’s two point costs in one value: one setting each, the other half kept', () => {
+    const s = byId(FILE)
+    expect(s.get('rookie.cost-defense')?.value).toBe('1')
+    expect(s.get('rookie.cost-mobility')?.value).toBe('4')
+    const out = applySettings(FILE, [
+      { def: def(FILE, 'rookie.cost-mobility'), value: '6' },
+      { def: def(FILE, 'rookie.cost-defense'), value: '12' },
+    ])
+    expect(out.text).toContain('ROOKIE_MOBILITY=1206\t\t\t; xxyy')
+    expect(
+      applySettings(FILE, [{ def: def(FILE, 'rookie.cost-defense'), value: '0' }]).text,
+    ).toContain('ROOKIE_MOBILITY=4\t')
+    // Beyond two digits it cannot be written: said, not mangled.
+    const bad = applySettings(FILE, [{ def: def(FILE, 'rookie.cost-mobility'), value: '100' }])
+    expect(bad.missing.map((d) => d.id)).toEqual(['rookie.cost-mobility'])
+    expect(bad.text).toBe(FILE)
+  })
+
+  it('values saved before the split come back as their two halves', () => {
+    expect(splitOldValues({ 'rookie.cost-defense-mobility': '103', 'soldier.hp': '5' })).toEqual({
+      'rookie.cost-defense': '1',
+      'rookie.cost-mobility': '3',
+      'soldier.hp': '5',
+    })
+    expect(splitOldValues({ 'rookie.cost-hp-will': '401' })).toEqual({
+      'rookie.cost-hp': '4',
+      'rookie.cost-will': '1',
+    })
   })
 
   it('writes a value and nothing else on its line', () => {
@@ -182,7 +214,7 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
       'soldier.mobility: 13 → 14',
       'rookie.min-hp: 3 → 4',
       'rookie.min-mobility: 11 → 13',
-      'rookie.cost-defense-mobility: 104 → 103',
+      'rookie.cost-mobility: 4 → 3',
       'psi.gift: 0.45 → 0.65',
       'arcthrower.pistol: off → on',
       'arcthrower.stun: 0.61 → 0.85',
