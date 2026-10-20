@@ -1,6 +1,6 @@
 ---
 title: "Soldiers in 3D in the app (a time-boxed try)"
-status: review
+status: in-progress
 priority: 5
 dependsOn: [game-images]
 ---
@@ -63,3 +63,65 @@ appearance settings (features/game-settings.md), starting with step 1
 and the primary tint: a soldier in each class's color beside the
 setting. Steps 2 and 3 only if step 1 looks worth having. The person
 decides.
+
+## Response (2026-10-20)
+
+The person: try going further, as long as it makes progress, until 2 pm.
+
+## Report (2026-10-20): the soldier in the app
+
+In Tools, Game settings, "Class colors" has a 3D soldier beside the
+settings (`src/components/SoldierPreview.vue`, `SoldierView.vue`,
+`src/state/soldier.ts`).
+
+**How it is put together**, all from the player's install:
+- **The armor:** the armor's body (`Soldier_<Gender><Armor>_SF.upk`) and
+  its deco over it. The deco is the armor's own from `ArmorDeco` in
+  `DefaultContent.ini`, through `ArmorKitPackageInfo`; for the rookie it
+  is the rookie deco setting. Long War's deco numbers are `EArmorKit`
+  values (67 is `eKit_Deco_Kevlar0`), read from XComGame.upk
+  (`readEnum`).
+- **Head and hair:** heads, hair and helmets are the game's own lists
+  (`HeadPackageInfo`, `HairPackageInfo`). A class's headgear setting puts
+  its helmet on: Long War's headgear numbers are hair ids marked
+  `bIsHelmet`. Hair and helmets hang on the head's socket (`RigHead`),
+  placed by the bones' rest pose.
+- **Textures:** up to 1024 wide, from the package or `CharTextures.tfc`
+  through ranged reads. Diffuse, the masks, and normal maps.
+
+**Colors:**
+- **Class colors:** Long War's color n is the armor tint palette's entry
+  n (`UnitPalettes.ArmorTint`, `Startup.upk`), as Long War's own picture
+  of the colors shows; its text list is one off in places. Checked
+  against that picture: 1 grey-cyan, 2 olive, 3 orange, 5 red, 17 red
+  with yellow side panels and crotch piece.
+- **Where they go:** the top color goes where the specular map's alpha
+  says, the bottom where its blue says. The top has the say where they
+  overlap (Titan, Ghost and Archangel lay one inside the other). Each
+  masked part is scaled so its average is the color.
+- **Skin:** the heads share one skin texture; each head's `SkinColor`
+  colors it through the skin mask (the third channel of its specular
+  map).
+- **Hair:** colored from the `HairColor` palette.
+- **Shading:** our own, not the game's. Diffuse, normal map, a highlight
+  from the specular map's red, plain lights.
+
+**In the app:**
+- **Choices:** whose color (each class, or the rookie with the rookie's
+  headgear and deco), armor (all seven), gender, face, hair, hair color.
+  Drag to turn, wheel to zoom.
+- **No GPU:** the app allows Chromium's software WebGL (desktop 0.3.4),
+  as Chromium no longer falls back to it on its own. The window only
+  loads the app's own site.
+
+Verified:
+- In the app on this machine, on the person's packages (software WebGL
+  under xvfb): every armor, male and female, colors, headgear, faces,
+  hair and its colors, by screenshot.
+- Unit tests: the material, the palette (17 red with yellow), the hair
+  placed on the head (`src/model/__tests__/material.spec.ts`).
+
+Not done:
+- The game's own lighting and reflections (cube maps).
+- Animation: a standing rest pose only.
+- Weapons and the MEC suits.
