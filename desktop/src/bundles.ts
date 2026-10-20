@@ -173,9 +173,13 @@ export class BundleStore {
       this.servingVersion,
       this.state.ready,
     ])
+    // Tidying: a file still held (the installer, just after an update) waits
+    // for another start.
     for (const e of await fs.readdir(this.o.dir).catch(() => [] as string[]))
       if (e !== 'config.json' && !keep.has(e) && !e.includes('.downloading'))
-        await fs.rm(path.join(this.o.dir, e), { recursive: true, force: true })
+        await fs
+          .rm(path.join(this.o.dir, e), { recursive: true, force: true })
+          .catch(() => undefined)
   }
 
   private async get(url: string): Promise<Uint8Array> {
