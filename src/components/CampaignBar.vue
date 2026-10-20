@@ -229,6 +229,10 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
             changes it.</span
           >
         </template>
+        <span v-else-if="campaign && !campaign.countries" class="card-note"
+          >Load the save again to see the month's funding and upkeep (it was read by an older
+          version of the site).</span
+        >
         <span v-else-if="game.id === 'lwr'" class="card-note"
           >LWR pays its funding and upkeep daily, partly by rules in its own code; the app does not
           work them out.</span

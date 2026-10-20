@@ -54,3 +54,17 @@ Verified:
 - Screenshots of the card, the tree after the link, and the detail.
 - Open: checking the net against the game's own payday on the person's
   saves either side of a month's end.
+- On the bench, read-only on the person's Long War saves either side of
+  three month ends:
+  - **Income:** exact in all three. In campaign 55 a satellite over Africa
+    raised a country's funding mid-month, and the payday paid the new sum.
+  - **Campaign 56:** the net matched the cash change to the credit, Air
+    Superiority's discount included.
+  - **Campaign 55:** upkeep was §18 too high. Long War's XGItemTree.GetFacility
+    also takes Architects of the Future's percentage off a Laboratory's and
+    a Workshop's upkeep, and Power to the People's off the generators', as
+    whole credits. With that, both of its month ends balance exactly. Now
+    in the rules, with a unit test.
+- The bench also found that a save stored by the previous site (without
+  countries and facilities) broke the whole campaign bar. It now has no
+  monthly figures, and the card says to load the save again.

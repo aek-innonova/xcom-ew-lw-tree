@@ -38,6 +38,26 @@ describe('a month’s funding and upkeep, by Long War 1.0’s rules (model/econo
     expect(e.net).toBe(873 - 25 - 135)
   })
 
+  it('Architects of the Future and Power to the People take off a facility’s upkeep, as whole credits', () => {
+    const c = save('save1762')
+    // A base with two Laboratories, a Workshop and a Fission Generator.
+    const base = [...c.baseFacilities]
+    base[7] = 2
+    base[8] = 1
+    base[10] = 1
+    const bonus = (id: number) => ({ 5: 30, 3: 25 })[id] ?? 0
+    const e = monthlyEconomy({ ...c, baseFacilities: base }, 'lw', bonus)!
+    const each = Object.fromEntries(e.facilities.map((f) => [f.name, f.each]))
+    // The bench's campaign 55: Laboratory and Workshop §30 → §21 under 30 %.
+    expect(each).toMatchObject({ Laboratory: 21, Workshop: 21, 'Fission Generator': 15 })
+  })
+
+  it('a campaign stored by an older site (no countries) has no figures, and does not break', () => {
+    const c = save('save1762')
+    const stale = { ...c, countries: undefined, baseFacilities: undefined } as unknown as typeof c
+    expect(monthlyEconomy(stale, 'lw', () => 0)).toBeNull()
+  })
+
   it('LWR pays daily by its own code: not worked out', () => {
     expect(monthlyEconomy(save('lwr-save1779'), 'lwr', () => 0)).toBeNull()
   })

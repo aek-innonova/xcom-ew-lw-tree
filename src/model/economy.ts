@@ -4,7 +4,9 @@
 //   (XGCountry.m_iFunding > 0), plus Wealth of Nations' percentage
 //   (HasBonus(6)), as whole credits;
 // - XGHeadQuarters.GetMaintenanceTotal: each facility's upkeep times how many
-//   the base has (GetFacilityMaintenanceCost), and each craft's
+//   the base has (GetFacilityMaintenanceCost; XGItemTree.GetFacility takes
+//   Architects of the Future's percentage off a Laboratory's and a Workshop's,
+//   Power to the People's off the generators', as whole credits), and each craft's
 //   (XGFacility_Hangar.GetCraftMaintenanceCost: §40 an Interceptor, §50 a
 //   Firestorm, the Skyranger's from the INI), less Air Superiority's
 //   percentage (HasBonus(2)), each craft's as whole credits.
@@ -16,6 +18,17 @@ import type { Campaign } from '@/save/campaign'
 
 export const WEALTH_OF_NATIONS = 6
 export const AIR_SUPERIORITY = 2
+export const POWER_TO_THE_PEOPLE = 3
+export const ARCHITECTS_OF_THE_FUTURE = 5
+
+/** Facilities a bonus makes cheaper to keep, by EFacilityType (XGItemTree.GetFacility). */
+const FACILITY_BONUS: Record<number, number> = {
+  7: ARCHITECTS_OF_THE_FUTURE, // Laboratory
+  8: ARCHITECTS_OF_THE_FUTURE, // Workshop
+  10: POWER_TO_THE_PEOPLE, // Fission Generator
+  15: POWER_TO_THE_PEOPLE, // Thermo Generator
+  16: POWER_TO_THE_PEOPLE, // Elerium Generator
+}
 
 export interface UpkeepLine {
   name: string
@@ -54,7 +67,8 @@ export function monthlyEconomy(
   game: 'lw' | 'lwr',
   bonus: (id: number) => number,
 ): MonthlyEconomy | null {
-  if (game !== 'lw' || !c.countries.length) return null
+  // A campaign stored by an older site has no countries or facilities: nothing to say.
+  if (game !== 'lw' || !c.countries?.length || !c.baseFacilities) return null
   const data = economy.lw
   const paying = c.countries.filter((x) => x.council && x.funding > 0)
   const funding = paying.reduce((n, x) => n + x.funding, 0)
@@ -63,7 +77,9 @@ export function monthlyEconomy(
 
   const facilities = data.facilities.flatMap((f) => {
     const count = c.baseFacilities[f.id] ?? 0
-    return count > 0 ? [{ name: f.name, count, each: f.upkeep, total: f.upkeep * count }] : []
+    const off = FACILITY_BONUS[f.id] ? bonus(FACILITY_BONUS[f.id]!) : 0
+    const each = off > 0 ? Math.trunc(f.upkeep * (1 - off / 100)) : f.upkeep
+    return count > 0 ? [{ name: f.name, count, each, total: each * count }] : []
   })
 
   const discount = bonus(AIR_SUPERIORITY)
