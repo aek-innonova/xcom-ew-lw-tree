@@ -20,12 +20,14 @@ import TechDetail from '@/components/TechDetail.vue'
 import TechTree from '@/components/TechTree.vue'
 import { loadFile, state, game } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
+import { desktop } from '@/state/desktop'
 import { restoreTools, tools } from '@/state/tools'
 import { startUpdates, updateAvailable } from '@/state/updates'
 
 // Pages opened less often load when first shown.
 const AirWarView = defineAsyncComponent(() => import('@/components/AirWarView.vue'))
 const ToolsView = defineAsyncComponent(() => import('@/components/ToolsView.vue'))
+const DesktopAppView = defineAsyncComponent(() => import('@/components/DesktopAppView.vue'))
 
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
 const foundryTree = ref<InstanceType<typeof FoundryTree> | null>(null)
@@ -120,6 +122,8 @@ onMounted(() => {
   void restoreWatch()
   // Tools is the desktop app's; a website visit that last saw it opens the tree.
   if (state.view === 'tools' && !tools.supported) state.view = 'research'
+  // The page about the app is the website's; the app is the app.
+  if (state.view === 'app' && desktop) state.view = 'research'
   void restoreTools()
   void startUpdates()
   window.addEventListener('dragenter', onDragEnter)
@@ -174,6 +178,7 @@ onBeforeUnmount(() => {
       <HistoryView v-else-if="state.view === 'history'" />
       <GreyMarketView v-else-if="state.view === 'market'" />
       <ToolsView v-else-if="state.view === 'tools' && tools.supported" />
+      <DesktopAppView v-else-if="state.view === 'app' && !desktop" />
       <AirWarView v-else />
       <aside v-if="sideOpen" class="side">
         <TechDetail v-if="state.view === 'research'" />
@@ -186,6 +191,13 @@ onBeforeUnmount(() => {
       <button type="button" class="link" @click="helpOpen = true">
         Where are my files? How does this work?
       </button>
+      <span class="credit">
+        An unofficial fan tool, not affiliated with Firaxis or 2K.
+        <a href="https://www.nexusmods.com/xcom/mods/88" target="_blank" rel="noopener">Long War</a>
+        by Long War Studios,
+        <a href="https://www.nexusmods.com/xcom/mods/686" target="_blank" rel="noopener">LWR</a>
+        by its team.
+      </span>
     </footer>
     <div v-if="dragging" class="dropzone">Drop a save or DefaultGameCore.ini</div>
   </div>
@@ -383,6 +395,12 @@ a {
   color: var(--accent);
   cursor: pointer;
   text-decoration: underline dotted;
+}
+.foot .credit {
+  float: right;
+}
+.foot .credit a {
+  color: var(--muted);
 }
 .foot {
   padding: 6px 16px;

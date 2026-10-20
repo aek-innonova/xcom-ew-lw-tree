@@ -78,6 +78,8 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
   expect(await page.evaluate(() => typeof window.lwtreeDesktop?.game.read)).toBe('function')
 
   await page.getByRole('button', { name: 'Tools' }).click()
+  // The page about the desktop app is the website's.
+  await expect(page.getByRole('button', { name: 'Desktop app' })).toHaveCount(0)
   await expect(page.locator('.facts')).toContainText(game)
   await expect(page.locator('.facts')).toContainText('Long War Rebalanced 2.06')
   await expect(page.locator('.facts')).toContainText('DefaultGameCore.ini loaded')

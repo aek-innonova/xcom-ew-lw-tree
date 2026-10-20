@@ -237,6 +237,16 @@ function onSearchKey(e: KeyboardEvent) {
 
     <p class="privacy">Nothing is uploaded.</p>
     <button
+      v-if="!desktop"
+      type="button"
+      class="help-button app-button"
+      :class="{ on: state.view === 'app' }"
+      title="What the desktop app adds, and the download"
+      @click="state.view = 'app'"
+    >
+      Desktop app
+    </button>
+    <button
       v-if="tools.supported"
       type="button"
       class="help-button"

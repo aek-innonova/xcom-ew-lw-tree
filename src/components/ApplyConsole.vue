@@ -21,10 +21,16 @@ watch(
     if (now) lines.value = []
   },
 )
+/** A step without its count: "Unpacking LWR: 12 of 149 files" is the same step as "…: 13 of 149". */
+const stepOf = (text: string) => text.replace(/\d+ of \d+/g, '#').replace(/…$/, '')
 watch(
   () => tools.busy,
   (b) => {
-    if (props.open && b && lines.value[lines.value.length - 1] !== b) lines.value.push(b)
+    if (!props.open || !b) return
+    const last = lines.value[lines.value.length - 1]
+    // Progress through a step updates its line; a new step adds one.
+    if (last !== undefined && stepOf(last) === stepOf(b)) lines.value[lines.value.length - 1] = b
+    else lines.value.push(b)
   },
 )
 

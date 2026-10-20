@@ -64,3 +64,37 @@ test('the researching link shows the tech, and leaves a view alone that already 
   await page.getByRole('button', { name: 'Fit', exact: true }).click()
   await expect(board).toHaveAttribute('transform', shown!)
 })
+
+test('the desktop app page: what it adds in screenshots, the download, the credits', async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Desktop app' }).click()
+  const app = page.getByRole('region', { name: 'The desktop app' })
+  await expect(app.getByRole('heading', { name: 'The desktop app' })).toBeVisible()
+  // Every screenshot is there and loads.
+  const shots = app.locator('img')
+  await expect(shots).toHaveCount(7)
+  for (const img of await shots.all()) {
+    await img.scrollIntoViewIfNeeded()
+    await expect
+      .poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0)
+  }
+  // Credits, with links; and the disclaimer.
+  await expect(app.getByRole('link', { name: 'Long War', exact: true })).toHaveAttribute(
+    'href',
+    'https://www.nexusmods.com/xcom/mods/88',
+  )
+  await expect(app.getByRole('link', { name: 'Long War Rebalance' })).toHaveAttribute(
+    'href',
+    'https://www.nexusmods.com/xcom/mods/686',
+  )
+  await expect(app).toContainText('not affiliated with or endorsed by Firaxis Games or 2K')
+  await expect(page.locator('footer')).toContainText('not affiliated with Firaxis or 2K')
+  // Help points to it.
+  await page.getByRole('button', { name: 'Help', exact: true }).click()
+  await page.getByRole('button', { name: 'What it does, and the download' }).click()
+  await expect(app).toBeVisible()
+})

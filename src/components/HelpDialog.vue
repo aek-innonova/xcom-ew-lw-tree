@@ -7,6 +7,7 @@ import { nextTick, onMounted, ref, watch } from 'vue'
 import { game } from '@/state/store'
 import { desktop } from '@/state/desktop'
 import { updates } from '@/state/updates'
+import { state } from '@/state/store'
 import UpdatePanel from './UpdatePanel.vue'
 
 const props = defineProps<{
@@ -19,17 +20,11 @@ const emit = defineEmits<{ close: [] }>()
 const dialog = ref<HTMLDialogElement | null>(null)
 const appSection = ref<HTMLElement | null>(null)
 
-/** The desktop app's installer, when this copy of the site has one (deploy/deploy.sh puts it in app/). */
-const APP_DIR = `${import.meta.env.BASE_URL}app/`
-const installer = ref<string | null>(null)
-if (!desktop)
-  fetch(`${APP_DIR}LATEST`)
-    .then(async (r) => {
-      const name = r.ok ? (await r.text()).trim() : ''
-      installer.value = /^LongWarTechTree-Setup-[\w.-]+\.exe$/.test(name) ? name : null
-    })
-    .catch(() => (installer.value = null))
 const copied = ref<string | null>(null)
+function openAppPage() {
+  state.view = 'app'
+  emit('close')
+}
 
 watch(
   () => props.open,
@@ -119,17 +114,10 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       <h3>Desktop app <span class="opt">Windows</span></h3>
       <p>
         Managing mods and the game's settings needs the game's own files, which a web page cannot
-        reach well: the desktop app is this site with <strong>Tools</strong> for that. It finds the
-        game by itself, puts Long War or LWR into it from their own downloads and takes them out
-        again, keeps your mods in a folder you can see, keeps the originals of every file it
-        changes, and keeps itself up to date.
-      </p>
-      <p v-if="installer">
-        <a :href="`${APP_DIR}${installer}`" download>{{ installer }}</a>
-        <span class="muted">
-          · a test build, not code-signed: Windows may warn ("More info", then "Run anyway") ·
-          <a :href="`${APP_DIR}SHA256SUMS`" target="_blank">checksum</a></span
-        >
+        reach well: the desktop app is this site with <strong>Tools</strong> for that.
+        <button type="button" class="link" @click="openAppPage">
+          What it does, and the download
+        </button>
       </p>
     </section>
 
