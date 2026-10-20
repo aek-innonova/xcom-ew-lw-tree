@@ -77,17 +77,25 @@ iac, no tag, no signing.
      download: the site's CSP (`connect-src 'self'`) does not let it read
      `LATEST` from another origin.
 3. **Signing.** The app's own updates are checked against our Ed25519 key
-   whatever Authenticode says, so signing the installer is about
-   Windows' warning. electron-builder 26 has both ways in
-   `electron-builder.yml`:
-   - `win.signtoolOptions`, for the existing certificate, from the
-     Windows VM or wherever its key lives;
-   - `win.azureSignOptions`, for Azure Trusted Signing (publisher name,
-     endpoint, account, certificate profile; credentials in the
-     environment, never in the repository).
-
-   Either is a few lines once the certificate is reachable, and
-   `signExecutable: false` comes out.
+   whatever Authenticode says, so Authenticode is only about Windows'
+   warning on the first download. Site updates never need it; only a new
+   shell installer does, a few times a year.
+   - **The existing certificate** is EV, on a USB key with a PIN for every
+     signature (the person, 2026-10-20). electron-builder's own signing
+     signs every exe in the build (the app, the uninstaller, the installer)
+     on the build machine, so it does not fit. Instead, signing is a step
+     by hand, on the machine the key is plugged into:
+     build (unsigned) → sign the installer with signtool, timestamped
+     (one PIN) → `publish-desktop.sh`.
+     The order matters: publish signs the installer's exact bytes with our
+     key, so an Authenticode signature added afterwards would make every
+     app refuse the update. The installed app's own exe can stay
+     unsigned: SmartScreen judges the downloaded installer, and the
+     shell's self-update downloads carry no web mark.
+   - **Azure Trusted Signing** (`win.azureSignOptions` in electron-builder
+     26; credentials in the environment, never in the repository) signs
+     every exe with no key to plug in, from the Windows VM or a workflow.
+     It replaces the hand step once it is set up.
 4. **The first production shell.** A version above the staging line (0.4.0)
    built with `production https://<host>`. Staging installs, the bench's
    included, stay on staging: nothing moves an app between channels, so a
