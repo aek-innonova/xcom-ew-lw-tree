@@ -110,7 +110,17 @@ Verified:
   `bundle/production.json` and offers its bundle, without the test's
   environment overrides. Before this change, such a build would have asked
   staging.
-- `publish-desktop.sh` run against a rehearsal channel; see the
-  addendum below.
+- `publish-desktop.sh` rehearsed on a throwaway channel ("rehearsal",
+  with the 0.3.6 installer, and `LWTREE_APP_URL` set to a GitHub
+  releases URL). It wrote the channel file naming the installer by that
+  full URL, signed, with its size and sha256. The bundle (1.0 MB), the
+  installer, LATEST, SHA256SUMS and COMMIT came out under
+  `publish/`, and `dist/` was left without them. Afterwards the rehearsal
+  folder was removed; nothing was uploaded.
 
-Left open: the four decisions above.
+Left open:
+- the four decisions above;
+- shells up to 0.3.6 join a channel file's names onto the server
+  themselves, so the staging channel keeps naming its installer relative
+  to the server until those installs are gone. A production channel
+  starts with the new shell and is free of this.
