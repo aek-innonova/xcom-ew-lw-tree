@@ -69,3 +69,41 @@ test('follows the save folder: new saves, a half-written one, and a reload', asy
   await expect(page.getByRole('status').filter({ hasText: 'Watching SaveData' })).toBeVisible()
   await expect(page.locator('.campaign')).toContainText('25 Mar 2016')
 })
+
+test('a save picked by hand stays after a restart; the folder still brings new ones', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('lwtree.helpSeen.v1', '1')
+    window.showDirectoryPicker = async () => {
+      const root = await navigator.storage.getDirectory()
+      return (await root.getDirectoryHandle('SaveData', { create: true })) as never
+    }
+  })
+  await page.goto('/')
+  for (const name of ['save1760', 'save1762'])
+    await writeSave(page, name, readFileSync(resolve(saves, name)))
+  await page.getByRole('button', { name: 'Watch save folder' }).click()
+  await expect(page.locator('.campaign')).toContainText('25 Mar 2016')
+
+  // The player picks an older save (another version's, say) by hand.
+  await page
+    .locator('input[type=file]:not([webkitdirectory]):not([multiple])')
+    .first()
+    .setInputFiles(resolve(saves, 'save1760'))
+  await expect(page.locator('.campaign')).toContainText('16 Mar 2016')
+  // eslint-disable-next-line playwright/no-wait-for-timeout -- at least one look at the folder
+  await page.waitForTimeout(4000)
+  await expect(page.locator('.campaign')).toContainText('16 Mar 2016')
+
+  // A restart keeps it: the folder's newest is nothing new.
+  await page.reload()
+  await expect(page.getByRole('status').filter({ hasText: 'Watching SaveData' })).toBeVisible()
+  // eslint-disable-next-line playwright/no-wait-for-timeout -- at least one look at the folder
+  await page.waitForTimeout(4000)
+  await expect(page.locator('.campaign')).toContainText('16 Mar 2016')
+
+  // A save the game writes after that is followed.
+  await writeSave(page, 'save1761', readFileSync(resolve(saves, 'save1761')))
+  await expect(page.locator('.campaign')).toContainText('24 Mar 2016', { timeout: 10_000 })
+})

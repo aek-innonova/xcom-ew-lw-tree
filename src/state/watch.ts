@@ -4,11 +4,17 @@
 // again where it requires that. The folder is checked every few seconds and
 // the newest save loaded when it changes. Nothing leaves the browser.
 //
+// "Changes" means since the app last looked, across restarts: the newest
+// save it has seen is remembered, and a save the player picked by hand counts
+// as seeing the folder's newest. So a restart keeps the save the player was
+// on (an LW save picked while an LWR one is newer), and a save written while
+// the app was closed is still picked up.
+//
 // Firefox and Safari have no such API; there the folder can still be picked
 // through an ordinary file input, which hands over its files once
 // (loadNewestFromFolder).
 
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import { fileKey, isSaveName, newestSave, type FileInfo } from '@/model/live'
 import { desktop, desktopSaveFolder } from './desktop'
 import { stored as storedIn } from './idb'
@@ -50,6 +56,36 @@ export const watcher = reactive({
   error: null as string | null,
 })
 
+/** The newest save the app has seen in the folder (its fileKey), kept across restarts. */
+const SEEN_KEY = 'lwtree.watch.seen.v1'
+const seen = {
+  get: () => {
+    try {
+      return localStorage.getItem(SEEN_KEY)
+    } catch {
+      return null
+    }
+  },
+  set: (key: string) => {
+    try {
+      localStorage.setItem(SEEN_KEY, key)
+    } catch {
+      // private mode: the folder is followed this session only
+    }
+  },
+}
+/** Set when a save is loaded other than from the folder: the folder's newest counts as seen. */
+let pickedByHand = false
+let loadingFromFolder = false
+watch(
+  () => state.save?.loadedAt,
+  () => {
+    if (!loadingFromFolder) pickedByHand = true
+  },
+  // At once, while loadingFromFolder still says where the save came from.
+  { flush: 'sync' },
+)
+
 let handle: DirectoryHandle | null = null
 let timer: ReturnType<typeof setInterval> | undefined
 let loadedKey: string | null = null
@@ -84,11 +120,24 @@ export async function checkFolder(): Promise<void> {
     if (!newest) return
     const key = fileKey(newest)
     if (key === loadedKey) return
+    // Not new: the newest the app saw before (this session's first look, with a
+    // save already in place), or the player has picked one by hand since.
+    const firstLook = loadedKey === null
+    const known = key === seen.get() || (seen.get() === null && !!state.save)
+    if (pickedByHand || (firstLook && known)) {
+      pickedByHand = false
+      loadedKey = key
+      seen.set(key)
+      return
+    }
     if (failing?.key === key && failing.tries >= MAX_TRIES) return
     const file = saves.find((s) => s.info.name === newest.name)!.file
+    loadingFromFolder = true
     const ok = loadSave(newest.name, new Uint8Array(await file.arrayBuffer()), true)
+    loadingFromFolder = false
     if (ok) {
       loadedKey = key
+      seen.set(key)
       failing = null
       watcher.lastFile = newest.name
       watcher.lastLoadedAt = Date.now()
