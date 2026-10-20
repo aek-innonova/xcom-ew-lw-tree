@@ -201,7 +201,7 @@ const bursts = computed(() =>
         cx: p.x,
         cy: p.y,
         x: p.x,
-        y: p.y - 18 - age * 40,
+        y: p.y - 40 - age * 40,
         r: 8 + age * 36,
         opacity: 1 - age / 0.9,
         text: e.kind === 'dodged' ? 'dodged' : `−${e.damage}${e.crit ? ' crit' : ''}`,
@@ -460,7 +460,9 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
   inset: 0;
   background: rgba(3, 10, 17, 0.72);
   display: flex;
-  align-items: center;
+  /* Pinned at the top: the log grows downwards, the fight screen stays put. */
+  align-items: flex-start;
+  padding-top: 4vh;
   justify-content: center;
   z-index: 50;
 }

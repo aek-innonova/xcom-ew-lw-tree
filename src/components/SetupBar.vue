@@ -85,9 +85,10 @@ async function onDelete() {
 async function apply() {
   await makePlan(true)
   await nextTick()
-  document
-    .querySelector('[aria-label="What will change"]')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const plan = document.querySelector<HTMLElement>('[aria-label="What will change"]')
+  plan?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Keyboard focus follows: to the plan, to read it and write or cancel.
+  plan?.focus({ preventScroll: true })
 }
 </script>
 

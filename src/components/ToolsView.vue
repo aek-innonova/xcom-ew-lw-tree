@@ -624,7 +624,7 @@ const iniNote = computed(() =>
         </button>
         <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
       </p>
-      <div v-else class="plan" role="region" aria-label="What will change">
+      <div v-else class="plan" role="region" aria-label="What will change" tabindex="-1">
         <p v-if="!tools.plan.changes.length">
           <strong>Nothing to change:</strong> the game already has your setup<template
             v-if="tools.plan.base"
