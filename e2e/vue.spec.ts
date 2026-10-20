@@ -8,18 +8,22 @@ test('shows the tree and the privacy note', async ({ page }) => {
   await expect(page.locator('.privacy')).toContainText('Nothing is uploaded')
 })
 
-test('help opens on a first visit, closes, and stays closed after a reload', async ({ page }) => {
+test('help waits on a first visit: its button glows until it is opened once', async ({ page }) => {
   await page.goto('/')
   const help = page.getByRole('dialog', { name: 'How this works' })
+  const button = page.getByRole('button', { name: 'Help', exact: true })
+  await expect(page.locator('[data-tech]')).toHaveCount(75)
+  await expect(help).toBeHidden()
+  await expect(button).toHaveClass(/\bnew\b/)
+  await button.click()
   await expect(help).toBeVisible()
   await expect(help).toContainText('XComGame\\SaveData')
   await page.keyboard.press('Escape')
   await expect(help).toBeHidden()
+  await expect(button).not.toHaveClass(/\bnew\b/)
   await page.reload()
   await expect(page.locator('[data-tech]')).toHaveCount(75)
-  await expect(help).toBeHidden()
-  await page.getByRole('button', { name: 'Help', exact: true }).click()
-  await expect(help).toBeVisible()
+  await expect(button).not.toHaveClass(/\bnew\b/)
 })
 
 test('switches to Long War Rebalanced: its tree, and back', async ({ page }) => {

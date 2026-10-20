@@ -19,6 +19,7 @@ import { GAMES, type GameId } from '@/model/game'
 import { tools } from '@/state/tools'
 import { desktop } from '@/state/desktop'
 
+defineProps<{ /** Help not opened yet: its button glows. */ helpNew?: boolean }>()
 const emit = defineEmits<{
   find: [hit: { view: 'research' | 'foundry'; id: number }]
   help: []
@@ -239,7 +240,15 @@ function onSearchKey(e: KeyboardEvent) {
     >
       Tools
     </button>
-    <button type="button" class="help-button" @click="emit('help')">Help</button>
+    <button
+      type="button"
+      class="help-button"
+      :class="{ new: helpNew }"
+      :title="helpNew ? 'New here? How this works' : undefined"
+      @click="emit('help')"
+    >
+      Help
+    </button>
   </header>
 </template>
 
@@ -399,6 +408,22 @@ h1 span {
 }
 .help-button {
   flex: none;
+}
+.help-button.new {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: glow 2.4s ease-in-out infinite;
+}
+@keyframes glow {
+  50% {
+    box-shadow: 0 0 10px 2px color-mix(in srgb, var(--accent) 65%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .help-button.new {
+    animation: none;
+    box-shadow: 0 0 8px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
 }
 .help-button.on {
   border-color: var(--accent);

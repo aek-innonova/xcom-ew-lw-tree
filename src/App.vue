@@ -22,11 +22,14 @@ const ToolsView = defineAsyncComponent(() => import('@/components/ToolsView.vue'
 const tree = ref<InstanceType<typeof TechTree> | null>(null)
 const foundryTree = ref<InstanceType<typeof FoundryTree> | null>(null)
 
-// Help opens by itself on a first visit, then from the header.
+// Help opens from the header. Until it has been opened once, its button
+// glows instead of the help being put in front of a first visit.
 const HELP_SEEN_KEY = 'lwtree.helpSeen.v1'
-const helpOpen = ref(typeof localStorage !== 'undefined' && !localStorage.getItem(HELP_SEEN_KEY))
+const helpOpen = ref(false)
+const helpNew = ref(typeof localStorage !== 'undefined' && !localStorage.getItem(HELP_SEEN_KEY))
 function closeHelp() {
   helpOpen.value = false
+  helpNew.value = false
   try {
     localStorage.setItem(HELP_SEEN_KEY, '1')
   } catch {
@@ -104,7 +107,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <AppHeader @find="onFind" @help="helpOpen = true" />
+    <AppHeader :help-new="helpNew" @find="onFind" @help="helpOpen = true" />
     <HelpDialog :open="helpOpen" @close="closeHelp" />
     <CampaignBar />
     <p
