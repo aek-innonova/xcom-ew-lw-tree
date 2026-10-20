@@ -113,12 +113,18 @@ test('a newer signed site: fetched, offered, and served after restarting into it
   server = s.server
   const page = await launch(s.url, key.pub)
   await expect(page).not.toHaveTitle(/Newer site/)
-  await page.getByRole('button', { name: 'Help' }).click()
+  await page.getByRole('button', { name: 'Help', exact: true }).click()
   await page.getByRole('button', { name: 'Check for updates' }).click()
-  await expect(page.getByText('A new version of the site is ready.')).toBeVisible()
-  await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Restart into it' }).click()
+  // Said where it was asked for, with what to do; and marked in the header.
+  const help = page.getByRole('dialog', { name: 'How this works' })
+  await expect(help).toContainText(`A new site is ready: ${v}.`)
+  await expect(page.getByRole('button', { name: 'Update ready' })).toBeVisible()
+  await help.getByRole('button', { name: 'Restart into it' }).click()
   await expect(page).toHaveTitle(`Newer site ${v}`)
+  // After the restart, said once.
+  await expect(
+    page.getByRole('status').filter({ hasText: `Updated: now on site ${v}.` }),
+  ).toBeVisible()
 })
 
 test('a site signed with another key is refused, and the app keeps its own', async () => {
@@ -131,9 +137,10 @@ test('a site signed with another key is refused, and the app keeps its own', asy
   })
   server = s.server
   const page = await launch(s.url, key.pub)
-  await page.getByRole('button', { name: 'Help' }).click()
+  await page.getByRole('button', { name: 'Help', exact: true }).click()
   await page.getByRole('button', { name: 'Check for updates' }).click()
-  await expect(page.getByText(/the last check failed: the signature does not match/)).toBeVisible()
-  await expect(page.getByText('A new version of the site is ready.')).toHaveCount(0)
+  await expect(page.getByText(/last check failed: the signature does not match/i)).toBeVisible()
+  await expect(page.getByText(/A new site is ready/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Update ready' })).toHaveCount(0)
   await expect(page).not.toHaveTitle(/Newer site/)
 })

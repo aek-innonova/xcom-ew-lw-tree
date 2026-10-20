@@ -175,6 +175,12 @@ test('a bundle announced as one version but signed as another is refused', async
   assert.match((await s.check()).error ?? '', /not the version announced/)
 })
 
+/** Until a newer shell fetched in the background is in, or refused. */
+async function settled(s: BundleStore) {
+  for (let i = 0; i < 200 && s.state.shell?.fetching; i++)
+    await new Promise((r) => setTimeout(r, 10))
+}
+
 test('a bundle that needs a newer shell brings the shell, checked before it may run', async () => {
   const exe = Buffer.from('MZ pretend installer')
   const shell = {
@@ -192,8 +198,11 @@ test('a bundle that needs a newer shell brings the shell, checked before it may 
   }
   const s = store(files)
   await s.start()
+  // Fetched in the background: the check does not wait for it.
   const st = await s.check()
-  assert.deepEqual(st.shell, { version: '0.9.0', needed: true, downloaded: true })
+  assert.equal(st.shell?.fetching, true)
+  await settled(s)
+  assert.deepEqual(st.shell, { version: '0.9.0', needed: true, downloaded: true, fetching: false })
   assert.ok(s.installer && readFileSync(s.installer).equals(exe))
   // Signed by someone else: refused.
   const forged = store({
@@ -204,7 +213,9 @@ test('a bundle that needs a newer shell brings the shell, checked before it may 
     }),
   })
   await forged.start()
-  assert.match((await forged.check()).error ?? '', /not signed by us/)
+  await forged.check()
+  await settled(forged)
+  assert.match(forged.state.error ?? '', /not signed by us/)
   assert.equal(forged.installer, undefined)
 })
 

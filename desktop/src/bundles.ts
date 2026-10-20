@@ -37,7 +37,7 @@ export interface BundleState {
   /** A newer bundle installed and waiting for a restart. */
   ready?: string
   /** A newer shell the server offers (the bundle needs it, or it is simply newer). */
-  shell?: { version: string; needed: boolean; downloaded: boolean }
+  shell?: { version: string; needed: boolean; downloaded: boolean; fetching?: boolean }
   checking: boolean
   lastCheck?: string
   error?: string
@@ -59,6 +59,8 @@ export interface StoreOptions {
   updateUrl?: string
   channel: string
   fetch: Fetch
+  /** Called when the state changes outside a check (a newer app fetched in the background). */
+  onChange?: () => void
 }
 
 /** Whether a bundle folder is whole: its manifest's files all there at their size. */
@@ -206,8 +208,17 @@ export class BundleStore {
       if (newer && fits) await this.install(`${base}/${b.url}`, b.version)
       if (info.shell && compareVersions(info.shell.version, this.o.shellVersion) > 0) {
         const needed = newer && !fits
-        this.state.shell = { version: info.shell.version, needed, downloaded: false }
-        if (needed) await this.downloadShell(`${base}/${info.shell.url}`, info.shell)
+        const had = this.state.shell
+        const same = had?.version === info.shell.version
+        this.state.shell = {
+          version: info.shell.version,
+          needed,
+          downloaded: same ? had.downloaded : false,
+          fetching: same ? had.fetching : false,
+        }
+        // Fetched in the background, so "Install it and restart" starts at once.
+        if (!this.state.shell.downloaded && !this.state.shell.fetching)
+          this.fetchInBackground(`${base}/${info.shell.url}`, info.shell)
       }
       this.state.lastCheck = new Date().toISOString()
     } catch (e) {
@@ -281,6 +292,17 @@ export class BundleStore {
     await fs.writeFile(file, data)
     this.shellInstaller = file
     if (this.state.shell) this.state.shell.downloaded = true
+  }
+
+  /** Downloads and checks a newer shell without holding up the check; says when done. */
+  private fetchInBackground(url: string, s: NonNullable<UpdateInfo['shell']>) {
+    if (this.state.shell) this.state.shell.fetching = true
+    this.downloadShell(url, s)
+      .catch((e) => (this.state.error = (e as Error).message))
+      .finally(() => {
+        if (this.state.shell) this.state.shell.fetching = false
+        this.o.onChange?.()
+      })
   }
 
   /** The checked installer of a newer shell, if one was downloaded. */

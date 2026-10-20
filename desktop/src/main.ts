@@ -4,7 +4,7 @@
 // is confined to the game folder or the save folder the app found or the
 // player chose; the page never sees Node.
 
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, Notification, protocol, shell } from 'electron'
 import { spawn } from 'node:child_process'
 import { createReadStream, promises as fs, readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -57,6 +57,9 @@ function baseInfo(): { version: string } {
 }
 // Tests point the app at their own server and key; LWTREE_UPDATE_URL="" turns updates off.
 const updateUrl = process.env.LWTREE_UPDATE_URL ?? DEFAULT_UPDATE.url
+/** Left by an update's install, so the app comes to the front when it starts again. */
+const UPDATED_MARK = path.join(app.getPath('userData'), 'updated.mark')
+
 const bundles = new BundleStore({
   dir: path.join(app.getPath('userData'), 'bundles'),
   baseDir: SITE,
@@ -66,7 +69,10 @@ const bundles = new BundleStore({
   updateUrl: updateUrl || undefined,
   channel: process.env.LWTREE_UPDATE_CHANNEL ?? DEFAULT_UPDATE.channel,
   fetch: (u) => net.fetch(u, { cache: 'no-store' }),
+  onChange: () => tellAll(),
 })
+/** The update state to every window (set up with the window's bridge). */
+let tellAll = () => {}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -357,6 +363,7 @@ function bridge(win: BrowserWindow) {
   const tell = () => {
     if (!win.isDestroyed()) win.webContents.send('bundle:state', bundles.state)
   }
+  tellAll = tell
   handle('bundle:state', () => bundles.state)
   handle('bundle:check', async () => {
     const s = await bundles.check()
@@ -373,9 +380,25 @@ function bridge(win: BrowserWindow) {
   handle('shell:install', async () => {
     const installer = await bundles.fetchShell()
     if (!installer) return false
-    // NSIS, per user, silently; it starts the app again when done.
-    spawn(installer, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref()
-    app.quit()
+    const version = bundles.state.shell?.version ?? 'the new version'
+    // The page says it is installing; give it a moment to be read, say it
+    // outside the app too (nothing of ours is on screen while NSIS runs),
+    // and leave a mark so the app comes to the front when it starts again.
+    setTimeout(() => {
+      if (Notification.isSupported())
+        new Notification({
+          title: 'Long War Tech Tree',
+          body: `Installing app ${version}: it starts again by itself in about 20 seconds.`,
+        }).show()
+      void fs
+        .writeFile(UPDATED_MARK, version)
+        .catch(() => undefined)
+        .finally(() => {
+          // NSIS, per user, silently; it starts the app again when done.
+          spawn(installer, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref()
+          app.quit()
+        })
+    }, 1500)
     return true
   })
   const check = () => void bundles.check().then(tell)
@@ -434,6 +457,19 @@ async function createWindow() {
   })
   bridge(win)
   await win.loadURL(`${ORIGIN}/`)
+  // Started again by the installer after an update: Windows keeps a window it
+  // did not see the person ask for behind the others; bring it forward.
+  if (
+    await fs.rm(UPDATED_MARK).then(
+      () => true,
+      () => false,
+    )
+  ) {
+    win.setAlwaysOnTop(true)
+    win.show()
+    win.focus()
+    setTimeout(() => !win.isDestroyed() && win.setAlwaysOnTop(false), 400)
+  }
 }
 
 // One app at a time per profile: a second start brings the window forward
