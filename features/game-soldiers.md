@@ -95,8 +95,11 @@ settings (`src/components/SoldierPreview.vue`, `SoldierView.vue`,
   animation stores rotations conjugated relative to the skeleton's rest
   pose. The set is not rotation-only, so the animation's bone positions
   count too; without them the shoulder pads stood out like wings. It moves
-  only while on screen, and not when the system asks for reduced motion.
-  Without the package the soldier keeps the rest pose, arms out.
+  only while on screen, not when the system asks for reduced motion, and
+  not without a GPU: drawn in software (SwiftShader, as on the Windows VM)
+  it cost about 2.6 cores while visible, so there it stands still in the
+  idle's first frame. Without the package the soldier keeps the rest
+  pose, arms out.
 - **Textures:** up to 1024 wide, from the package or `CharTextures.tfc`
   through ranged reads. Diffuse, the masks, and normal maps.
 
@@ -139,6 +142,12 @@ Verified:
   over one that looks around and slouches, one that scratches its head,
   and one that holds a rifle that is not there. Female Kevlar and
   Carapace, male Titan, Archangel, Ghost and Psi in it.
+- On the bench (Windows VM, the person's install, site 2026.1020.063255):
+  every male armor, female Kevlar and Titan, a helmet staying on the head
+  as it moves; frames 1.5 s apart differ around the head and shoulders.
+  CPU while visible about 2.6 cores (software WebGL), 0.2% scrolled away,
+  1.7% minimized, 0.2–0.9% with Windows' animation effects off. Hence
+  still without a GPU.
 
 Not done:
 - The game's own lighting and reflections (cube maps).

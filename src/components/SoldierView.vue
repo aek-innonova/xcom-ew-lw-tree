@@ -4,7 +4,8 @@
 // dragging. Our own simple shader, not the game's: the armor's top and
 // bottom colors go through its tint masks, the hair's color through its
 // template; the lighting is plain. It breathes in the barracks idle while on
-// screen, unless the system asks for less motion.
+// screen, unless the system asks for less motion or there is no GPU (drawn in
+// software, 30 frames a second cost a machine about 2.6 cores).
 
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Color } from '@/model/material'
@@ -225,9 +226,10 @@ let shown = true
 let lastStep = 0
 let ticking = 0
 const still = matchMedia('(prefers-reduced-motion: reduce)')
+let software = false
 function animate() {
   cancelAnimationFrame(ticking)
-  if (!props.soldier?.at || !shown || still.matches) return
+  if (!props.soldier?.at || !shown || still.matches || software) return
   ticking = requestAnimationFrame(step)
 }
 function step(now: number) {
@@ -366,6 +368,9 @@ function wheel(e: WheelEvent) {
 onMounted(() => {
   gl = canvas.value?.getContext('webgl2', { antialias: true }) ?? null
   if (!gl) return
+  const info = gl.getExtension('WEBGL_debug_renderer_info')
+  const renderer = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : ''
+  software = /swiftshader|llvmpipe|softpipe|software|microsoft basic render|warp/i.test(renderer)
   compile()
   upload()
   addEventListener('resize', schedule)
