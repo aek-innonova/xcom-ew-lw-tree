@@ -6,6 +6,9 @@
 //
 //   node scripts/publish-bundle.mjs <channel>
 //
+// The installer is named relative to the update server (app/<name>), or under
+// LWTREE_APP_URL when it is kept on another host (deploy/publish-desktop.sh).
+//
 // Needs the desktop code built (cd desktop && npm run build) and the private
 // key (~/.config/lwtree/bundle-key.pem, or LWTREE_BUNDLE_KEY).
 import { createRequire } from 'node:module'
@@ -45,7 +48,7 @@ if (existsSync(latest)) {
     const data = readFileSync(path.join(dist, 'app', name))
     info.shell = {
       version: m[1],
-      url: `app/${name}`,
+      url: process.env.LWTREE_APP_URL ? `${process.env.LWTREE_APP_URL.replace(/\/+$/, '')}/${name}` : `app/${name}`,
       size: data.length,
       sha256: sha256(data),
       key: KEY_NAME,

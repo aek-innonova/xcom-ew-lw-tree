@@ -55,8 +55,19 @@ function baseInfo(): { version: string } {
     return { version: '0.0.0' }
   }
 }
+/** Where updates come from: the build's update.json (scripts/build-desktop-win.sh), else staging. */
+function updateTarget(): { url: string; channel: string } {
+  try {
+    const t = JSON.parse(readFileSync(path.join(app.getAppPath(), 'update.json'), 'utf8'))
+    if (typeof t.url === 'string' && /^[a-z]+$/.test(t.channel)) return t
+  } catch {
+    // None in this build.
+  }
+  return DEFAULT_UPDATE
+}
+const UPDATE = updateTarget()
 // Tests point the app at their own server and key; LWTREE_UPDATE_URL="" turns updates off.
-const updateUrl = process.env.LWTREE_UPDATE_URL ?? DEFAULT_UPDATE.url
+const updateUrl = process.env.LWTREE_UPDATE_URL ?? UPDATE.url
 /** Left by an update's install, so the app comes to the front when it starts again. */
 const UPDATED_MARK = path.join(app.getPath('userData'), 'updated.mark')
 
@@ -67,7 +78,7 @@ const bundles = new BundleStore({
   shellVersion: app.getVersion(),
   keys: process.env.LWTREE_UPDATE_KEYS ? JSON.parse(process.env.LWTREE_UPDATE_KEYS) : TRUSTED_KEYS,
   updateUrl: updateUrl || undefined,
-  channel: process.env.LWTREE_UPDATE_CHANNEL ?? DEFAULT_UPDATE.channel,
+  channel: process.env.LWTREE_UPDATE_CHANNEL ?? UPDATE.channel,
   fetch: (u) => net.fetch(u, { cache: 'no-store' }),
   onChange: () => tellAll(),
 })

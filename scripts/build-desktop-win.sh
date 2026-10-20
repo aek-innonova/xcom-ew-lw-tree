@@ -3,8 +3,20 @@
 # site and the app here, the installer on the Windows VM (ssh win), the
 # result copied back to desktop/release/. Only the app's build inputs go to
 # the VM (compiled code, the built site, config, icons), not the working tree.
+#
+#   scripts/build-desktop-win.sh [<channel> <update url>]
+#
+# The app takes its updates from <update url>/bundle/<channel>.json (its
+# update.json). Without arguments: staging, from xcom.innonova.ch, into
+# desktop/release/; any other channel goes to desktop/release/<channel>/, so
+# deploy/deploy.sh never offers it on staging.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+channel=${1:-staging}
+url=${2:-https://xcom.innonova.ch}
+[[ "$channel" =~ ^[a-z]+$ && "$url" =~ ^https:// ]] || { echo "usage: $0 [<channel> <https url>]" >&2; exit 2; }
+out=desktop/release
+[[ "$channel" == staging ]] || out=desktop/release/$channel
 
 # The base bundle must be made with copy-site.mjs (npm run site), not a plain
 # copy: it stamps site/.bundle-info.json with the bundle version and leaves out
@@ -12,13 +24,16 @@ cd "$(dirname "$0")/.."
 # installed apps read their site as 0.0.0 and re-downloaded the same bundle.
 (cd desktop && npm run site && npm run build)
 version=$(node -p "require('./desktop/package.json').version")
-tar czf /tmp/lwtree-desktop.tgz -C desktop package.json package-lock.json electron-builder.yml build dist site
+target=$(mktemp -d)
+printf '{ "url": "%s", "channel": "%s" }\n' "$url" "$channel" > "$target/update.json"
+tar czf /tmp/lwtree-desktop.tgz -C desktop package.json package-lock.json electron-builder.yml build dist site -C "$target" update.json
+rm -rf "$target"
 scp -q /tmp/lwtree-desktop.tgz win:lwtree-desktop.tgz
 ssh win 'Remove-Item -Recurse -Force lwtree-desktop -ErrorAction SilentlyContinue;
   New-Item -ItemType Directory lwtree-desktop | Out-Null;
   tar -xzf lwtree-desktop.tgz -C lwtree-desktop; cd lwtree-desktop;
   npm ci --no-audit --no-fund *> npm.log;
   npx electron-builder --win nsis *> build.log; if ($LASTEXITCODE) { Get-Content build.log -Tail 20; exit 1 }'
-mkdir -p desktop/release
-scp -q "win:lwtree-desktop/release/LongWarTechTree-Setup-$version.exe" desktop/release/
-echo "built desktop/release/LongWarTechTree-Setup-$version.exe"
+mkdir -p "$out"
+scp -q "win:lwtree-desktop/release/LongWarTechTree-Setup-$version.exe" "$out/"
+echo "built $out/LongWarTechTree-Setup-$version.exe ($channel, updates from $url)"

@@ -47,10 +47,14 @@ async function newerSite(version: string, key: string) {
   return JSON.stringify(signBundle(payload, 'test', key))
 }
 
-function serve(files: Record<string, string>): Promise<{ url: string; server: Server }> {
+function serve(
+  files: Record<string, string>,
+  asked: string[] = [],
+): Promise<{ url: string; server: Server }> {
   return new Promise((done) => {
     const server = createServer((req, res) => {
       const body = files[(req.url ?? '').split('?')[0]!.replace(/^\//, '')]
+      asked.push((req.url ?? '').split('?')[0]!)
       res.writeHead(body ? 200 : 404, { 'Content-Type': 'application/json' })
       res.end(body ?? '')
     })
@@ -68,20 +72,20 @@ test.afterEach(async () => {
   server?.close()
 })
 
-async function launch(url: string, pub: string) {
+/** The app pointed at `url` for the "test" channel; or, with `appDir`, at what its update.json says. */
+async function launch(url: string, pub: string, appDir?: string) {
   const env: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v
   delete env.ELECTRON_RUN_AS_NODE
   app = await electron.launch({
     executablePath: electronBin,
-    args: [join(root, 'desktop')],
+    args: [appDir ?? join(root, 'desktop')],
     env: {
       ...env,
       LWTREE_SITE: join(root, 'dist'),
       LWTREE_USER_DATA: mkdtempSync(join(tmpdir(), 'lwtree-upd-')),
       LWTREE_LIBRARY: mkdtempSync(join(tmpdir(), 'lwtree-lib-')),
-      LWTREE_UPDATE_URL: url,
-      LWTREE_UPDATE_CHANNEL: 'test',
+      ...(appDir ? {} : { LWTREE_UPDATE_URL: url, LWTREE_UPDATE_CHANNEL: 'test' }),
       LWTREE_UPDATE_KEYS: JSON.stringify({ test: pub }),
     },
   })
@@ -143,4 +147,31 @@ test('a site signed with another key is refused, and the app keeps its own', asy
   await expect(page.getByText(/A new site is ready/)).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Update ready' })).toHaveCount(0)
   await expect(page).not.toHaveTitle(/Newer site/)
+})
+
+test('a build takes its updates from the server and channel its update.json names', async () => {
+  const key = pair()
+  const v = '2099.0101.000000'
+  const asked: string[] = []
+  const s = await serve(
+    {
+      'bundle/production.json': JSON.stringify({ ...JSON.parse(info(v)), channel: 'production' }),
+      [`bundle/${v}.json`]: await newerSite(v, key.priv),
+    },
+    asked,
+  )
+  server = s.server
+  // The app as built: its code and an update.json, as scripts/build-desktop-win.sh packs it.
+  const dir = mkdtempSync(join(tmpdir(), 'lwtree-build-'))
+  cpSync(join(root, 'desktop/package.json'), join(dir, 'package.json'))
+  cpSync(join(root, 'desktop/dist'), join(dir, 'dist'), { recursive: true })
+  writeFileSync(join(dir, 'update.json'), JSON.stringify({ url: s.url, channel: 'production' }))
+  const page = await launch(s.url, key.pub, dir)
+  await page.getByRole('button', { name: 'Help', exact: true }).click()
+  await page.getByRole('button', { name: 'Check for updates' }).click()
+  await expect(page.getByRole('dialog', { name: 'How this works' })).toContainText(
+    `A new site is ready: ${v}.`,
+  )
+  expect(asked).toContain('/bundle/production.json')
+  expect(asked).not.toContain('/bundle/staging.json')
 })

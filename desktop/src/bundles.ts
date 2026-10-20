@@ -80,6 +80,12 @@ export function bundleIsWhole(dir: string): boolean {
   }
 }
 
+/**
+ * A file the channel file names: under the update server ("bundle/….json"),
+ * or anywhere when it is a whole URL (an installer kept on another host).
+ */
+export const at = (base: string, url: string): string => new URL(url, `${base}/`).href
+
 export class BundleStore {
   private config: Config = { active: 'base' }
   private configPath: string
@@ -209,7 +215,7 @@ export class BundleStore {
       const newer =
         compareVersions(b.version, newest) > 0 && !(this.config.bad ?? []).includes(b.version)
       const fits = compareVersions(b.minShellVersion, this.o.shellVersion) <= 0
-      if (newer && fits) await this.install(`${base}/${b.url}`, b.version)
+      if (newer && fits) await this.install(at(base, b.url), b.version)
       if (info.shell && compareVersions(info.shell.version, this.o.shellVersion) > 0) {
         const needed = newer && !fits
         const had = this.state.shell
@@ -222,7 +228,7 @@ export class BundleStore {
         }
         // Fetched in the background, so "Install it and restart" starts at once.
         if (!this.state.shell.downloaded && !this.state.shell.fetching)
-          this.fetchInBackground(`${base}/${info.shell.url}`, info.shell)
+          this.fetchInBackground(at(base, info.shell.url), info.shell)
       }
       this.state.lastCheck = new Date().toISOString()
     } catch (e) {
@@ -326,7 +332,7 @@ export class BundleStore {
     ) as UpdateInfo
     if (!info.shell || compareVersions(info.shell.version, this.o.shellVersion) <= 0)
       return undefined
-    await this.downloadShell(`${base}/${info.shell.url}`, info.shell)
+    await this.downloadShell(at(base, info.shell.url), info.shell)
     return this.shellInstaller
   }
 }

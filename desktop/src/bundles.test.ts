@@ -14,7 +14,7 @@ import {
   type SignedBundle,
   type UpdateInfo,
 } from './bundle-format'
-import { BundleStore, type Fetch } from './bundles'
+import { at, BundleStore, type Fetch } from './bundles'
 
 const pair = () => {
   const { privateKey, publicKey } = generateKeyPairSync('ed25519')
@@ -257,4 +257,19 @@ test('a bundle that reports good stays, and a partial one is never served', asyn
   const broken = store(files, '0.2.0', dir)
   await broken.start()
   assert.equal(served(broken), '<html>base</html>')
+})
+
+test('a channel file names its files under the update server, or by whole URL elsewhere', () => {
+  assert.equal(
+    at('https://xcom.innonova.ch', 'bundle/1.json'),
+    'https://xcom.innonova.ch/bundle/1.json',
+  )
+  assert.equal(
+    at('https://cdn.example/lwtree', 'app/Setup.exe'),
+    'https://cdn.example/lwtree/app/Setup.exe',
+  )
+  assert.equal(
+    at('https://xcom.aek.dk', 'https://downloads.example/Setup-0.4.0.exe'),
+    'https://downloads.example/Setup-0.4.0.exe',
+  )
 })

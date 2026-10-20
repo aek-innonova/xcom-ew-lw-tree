@@ -11,5 +11,5 @@ MCowBQYDK2VwAyEA3Q08ZS/GylVvRGv9mqWPUa+DZYqYCnSOWPK9BZ29QWk=
 `,
 }
 
-/** Where updates come from, unless the build says otherwise (desktop/update.json). */
+/** Where updates come from, unless the build says otherwise (update.json in the app, main.ts). */
 export const DEFAULT_UPDATE = { url: 'https://xcom.innonova.ch', channel: 'staging' }

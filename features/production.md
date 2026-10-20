@@ -1,0 +1,116 @@
+---
+title: "Going live: the desktop app in production, wherever its files are hosted"
+status: review
+priority: 1
+dependsOn: [deploy, desktop-updates, desktop-app-page]
+---
+
+## Purpose
+
+The person, 2026-10-20, on going live: "i will look into some options lets
+focus on preparing for it, i'm considering if maybe i should host the files
+somewhere not on prem - current line is only 1G and if the LWR community is
+interested that might hurt". Signing: "we can find a solution with the
+existing cert and i want to set up azure signing too".
+
+The site is already live at xcom.aek.dk: a signed release of this
+repository, served by the estate (features/deploy.md). The desktop app is
+not. Everything it needs from a server lives on staging, and every
+installer built so far takes its updates from staging. The preparation is
+for whatever the person chooses for hosting: nothing here should assume a
+host.
+
+What there is to serve, by size:
+- The installer: 112 MB per download (a new player, or an update to the
+  app shell itself).
+- A site bundle: about 1 MB per site update, per installed app.
+- The channel file (`bundle/<channel>.json`): under 1 KB, asked for every
+  six hours by each running app.
+
+## Prepared (2026-10-20)
+
+- **An installer knows where its updates come from.**
+  `scripts/build-desktop-win.sh <channel> <url>` packs an `update.json`
+  into the app. The app then asks `<url>/bundle/<channel>.json` (main.ts,
+  `updateTarget`). Without arguments the build is staging, as before.
+  Installers for other channels go to `desktop/release/<channel>/`, so the
+  staging deploy never offers one.
+- **The files can live apart.** A channel file may name its bundle and its
+  installer by full URL, and the shell resolves them against the update
+  server (`at` in bundles.ts). `LWTREE_APP_URL` makes publish-bundle name
+  the installer on another host. The next shell ships this, so every
+  production shell can follow the installer if it moves.
+- **One command makes a channel's files, and uploads nothing.**
+  `deploy/publish-desktop.sh <channel>` writes
+  `desktop/release/<channel>/publish/`:
+  - `bundle/` (the channel file and the signed site bundle);
+  - `app/` (the installer, LATEST, SHA256SUMS);
+  - COMMIT.
+
+  The files go up as they are, under the URL the installer was built for.
+  The script refuses to run on a working tree with changes: a bundle is
+  the site at a commit.
+
+Not done, on purpose: no upload, no change to the release workflow or to
+iac, no tag, no signing.
+
+## For the person to decide
+
+1. **Where the installer lives.** Recommended: **GitHub Releases** of this
+   repository, which is public. GitHub's CDN serves it, the line carries
+   nothing, it costs nothing, and the release page counts downloads. Build
+   with `LWTREE_APP_URL=https://github.com/aek-innonova/xcom-ew-lw-tree/releases/download/<tag>`
+   and upload `app/*` there (`gh release upload`). Any other static host
+   or CDN works the same way.
+2. **Where the channel file and the bundles live.** They are small, so
+   they can sit with the site on xcom.aek.dk. But the site there is built
+   by the release workflow, and the bundle signing key stays on this
+   machine. The ways to bring the two together:
+   - **(a)** The workflow takes `bundle/` and `app/LATEST` from a release
+     asset uploaded from here (`publish-desktop.sh`'s output as a
+     tarball), and packs them into the site it signs. The key stays here.
+     This is my recommendation.
+   - **(b)** The key goes into a GitHub Actions secret and the workflow
+     signs. Simpler, but the key leaves this machine.
+   - **(c)** A separate host for all the desktop files. The installer is
+     then built for that URL, and the site needs a build-time link to the
+     download: the site's CSP (`connect-src 'self'`) does not let it read
+     `LATEST` from another origin.
+3. **Signing.** The app's own updates are checked against our Ed25519 key
+   whatever Authenticode says, so signing the installer is about
+   Windows' warning. electron-builder 26 has both ways in
+   `electron-builder.yml`:
+   - `win.signtoolOptions`, for the existing certificate, from the
+     Windows VM or wherever its key lives;
+   - `win.azureSignOptions`, for Azure Trusted Signing (publisher name,
+     endpoint, account, certificate profile; credentials in the
+     environment, never in the repository).
+
+   Either is a few lines once the certificate is reachable, and
+   `signExecutable: false` comes out.
+4. **The first production shell.** A version above the staging line (0.4.0)
+   built with `production https://<host>`. Staging installs, the bench's
+   included, stay on staging: nothing moves an app between channels, so a
+   staging app moves to production only by installing the production
+   installer.
+
+## Report (2026-10-20)
+
+Changed: `desktop/src/main.ts` (`updateTarget`), `desktop/src/bundles.ts`
+(`at`), `desktop/electron-builder.yml` (packs `update.json`),
+`scripts/build-desktop-win.sh` (channel and URL),
+`scripts/publish-bundle.mjs` (`LWTREE_APP_URL`), and the new
+`deploy/publish-desktop.sh`.
+
+Verified:
+- desktop unit tests (20, one new: names resolved under the server or by
+  full URL);
+- e2e-desktop, with a new test: an app built with an `update.json` naming a
+  server and the channel "production" asks that server for
+  `bundle/production.json` and offers its bundle, without the test's
+  environment overrides. Before this change, such a build would have asked
+  staging.
+- `publish-desktop.sh` run against a rehearsal channel; see the
+  addendum below.
+
+Left open: the four decisions above.
