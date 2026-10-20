@@ -92,6 +92,14 @@ export interface Campaign {
   satelliteCountries: number[]
   /** Council countries that have left XCOM (XGCountry.m_bSecretPact). */
   lostCountries: number[]
+  /**
+   * Every country's funding as the save holds it (XGCountry.m_iFunding; 0
+   * once it stops paying), whether it sits on the council, has left, or has a
+   * satellite.
+   */
+  countries: { id: number; funding: number; council: boolean; lost: boolean; satellite: boolean }[]
+  /** How many of each facility the base has, by EFacilityType (XGHeadQuarters.m_arrBaseFacilities). */
+  baseFacilities: number[]
   /** Items in stores, by Enemy Within item index (XGStorage.m_arrItems; see model/inventory.ts). */
   stock: number[]
   /** Non-zero for every item ever held (XGStorage.m_arrItemArchives). */
@@ -262,6 +270,26 @@ export function readCampaign(save: SaveFile): Campaign {
     })
     .map((cp) => int(structField(prop(cp, 'm_kTCountry'), 'iEnum')))
     .filter((id): id is number => id !== undefined)
+  const flag = (cp: Checkpoint, name: string) => {
+    const p = prop(cp, name)
+    return p?.kind === 'BoolProperty' && p.value
+  }
+  const countries = table
+    .filter((cp) => cp.class_name.endsWith('.XGCountry'))
+    .flatMap((cp) => {
+      const id = countryId(cp)
+      if (id === undefined) return []
+      const council = structField(prop(cp, 'm_kTCountry'), 'bCouncilMember')
+      return [
+        {
+          id,
+          funding: int(prop(cp, 'm_iFunding')) ?? 0,
+          council: council?.kind === 'BoolProperty' && council.value,
+          lost: flag(cp, 'm_bSecretPact'),
+          satellite: flag(cp, 'm_bSatellite'),
+        },
+      ]
+    })
   const engineering = byClass('XGFacility_Engineering')
   const strategy = byClass('XGStrategy')
   const dateTime = deref(prop(byClass('XGGeoscape'), 'm_kDateTime'))
@@ -331,6 +359,8 @@ export function readCampaign(save: SaveFile): Campaign {
     startingBonusIndex: hqCountry === undefined ? undefined : hqCountry >>> 16,
     satelliteCountries,
     lostCountries,
+    countries,
+    baseFacilities: numbers(prop(byClass('XGHeadQuarters'), 'm_arrBaseFacilities')),
     recap: recapStats(save),
     stock: numbers(prop(byClass('XGStorage'), 'm_arrItems')),
     everHad: numbers(prop(byClass('XGStorage'), 'm_arrItemArchives')),

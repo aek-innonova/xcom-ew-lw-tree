@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
       @updates="openHelp(true)"
     />
     <HelpDialog :open="helpOpen" :at-updates="helpAtUpdates" @close="closeHelp" />
-    <CampaignBar />
+    <CampaignBar @find="onFind" />
     <!-- An error asks for attention and stays; anything else is said briefly and goes. -->
     <p v-if="state.message?.kind === 'error'" class="message error" role="alert">
       {{ state.message.text }}

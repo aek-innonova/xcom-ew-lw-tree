@@ -61,6 +61,13 @@ const nodes = computed<NodeView[]>(() =>
     const dayWord = (n: number) => (n === 1 ? '1 day' : `${n} days`)
     let daysTitle = `${dayWord(baseDays(t.base_days))} base time`
     let progress = 0
+    // Researched: how long it actually took (the save's hours on it), not its base time.
+    const took = c?.researched[t.id] ? (c.hoursSpent[t.id] ?? 0) : 0
+    if (c?.researched[t.id]) {
+      const d = Math.max(1, Math.round(took / 24))
+      days = took > 0 ? `${d}d` : ''
+      daysTitle = took > 0 ? `took ${dayWord(d)}` : 'had from the start'
+    }
     if (c && ctx.value) {
       const est = estimate(t, c, ctx.value)
       if (est) {

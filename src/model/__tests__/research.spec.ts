@@ -22,6 +22,8 @@ function campaign(over: Partial<Campaign>): Campaign {
     secondWave: [],
     satelliteCountries: [],
     lostCountries: [],
+    countries: [],
+    baseFacilities: [],
     researchedOn: [],
     recap: {},
     stock: [],

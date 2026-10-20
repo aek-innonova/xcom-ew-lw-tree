@@ -1,0 +1,183 @@
+{
+ "generated": "by scripts/economy_data.py from each version's DefaultGameCore.ini and INT",
+ "lw": {
+  "per": "month",
+  "facilities": [
+   {
+    "id": 10,
+    "enum": "eFacility_Power",
+    "name": "Fission Generator",
+    "upkeep": 20
+   },
+   {
+    "id": 15,
+    "enum": "eFacility_ThermalPower",
+    "name": "Thermo Generator",
+    "upkeep": 35
+   },
+   {
+    "id": 16,
+    "enum": "eFacility_EleriumGenerator",
+    "name": "Elerium Generator",
+    "upkeep": 25
+   },
+   {
+    "id": 6,
+    "enum": "eFacility_AccessLift",
+    "name": "Access Lift",
+    "upkeep": 5
+   },
+   {
+    "id": 7,
+    "enum": "eFacility_ScienceLab",
+    "name": "Laboratory",
+    "upkeep": 30
+   },
+   {
+    "id": 8,
+    "enum": "eFacility_Workshop",
+    "name": "Workshop",
+    "upkeep": 30
+   },
+   {
+    "id": 9,
+    "enum": "eFacility_SmallRadar",
+    "name": "Satellite Uplink",
+    "upkeep": 20
+   },
+   {
+    "id": 14,
+    "enum": "eFacility_LargeRadar",
+    "name": "Satellite Nexus",
+    "upkeep": 25
+   },
+   {
+    "id": 11,
+    "enum": "eFacility_Foundry",
+    "name": "Foundry",
+    "upkeep": 25
+   },
+   {
+    "id": 12,
+    "enum": "eFacility_OTS",
+    "name": "Officer Training School",
+    "upkeep": 10
+   },
+   {
+    "id": 13,
+    "enum": "eFacility_AlienContain",
+    "name": "Alien Containment",
+    "upkeep": 30
+   },
+   {
+    "id": 22,
+    "enum": "eFacility_CyberneticsLab",
+    "name": "Repair Bay",
+    "upkeep": 10
+   },
+   {
+    "id": 17,
+    "enum": "eFacility_PsiLabs",
+    "name": "Psionic Labs",
+    "upkeep": 25
+   },
+   {
+    "id": 23,
+    "enum": "eFacility_GeneticsLab",
+    "name": "Genetics Lab",
+    "upkeep": 30
+   },
+   {
+    "id": 18,
+    "enum": "eFacility_HyperwaveRadar",
+    "name": "Hyperwave Relay",
+    "upkeep": 100
+   },
+   {
+    "id": 19,
+    "enum": "eFacility_DeusEx",
+    "name": "Gollop Chamber",
+    "upkeep": 200
+   }
+  ],
+  "skyranger": 20
+ },
+ "lwr": {
+  "per": "day",
+  "facilities": [
+   {
+    "id": 10,
+    "enum": "eFacility_Power",
+    "name": "Fission Generator",
+    "upkeep": 1
+   },
+   {
+    "id": 15,
+    "enum": "eFacility_ThermalPower",
+    "name": "Thermo Generator",
+    "upkeep": 2
+   },
+   {
+    "id": 16,
+    "enum": "eFacility_EleriumGenerator",
+    "name": "Elerium Generator",
+    "upkeep": 6
+   },
+   {
+    "id": 6,
+    "enum": "eFacility_AccessLift",
+    "name": "Access Lift",
+    "upkeep": 1
+   },
+   {
+    "id": 7,
+    "enum": "eFacility_ScienceLab",
+    "name": "Laboratory",
+    "upkeep": 4
+   },
+   {
+    "id": 8,
+    "enum": "eFacility_Workshop",
+    "name": "Workshop",
+    "upkeep": 4
+   },
+   {
+    "id": 9,
+    "enum": "eFacility_SmallRadar",
+    "name": "Satellite Uplink",
+    "upkeep": 1
+   },
+   {
+    "id": 14,
+    "enum": "eFacility_LargeRadar",
+    "name": "Satellite Nexus",
+    "upkeep": 1
+   },
+   {
+    "id": 11,
+    "enum": "eFacility_Foundry",
+    "name": "Foundry",
+    "upkeep": 1
+   },
+   {
+    "id": 13,
+    "enum": "eFacility_AlienContain",
+    "name": "Alien Containment",
+    "upkeep": 2
+   },
+   {
+    "id": 18,
+    "enum": "eFacility_HyperwaveRadar",
+    "name": "Hyperwave Relay",
+    "upkeep": 2
+   },
+   {
+    "id": 19,
+    "enum": "eFacility_DeusEx",
+    "name": "Gollop Chamber",
+    "upkeep": 10
+   }
+  ],
+  "skyranger": 0
+ }
+}

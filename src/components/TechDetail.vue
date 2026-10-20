@@ -154,6 +154,43 @@ const waysText = computed(() => {
     : ''
 })
 
+/**
+ * What the base time means, in this campaign's terms: how long it took, or
+ * how long it takes at the campaign's research speed and why; without a save,
+ * what a base day is.
+ */
+const timeNote = computed(() => {
+  const t = tech.value
+  if (!t) return ''
+  const c = campaign.value
+  const days = (n: number) => (n === 1 ? '1 day' : `${n} days`)
+  // A base day: 720 points, the speed of this many scientists without labs.
+  const baseCrew = game.value.research === 'lwr' ? 10 : 30
+  if (!c)
+    return `A base day is 720 research points: what ${baseCrew} scientists without labs do in a day. Load a save to see it at your own speed.`
+  if (c.researched[t.id]) {
+    const h = c.hoursSpent[t.id] ?? 0
+    return h > 0
+      ? `Took ${days(Math.max(1, Math.round(h / 24)))} in this campaign (${Math.round(h).toLocaleString('en-US')} hours of research).`
+      : 'Had from the start of this campaign.'
+  }
+  const est = status.value?.est
+  const perHour = ctx.value?.perHour
+  if (!est || !perHour) return ''
+  const perDay = Math.round(perHour * 24)
+  const labs = (c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0)
+  const speed =
+    game.value.research === 'lwr'
+      ? `${c.scientists} scientists and your labs`
+      : `${c.scientists} scientists${labs > 0 ? `, labs +${Math.round(labs * 100)}%` : ''}`
+  const why = [
+    est.credited && 'research credit takes part of the work off',
+    est.shortened && 'We Have Ways shortens it',
+    (c.progress[t.id] ?? 0) > 0 && 'some of it is done already',
+  ].filter(Boolean)
+  return `At your speed, ${perDay.toLocaleString('en-US')} points a day (${speed}): ${est.exact ? '' : 'about '}${days(est.days)}${why.length ? `; ${why.join(', ')}` : ''}. A base day is 720 points, ${baseCrew} scientists without labs.`
+})
+
 const isResearched = (id: number) => campaign.value?.researched[id] ?? false
 const select = (id: number) => (state.selected = id)
 // The game's own picture of it, in the desktop app (features/game-images.md).
@@ -211,12 +248,11 @@ const picture = computed(() =>
     </div>
 
     <dl class="costs">
-      <dt>Base time</dt>
+      <dt>Research</dt>
       <dd>
-        {{ baseDays(tech.base_days) }} days
-        <span class="muted"
-          >({{ Math.round(tech.base_days * 720).toLocaleString('en-US') }} research points)</span
-        >
+        {{ Math.round(tech.base_days * 720).toLocaleString('en-US') }} points
+        <span class="muted">· {{ baseDays(tech.base_days) }} base days</span>
+        <p class="time-note">{{ timeNote }}</p>
       </dd>
       <template v-if="tech.cost.alloys">
         <dt class="res res-alloys">Alloys</dt>
@@ -535,5 +571,11 @@ ul {
 .unlocks li {
   font-size: 13px;
   padding: 2px 0;
+}
+.time-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 </style>

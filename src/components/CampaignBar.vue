@@ -12,9 +12,28 @@ import {
 } from '@/model/bonuses'
 import { pointsPerHour, projectEtaDays } from '@/model/research'
 import { campaignStats } from '@/model/stats'
-import { bonuses, campaign, credits, state, techById, techs, game, bonusIds } from '@/state/store'
+import {
+  bonuses,
+  campaign,
+  credits,
+  showTech,
+  state,
+  techById,
+  techs,
+  game,
+  bonusIds,
+} from '@/state/store'
 import { categoryFor } from '@/model/airwar'
+import { monthlyEconomy } from '@/model/economy'
 import enumData from '../../data/enums.json'
+
+const emit = defineEmits<{ find: [hit: { view: 'research'; id: number }] }>()
+/** The tech being researched, on the tree from wherever the player is. */
+function showProject(id: number | undefined) {
+  if (id === undefined) return
+  showTech(id)
+  emit('find', { view: 'research', id })
+}
 
 const ITEM_TYPES: string[] = (enumData as { enums: Record<string, string[]> }).enums.EItemType!
 const ITEM = {
@@ -58,13 +77,30 @@ const info = computed(() => {
     engineers: c.engineers,
     // Materials in stores (EItemType slots, as on the grey market).
     materials: [
-      { key: 'alloys', name: 'alloys', n: c.stock[ITEM.alloys] },
-      { key: 'elerium', name: 'elerium', n: c.stock[ITEM.elerium] },
+      { key: 'alloys', name: 'Alien Alloys', n: c.stock[ITEM.alloys] },
+      { key: 'elerium', name: 'Elerium', n: c.stock[ITEM.elerium] },
       { key: 'meld', name: 'Meld', n: c.stock[ITEM.meld] },
-      { key: 'fragments', name: 'weapon fragments', n: c.stock[ITEM.fragments] },
+      { key: 'fragments', name: 'Weapon Fragments', n: c.stock[ITEM.fragments] },
     ].filter((m) => m.n !== undefined),
   }
 })
+
+/** The month's funding and upkeep, by the version's own rules (Long War 1.0's; null for LWR). */
+const economy = computed(() => {
+  const c = campaign.value
+  if (!c) return null
+  const active = bonuses.value?.all ?? []
+  const bonus = (id: number) => active.find((b) => b.bonus_id === id)?.value ?? 0
+  return monthlyEconomy(c, game.value.id === 'lwr' ? 'lwr' : 'lw', bonus)
+})
+const money = (n: number) => `§${Math.abs(n).toLocaleString('en-US')}`
+const signed = (n: number) => `${n < 0 ? '−' : '+'}${money(n)}`
+const upkeepText = (lines: { name: string; count: number; each: number }[]) =>
+  lines
+    .map((l) =>
+      l.count > 1 ? `${l.count} ${l.name} × ${money(l.each)}` : `${l.name} ${money(l.each)}`,
+    )
+    .join(', ')
 
 // Long War's hidden counters and the usual figures, opened from the bar.
 const showStats = ref(false)
@@ -129,24 +165,84 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
     </span>
     <span
       v-if="info.cash !== undefined || info.materials.length"
-      class="stores"
-      aria-label="Money and materials"
+      class="stores-anchor"
+      tabindex="0"
+      aria-label="Money and materials: hover or focus for the details"
     >
-      <span v-if="info.cash !== undefined" class="cash" title="Credits"
-        >§{{ info.cash.toLocaleString('en-US') }}</span
-      >
-      <span
-        v-for="m in info.materials"
-        :key="m.key"
-        class="res"
-        :class="`res-${m.key}`"
-        :title="`${m.n!.toLocaleString('en-US')} ${m.name}`"
-        >{{ m.n!.toLocaleString('en-US') }}</span
-      >
+      <span class="stores">
+        <span v-if="info.cash !== undefined" class="cash"
+          >§{{ info.cash.toLocaleString('en-US') }}</span
+        >
+        <span v-for="m in info.materials" :key="m.key" class="res" :class="`res-${m.key}`">{{
+          m.n!.toLocaleString('en-US')
+        }}</span>
+      </span>
+      <!-- Everything in stores by its full name, and what a month brings in and costs. -->
+      <span class="stores-card" role="tooltip">
+        <span class="card-h">In stores</span>
+        <span class="lines">
+          <template v-if="info.cash !== undefined">
+            <span class="cash">Credits</span
+            ><span class="n">§{{ info.cash.toLocaleString('en-US') }}</span>
+          </template>
+          <template v-for="m in info.materials" :key="m.key">
+            <span class="res" :class="`res-${m.key}`">{{ m.name }}</span
+            ><span class="n">{{ m.n!.toLocaleString('en-US') }}</span>
+          </template>
+        </span>
+        <template v-if="economy">
+          <span class="card-h">Each month, as things stand</span>
+          <span class="lines">
+            <span
+              >Funding <span class="sub">from {{ economy.paying }} council countries</span></span
+            ><span class="n plus">{{ signed(economy.funding) }}</span>
+            <template v-if="economy.wealth">
+              <span
+                >Wealth of Nations <span class="sub">+{{ economy.wealth.percent }}%</span></span
+              ><span class="n plus">{{ signed(economy.wealth.adds) }}</span>
+            </template>
+            <template v-if="economy.facilities.length">
+              <span
+                >Facility upkeep <span class="sub">{{ upkeepText(economy.facilities) }}</span></span
+              ><span class="n minus">{{
+                signed(-economy.facilities.reduce((n, f) => n + f.total, 0))
+              }}</span>
+            </template>
+            <span
+              >Aircraft upkeep
+              <span class="sub"
+                >{{ upkeepText(economy.craft)
+                }}<template v-if="economy.craftDiscount">
+                  (Air Superiority −{{ economy.craftDiscount }}%)</template
+                ></span
+              ></span
+            ><span class="n minus">{{
+              signed(-economy.craft.reduce((n, f) => n + f.total, 0))
+            }}</span>
+            <span class="net">Net at the month's end</span
+            ><span class="n net" :class="economy.net < 0 ? 'minus' : 'plus'">{{
+              signed(economy.net)
+            }}</span>
+          </span>
+          <span class="card-note"
+            >By Long War's own rules, from this save; a country that leaves or a facility built
+            changes it.</span
+          >
+        </template>
+        <span v-else-if="game.id === 'lwr'" class="card-note"
+          >LWR pays its funding and upkeep daily, partly by rules in its own code; the app does not
+          work them out.</span
+        >
+      </span>
     </span>
     <span v-if="info.project">
       Researching
-      <button type="button" class="link" @click="state.selected = info.projectId ?? null">
+      <button
+        type="button"
+        class="link"
+        title="Show it on the research tree"
+        @click="showProject(info.projectId)"
+      >
         {{ info.project }}
       </button>
       <template v-if="info.days"
@@ -353,6 +449,76 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
 .stores .cash {
   color: var(--cash);
   font-weight: 600;
+}
+/* The money and materials: their details on hover or focus. */
+.stores-anchor {
+  position: relative;
+  cursor: default;
+  outline: none;
+  border-radius: 3px;
+}
+.stores-anchor:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.stores-card {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: -10px;
+  width: 400px;
+  padding: 10px 14px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+  font-size: 13px;
+  white-space: normal;
+}
+.stores-anchor:hover .stores-card,
+.stores-anchor:focus-within .stores-card {
+  display: block;
+}
+.card-h {
+  display: block;
+  margin: 6px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.lines {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 16px;
+}
+.lines .n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lines .cash {
+  color: var(--cash);
+}
+.plus {
+  color: var(--done-text);
+}
+.minus {
+  color: #ff9a8a;
+}
+.lines .net {
+  border-top: 1px solid var(--border);
+  padding-top: 3px;
+  font-weight: 600;
+}
+.stores-card .sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+.card-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
 }
 
 .bonus-anchor {

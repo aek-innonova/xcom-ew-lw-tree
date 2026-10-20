@@ -305,8 +305,18 @@ h1 span {
 .views button:first-child {
   border-radius: 4px 0 0 4px;
 }
+/* Neighbours share one border line (overlapping by a pixel); the hovered or
+   chosen one is drawn on top, so its whole outline shows. */
 .views button + button {
-  border-left: none;
+  margin-left: -1px;
+}
+.views button {
+  position: relative;
+}
+.views button:hover,
+.views button:focus-visible,
+.views button.on {
+  z-index: 1;
 }
 .views button:last-child {
   border-radius: 0 4px 4px 0;
