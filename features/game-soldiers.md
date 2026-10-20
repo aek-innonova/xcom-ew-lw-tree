@@ -1,6 +1,6 @@
 ---
 title: "Soldiers in 3D in the app (a time-boxed try)"
-status: in-progress
+status: review
 priority: 5
 dependsOn: [game-images]
 ---
@@ -155,7 +155,9 @@ Verified:
   binds it, and the normal map was made after the tint masks were bound,
   so the first frame tinted by the normal map. Each later frame was
   right; a still soldier would have kept the wrong one. All of a
-  section's textures are now made before any is bound.
+  section's textures are now made before any is bound. Confirmed on the
+  bench (site 2026.1020.070349): the first, still frame shows color 16
+  right on six soldiers, and the lights are small and bright.
 
 Not done:
 - The game's own lighting and reflections (cube maps).
