@@ -85,7 +85,14 @@ settings (`src/components/SoldierPreview.vue`, `SoldierView.vue`,
   (`HeadPackageInfo`, `HairPackageInfo`). A class's headgear setting puts
   its helmet on: Long War's headgear numbers are hair ids marked
   `bIsHelmet`. Hair and helmets hang on the head's socket (`RigHead`),
-  placed by the bones' rest pose.
+  wherever the pose puts the head.
+- **The pose:** the soldier stands as in the barracks: the first frame of
+  `Loadout_Veteran_1Hand_IdleA` in `Anim_Barracks.upk`
+  (`src/model/anim.ts`, per-track compressed keys). Body, head and deco
+  are skinned to it by bone name, each vertex by its bones' weights
+  (`poseMesh`). The animation stores rotations conjugated relative to the
+  skeleton's rest pose. Without the package the soldier keeps the rest
+  pose, arms out.
 - **Textures:** up to 1024 wide, from the package or `CharTextures.tfc`
   through ranged reads. Diffuse, the masks, and normal maps.
 
@@ -120,9 +127,11 @@ Verified:
   under xvfb): every armor, male and female, colors, headgear, faces,
   hair and its colors, by screenshot.
 - Unit tests: the material, the palette (17 red with yellow), the hair
-  placed on the head (`src/model/__tests__/material.spec.ts`).
+  placed on the head (`src/model/__tests__/material.spec.ts`); the body
+  posed, arms at the sides at the same height
+  (`src/model/__tests__/skelmesh.spec.ts`).
 
 Not done:
 - The game's own lighting and reflections (cube maps).
-- Animation: a standing rest pose only.
+- Animation: one still frame of the idle; it does not move.
 - Weapons and the MEC suits.

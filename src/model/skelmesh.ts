@@ -32,6 +32,8 @@ export interface SkelMesh {
   uvs: Float32Array
   /** x, y, z of the tangent and the bitangent's sign, per vertex (for normal maps). */
   tangents: Float32Array
+  /** Four bones (mesh bone indices) and weights (0–255) per vertex. */
+  influences: { bones: Uint16Array; weights: Uint8Array }
 }
 
 class R {
@@ -140,10 +142,12 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
       : new Uint32Array(pkg.bytes.slice(r.o, r.o + 4 * count).buffer)
   r.skip(itemSize * count)
   r.skip(2 * r.i32()) // used bones
+  const chunks: { firstVertex: number; boneMap: number[] }[] = []
   for (let n = r.i32(), i = 0; i < n; i++) {
-    r.i32() // first vertex
+    const firstVertex = r.i32()
     if (r.i32() || r.i32()) throw new Error('a mesh with CPU-skinned vertices')
-    r.skip(2 * r.i32()) // bone map
+    const boneMap = Array.from({ length: r.i32() }, () => r.i16())
+    chunks.push({ firstVertex, boneMap })
     r.skip(12) // rigid and soft counts, max influences
   }
   r.i32() // size
@@ -176,6 +180,8 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
   const positions = new Float32Array(3 * n)
   const normals = new Float32Array(3 * n)
   const tangents = new Float32Array(4 * n)
+  const bones4 = new Uint16Array(4 * n)
+  const weights4 = new Uint8Array(4 * n)
   const uvs = new Float32Array(2 * n)
   for (let i = 0; i < n; i++) {
     const at = r.o + i * stride
@@ -186,6 +192,12 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
     }
     // The normal's fourth byte carries the bitangent's sign.
     tangents[4 * i + 3] = pkg.bytes[at + 7]! >= 128 ? 1 : -1
+    // Four influences: bone indices into the vertex's chunk's bone map, and weights.
+    const chunk = [...chunks].reverse().find((c) => c.firstVertex <= i)
+    for (let k = 0; k < 4; k++) {
+      bones4[4 * i + k] = chunk?.boneMap[pkg.bytes[at + 8 + k]!] ?? 0
+      weights4[4 * i + k] = pkg.bytes[at + 12 + k]!
+    }
     const v = new DataView(pkg.bytes.buffer, pkg.bytes.byteOffset + at + 16, stride - 16)
     for (let k = 0; k < 3; k++) positions[3 * i + k] = v.getFloat32(4 * k, true)
     if (fullUVs) {
@@ -198,7 +210,18 @@ export function readSkelMesh(pkg: Package, index: number): SkelMesh {
   }
   if (stride !== 16 + 12 + (fullUVs ? 8 : 4) * uvSets)
     throw new Error('the mesh is not laid out as expected (vertex size)')
-  return { materials, bones, sections, indices, vertexCount, positions, normals, uvs, tangents }
+  return {
+    materials,
+    bones,
+    sections,
+    indices,
+    vertexCount,
+    positions,
+    normals,
+    uvs,
+    tangents,
+    influences: { bones: bones4, weights: weights4 },
+  }
 }
 
 type Quat = [number, number, number, number]
@@ -249,7 +272,12 @@ export function placeMesh(
       m.positions[3 * i + 2]!,
     )
     const n = rotate(at.rotation, m.normals[3 * i]!, m.normals[3 * i + 1]!, m.normals[3 * i + 2]!)
-    const t = rotate(at.rotation, m.tangents[4 * i]!, m.tangents[4 * i + 1]!, m.tangents[4 * i + 2]!)
+    const t = rotate(
+      at.rotation,
+      m.tangents[4 * i]!,
+      m.tangents[4 * i + 1]!,
+      m.tangents[4 * i + 2]!,
+    )
     for (let k = 0; k < 3; k++) {
       positions[3 * i + k] = p[k]! + at.position[k]!
       normals[3 * i + k] = n[k]!
@@ -258,4 +286,82 @@ export function placeMesh(
     tangents[4 * i + 3] = m.tangents[4 * i + 3]!
   }
   return { ...m, positions, normals, tangents }
+}
+
+/** A bone's place relative to its parent: rotation as the skeleton stores it, and position. */
+export interface LocalPose {
+  rotation: Quat
+  position: [number, number, number]
+}
+
+/**
+ * The mesh in a pose: each bone's local rotation and position by name (bones
+ * the pose lacks keep the rest pose), every vertex moved by its bones'
+ * weighted change from the rest pose. Positions, normals and tangents.
+ */
+export function poseMesh(m: SkelMesh, pose: Map<string, LocalPose>): SkelMesh {
+  const rest = boneWorld(m.bones)
+  const posed = boneWorld(
+    m.bones.map((b) => {
+      const p = pose.get(b.name)
+      return p ? { ...b, rotation: p.rotation, position: p.position } : b
+    }),
+  )
+  // Per bone: rest-space to posed-space, as a rotation and a translation.
+  const moves = rest.map((r, i) => {
+    const inv: Quat = [-r.rotation[0], -r.rotation[1], -r.rotation[2], r.rotation[3]]
+    const q = qmul(posed[i]!.rotation, inv)
+    const t = rotate(q, ...r.position)
+    return {
+      q,
+      t: [posed[i]!.position[0] - t[0], posed[i]!.position[1] - t[1], posed[i]!.position[2] - t[2]],
+    }
+  })
+  const positions = new Float32Array(m.positions.length)
+  const normals = new Float32Array(m.normals.length)
+  const tangents = new Float32Array(m.tangents.length)
+  for (let i = 0; i < m.vertexCount; i++) {
+    let wsum = 0
+    for (let k = 0; k < 4; k++) {
+      const w = m.influences.weights[4 * i + k]! / 255
+      if (!w) continue
+      const mv = moves[m.influences.bones[4 * i + k]!]
+      if (!mv) continue
+      wsum += w
+      const p = rotate(mv.q, m.positions[3 * i]!, m.positions[3 * i + 1]!, m.positions[3 * i + 2]!)
+      const n = rotate(mv.q, m.normals[3 * i]!, m.normals[3 * i + 1]!, m.normals[3 * i + 2]!)
+      const t = rotate(mv.q, m.tangents[4 * i]!, m.tangents[4 * i + 1]!, m.tangents[4 * i + 2]!)
+      for (let c = 0; c < 3; c++) {
+        positions[3 * i + c]! += w * (p[c]! + mv.t[c]!)
+        normals[3 * i + c]! += w * n[c]!
+        tangents[4 * i + c]! += w * t[c]!
+      }
+    }
+    if (wsum === 0)
+      for (let c = 0; c < 3; c++) {
+        positions[3 * i + c] = m.positions[3 * i + c]!
+        normals[3 * i + c] = m.normals[3 * i + c]!
+        tangents[4 * i + c] = m.tangents[4 * i + c]!
+      }
+    else if (wsum < 0.999)
+      for (let c = 0; c < 3; c++) {
+        positions[3 * i + c]! /= wsum
+        normals[3 * i + c]! /= wsum
+        tangents[4 * i + c]! /= wsum
+      }
+    tangents[4 * i + 3] = m.tangents[4 * i + 3]!
+  }
+  return { ...m, positions, normals, tangents }
+}
+
+/** A bone's place in the mesh's space in a pose (for hair and helmets on the head). */
+export function posedBone(m: SkelMesh, pose: Map<string, LocalPose>, name: string) {
+  const i = m.bones.findIndex((b) => b.name === name)
+  if (i < 0) return undefined
+  return boneWorld(
+    m.bones.map((b) => {
+      const p = pose.get(b.name)
+      return p ? { ...b, rotation: p.rotation, position: p.position } : b
+    }),
+  )[i]
 }

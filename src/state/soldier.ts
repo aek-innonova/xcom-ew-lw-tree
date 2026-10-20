@@ -6,7 +6,16 @@
 // machine or goes into the repository.
 
 import { readMaterialInstance, readPalette, type Color, type PaletteEntry } from '@/model/material'
-import { boneWorld, placeMesh, readSkelMesh, type SkelMesh } from '@/model/skelmesh'
+import { readAnimSet, readPose, type Quat } from '@/model/anim'
+import {
+  boneWorld,
+  placeMesh,
+  poseMesh,
+  posedBone,
+  readSkelMesh,
+  type LocalPose,
+  type SkelMesh,
+} from '@/model/skelmesh'
 import { decodeImage, readTexture, unchunk } from '@/model/texture'
 import { Package, decompressPackage, readEnum } from '@/model/upk'
 import { desktop } from './desktop'
@@ -32,6 +41,41 @@ export interface SoldierSpec {
   hair?: number
   /** An armor deco by its EArmorKit value (Long War's deco numbers); none: the armor's own. */
   deco?: number
+}
+
+/** The barracks' standing idle (Anim_Barracks.upk): each bone's rotation by name, first frame. */
+let standing: Promise<Map<string, Quat>> | null = null
+function standingPose(): Promise<Map<string, Quat>> {
+  standing ??= pkg('Anim_Barracks.upk')
+    .then((p) => {
+      const set = readAnimSet(
+        p,
+        p.exports.findIndex((e) => e.type === 'AnimSet'),
+      )
+      const seq =
+        set.sequences.find((s) => s.name === 'Loadout_Veteran_1Hand_IdleA') ?? set.sequences[0]
+      const pose = seq ? readPose(p, set, seq.index) : new Map()
+      // Stored the other way round from the skeleton's rest pose: conjugated.
+      return new Map(
+        [...pose].map(([bone, b]) => [
+          bone,
+          [-b.rotation[0], -b.rotation[1], -b.rotation[2], b.rotation[3]] as Quat,
+        ]),
+      )
+    })
+    .catch(() => new Map())
+  return standing
+}
+
+/** A pose for one mesh: the animation's rotations, the mesh's own bone lengths. */
+function poseFor(m: SkelMesh, rotations: Map<string, Quat>) {
+  const out = new Map<string, LocalPose>()
+  for (const b of m.bones) {
+    const q = rotations.get(b.name)
+    if (q && b.parent >= 0 && b.name !== 'RigRoot')
+      out.set(b.name, { rotation: q, position: b.position })
+  }
+  return out
 }
 
 /** The game's heads and hair styles (helmets among them), and armor decos, from DefaultContent.ini. */
@@ -278,6 +322,7 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
     `Soldier_${spec.gender}${spec.armor}_SF.upk`,
     (n) => !/CovertOps/i.test(n),
   )
+  const bodyRest = body.mesh
   const head = await part(`${headPkg}_SF.upk`, () => true)
   // A helmet has a mesh for each gender (and "FB" ones, left alone).
   const helmetFor = new RegExp(`_${spec.gender === 'Male' ? 'male' : 'fem'}$`, 'i')
@@ -290,10 +335,17 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
   const deco = decoPkg
     ? await part(`${decoPkg}_SF.upk`, (n) => helmetFor.test(n)).catch(() => null)
     : null
+  // Standing as in the barracks, each mesh posed by bone name (the rest pose without it).
+  const rotations = await standingPose()
+  const pose = (m: SkelMesh) => (rotations.size ? poseMesh(m, poseFor(m, rotations)) : m)
+  body.mesh = pose(body.mesh)
+  head.mesh = pose(head.mesh)
+  if (deco) deco.mesh = pose(deco.mesh)
   // The hair sits on the head's socket, on the head bone.
-  const bones = boneWorld(body.mesh.bones)
-  const at = body.mesh.bones.findIndex((b) => b.name === 'RigHead')
-  const hairMesh = at >= 0 ? placeMesh(hair.mesh, bones[at]!) : hair.mesh
+  const headBone = rotations.size
+    ? posedBone(bodyRest, poseFor(bodyRest, rotations), 'RigHead')
+    : boneWorld(bodyRest.bones)[bodyRest.bones.findIndex((b) => b.name === 'RigHead')]
+  const hairMesh = headBone ? placeMesh(hair.mesh, headBone) : hair.mesh
   return {
     meshes: [
       { mesh: body.mesh, paints: await paints(body.p, body.file, body.mesh) },
