@@ -27,6 +27,13 @@ const props = defineProps<{ colors: FoundSetting[]; headgear: FoundSetting[] }>(
 const armor = ref<Armor>('Kevlar')
 const gender = ref<Gender>('Male')
 const whose = ref(props.colors[0]?.id ?? '')
+// Using a class's color or headgear row puts that class on the soldier.
+watch(
+  () => tools.soldierFor,
+  (id) => {
+    if (props.colors.some((c) => c.id === id)) whose.value = id
+  },
+)
 const head = ref(0)
 const hair = ref(0)
 const looks = shallowRef<Looks>({ heads: [], hair: [], kits: {}, decos: {} })

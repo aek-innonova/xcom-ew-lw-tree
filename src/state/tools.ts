@@ -143,6 +143,8 @@ export const tools = reactive({
   gameValues: {} as Record<string, string>,
   /** Where the game's file now differs from the version's own (edits made by hand). */
   handEdits: [] as { def: FoundSetting; own: string; now: string }[],
+  /** The color setting the 3D soldier wears (set when its row, or its class's headgear, is used). */
+  soldierFor: '',
   /** Long War's Armor Kit codes: what the color and headgear numbers look like. */
   codes: { colors: new Map<string, string>(), headgear: new Map<string, string>() },
   /** Putting the setup into the game. */

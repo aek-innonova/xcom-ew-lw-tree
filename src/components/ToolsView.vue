@@ -203,6 +203,13 @@ function onSetting(e: { section: string; key: string; occurrence: number }, valu
 const repeated = (e: IniEntry) =>
   tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
 
+/** A class's (or the rookie's) color, headgear or deco row in use: the soldier wears that class. */
+function showOnSoldier(id: string) {
+  const m = /^class\.(\w+)\.(color|headgear)$/.exec(id)
+  if (m) tools.soldierFor = `class.${m[1]}.color`
+  else if (id.startsWith('look.rookie-')) tools.soldierFor = 'look.rookie-color'
+}
+
 // The rookie's armor color, previewed with the classes'.
 const appearanceColors = computed(() =>
   tools.gameSettings.filter((d) =>
@@ -569,7 +576,12 @@ const iniNote = computed(() =>
             <col />
           </colgroup>
           <tbody>
-            <tr v-for="d in shownItems(g)" :key="d.id" :class="{ mine: d.id in tools.gameValues }">
+            <tr
+              v-for="d in shownItems(g)"
+              :key="d.id"
+              :class="{ mine: d.id in tools.gameValues }"
+              @focusin="showOnSoldier(d.id)"
+            >
               <th>
                 <label :for="`gs-${d.id}`">{{ d.name }}</label>
               </th>
