@@ -132,12 +132,12 @@ test.describe('real game: versions put in and taken out by the app', () => {
       await expect(plan).toBeVisible({ timeout: 5 * 60_000 })
       await expect(plan.locator('.problems')).toHaveCount(0)
       const write = plan.getByRole('button', { name: 'Write these changes' })
+      // Written once the console says so; then closed, as when nothing changes.
       if (await write.count()) {
         await write.click()
-        await expect(p.getByRole('button', { name: 'Apply my setup…' })).toBeVisible({
-          timeout: 10 * 60_000,
-        })
-      } else await plan.getByRole('button', { name: 'Close' }).click()
+        await expect(plan.getByText('✓ Done.')).toBeVisible({ timeout: 10 * 60_000 })
+      }
+      await plan.getByRole('button', { name: 'Close' }).click()
       await expect(p.locator('.tools .error')).toHaveCount(0)
     }
     const exePatched = () =>
@@ -167,9 +167,8 @@ test.describe('real game: versions put in and taken out by the app', () => {
         await page.getByRole('button', { name: 'Apply my setup…' }).click()
         const plan = page.getByRole('region', { name: 'What will change' })
         await plan.getByRole('button', { name: 'Write these changes' }).click()
-        await expect(page.getByRole('button', { name: 'Apply my setup…' })).toBeVisible({
-          timeout: 10 * 60_000,
-        })
+        await expect(plan.getByText('✓ Done.')).toBeVisible({ timeout: 10 * 60_000 })
+        await plan.getByRole('button', { name: 'Close' }).click()
         for (let i = 0; i < n; i++) {
           const name = ((await boxes.nth(i).getAttribute('aria-label')) ?? '').slice(
             'Install '.length,

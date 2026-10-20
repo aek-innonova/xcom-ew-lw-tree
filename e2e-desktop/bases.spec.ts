@@ -83,9 +83,8 @@ test('a version from the library: offered, planned, written, with what is unknow
   // The game's own DefaultGameCore.ini is nowhere to be had: said, and left.
   await expect(plan).toContainText('Config/DefaultGameCore.ini: the game’s own copy is not at hand')
   await page.getByRole('button', { name: 'Write these changes' }).click()
-  await expect(
-    page.getByRole('region', { name: 'Into the game' }).getByRole('status'),
-  ).toContainText('Removed CookedPCConsole/LWRebalance.u')
+  await expect(plan).toContainText('Removed CookedPCConsole/LWRebalance.u')
+  await expect(plan).toContainText('✓ Done.')
 
   expect(existsSync(join(game, 'CookedPCConsole', 'LWRebalance.u'))).toBe(false)
   const found = readdirSync(join(game, 'lwtree-backup')).find((d) => d.startsWith('found-'))!

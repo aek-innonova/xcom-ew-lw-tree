@@ -89,7 +89,9 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
   const plan = page.getByRole('region', { name: 'What will change' })
   await expect(plan).toContainText('Config/DefaultGameCore.ini changed')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
-  await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
+  await expect(page.getByRole('region', { name: 'What will change' })).toContainText(
+    'Wrote Config/DefaultGameCore.ini',
+  )
   const ini = join(game, 'Config', 'DefaultGameCore.ini')
   expect(readFileSync(ini, 'latin1')).toContain('NUM_STARTING_SOLDIERS=60\r\n')
   expect(
@@ -106,7 +108,9 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
   await page.getByRole('button', { name: 'Tools' }).click()
   await page.getByRole('button', { name: 'Put the originals back…' }).click()
   await plan.getByRole('button', { name: 'Write these changes' }).click()
-  await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
+  await expect(page.getByRole('region', { name: 'What will change' })).toContainText(
+    'Wrote Config/DefaultGameCore.ini',
+  )
   expect(readFileSync(ini, 'latin1')).toContain('NUM_STARTING_SOLDIERS=12\r\n')
 })
 

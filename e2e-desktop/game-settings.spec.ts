@@ -176,7 +176,9 @@ test('game settings: hand edits kept, then set in words and written', async () =
   const plan = page.getByRole('region', { name: 'What will change' })
   await expect(plan).toContainText('8 game settings')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
-  await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
+  await expect(page.getByRole('region', { name: 'What will change' })).toContainText(
+    'Wrote Config/DefaultGameCore.ini',
+  )
   expect(readFileSync(join(game, 'Config', 'DefaultGameCore.ini'), 'latin1')).toBe(
     ini('5', '16')
       .replace('NUM_STARTING_SOLDIERS=40', 'NUM_STARTING_SOLDIERS=60')

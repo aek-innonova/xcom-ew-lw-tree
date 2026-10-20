@@ -4,7 +4,8 @@
 // (with a name offered), and putting the setup into the game. It stays in
 // view while the page scrolls, so what the tool does is never at the bottom.
 
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import ApplyConsole from './ApplyConsole.vue'
 import { deleteSetup, makePlan, saveSetup, suggestSetupName, tools, useSetup } from '@/state/tools'
 
 const NEW = '\u0000new'
@@ -81,15 +82,19 @@ async function onDelete() {
   if (n) await deleteSetup(n)
 }
 
-/** Makes the plan, and brings it into view. */
+/** Makes the plan, told step by step in the console under the bar. */
+const consoleOpen = ref(false)
 async function apply() {
+  consoleOpen.value = true
   await makePlan(true)
-  await nextTick()
-  const plan = document.querySelector<HTMLElement>('[aria-label="What will change"]')
-  plan?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  // Keyboard focus follows: to the plan, to read it and write or cancel.
-  plan?.focus({ preventScroll: true })
 }
+// A plan made from elsewhere (the "no mods" choice below) shows here too.
+watch(
+  () => tools.plan,
+  (p) => {
+    if (p) consoleOpen.value = true
+  },
+)
 </script>
 
 <template>
@@ -145,7 +150,7 @@ async function apply() {
     <span v-else-if="changed" class="state small muted">changed since saved</span>
 
     <span class="spacer" />
-    <span v-if="tools.busy" class="muted small busy">{{ tools.busy }}</span>
+    <span v-if="tools.busy && !consoleOpen" class="muted small busy">{{ tools.busy }}</span>
     <button
       v-if="tools.install"
       type="button"
@@ -155,6 +160,7 @@ async function apply() {
     >
       Apply my setup…
     </button>
+    <ApplyConsole :open="consoleOpen" class="console" @close="consoleOpen = false" />
   </div>
 </template>
 
@@ -210,6 +216,9 @@ select {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+.console {
+  flex-basis: 100%;
 }
 .spacer {
   flex: 1;

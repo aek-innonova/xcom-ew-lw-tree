@@ -11,10 +11,8 @@ import { GAMES } from '@/model/game'
 import { optionProblem, scriptFor, type ModTarget } from '@/model/patchupk'
 import {
   addModFiles,
-  applyPlanNow,
   baseAvailable,
   baseName,
-  cancelPlan,
   checkKey,
   chooseGameFolder,
   findGameFolder,
@@ -35,7 +33,6 @@ import {
   type ModFile,
 } from '@/state/tools'
 import { BACKUP } from '@/state/setup'
-import { EXE } from '@/state/baseplan'
 import type { BaseChoice } from '@/state/library'
 import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
@@ -232,18 +229,7 @@ function shownValue(d: FoundSetting, v: string): string {
   return name ? `${v}, ${name}` : describe(d.format ?? PLAIN, v)
 }
 
-const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
-/** A planned file as the player knows it (XComEW.exe lives in XEW, the rest in XComGame). */
-const shown = (path: string) => (path === EXE ? 'XEW\\Binaries\\Win32\\XComEW.exe' : path)
 /** What a change keeps first: the game's own, or a file the app did not recognise. */
-function keptText(c: { keep?: { to: string }[] }): string {
-  const k = c.keep ?? []
-  if (!k.length) return ''
-  const aside = k.find((x) => x.to.includes('/found-'))
-  return aside
-    ? ` (the file as it is now kept first in ${aside.to.split('/').slice(0, 2).join('/')}/)`
-    : ' (the game’s own kept first)'
-}
 
 const BASE_CHOICES: { value: BaseChoice; needs: string }[] = [
   { value: 'keep', needs: '' },
@@ -624,51 +610,6 @@ const iniNote = computed(() =>
         </button>
         <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
       </p>
-      <div v-else class="plan" role="region" aria-label="What will change" tabindex="-1">
-        <p v-if="!tools.plan.changes.length">
-          <strong>Nothing to change:</strong> the game already has your setup<template
-            v-if="tools.plan.base"
-          >
-            on {{ tools.plan.base }}</template
-          >.
-        </p>
-        <template v-else>
-          <p>
-            <strong>These files will change</strong
-            ><template v-if="tools.plan.base">, for {{ tools.plan.base }} under your setup</template
-            >:
-          </p>
-          <ul class="changes">
-            <li v-for="c in tools.plan.changes" :key="c.path">
-              <code>{{ shown(c.path) }}</code> {{ ACTION_TEXT[c.action] }}
-              <span class="muted small">: {{ c.why.join(', ') }}</span>
-              <span v-if="c.backup" class="muted small"> (original kept first)</span>
-              <span v-if="c.keep?.length" class="muted small">{{ keptText(c) }}</span>
-            </li>
-          </ul>
-        </template>
-        <ul v-if="tools.plan.problems.length" class="problems">
-          <li v-for="p in tools.plan.problems" :key="p" class="error small">{{ p }}</li>
-        </ul>
-        <p>
-          <button
-            v-if="tools.plan.changes.length"
-            type="button"
-            class="primary"
-            :disabled="!!tools.busy"
-            @click="applyPlanNow"
-          >
-            Write these changes
-          </button>
-          <button type="button" :disabled="!!tools.busy" @click="cancelPlan">
-            {{ tools.plan.changes.length ? 'Cancel' : 'Close' }}
-          </button>
-          <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
-        </p>
-      </div>
-      <ul v-if="tools.log.length" class="log small" role="status">
-        <li v-for="l in tools.log" :key="l">{{ l }}</li>
-      </ul>
     </section>
   </section>
 </template>

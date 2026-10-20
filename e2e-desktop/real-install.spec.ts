@@ -124,10 +124,11 @@ test.describe('real Long War install', () => {
     await expect(plan).toBeVisible({ timeout: 30_000 })
     const planText = (await plan.textContent()) ?? ''
     await plan.getByRole('button', { name: 'Write these changes' }).click()
-    // The plan clears only once applyPlan has written every file; waiting on the
+    // "Done" shows only once applyPlan has written every file; waiting on the
     // log text alone would match the first write and race the rest.
-    await expect(plan).toBeHidden({ timeout: 60_000 })
-    const logText = (await page.locator('.log').textContent()) ?? ''
+    await expect(plan.getByText('✓ Done.')).toBeVisible({ timeout: 60_000 })
+    const logText = (await plan.textContent()) ?? ''
+    await plan.getByRole('button', { name: 'Close' }).click()
     console.log('--- plan ---\n' + planText.trim())
     console.log('--- log ---\n' + logText.trim())
 
@@ -265,8 +266,11 @@ test.describe('real Long War install', () => {
       await expect(plan2).toBeVisible({ timeout: 30_000 })
       console.log(`--- session 2: ${label} ---\n` + ((await plan2.textContent()) ?? '').trim())
       const write = plan2.getByRole('button', { name: 'Write these changes' })
-      if (await write.count()) await write.click()
-      else await plan2.getByRole('button', { name: 'Close' }).click()
+      if (await write.count()) {
+        await write.click()
+        await expect(plan2.getByText('✓ Done.')).toBeVisible({ timeout: 60_000 })
+      }
+      await plan2.getByRole('button', { name: 'Close' }).click()
       await expect(plan2).toBeHidden({ timeout: 60_000 })
     }
     await step('Apply my setup…')
