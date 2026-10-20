@@ -32,6 +32,8 @@ interface Upload {
   sections: { first: number; count: number; paint: number }[]
   /** Positions, normals and tangents: replaced as the soldier moves. */
   moving: [WebGLBuffer, WebGLBuffer, WebGLBuffer]
+  /** Every buffer, to let go of when another soldier comes. */
+  buffers: WebGLBuffer[]
 }
 let uploads: { upload: Upload; meshIndex: number }[] = []
 const texCache = new WeakMap<Texture, WebGLTexture>()
@@ -166,13 +168,19 @@ function glTexture(t: Texture | null): WebGLTexture | null {
 function upload() {
   const g = gl
   if (!g) return
+  for (const { upload: up } of uploads) {
+    g.deleteVertexArray(up.vao)
+    up.buffers.forEach((b) => g.deleteBuffer(b))
+  }
   uploads = []
   props.soldier?.meshes.forEach((dm, meshIndex) => {
     const m = dm.mesh
+    const buffers: WebGLBuffer[] = []
     const vao = g.createVertexArray()!
     g.bindVertexArray(vao)
     const buf = (data: Float32Array, loc: number, size: number, usage: number = g.STATIC_DRAW) => {
       const b = g.createBuffer()
+      buffers.push(b)
       g.bindBuffer(g.ARRAY_BUFFER, b)
       g.bufferData(g.ARRAY_BUFFER, data, usage)
       g.enableVertexAttribArray(loc)
@@ -186,6 +194,7 @@ function upload() {
     ]
     buf(m.uvs, 2, 2)
     const ib = g.createBuffer()
+    buffers.push(ib)
     g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, ib)
     g.bufferData(g.ELEMENT_ARRAY_BUFFER, m.indices, g.STATIC_DRAW)
     g.bindVertexArray(null)
@@ -201,6 +210,7 @@ function upload() {
           paint: i,
         })),
         moving,
+        buffers,
       },
     })
   })
