@@ -26,6 +26,56 @@ export type Gender = 'Male' | 'Female'
 export interface SoldierSpec {
   armor: Armor
   gender: Gender
+  /** The game's head id (DefaultContent.ini HeadPackageInfo); none: the gender's first. */
+  head?: number
+  /** The game's hair id; a helmet's id puts the helmet on instead (Long War's headgear numbers). */
+  hair?: number
+}
+
+/** The game's heads and hair styles (helmets among them), from DefaultContent.ini. */
+export interface Looks {
+  heads: { id: number; gender: Gender; race: string; pkg: string }[]
+  hair: { id: number; gender: Gender | null; helmet: boolean; pkg: string; name: string }[]
+}
+
+/** Reads the head and hair lists from the game's DefaultContent.ini. */
+export function looksIn(ini: string): Looks {
+  const out: Looks = { heads: [], hair: [] }
+  for (const line of ini.split(/\r?\n/)) {
+    const kind = /^\s*(HeadPackageInfo|HairPackageInfo)\s*=/.exec(line)?.[1]
+    if (!kind) continue
+    const id = Number(/\bId=(\d+)/.exec(line)?.[1])
+    const arc = /ArchetypeName="([^".]+)\.([^"]+)"/.exec(line)
+    const gender = /eGender_Female/.test(line)
+      ? 'Female'
+      : /eGender_Male/.test(line)
+        ? 'Male'
+        : null
+    if (!id || !arc) continue
+    if (kind === 'HeadPackageInfo') {
+      if (!/eChar_Soldier/.test(line) || !gender) continue
+      const race = /eRace_(\w+)/.exec(line)?.[1] ?? ''
+      if (!out.heads.some((h) => h.pkg === arc[1]))
+        out.heads.push({ id, gender, race, pkg: arc[1]! })
+    } else
+      out.hair.push({
+        id,
+        gender,
+        helmet: /bIsHelmet=true/i.test(line),
+        pkg: arc[1]!,
+        name: arc[2]!,
+      })
+  }
+  return out
+}
+
+let looks: Promise<Looks> | null = null
+/** The install's heads and hair. */
+export function gameLooks(): Promise<Looks> {
+  looks ??= desktop!.game
+    .read('Config/DefaultContent.ini')
+    .then((b) => looksIn(b ? new TextDecoder('latin1').decode(b) : ''))
+  return looks
 }
 
 /** How a material paints: the soldier's armor (tinted), skin, hair, or as it is. */
@@ -155,7 +205,13 @@ async function paints(p: Package, file: string, mesh: SkelMesh): Promise<Paint[]
         return r && r > 0 ? texture(p, r - 1, `${file}:${r}`) : Promise.resolve(null)
       }
       const diffuse = await tex(kind === 'hair' ? 'Hairstyle Texture' : 'Diffuse')
-      const mask = kind === 'armor' ? await tex('Spc_Ems_Ref_Opc') : null
+      // Armor: its tint masks; skin: the skin mask ("Skn", the third channel).
+      const mask =
+        kind === 'armor'
+          ? await tex('Spc_Ems_Ref_Opc')
+          : kind === 'skin'
+            ? await tex('Spc_dNrm_Skn_iBrw')
+            : null
       const v = m.vectors
       const own: Color = (kind === 'armor'
         ? v.CMOD
@@ -177,15 +233,25 @@ async function part(
   return { p, mesh: readSkelMesh(p, i), file }
 }
 
-/** The soldier: the armor's body, a head and a hair style (the game's first ones for the gender). */
+/** The soldier: the armor's body, a head, and hair or a helmet on the head's socket. */
 export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
   const g = spec.gender === 'Male' ? 'Male' : 'Fem'
+  const l = await gameLooks()
+  const headPkg =
+    l.heads.find((h) => h.id === spec.head && h.gender === spec.gender)?.pkg ??
+    l.heads.find((h) => h.gender === spec.gender)?.pkg ??
+    `Head_Cauc${g}_A`
+  const hairs = l.hair.filter((h) => !h.helmet && h.gender === spec.gender)
+  const chosen = l.hair.find((h) => h.id === spec.hair && (h.helmet || h.gender === spec.gender))
+  const hairPkg = chosen?.pkg ?? hairs[0]?.pkg ?? `Hair_${g}Hair_A`
   const body = await part(
     `Soldier_${spec.gender}${spec.armor}_SF.upk`,
     (n) => !/CovertOps/i.test(n),
   )
-  const head = await part(`Head_Cauc${g}_A_SF.upk`, () => true)
-  const hair = await part(`Hair_${g}Hair_A_SF.upk`, () => true)
+  const head = await part(`${headPkg}_SF.upk`, () => true)
+  // A helmet has a mesh for each gender (and "FB" ones, left alone).
+  const helmetFor = new RegExp(`_${spec.gender === 'Male' ? 'male' : 'fem'}$`, 'i')
+  const hair = await part(`${hairPkg}_SF.upk`, (n) => !chosen?.helmet || helmetFor.test(n))
   // The hair sits on the head's socket, on the head bone.
   const bones = boneWorld(body.mesh.bones)
   const at = body.mesh.bones.findIndex((b) => b.name === 'RigHead')

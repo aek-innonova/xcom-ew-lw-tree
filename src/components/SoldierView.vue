@@ -53,6 +53,11 @@ void main() {
     c = mix(c, uTop * l / uMeans.x, m.a);
     c = mix(c, uBottom * l / uMeans.y, m.b);
   }
+  // Skin: the head's one generic texture, colored by the skin's own color where its mask says skin.
+  if (uKind == 1) {
+    float skin = uHasMask ? texture2D(uMask, vUV).b : 1.0;
+    c = mix(c, c * uColor * 1.3, skin);
+  }
   if (uKind == 2) { if (d.a < 0.35) discard; c = d.r * uColor * 2.4; }
   vec3 n = normalize(vN);
   float li = 0.38 + 0.68 * max(dot(n, normalize(vec3(0.45, 0.7, 0.6))), 0.0)

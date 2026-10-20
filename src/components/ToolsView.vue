@@ -205,7 +205,7 @@ const repeated = (e: IniEntry) =>
 
 // The rookie's armor color, previewed with the classes'.
 const appearanceColors = computed(() =>
-  tools.gameSettings.filter((d) => d.id === 'look.rookie-color'),
+  tools.gameSettings.filter((d) => d.id === 'look.rookie-color' || d.id === 'look.rookie-headgear'),
 )
 
 // Game settings, by group, in the catalogue's order.
@@ -550,6 +550,7 @@ const iniNote = computed(() =>
         <SoldierPreview
           v-if="g.name === 'Class colors'"
           :colors="[...g.items, ...appearanceColors].filter((d) => d.type === 'color')"
+          :headgear="[...g.items, ...appearanceColors].filter((d) => d.type === 'headgear')"
         />
         <input
           v-if="g.items.length > 20"
