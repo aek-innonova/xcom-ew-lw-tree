@@ -6,8 +6,12 @@
 // decimal point kept.
 
 export type Format =
-  /** A plain number, with a unit if it has one. */
-  | { kind: 'number'; unit?: string; min?: number; max?: number }
+  /**
+   * A plain number, with a unit if it has one. "scale": shown as the file's
+   * value times it (damage reduction: 5 is 0.5). "unset": the file's value
+   * for "not set here" (Long War's −1 costs), shown as an empty field.
+   */
+  | { kind: 'number'; unit?: string; min?: number; max?: number; scale?: number; unset?: number }
   /** Hours, with days beside them. */
   | { kind: 'hours'; min?: number; max?: number }
   /** A percentage; "fraction": the file keeps it as 0..1. */
@@ -43,6 +47,8 @@ const trim = (n: number) => String(Number(n.toPrecision(10)))
 export function fieldsOf(f: Format, value: string): string[] {
   const n = numberOf(value)
   if (Number.isNaN(n)) return [value.trim()]
+  if (f.kind === 'number' && f.unset !== undefined && n === f.unset) return ['']
+  if (f.kind === 'number' && f.scale) return [trim(n * f.scale)]
   if (f.kind === 'percent' && f.fraction) return [trim(n * 100)]
   if (f.kind === 'switch') return [n === f.on ? 'on' : 'off']
   return [trim(n)]
@@ -78,6 +84,7 @@ export function valueOf(
   if (bad) return bad
   if (f.kind === 'choice' && !f.options.some(([k]) => k === n))
     return { error: 'Not one of the choices' }
+  if (f.kind === 'number' && f.scale) return { value: styled(Math.round(n / f.scale), like) }
   return { value: styled(f.kind === 'percent' && f.fraction ? n / 100 : n, like) }
 }
 
@@ -99,6 +106,8 @@ export function describe(f: Format, value: string): string {
     case 'choice':
       return f.options.find(([k]) => k === n)?.[1] ?? trim(n)
     default:
+      if (f.unset !== undefined && n === f.unset) return 'not set here'
+      if (f.scale) return f.unit ? `${trim(n * f.scale)} ${f.unit}` : trim(n * f.scale)
       // "1 mission", "2 missions".
       return f.unit ? `${trim(n)} ${n === 1 ? f.unit.replace(/s$/, '') : f.unit}` : trim(n)
   }

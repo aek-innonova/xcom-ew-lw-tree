@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { Package, decompressPackage, readEnum } from '../upk'
 import {
   applySettings,
   armorKitCodes,
@@ -43,7 +44,11 @@ describe('game settings in a player’s words (model/gamesettings.ts)', () => {
     expect(s.get('class.sniper.color')?.value).toBe('32')
     expect(s.get('class.sniper.headgear')?.type).toBe('headgear')
     expect(s.get('arcthrower.pistol')?.value).toBe('off')
-    expect(s.get('item-mobility.73')).toMatchObject({ name: 'Arc Thrower', value: '-2' })
+    expect(s.get('item.73.mobility')).toMatchObject({
+      name: 'Arc Thrower: mobility',
+      item: { name: 'Arc Thrower', part: 'carried' },
+      value: '-2',
+    })
     expect(s.has('psi.gift')).toBe(false) // not in this file: not offered
   })
 
@@ -71,6 +76,7 @@ describe('game settings in a player’s words (model/gamesettings.ts)', () => {
       'rookie.cost-mobility': '3',
       'soldier.hp': '5',
     })
+    expect(splitOldValues({ 'item-mobility.73': '0' })).toEqual({ 'item.73.mobility': '0' })
     expect(splitOldValues({ 'rookie.cost-hp-will': '401' })).toEqual({
       'rookie.cost-hp': '4',
       'rookie.cost-will': '1',
@@ -82,7 +88,7 @@ describe('game settings in a player’s words (model/gamesettings.ts)', () => {
       { def: def(FILE, 'soldier.hp'), value: '5' },
       { def: def(FILE, 'rookie.min-hp'), value: '4' },
       { def: def(FILE, 'class.sniper.color'), value: '16' },
-      { def: def(FILE, 'item-mobility.73'), value: '0' },
+      { def: def(FILE, 'item.73.mobility'), value: '0' },
       { def: def(FILE, 'arcthrower.pistol'), value: 'on' },
     ])
     expect(missing).toEqual([])
@@ -150,7 +156,7 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
           'arcthrower.pistol',
           'arcthrower.stun',
           'class.sniper.color',
-          'item-mobility.73',
+          'item.73.mobility',
         ].map((id) => [id, s.get(id)?.value]),
       ),
     ).toEqual({
@@ -162,7 +168,7 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
       'arcthrower.pistol': 'off',
       'arcthrower.stun': '0.61',
       'class.sniper.color': '32',
-      'item-mobility.73': '-2',
+      'item.73.mobility': '-2',
     })
   })
 
@@ -192,8 +198,8 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
 
   it('item mobility by the file’s own headings, the small items together', () => {
     for (const file of [LW, LWR]) {
-      const items = findSettings(read(file)).filter((d) => d.group === 'Item mobility')
-      const of = (name: string) => items.find((d) => d.name === name)?.section
+      const items = findSettings(read(file)).filter((d) => d.group === 'Items')
+      const of = (name: string) => items.find((d) => d.item?.name === name)?.section
       expect(items.every((d) => d.section)).toBe(true)
       expect(of('HE Grenade')).toBe('Grenades')
       expect(of('Carapace Armor')).toBe('Armor')
@@ -203,6 +209,48 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
       expect(of('Alien Trophy')).toBe('Small items')
       expect(of(file === LW ? 'MEC-1 Paladin' : 'MEC1 Paladin')).toBe('MEC suits')
     }
+  })
+
+  it('an item’s card: to build, as a weapon or armor, carried; packed numbers apart', () => {
+    const XCG = `${S}/CookedPCConsole/XComGame.upk`
+    const names = readEnum(
+      new Package(decompressPackage(new Uint8Array(readFileSync(XCG)))),
+      'EItemType',
+    )
+    const text = read(LW)
+    const s = new Map(findSettings(text, names).map((d) => [d.id, d]))
+    const card = (type: number) =>
+      Object.fromEntries(
+        [...s.values()]
+          .filter((d) => d.item?.type === type)
+          .map((d) => [d.id.split('.')[2], d.value]),
+      )
+    // The Mimic Beacon: meld and elerium in one number (25025), alloys and its perk in another.
+    expect(card(88)).toMatchObject({
+      cost: '150',
+      meld: '25',
+      elerium: '25',
+      alloys: '2',
+      days: '14',
+    })
+    // Long War's assault rifle (on the enum's ExaltAssaultRifle slot): 3 shots, 4 conserving.
+    expect(card(212)).toMatchObject({ damage: '4', crit: '8', ammo: '3', 'ammo-conserving': '4' })
+    // Carapace armor's own line.
+    expect(card(60)).toMatchObject({ hp: '5', 'armor-mobility': '1', 'small-slots': '2' })
+    // Written back into its field alone, the other half of a packed number kept.
+    const out = applySettings(text, [
+      { def: s.get('item.88.meld')!, value: '30' },
+      { def: s.get('item.212.ammo')!, value: '5' },
+      { def: s.get('item.60.hp')!, value: '6' },
+    ]).text
+    const changed = out.split(/\r?\n/).filter((l, i) => l !== text.split(/\r?\n/)[i])
+    expect(changed).toHaveLength(3)
+    expect(changed.join('\n')).toMatch(/eItem_MimicBeacon,.*iElerium=30025,/)
+    expect(changed.join('\n')).toMatch(/iType=eItem_ExaltAssaultRifle,.*iSuppression=405,/)
+    expect(changed.join('\n')).toMatch(/iType=eItem_ArmorCarapace,.*iHPBonus=6,/)
+    // Without the enum, no weapon or armor parts; cost and carried still.
+    const bare = findSettings(text).filter((d) => d.item?.type === 60)
+    expect(new Set(bare.map((d) => d.item!.part))).toEqual(new Set(['build', 'carried']))
   })
 
   it('the person’s hand edits, read back as settings: exactly their list', () => {
@@ -222,7 +270,7 @@ describe.skipIf(![LW, LWR, MINE].every(existsSync))('on the real files', () => {
       'class.scout.color: 15 → 4',
       'class.rocketeer.color: 12 → 13',
       'class.assault.color: 21 → 18',
-      'item-mobility.73: -2 → 0',
+      'item.73.mobility: -2 → 0',
     ])
   })
 

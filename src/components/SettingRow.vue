@@ -10,7 +10,12 @@ import { describe, PLAIN } from '@/model/settingformat'
 import { setGameValue, tools } from '@/state/tools'
 import SettingField from './SettingField.vue'
 
-const props = defineProps<{ def: FoundSetting; options?: [string, string][] | null }>()
+const props = defineProps<{
+  def: FoundSetting
+  options?: [string, string][] | null
+  /** Its name where the place around it says the rest (an item's card: "Damage"). */
+  label?: string
+}>()
 
 const mine = computed(() => props.def.id in tools.gameValues)
 /** What is particular to it, in the app's words (the file's comment is not the text). */
@@ -26,7 +31,7 @@ const own = computed(() =>
 
 <template>
   <div class="row" :class="{ mine }">
-    <label class="label" :for="`gs-${def.id}`">{{ def.name }}</label>
+    <label class="label" :for="`gs-${def.id}`">{{ label ?? def.name }}</label>
     <span class="edit">
       <SettingField
         :def="def"

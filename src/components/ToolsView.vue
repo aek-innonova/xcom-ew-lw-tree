@@ -29,7 +29,6 @@ import {
   saveSetup,
   useSetup,
   setBase,
-  setGameValue,
   setSetting,
   setWanted,
   setWantFiles,
@@ -45,10 +44,10 @@ import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
 import { GROUPS, type FoundSetting } from '@/model/gamesettings'
 import { describe, PLAIN } from '@/model/settingformat'
-import SettingField from './SettingField.vue'
 import SettingRow from './SettingRow.vue'
 import SoldierLooks from './SoldierLooks.vue'
 import SoldierStats from './SoldierStats.vue'
+import ItemsPanel from './ItemsPanel.vue'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
@@ -208,7 +207,6 @@ const repeated = (e: IniEntry) =>
   tools.iniEntries.filter((x) => x.section === e.section && x.key === e.key).length > 1
 
 // Game settings, by group, in the rules' order (model/gamesettings.ts GROUPS).
-const gameQuery = ref<Record<string, string>>({})
 const gameGroups = computed(() => {
   const groups = new Map<string, FoundSetting[]>()
   for (const d of tools.gameSettings) groups.set(d.group, [...(groups.get(d.group) ?? []), d])
@@ -219,20 +217,11 @@ const gameGroups = computed(() => {
     .map(([name, items]) => {
       const mine = items.filter((d) => d.id in tools.gameValues).length
       const help = GROUPS.find((g) => g.name === name)?.help ?? ''
-      return { name, items, mine, help, open: items.length <= 30 || mine > 0 }
+      // Items count as items, not as their numbers.
+      const count = name === 'Items' ? new Set(items.map((d) => d.item?.type)).size : items.length
+      return { name, items, mine, help, count, open: items.length <= 30 || mine > 0 }
     })
 })
-/** Item mobility under the file's own headings, found by name. */
-function itemSections(items: FoundSetting[]) {
-  const q = (gameQuery.value['Item mobility'] ?? '').toLowerCase().trim()
-  const out = new Map<string, FoundSetting[]>()
-  for (const d of items) {
-    if (q && !d.name.toLowerCase().includes(q)) continue
-    const k = d.section ?? 'Other items'
-    out.set(k, [...(out.get(k) ?? []), d])
-  }
-  return [...out].map(([name, list]) => ({ name, items: list }))
-}
 /** A value in words, as its setting describes it (hand edits). */
 function shownValue(d: FoundSetting, v: string): string {
   if (d.type === 'toggle') return v === 'on' ? 'on' : 'off'
@@ -540,45 +529,13 @@ const iniNote = computed(() =>
         <summary>
           {{ g.name }}
           <span class="muted small"
-            >{{ g.items.length }}<template v-if="g.mine"> · {{ g.mine }} yours</template></span
+            >{{ g.count }}<template v-if="g.mine"> · {{ g.mine }} yours</template></span
           >
         </summary>
         <p v-if="g.help" class="group-help small">{{ g.help }}</p>
         <SoldierLooks v-if="g.name === 'Class colors'" :items="g.items" />
         <SoldierStats v-else-if="g.name === 'Soldier stats'" :items="g.items" />
-        <template v-else-if="g.name === 'Item mobility'">
-          <input
-            v-model="gameQuery[g.name]"
-            type="search"
-            class="search"
-            placeholder="Find an item…"
-            :aria-label="`Find in ${g.name}`"
-          />
-          <section
-            v-for="sec in itemSections(g.items)"
-            :key="sec.name"
-            class="items"
-            :aria-label="sec.name"
-          >
-            <h4>{{ sec.name }}</h4>
-            <div class="item-grid">
-              <div
-                v-for="d in sec.items"
-                :key="d.id"
-                class="item"
-                :class="{ mine: d.id in tools.gameValues }"
-              >
-                <label :for="`gs-${d.id}`">{{ d.name }}</label>
-                <SettingField
-                  :def="d"
-                  :mine="tools.gameValues[d.id]"
-                  @set="(v) => setGameValue(d.id, v)"
-                />
-              </div>
-            </div>
-          </section>
-          <p v-if="!itemSections(g.items).length" class="muted small">No item by that name.</p>
-        </template>
+        <ItemsPanel v-else-if="g.name === 'Items'" :items="g.items" />
         <div v-else class="rows">
           <SettingRow v-for="d in g.items" :key="d.id" :def="d" />
         </div>
@@ -832,37 +789,6 @@ details.group summary {
   .rows {
     grid-template-columns: minmax(140px, 14rem) minmax(0, 1fr);
   }
-}
-.items h4 {
-  margin: 10px 0 4px;
-  font-size: 12.5px;
-  color: var(--muted);
-  font-weight: 600;
-}
-.item-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 2px 18px;
-}
-.item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  padding: 1px 0;
-}
-.item label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.item.mine label {
-  color: var(--accent);
-}
-.item :deep(.num) {
-  width: 58px;
 }
 .undo {
   border: none;

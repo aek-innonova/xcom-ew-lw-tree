@@ -13,15 +13,32 @@
 
 import { type Format } from './settingformat'
 
+/**
+ * One of two numbers a file packs into one value: the high part (the value
+ * divided by `by`) or the low part (the remainder). Long War's point costs
+ * (xxyy: by 100), meld in elerium and the perk in alloys (by 1000), ammo with
+ * and without Ammo Conservation (by 100). Written back keeping the other part.
+ */
+export interface Packed {
+  by: number
+  part: 'high' | 'low'
+}
+
 export type Place =
+  /** A KEY=value line whose comment matches (an empty comment: /^$/). */
+  | { kind: 'key'; key: string; comment: RegExp; packed?: Packed }
   /**
-   * A KEY=value line whose comment matches (an empty comment: /^$/).
-   * "digits": one of two numbers Long War packs into one value as xxyy, the
-   * first (xx) or the second (yy); written back without touching the other.
+   * A field of a struct line, the line picked by another field
+   * (iType=eChar_Soldier), by any of several values (eItem=eItem_Medikit or
+   * eItem=69).
    */
-  | { kind: 'key'; key: string; comment: RegExp; digits?: 'xx' | 'yy' }
-  /** A field of a struct line, the line picked by another field (iType=eChar_Soldier). */
-  | { kind: 'field'; key: string; select: [string, string]; field: string }
+  | {
+      kind: 'field'
+      key: string
+      select: [string, string | string[]]
+      field: string
+      packed?: Packed
+    }
   /**
    * Two versions of a line the file carries, one commented out: "on" is the
    * one matching `on` being in force.
@@ -29,6 +46,8 @@ export type Place =
   | { kind: 'alt'; key: string; select: [string, string]; on: RegExp }
 
 export type Stat = 'HP' | 'Mobility' | 'Aim' | 'Will' | 'Defense'
+/** The parts of an item's card: what it costs to build, its weapon and armor lines, what carrying it does. */
+export type ItemPart = 'build' | 'weapon' | 'armor' | 'carried'
 
 export interface SettingDef {
   /** Stable across versions and installs: kept in settings.json. */
@@ -42,6 +61,8 @@ export interface SettingDef {
   format?: Format
   /** A part of its group (item mobility: the file's own heading, "Grenades"). */
   section?: string
+  /** One of an item's numbers (features/game-items.md): which item, which part of its card. */
+  item?: { type: number; name: string; part: ItemPart; label: string }
   /** A soldier stat's part, for the stats table: its base, a rookie's lowest, the cost of a point. */
   stat?: { of: Stat; role: 'base' | 'lowest' | 'added' | 'cost' }
   place: Place
@@ -150,12 +171,40 @@ function fields(raw: string, from: number, to: number): Map<string, [number, num
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
-function selected(ls: Line[], key: string, select: [string, string]): Line[] {
-  return ls.filter((l) => {
-    if (!same(l.key, key)) return false
-    const f = fields(l.raw, l.start, l.end).get(select[0].toLowerCase())
-    return !!f && same(l.raw.slice(f[0], f[1]), select[1])
-  })
+/** Struct lines by key, picking field and its value: built once for a file's lines. */
+const lookups = new WeakMap<Line[], Map<string, Map<string, Line[]>>>()
+const parsed = new WeakMap<Line, Map<string, [number, number]>>()
+const fieldsOf = (l: Line) => {
+  let f = parsed.get(l)
+  if (!f) parsed.set(l, (f = fields(l.raw, l.start, l.end)))
+  return f
+}
+
+function selected(ls: Line[], key: string, select: [string, string | string[]]): Line[] {
+  let byKey = lookups.get(ls)
+  if (!byKey) lookups.set(ls, (byKey = new Map()))
+  const k = `${key.toLowerCase()}|${select[0].toLowerCase()}`
+  let byValue = byKey.get(k)
+  if (!byValue) {
+    byValue = new Map()
+    for (const l of ls) {
+      if (!same(l.key, key)) continue
+      const f = fieldsOf(l).get(select[0].toLowerCase())
+      if (!f) continue
+      const v = l.raw.slice(f[0], f[1]).toLowerCase()
+      byValue.set(v, [...(byValue.get(v) ?? []), l])
+    }
+    byKey.set(k, byValue)
+  }
+  const values = Array.isArray(select[1]) ? select[1] : [select[1]]
+  return values.flatMap((v) => byValue.get(v.toLowerCase()) ?? []).sort((a, b) => a.n - b.n)
+}
+
+/** One part of a packed value; null when the value is not a whole number from 0 up. */
+function partOf(whole: string, p: Packed): string | null {
+  const n = Number(whole)
+  if (!Number.isInteger(n) || n < 0) return null
+  return String(p.part === 'high' ? Math.trunc(n / p.by) : n % p.by)
 }
 
 /** Where a setting is in a file, and its value there; null if the file does not have it. */
@@ -170,21 +219,18 @@ function locate(
     const lead = /^\s*/.exec(v)![0].length
     const span: [number, number] = [line.start + lead, line.start + v.trimEnd().length]
     const whole = line.raw.slice(span[0], span[1])
-    if (!place.digits) return { line, span, value: whole }
-    const n = Number(whole)
-    if (!Number.isInteger(n) || n < 0) return null
-    return {
-      line,
-      span,
-      whole,
-      value: String(place.digits === 'xx' ? Math.trunc(n / 100) : n % 100),
-    }
+    if (!place.packed) return { line, span, value: whole }
+    const value = partOf(whole, place.packed)
+    return value === null ? null : { line, span, whole, value }
   }
   if (place.kind === 'field') {
     const line = selected(ls, place.key, place.select).find((l) => !l.off)
-    const span = line && fields(line.raw, line.start, line.end).get(place.field.toLowerCase())
+    const span = line && fieldsOf(line).get(place.field.toLowerCase())
     if (!line || !span) return null
-    return { line, span, value: line.raw.slice(span[0], span[1]) }
+    const whole = line.raw.slice(span[0], span[1])
+    if (!place.packed) return { line, span, value: whole }
+    const value = partOf(whole, place.packed)
+    return value === null ? null : { line, span, whole, value }
   }
   const both = selected(ls, place.key, place.select)
   const on = both.filter((l) => place.on.test(l.raw.slice(l.start, l.end)))
@@ -210,20 +256,20 @@ const key = (
   name: string,
   k: string,
   comment: RegExp,
-  { digits, ...extra }: Partial<SettingDef> & { digits?: 'xx' | 'yy' } = {},
+  { packed, ...extra }: Partial<SettingDef> & { packed?: Packed } = {},
 ): SettingDef => ({
   id,
   group,
   name,
   type: 'number',
-  place: { kind: 'key', key: k, comment, ...(digits ? { digits } : {}) },
+  place: { kind: 'key', key: k, comment, ...(packed ? { packed } : {}) },
   ...extra,
 })
 
 const hours: Format = { kind: 'hours', min: 0 }
 /** One of two point costs Long War keeps in one value (xxyy). */
-const cost = (digits: 'xx' | 'yy'): Partial<SettingDef> & { digits: 'xx' | 'yy' } => ({
-  digits,
+const cost = (part: 'high' | 'low'): Partial<SettingDef> & { packed: Packed } => ({
+  packed: { by: 100, part },
   format: { kind: 'number', min: 0, max: 99 },
   help: '',
 })
@@ -306,7 +352,7 @@ export const CATALOGUE: SettingDef[] = [
     'Point cost of HP',
     'ROOKIE_STARTING_WILL',
     /xx = Point cost for hit points/i,
-    { ...cost('xx'), stat: { of: 'HP', role: 'cost' } },
+    { ...cost('high'), stat: { of: 'HP', role: 'cost' } },
   ),
   key(
     'rookie.cost-will',
@@ -314,7 +360,7 @@ export const CATALOGUE: SettingDef[] = [
     'Point cost of will',
     'ROOKIE_STARTING_WILL',
     /xx = Point cost for hit points/i,
-    { ...cost('yy'), stat: { of: 'Will', role: 'cost' } },
+    { ...cost('low'), stat: { of: 'Will', role: 'cost' } },
   ),
   key(
     'rookie.cost-defense',
@@ -322,7 +368,7 @@ export const CATALOGUE: SettingDef[] = [
     'Point cost of defense',
     'ROOKIE_MOBILITY',
     /xx = Point cost for defense/i,
-    { ...cost('xx'), stat: { of: 'Defense', role: 'cost' } },
+    { ...cost('high'), stat: { of: 'Defense', role: 'cost' } },
   ),
   key(
     'rookie.cost-mobility',
@@ -330,7 +376,7 @@ export const CATALOGUE: SettingDef[] = [
     'Point cost of mobility',
     'ROOKIE_MOBILITY',
     /xx = Point cost for defense/i,
-    { ...cost('yy'), stat: { of: 'Mobility', role: 'cost' } },
+    { ...cost('low'), stat: { of: 'Mobility', role: 'cost' } },
   ),
   // Recruits
   key(
@@ -483,8 +529,8 @@ export const GROUPS: { name: string; help: string }[] = [
     help: 'Each class’s armor color and headgear, numbered as in Long War’s Armor Kit list, and the rookie’s look. Pick a row to see it on the soldier.',
   },
   {
-    name: 'Item mobility',
-    help: 'What carrying each item does to a soldier’s mobility: below 0 slows them down.',
+    name: 'Items',
+    help: 'Every item’s numbers in the file: what it costs to build, what it does as a weapon or as armor, and what carrying it does. Pick an item.',
   },
   { name: 'LWR options', help: 'Options LWR’s file lists that the app has no place for yet.' },
 ]
@@ -710,8 +756,6 @@ const sectionName = (h: string) =>
 /**
  * Settings the file lists itself:
  * - every class's color and headgear (HQ_BASE_POWER, by comment);
- * - every item's mobility cost (BalanceMods_Classic by item, named by the
- *   comment above it);
  * - LWR's own options, each line saying "(LWR Default = …) what it does".
  */
 export function listedSettings(text: string): SettingDef[] {
@@ -746,40 +790,173 @@ export function listedSettings(text: string): SettingDef[] {
       }
     }
   }
-  // Item mobility: the BalanceMods_Classic line under a "; Name" comment.
+  return out
+}
+
+// --- Items (features/game-items.md) -------------------------------------------------
+
+/** An item's name: the comment just above its lines ("; Medikit"), spelled right. */
+function itemName(raw: string[], n: number): string {
+  for (let i = n - 1; i >= Math.max(0, n - 3); i--) {
+    if (/^\s*;?\s*Item[Bb]alance_Normal\s*=/i.test(raw[i]!)) continue
+    const c = /^\s*;\s*(.+?)\s*$/.exec(raw[i]!)
+    if (c) return SPELLING[c[1]!] ?? c[1]!
+  }
+  return ''
+}
+
+/**
+ * Every item's numbers as settings: an item is its BalanceMods_Classic line
+ * (eType, a number) with the ItemBalance_Normal line above it, and the
+ * Weapons= or Armors= line of its enum name. Each part only where the file
+ * has its line; a field of the card only where the line has the field.
+ */
+function itemSettings(text: string, ls: Line[], names: string[]): SettingDef[] {
   const raw = text.split(/\r?\n/)
   const headings = itemHeadings(raw)
+  const out: SettingDef[] = []
   for (const l of ls) {
     if (l.off || !same(l.key, 'BalanceMods_Classic')) continue
-    const f = fields(l.raw, l.start, l.end)
-    const type = f.get('etype')
-    if (!type || !f.has('imobility')) continue
-    const eType = l.raw.slice(type[0], type[1])
+    const f = fieldsOf(l).get('etype')
+    const eType = f ? l.raw.slice(f[0], f[1]) : ''
     if (!/^\d+$/.test(eType)) continue
-    let name = ''
-    for (let i = l.n - 1; i >= Math.max(0, l.n - 3); i--) {
-      const c = /^\s*;\s*(.+?)\s*$/.exec(raw[i]!)
-      if (c) {
-        name = c[1]!
-        break
-      }
-    }
+    const type = Number(eType)
+    const name = itemName(raw, l.n)
     if (!name) continue
-    name = SPELLING[name] ?? name
-    out.push({
-      id: `item-mobility.${eType}`,
-      group: 'Item mobility',
-      name,
-      help: '',
+    const section = headings[l.n] ? sectionName(headings[l.n]!) : undefined
+    const enumName = names[type]
+    // The build line just above names the item its own way (eItem_Medikit or 69).
+    const above = ls.find(
+      (x) => x.n < l.n && x.n >= l.n - 2 && !x.off && same(x.key, 'ItemBalance_Normal'),
+    )
+    const named = above && fieldsOf(above).get('eitem')
+    const by = [eType, ...(enumName ? [enumName] : [])]
+    if (above && named) by.push(above.raw.slice(named[0], named[1]))
+    const item = (
+      id: string,
+      part: ItemPart,
+      label: string,
+      place: Place,
+      format: Format = { kind: 'number' },
+      help = '',
+    ): SettingDef => ({
+      id: `item.${type}.${id}`,
+      group: 'Items',
+      name: `${name}: ${label.charAt(0).toLowerCase()}${label.slice(1)}`,
+      help,
       type: 'number',
-      section: headings[l.n] ? sectionName(headings[l.n]!) : undefined,
-      place: {
-        kind: 'field',
-        key: 'BalanceMods_Classic',
-        select: ['eType', eType],
-        field: 'iMobility',
-      },
+      format,
+      section,
+      item: { type, name, part, label },
+      place,
     })
+    const on = (key: string, select: [string, string[]]) => (field: string, packed?: Packed) =>
+      ({ kind: 'field', key, select, field, ...(packed ? { packed } : {}) }) as Place
+    // To build.
+    const build = on('ItemBalance_Normal', ['eItem', by])
+    const unset = (unit?: string): Format => ({
+      kind: 'number',
+      unset: -1,
+      min: 0,
+      ...(unit ? { unit } : {}),
+    })
+    out.push(
+      item('cost', 'build', 'Credits', build('iCash'), unset('credits')),
+      item('elerium', 'build', 'Elerium', build('iElerium', { by: 1000, part: 'low' }), {
+        kind: 'number',
+        min: 0,
+        max: 999,
+      }),
+      item('meld', 'build', 'Meld', build('iElerium', { by: 1000, part: 'high' }), {
+        kind: 'number',
+        min: 0,
+      }),
+      item('alloys', 'build', 'Alloys', build('iAlloys', { by: 1000, part: 'low' }), {
+        kind: 'number',
+        min: 0,
+        max: 999,
+      }),
+      item('days', 'build', 'Days to build', build('iTime'), unset('days')),
+      item('engineers', 'build', 'Engineers needed', build('iEng'), unset()),
+    )
+    // As a weapon, as armor: by the enum's name.
+    if (enumName) {
+      const weapon = on('Weapons', ['iType', [enumName]])
+      out.push(
+        item('damage', 'weapon', 'Damage', weapon('iDamage')),
+        item('crit', 'weapon', 'Critical chance', weapon('iCritical'), {
+          kind: 'number',
+          unit: '%',
+        }),
+        item('aim', 'weapon', 'Aim', weapon('iOffenseBonus')),
+        item('range', 'weapon', 'Range', weapon('iRange'), { kind: 'number', min: 0 }),
+        item('environment', 'weapon', 'Damage to cover', weapon('iEnvironmentDamage'), {
+          kind: 'number',
+          min: 0,
+        }),
+        item('radius', 'weapon', 'Radius', weapon('iRadius'), {
+          // The file's units: 96 to a tile.
+          kind: 'number',
+          scale: 1 / 96,
+          unit: 'tiles',
+          min: 0,
+        }),
+        item(
+          'ammo',
+          'weapon',
+          'Shots',
+          weapon('iSuppression', { by: 100, part: 'low' }),
+          { kind: 'number', min: 0, max: 99 },
+          'Between reloads.',
+        ),
+        item(
+          'ammo-conserving',
+          'weapon',
+          'Shots with Ammo Conservation',
+          weapon('iSuppression', { by: 100, part: 'high' }),
+          { kind: 'number', min: 0, max: 99 },
+        ),
+      )
+      const armor = on('Armors', ['iType', [enumName]])
+      out.push(
+        item('hp', 'armor', 'HP', armor('iHPBonus')),
+        item('defense', 'armor', 'Defense', armor('iDefenseBonus')),
+        item('will', 'armor', 'Will', armor('iWillBonus')),
+        item('armor-mobility', 'armor', 'Mobility', armor('iMobilityBonus')),
+        item('large-slots', 'armor', 'Large item slots', armor('iLargeItems'), {
+          kind: 'number',
+          min: 0,
+        }),
+        item('small-slots', 'armor', 'Small item slots', armor('iSmallItems'), {
+          kind: 'number',
+          min: 0,
+        }),
+        item('flight-fuel', 'armor', 'Flight fuel', armor('iFlightFuel'), {
+          kind: 'number',
+          min: 0,
+        }),
+      )
+    }
+    // Carried: the item's extra stats.
+    const mods = on('BalanceMods_Classic', ['eType', [eType]])
+    out.push(
+      item('mobility', 'carried', 'Mobility', mods('iMobility'), { kind: 'number' }),
+      item('carried-defense', 'carried', 'Defense', mods('iDefense'), { kind: 'number' }),
+      item('carried-aim', 'carried', 'Aim', mods('iAim'), { kind: 'number' }),
+      item('dr', 'carried', 'Damage reduction', mods('iHP'), {
+        kind: 'number',
+        scale: 0.1,
+        min: 0,
+      }),
+      item(
+        'damaged',
+        'carried',
+        'Chance of damage',
+        mods('iWill'),
+        { kind: 'percent' },
+        'At most, after a mission in which its carrier went down; less as the wound is lighter.',
+      ),
+    )
   }
   return out
 }
@@ -797,12 +974,17 @@ export function optionName(comment: string): string {
   return s
 }
 
-/** Every setting this file has, catalogue first, with its value in the file. */
-export function findSettings(text: string): FoundSetting[] {
+/**
+ * Every setting this file has, catalogue first, with its value in the file.
+ * `itemNames`: the game's item enum (EItemType, from XComGame.upk), to find
+ * an item's weapon and armor lines; without it an item has its cost and
+ * carried parts only.
+ */
+export function findSettings(text: string, itemNames: string[] = []): FoundSetting[] {
   const ls = lines(text)
   const seen = new Set<string>()
   const out: FoundSetting[] = []
-  for (const def of [...CATALOGUE, ...listedSettings(text)]) {
+  for (const def of [...CATALOGUE, ...listedSettings(text), ...itemSettings(text, ls, itemNames)]) {
     if (seen.has(def.id)) continue
     const at = locate(ls, def.place)
     if (!at) continue
@@ -835,16 +1017,19 @@ export function applySettings(
     }
     const [s, e] = at.span!
     let text = value
-    if (def.place.kind === 'key' && def.place.digits) {
-      // One half of xxyy: the other half as the line has it now.
+    const packed = def.place.packed
+    if (packed) {
+      // One part of a packed value: the other part as the line has it now.
       const n = Number(at.whole)
       const part = Number(value)
-      if (!Number.isInteger(part) || part < 0 || part > 99) {
+      if (!Number.isInteger(part) || part < 0 || (packed.part === 'low' && part >= packed.by)) {
         missing.push(def)
         continue
       }
       text = String(
-        def.place.digits === 'xx' ? part * 100 + (n % 100) : Math.trunc(n / 100) * 100 + part,
+        packed.part === 'high'
+          ? part * packed.by + (n % packed.by)
+          : Math.trunc(n / packed.by) * packed.by + part,
       )
     }
     rows[at.line.n] = at.line.raw.slice(0, s) + text + at.line.raw.slice(e)
@@ -856,9 +1041,10 @@ export function applySettings(
 export function settingsChanged(
   own: string,
   now: string,
+  itemNames: string[] = [],
 ): { def: FoundSetting; own: string; now: string }[] {
-  const mine = new Map(findSettings(now).map((s) => [s.id, s]))
-  return findSettings(own)
+  const mine = new Map(findSettings(now, itemNames).map((s) => [s.id, s]))
+  return findSettings(own, itemNames)
     .filter((s) => mine.has(s.id) && mine.get(s.id)!.value !== s.value)
     .map((s) => ({ def: s, own: s.value, now: mine.get(s.id)!.value }))
 }
@@ -899,7 +1085,12 @@ const SPLIT: Record<string, [string, string]> = {
 export const SPLIT_PARTS = new Set(Object.values(SPLIT).flat())
 
 export function splitOldValues(values: Record<string, string>): Record<string, string> {
-  const out = { ...values }
+  const out: Record<string, string> = {}
+  // Item mobility was its own setting until the items' cards (features/game-items.md).
+  for (const [id, v] of Object.entries(values)) {
+    const m = /^item-mobility\.(\d+)$/.exec(id)
+    out[m ? `item.${m[1]}.mobility` : id] = v
+  }
   for (const [old, [xx, yy]] of Object.entries(SPLIT)) {
     if (!(old in out)) continue
     const n = Number(out[old])

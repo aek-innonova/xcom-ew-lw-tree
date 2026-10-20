@@ -24,6 +24,17 @@ describe('settings in the player’s terms, written in the file’s (model/setti
     expect(valueOf(speed, ['fast'], '4f')).toEqual({ error: 'Not a number' })
   })
 
+  it('scaled numbers and "not set here"', () => {
+    const dr: Format = { kind: 'number', scale: 0.1 }
+    expect(fieldsOf(dr, '5')).toEqual(['0.5'])
+    expect(valueOf(dr, ['1.5'], '5')).toEqual({ value: '15' })
+    expect(say(dr, '5')).toBe('0.5')
+    const cost: Format = { kind: 'number', unit: 'credits', unset: -1 }
+    expect(fieldsOf(cost, '-1')).toEqual([''])
+    expect(say(cost, '-1')).toBe('not set here')
+    expect(valueOf(cost, ['150'], '-1')).toEqual({ value: '150' })
+  })
+
   it('on and off, choices, multipliers and hours, in words', () => {
     const stats: Format = { kind: 'switch', on: 1, off: 0 }
     expect(fieldsOf(stats, '1.0f')).toEqual(['on'])

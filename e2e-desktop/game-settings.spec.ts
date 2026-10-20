@@ -25,6 +25,9 @@ const ini = (hp: string, color: string) =>
     `HQ_BASE_POWER = ${color}\t\t\t; Sniper Color`,
     'Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,        iRange=27 )',
     ';Weapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=eWP_Pistol,iRange=27 );',
+    '; Arc Thrower',
+    'Itembalance_Normal=(eItem=eItem_ArcThrower,\t\tiCash=100,\tiElerium=0,\tiAlloys=0,\tiTime=10,\tiEng=20)',
+    'BalanceMods_Classic=(eType=73,\t\t\t\tiDamage=0,\tiHP=0,\tiMobility=-2,\tiWill=40);',
     '',
   ].join('\r\n')
 
@@ -116,6 +119,14 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await expect(
     page.getByRole('button', { name: 'Undo your value: Point cost of mobility' }),
   ).toHaveAttribute('title', 'Back to the original the app kept: 4')
+  // An item's card: the arc thrower's cost to build, and its mobility carried.
+  const items = page.locator('details[aria-label="Items"]')
+  await items.evaluate((d) => ((d as HTMLDetailsElement).open = true))
+  await items.getByRole('button', { name: 'Arc Thrower', exact: true }).click()
+  const card = items.getByRole('article', { name: 'Arc Thrower' })
+  await expect(card.getByRole('spinbutton', { name: 'Mobility', exact: true })).toHaveValue('-2')
+  await card.getByRole('spinbutton', { name: 'Credits', exact: true }).fill('120')
+  await card.getByRole('spinbutton', { name: 'Credits', exact: true }).press('Enter')
   await expect.poll(settings).toEqual({
     'soldier.hp': '5',
     'campaign.starting-soldiers': '60',
@@ -124,6 +135,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
     'rookie.cost-will': '5',
     'rookie.cost-mobility': '6',
     'psi.gift': '0.25',
+    'item.73.cost': '120',
   })
 
   // Saved by name, changed, and back again (features/game-setups.md).
@@ -144,7 +156,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
 
   await page.getByRole('button', { name: 'Apply my setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
-  await expect(plan).toContainText('7 game settings')
+  await expect(plan).toContainText('8 game settings')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
   await expect(page.locator('.log')).toContainText('Wrote Config/DefaultGameCore.ini')
   expect(readFileSync(join(game, 'Config', 'DefaultGameCore.ini'), 'latin1')).toBe(
@@ -152,6 +164,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
       .replace('NUM_STARTING_SOLDIERS=40', 'NUM_STARTING_SOLDIERS=60')
       .replace('ROOKIE_MOBILITY=104', 'ROOKIE_MOBILITY=106')
       .replace('ROOKIE_STARTING_WILL=301', 'ROOKIE_STARTING_WILL=305')
+      .replace('iCash=100,', 'iCash=120,')
       .replace('PSI_GIFT_CHANCE=0.45', 'PSI_GIFT_CHANCE=0.25')
       .replace(
         '\nWeapons=( strName="", iType=eItem_ArcThrower,  Properties[5]=0,',

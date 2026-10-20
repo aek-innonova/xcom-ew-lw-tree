@@ -21,7 +21,14 @@ import {
 import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
 import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
-import { Package, exportsByPath, headerSizeOf, readUpk } from '@/model/upk'
+import {
+  Package,
+  decompressPackage,
+  exportsByPath,
+  headerSizeOf,
+  readEnum,
+  readUpk,
+} from '@/model/upk'
 import { planBase, type BaseLayer, type BaseSetup } from './baseplan'
 import { loadGameImages } from './gameimages'
 import { desktop, desktopFiles, type BaseFound, type BaseManifest } from './desktop'
@@ -172,11 +179,29 @@ export function installKind(cooked: string[]): InstallKind {
 }
 
 /** Reads what is installed, switches the site to that version and loads its INI. */
+/**
+ * The game's item enum (EItemType in XComGame.upk), to find an item's weapon
+ * and armor lines (features/game-items.md); read once per install.
+ */
+let itemEnum: Promise<string[]> | null = null
+function itemNames(): Promise<string[]> {
+  itemEnum ??= (async () => {
+    try {
+      const b = files ? await files.read('CookedPCConsole/XComGame.upk') : null
+      return b ? readEnum(new Package(decompressPackage(b)), 'EItemType') : []
+    } catch {
+      return []
+    }
+  })()
+  return itemEnum
+}
+
 async function readInstall(): Promise<void> {
   if (!desktop) return
   tools.packages = {}
   tools.checks = {}
   current = new Map()
+  itemEnum = null
   const game = await desktop.game.current()
   if (!game) {
     Object.assign(tools, { status: 'off', install: null, iniEntries: [] })
@@ -766,14 +791,17 @@ function gameKind(): GameKind {
 async function loadGameSettings(current: string | null): Promise<void> {
   tools.gameValues = { ...choices.game?.[gameKind()] }
   const own = await ownIni(current)
-  tools.gameSettings = markRaw(own ? findSettings(own.text) : [])
+  const names = await itemNames()
+  tools.gameSettings = markRaw(own ? findSettings(own.text, names) : [])
   tools.gameSettingsFrom = own?.from ?? ''
   pruneSplitHalves(gameKind())
   // Hand edits: where the file differs from the version's own, other than by
   // the player's settings already.
   tools.handEdits = markRaw(
     own && current !== null && own.text !== current
-      ? settingsChanged(own.text, current).filter((c) => tools.gameValues[c.def.id] !== c.now)
+      ? settingsChanged(own.text, current, names).filter(
+          (c) => tools.gameValues[c.def.id] !== c.now,
+        )
       : [],
   )
   // Long War's Armor Kit codes: beside the game (its installer put them there), or in its base.
