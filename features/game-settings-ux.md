@@ -185,3 +185,37 @@ apply, the refusal over 99, and the old values split. The desktop e2e
 starts from a settings.json holding the old combined value (305). It
 checks that it comes back as will 5 only, that mobility 6 is written as
 `ROOKIE_MOBILITY=106`, and that will stays `ROOKIE_STARTING_WILL=305`.
+
+## Response (2026-10-20)
+
+- Base HP and lowest HP far apart is weird; show the consequences (base
+  mobility 13 with lowest 11 rolls 11 to 15).
+- "The key is HIGH_WILL; Long War uses it for HP": why would a player need to know?
+- Something is wrong with the female face on the soldier.
+- The × in the item mobility grid breaks the layout. And does mobility alone
+  make sense, rather than full item configuration?
+
+## Report (2026-10-20): soldier stats as one table, the face, the ×
+
+- **Soldier stats** is one table: a row per stat (HP, mobility, aim,
+  will, defense) with its base, the rookie's lowest, the point cost, and
+  what rookies roll (`SoldierStats.vue`): lowest to 2 × base − lowest,
+  Long War's rule from its file. Defense has an "added" value rather than
+  a lowest, and says "starts at −5, plus the armor's". A changed cell says
+  "was 4". A lowest above the base is marked when the player set it. As a
+  version ships it (LWR's own mobility: lowest 22, base 14), it is said,
+  not marked. LWR's note that it rolls this way only with its
+  balanced-soldiers second wave option is shown. Plain EW shows the bases
+  alone. **Recruits** keeps the Tac Armor, rifle and least-common-class
+  rows, and LWR's gender chance.
+- Internal notes are gone from the help (the HIGH_WILL remark, "Long War's
+  own alternative line").
+- The × is part of every field and keeps its place when hidden, so
+  nothing beside it moves (the item grid).
+- **The female face:** the barracks animation was made on the male
+  skeleton. Its bone positions are now taken as a change from that
+  skeleton, added to each mesh's own. Before, they were taken outright,
+  which pulled 42 bones of the female face (lips, eyes, nostrils) into the
+  male shape. The eye shade layer, a see-through overlay drawn as a pale
+  solid, is left out; the skin texture paints the eyes. Zooming in now
+  rises to the face.

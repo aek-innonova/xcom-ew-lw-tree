@@ -34,16 +34,6 @@ const own = computed(() =>
         :options="options"
         @set="(v) => setGameValue(def.id, v)"
       />
-      <button
-        v-if="mine"
-        type="button"
-        class="undo"
-        :aria-label="`Undo your value: ${def.name}`"
-        :title="`Back to ${tools.gameSettingsFrom}: ${own}`"
-        @click="setGameValue(def.id, null)"
-      >
-        ×
-      </button>
     </span>
     <span class="about small">
       <span v-if="help">{{ help }}</span>
@@ -78,14 +68,6 @@ const own = computed(() =>
   line-height: 1.4;
   display: flex;
   flex-direction: column;
-}
-.undo {
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 0 4px;
 }
 /* Narrow: what it is goes under its editor. */
 @media (max-width: 1000px) {

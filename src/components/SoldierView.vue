@@ -76,6 +76,8 @@ void main() {
     c = mix(c, c * uColor * 1.3, skin);
   }
   if (uKind == 2) { if (d.a < 0.35) discard; c = d.r * uColor * 1.5; }
+  // The eye shade layer: not drawn (the skin texture paints the eyes).
+  if (uKind == 4) discard;
   vec3 n = normalize(vN);
   if (uHasNrm) {
     // The normal map, in the surface's own frame (tangent, bitangent, normal).
@@ -306,7 +308,10 @@ function draw() {
   const sy = Math.sin(yaw)
   const model = new Float32Array([cy, sy, 0, 0, -sy, cy, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
   // Game (x, y, z) to camera (x, z, -y... looking along −y): the camera sits in front.
-  const toCam = new Float32Array([1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, -64, -230 * distance, 1])
+  // Zoomed in, the view rises from the middle of the body to the face.
+  const closer = Math.min(1, Math.max(0, (1 - distance) / (1 - 0.45)))
+  const look = 64 + closer * 46
+  const toCam = new Float32Array([1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, -look, -230 * distance, 1])
   const mvp = mul(perspective(0.6, w / h, 10, 2000), mul(toCam, model))
   const u = (n: string) => g.getUniformLocation(program!, n)
   g.uniformMatrix4fv(u('uMVP'), false, mvp)
@@ -320,7 +325,7 @@ function draw() {
     for (const s of up.sections) {
       const paint = dm.paints[s.paint]
       if (!paint) continue
-      const kind = { armor: 0, skin: 1, hair: 2, plain: 3 }[paint.kind]
+      const kind = { armor: 0, skin: 1, hair: 2, plain: 3, lashes: 4 }[paint.kind]
       g.uniform1i(u('uKind'), kind)
       // All three made before any is bound: making one binds it to the active unit.
       const dif = glTexture(paint.diffuse)

@@ -28,6 +28,8 @@ export type Place =
    */
   | { kind: 'alt'; key: string; select: [string, string]; on: RegExp }
 
+export type Stat = 'HP' | 'Mobility' | 'Aim' | 'Will' | 'Defense'
+
 export interface SettingDef {
   /** Stable across versions and installs: kept in settings.json. */
   id: string
@@ -40,6 +42,8 @@ export interface SettingDef {
   format?: Format
   /** A part of its group (item mobility: the file's own heading, "Grenades"). */
   section?: string
+  /** A soldier stat's part, for the stats table: its base, a rookie's lowest, the cost of a point. */
+  stat?: { of: Stat; role: 'base' | 'lowest' | 'added' | 'cost' }
   place: Place
 }
 
@@ -191,12 +195,13 @@ function locate(
 
 // --- The catalogue ----------------------------------------------------------------
 
-const soldier = (field: string, name: string): SettingDef => ({
+const soldier = (field: string, of: Stat): SettingDef => ({
   id: `soldier.${field.toLowerCase()}`,
-  group: 'Soldiers',
-  name,
+  group: 'Soldier stats',
+  name: `Base ${of === 'HP' ? 'HP' : of.toLowerCase()}`,
   help: '',
   type: 'number',
+  stat: { of, role: 'base' },
   place: { kind: 'field', key: 'Characters', select: ['iType', 'eChar_Soldier'], field },
 })
 const key = (
@@ -245,76 +250,92 @@ export const CATALOGUE: SettingDef[] = [
   key('campaign.barracks', 'Campaign', 'Barracks capacity', 'BARRACKS_CAPACITY', /^$/, {
     format: { kind: 'number', min: 1 },
   }),
-  // Soldiers: the midpoints rookies are rolled around
-  soldier('HP', 'Base HP'),
-  soldier('Mobility', 'Base mobility'),
-  soldier('Offense', 'Base aim'),
-  soldier('Will', 'Base will'),
-  soldier('Defense', 'Base defense'),
-  // Rookies
-  key('rookie.min-hp', 'Rookies', 'Lowest starting HP', 'HIGH_WILL', /Minimum Starting hp/i, {
-    help: 'Rolled from this to as far above base HP. The key is HIGH_WILL; Long War uses it for HP.',
+  // Soldier stats: the base every soldier starts from, how rookies are rolled
+  // around it (from the lowest to as far above), what a point costs.
+  soldier('HP', 'HP'),
+  soldier('Mobility', 'Mobility'),
+  soldier('Offense', 'Aim'),
+  soldier('Will', 'Will'),
+  soldier('Defense', 'Defense'),
+  key('rookie.min-hp', 'Soldier stats', 'Lowest starting HP', 'HIGH_WILL', /Minimum Starting hp/i, {
+    stat: { of: 'HP', role: 'lowest' },
   }),
   key(
     'rookie.min-mobility',
-    'Rookies',
+    'Soldier stats',
     'Lowest starting mobility',
     'LOW_MOBILITY',
     /Minimum starting mobility/i,
-    { help: 'Rolled from this to as far above base mobility.' },
+    { stat: { of: 'Mobility', role: 'lowest' } },
   ),
-  key('rookie.min-aim', 'Rookies', 'Lowest starting aim', 'LOW_AIM', /Minimum starting aim/i, {
-    help: 'Rolled from this to as far above base aim.',
-  }),
-  key('rookie.min-will', 'Rookies', 'Lowest starting will', 'LOW_WILL', /Minimum Starting Will/i, {
-    help: 'Rolled from this to as far above base will.',
-  }),
+  key(
+    'rookie.min-aim',
+    'Soldier stats',
+    'Lowest starting aim',
+    'LOW_AIM',
+    /Minimum starting aim/i,
+    { stat: { of: 'Aim', role: 'lowest' } },
+  ),
+  key(
+    'rookie.min-will',
+    'Soldier stats',
+    'Lowest starting will',
+    'LOW_WILL',
+    /Minimum Starting Will/i,
+    { stat: { of: 'Will', role: 'lowest' } },
+  ),
   key(
     'rookie.defense',
-    'Rookies',
-    'Starting defense',
+    'Soldier stats',
+    'Defense added for rookies',
     'HIGH_MOBILITY',
     /Relative starting defense/i,
-    { help: 'Added to base defense and the armor’s.' },
+    { stat: { of: 'Defense', role: 'added' } },
   ),
-  key('rookie.cost-aim', 'Rookies', 'Point cost of aim', 'ROOKIE_AIM', /Point cost for aim/i, {
-    help: '',
-  }),
+  key(
+    'rookie.cost-aim',
+    'Soldier stats',
+    'Point cost of aim',
+    'ROOKIE_AIM',
+    /Point cost for aim/i,
+    { stat: { of: 'Aim', role: 'cost' } },
+  ),
   key(
     'rookie.cost-hp',
-    'Rookies',
+    'Soldier stats',
     'Point cost of HP',
     'ROOKIE_STARTING_WILL',
     /xx = Point cost for hit points/i,
-    cost('xx'),
+    { ...cost('xx'), stat: { of: 'HP', role: 'cost' } },
   ),
   key(
     'rookie.cost-will',
-    'Rookies',
+    'Soldier stats',
     'Point cost of will',
     'ROOKIE_STARTING_WILL',
     /xx = Point cost for hit points/i,
-    cost('yy'),
+    { ...cost('yy'), stat: { of: 'Will', role: 'cost' } },
   ),
   key(
     'rookie.cost-defense',
-    'Rookies',
+    'Soldier stats',
     'Point cost of defense',
     'ROOKIE_MOBILITY',
     /xx = Point cost for defense/i,
-    cost('xx'),
+    { ...cost('xx'), stat: { of: 'Defense', role: 'cost' } },
   ),
   key(
     'rookie.cost-mobility',
-    'Rookies',
+    'Soldier stats',
     'Point cost of mobility',
     'ROOKIE_MOBILITY',
     /xx = Point cost for defense/i,
-    cost('yy'),
+    { ...cost('yy'), stat: { of: 'Mobility', role: 'cost' } },
   ),
+  // Recruits
   key(
     'rookie.armor-mobility',
-    'Rookies',
+    'Recruits',
     'Tac Armor from mobility',
     'SOLDIER_COST_HARD',
     /auto-equip Tac Armor/i,
@@ -322,7 +343,7 @@ export const CATALOGUE: SettingDef[] = [
   ),
   key(
     'rookie.rifle-aim',
-    'Rookies',
+    'Recruits',
     'Assault Rifle from aim',
     'SOLDIER_COST_CLASSIC',
     /auto-equip Assault Rifle/i,
@@ -330,7 +351,7 @@ export const CATALOGUE: SettingDef[] = [
   ),
   key(
     'rookie.least-common-class',
-    'Rookies',
+    'Recruits',
     'Leaning to the least common class',
     'LATE_UFO_CHANCE',
     /least common/i,
@@ -402,7 +423,7 @@ export const CATALOGUE: SettingDef[] = [
     id: 'arcthrower.pistol',
     group: 'Arc thrower',
     name: 'In the pistol slot',
-    help: 'Instead of a small-item slot: Long War’s own alternative line, said to misbehave on a covert operative.',
+    help: 'Instead of a small-item slot. Long War says it can misbehave on a covert operative.',
     type: 'toggle',
     place: { kind: 'alt', key: 'Weapons', select: ['iType', 'eItem_ArcThrower'], on: /eWP_Pistol/ },
   },
@@ -445,13 +466,11 @@ export const CATALOGUE: SettingDef[] = [
 export const GROUPS: { name: string; help: string }[] = [
   { name: 'Campaign', help: '' },
   {
-    name: 'Soldiers',
-    help: 'The stats every soldier starts from; rookies are rolled around them.',
+    name: 'Soldier stats',
+    help: 'Every soldier’s base stats, and how a rookie’s are rolled: from the lowest to as far above the base. A point cost is the build points a rookie spends on one point of the stat.',
   },
-  {
-    name: 'Rookies',
-    help: 'How recruits’ stats are rolled, and what they are issued. A point cost is the build points a recruit spends on one point of that stat.',
-  },
+  { name: 'Recruits', help: '' },
+  { name: 'Soldiers', help: '' },
   { name: 'Psionics', help: '' },
   { name: 'Injuries and fatigue', help: '' },
   { name: 'SHIVs', help: '' },
@@ -480,7 +499,7 @@ const LWR: Record<string, Partial<SettingDef> & { about: RegExp; name: string; g
   NUM_STARTING_SOLDIERS: {
     about: /gender chance/i,
     name: 'Chance a recruit is male',
-    group: 'Soldiers',
+    group: 'Recruits',
     format: { kind: 'percent' },
     help: '',
   },

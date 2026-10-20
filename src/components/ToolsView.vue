@@ -48,6 +48,7 @@ import { describe, PLAIN } from '@/model/settingformat'
 import SettingField from './SettingField.vue'
 import SettingRow from './SettingRow.vue'
 import SoldierLooks from './SoldierLooks.vue'
+import SoldierStats from './SoldierStats.vue'
 import { state } from '@/state/store'
 
 const scriptInput = ref<HTMLInputElement | null>(null)
@@ -544,6 +545,7 @@ const iniNote = computed(() =>
         </summary>
         <p v-if="g.help" class="group-help small">{{ g.help }}</p>
         <SoldierLooks v-if="g.name === 'Class colors'" :items="g.items" />
+        <SoldierStats v-else-if="g.name === 'Soldier stats'" :items="g.items" />
         <template v-else-if="g.name === 'Item mobility'">
           <input
             v-model="gameQuery[g.name]"
@@ -572,16 +574,6 @@ const iniNote = computed(() =>
                   :mine="tools.gameValues[d.id]"
                   @set="(v) => setGameValue(d.id, v)"
                 />
-                <button
-                  v-if="d.id in tools.gameValues"
-                  type="button"
-                  class="undo"
-                  :aria-label="`Undo your value: ${d.name}`"
-                  :title="`Back to ${tools.gameSettingsFrom}: ${d.value}`"
-                  @click="setGameValue(d.id, null)"
-                >
-                  ×
-                </button>
               </div>
             </div>
           </section>

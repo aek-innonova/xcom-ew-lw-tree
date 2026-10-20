@@ -78,7 +78,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await page.getByRole('button', { name: 'Tools' }).click()
 
   const hand = page.getByRole('region', { name: 'Edits by hand' })
-  await expect(hand).toContainText('Soldiers: Base HP 4 → 5')
+  await expect(hand).toContainText('Soldier stats: Base HP 4 → 5')
   await hand.getByRole('button', { name: 'Keep them as my settings' }).click()
   await expect(hand).toHaveCount(0)
   // Kept for Long War, the version installed.
@@ -96,7 +96,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   // In words: the starting soldiers, the pistol slot, the sniper's color.
   await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).fill('60')
   await page.getByRole('spinbutton', { name: 'Soldiers at the start' }).press('Enter')
-  await page.getByLabel('In the pistol slot').check()
+  await page.getByLabel('In the pistol slot', { exact: true }).check()
   await page.getByRole('spinbutton', { name: 'Sniper color' }).fill('16')
   await page.getByRole('spinbutton', { name: 'Sniper color' }).press('Enter')
   // Long War's two point costs in one value: each its own setting, the
@@ -110,8 +110,12 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await expect(gift).toHaveValue('45')
   await gift.fill('25')
   await gift.press('Enter')
-  // Said under each of the player's values: base HP's and the mobility cost's own are both 4.
-  await expect(page.getByText('the original the app kept: 4', { exact: true })).toHaveCount(2)
+  // Beside each of the player's values in the stats table, the version's own:
+  // base HP's and the mobility cost's are both 4.
+  await expect(page.getByText('was 4', { exact: true })).toHaveCount(2)
+  await expect(
+    page.getByRole('button', { name: 'Undo your value: Point cost of mobility' }),
+  ).toHaveAttribute('title', 'Back to the original the app kept: 4')
   await expect.poll(settings).toEqual({
     'soldier.hp': '5',
     'campaign.starting-soldiers': '60',

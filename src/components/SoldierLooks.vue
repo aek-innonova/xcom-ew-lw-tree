@@ -138,16 +138,6 @@ const headgear = computed(() =>
                     :options="colorChoices"
                     @set="(v) => setGameValue(l.color!.id, v)"
                   />
-                  <button
-                    v-if="mine(l.color)"
-                    type="button"
-                    class="undo"
-                    :aria-label="`Undo your value: ${l.color.name}`"
-                    :title="`Back to ${tools.gameSettingsFrom}: ${l.color.value}`"
-                    @click.stop="setGameValue(l.color.id, null)"
-                  >
-                    ×
-                  </button>
                 </span>
               </td>
               <td>
@@ -159,16 +149,6 @@ const headgear = computed(() =>
                     :options="headgearChoices"
                     @set="(v) => setGameValue(l.headgear!.id, v)"
                   />
-                  <button
-                    v-if="mine(l.headgear)"
-                    type="button"
-                    class="undo"
-                    :aria-label="`Undo your value: ${l.headgear.name}`"
-                    :title="`Back to ${tools.gameSettingsFrom}: ${l.headgear.value}`"
-                    @click.stop="setGameValue(l.headgear.id, null)"
-                  >
-                    ×
-                  </button>
                 </span>
               </td>
               <td>
@@ -180,16 +160,6 @@ const headgear = computed(() =>
                     :options="decoChoices"
                     @set="(v) => setGameValue(l.deco!.id, v)"
                   />
-                  <button
-                    v-if="mine(l.deco)"
-                    type="button"
-                    class="undo"
-                    :aria-label="`Undo your value: ${l.deco.name}`"
-                    :title="`Back to ${tools.gameSettingsFrom}: ${l.deco.value}`"
-                    @click.stop="setGameValue(l.deco.id, null)"
-                  >
-                    ×
-                  </button>
                 </span>
                 <span v-else class="muted small">the armor’s own</span>
               </td>
@@ -289,14 +259,6 @@ const headgear = computed(() =>
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
-}
-.undo {
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 0 2px;
 }
 .cell.mine :deep(select),
 .cell.mine :deep(input) {

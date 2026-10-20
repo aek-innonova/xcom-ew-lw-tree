@@ -1,12 +1,15 @@
 <script setup lang="ts">
 // One game setting's editor, in the setting's own terms
 // (features/game-settings-ux.md): a percentage for a fraction, a checkbox
-// for LWR's 0 and 1, a list of meanings for a choice. What it emits is the file's own form
-// (model/settingformat.ts); a value it cannot write is said, not sent.
+// for LWR's 0 and 1, a list of meanings for a choice. What it emits is the
+// file's own form (model/settingformat.ts); a value it cannot write is said,
+// not sent. A value of the player's has a × back to the version's own; the ×
+// keeps its place when hidden, so nothing beside it moves.
 
 import { computed, ref, watch } from 'vue'
 import type { FoundSetting } from '@/model/gamesettings'
-import { fieldsOf, limitsOf, numberOf, PLAIN, valueOf } from '@/model/settingformat'
+import { describe, fieldsOf, limitsOf, numberOf, PLAIN, valueOf } from '@/model/settingformat'
+import { tools } from '@/state/tools'
 
 const props = defineProps<{
   def: FoundSetting
@@ -14,12 +17,20 @@ const props = defineProps<{
   mine?: string
   /** Named values to choose from (colors, headgear, decos), when the app knows them. */
   options?: [string, string][] | null
+  /** Where nothing else says it: the version's own beside a value of the player's. */
+  was?: boolean
 }>()
 const emit = defineEmits<{ set: [value: string | null] }>()
 
 const format = computed(() => props.def.format ?? PLAIN)
 const value = computed(() => props.mine ?? props.def.value)
 const id = computed(() => `gs-${props.def.id}`)
+/** The version's own value in words, for the way back. */
+const own = computed(() => {
+  if (props.def.type === 'toggle') return props.def.value === 'on' ? 'on' : 'off'
+  const named = props.options?.find(([k]) => numberOf(k) === numberOf(props.def.value))
+  return named ? `${props.def.value} · ${named[1]}` : describe(format.value, props.def.value)
+})
 const limits = computed(() => limitsOf(format.value))
 const error = ref('')
 watch(value, () => (error.value = ''))
@@ -114,6 +125,19 @@ const chosen = computed(
         format.unit
       }}</span>
     </template>
+    <button
+      type="button"
+      class="undo"
+      :class="{ hidden: mine === undefined }"
+      :tabindex="mine === undefined ? -1 : 0"
+      :aria-hidden="mine === undefined"
+      :aria-label="`Undo your value: ${def.name}`"
+      :title="`Back to ${tools.gameSettingsFrom}: ${own}`"
+      @click.stop="emit('set', null)"
+    >
+      ×
+    </button>
+    <span v-if="was && mine !== undefined" class="was muted">was {{ own }}</span>
     <span v-if="error" class="error small" role="alert">{{ error }}</span>
   </span>
 </template>
@@ -142,6 +166,21 @@ select {
   width: 76px;
 }
 .unit {
+  font-size: 12px;
+}
+.undo {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
+  width: 16px;
+}
+.undo.hidden {
+  visibility: hidden;
+}
+.was {
   font-size: 12px;
 }
 .error {

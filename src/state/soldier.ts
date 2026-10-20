@@ -68,6 +68,19 @@ function idleClip(): Promise<Clip | null> {
 }
 
 /**
+ * The skeleton the barracks animations were made on: the male body's
+ * (SM_Lv1MedMale). Each bone's place in it, by name, so the animation's
+ * positions can be taken as a change from it.
+ */
+let animSkeleton: Promise<Map<string, [number, number, number]>> | null = null
+function animBones(): Promise<Map<string, [number, number, number]>> {
+  animSkeleton ??= part('Soldier_MaleKevlar_SF.upk', (n) => n === 'SM_Lv1MedMale')
+    .then(({ mesh }) => new Map(mesh.bones.map((b) => [b.name, b.position])))
+    .catch(() => new Map())
+  return animSkeleton
+}
+
+/**
  * Each bone's place at a time in the clip. The animation stores rotations
  * conjugated relative to the skeleton; it moves bones as well as turning them
  * (the set is not rotation-only), so its positions count where it has them.
@@ -85,13 +98,32 @@ function bonesAt(clip: Clip | null, seconds: number): Map<string, BonePose> {
   )
 }
 
-/** A pose for one mesh, by bone name: where the animation lacks a position, the mesh's own. */
-function poseFor(m: SkelMesh, bones: Map<string, BonePose>) {
+/**
+ * A pose for one mesh, by bone name. The animation moves bones as a change
+ * from the male skeleton it was made on, added to the mesh's own: a female
+ * face keeps its shape (taking the male positions outright gave it the male
+ * one), the shoulder pads still lift. A bone the animation does not move, or
+ * the male skeleton lacks, stays where the mesh has it.
+ */
+function poseFor(
+  m: SkelMesh,
+  bones: Map<string, BonePose>,
+  made: Map<string, [number, number, number]>,
+) {
   const out = new Map<string, LocalPose>()
   for (const b of m.bones) {
     const a = bones.get(b.name)
-    if (a && b.parent >= 0 && b.name !== 'RigRoot')
-      out.set(b.name, { rotation: a.rotation, position: a.position ?? b.position })
+    if (!a || b.parent < 0 || b.name === 'RigRoot') continue
+    const from = made.get(b.name)
+    const position: [number, number, number] =
+      a.position && from
+        ? [
+            b.position[0] + a.position[0] - from[0],
+            b.position[1] + a.position[1] - from[1],
+            b.position[2] + a.position[2] - from[2],
+          ]
+        : b.position
+    out.set(b.name, { rotation: a.rotation, position })
   }
   return out
 }
@@ -168,7 +200,8 @@ export function gameLooks(): Promise<Looks> {
 }
 
 /** How a material paints: the soldier's armor (tinted), skin, hair, or as it is. */
-export type PaintKind = 'armor' | 'skin' | 'hair' | 'plain'
+/** "lashes": the eye shade layer, not drawn. */
+export type PaintKind = 'armor' | 'skin' | 'hair' | 'plain' | 'lashes'
 export interface Texture {
   width: number
   height: number
@@ -300,7 +333,12 @@ async function paints(p: Package, file: string, mesh: SkelMesh): Promise<Paint[]
         primary: [1, 1, 1, 1],
         secondary: [1, 1, 1, 1],
       }
-      if (!ref || ref <= 0 || p.exports[ref - 1]?.type !== 'MaterialInstanceConstant') return none
+      if (!ref) return none
+      // The eye shade, by itself or through an instance: a see-through layer
+      // over the eyes, which the skin texture already paints. Left out.
+      const refName = (ref > 0 ? p.exports[ref - 1]?.name : p.imports[-ref - 1]?.name) ?? ''
+      if (/^EyeShade/i.test(refName)) return { ...none, kind: 'lashes' as const }
+      if (ref <= 0 || p.exports[ref - 1]?.type !== 'MaterialInstanceConstant') return none
       const m = readMaterialInstance(p, ref - 1)
       const kind = PAINTS[m.parent] ?? 'plain'
       const tex = (name: string) => {
@@ -370,14 +408,14 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
     ? await part(`${decoPkg}_SF.upk`, (n) => helmetFor.test(n)).catch(() => null)
     : null
   // Standing in the barracks' idle, each mesh posed by bone name (the rest pose without it).
-  const clip = await idleClip()
+  const [clip, made] = await Promise.all([idleClip(), animBones()])
   const rest = { body: body.mesh, head: head.mesh, hair: hair.mesh, deco: deco?.mesh }
   const at = (seconds: number): SkelMesh[] => {
     const bones = bonesAt(clip, seconds)
-    const pose = (m: SkelMesh) => (bones.size ? poseMesh(m, poseFor(m, bones)) : m)
+    const pose = (m: SkelMesh) => (bones.size ? poseMesh(m, poseFor(m, bones, made)) : m)
     // The hair sits on the head's socket, on the head bone.
     const headBone = bones.size
-      ? posedBone(rest.body, poseFor(rest.body, bones), 'RigHead')
+      ? posedBone(rest.body, poseFor(rest.body, bones, made), 'RigHead')
       : boneWorld(rest.body.bones)[rest.body.bones.findIndex((b) => b.name === 'RigHead')]
     return [
       pose(rest.body),
