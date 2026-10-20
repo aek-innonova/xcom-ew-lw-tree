@@ -24,7 +24,7 @@ describe.skipIf(!existsSync(`${C}/Startup.upk`))(
       expect(m.vectors.CMOD?.map((x) => x.toFixed(3))).toEqual(['0.255', '0.151', '0.045', '1.000'])
     })
 
-    it('the armor tint palette: 32 entries, as Long War’s picture of the colors has them', () => {
+    it('the armor tint palette: 32 entries, Long War’s colors 1 to 32', () => {
       const p = open('Startup.upk')
       const pal = readPalette(
         p,
@@ -32,7 +32,7 @@ describe.skipIf(!existsSync(`${C}/Startup.upk`))(
       )
       expect(pal.length).toBe(32)
       const srgb = (c: number[]) => c.slice(0, 3).map((x) => Math.round(Math.pow(x, 1 / 2.2) * 255))
-      // 17: red with yellow; 31: black.
+      // Entry 17 is Long War's color 18, red with yellow; entry 31 its 32, black.
       expect(srgb(pal[17]!.primary)).toEqual([158, 11, 15])
       expect(srgb(pal[17]!.secondary)).toEqual([252, 230, 0])
       expect(srgb(pal[31]!.primary)).toEqual([45, 45, 45])

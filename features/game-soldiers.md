@@ -91,10 +91,11 @@ settings (`src/components/SoldierPreview.vue`, `SoldierView.vue`,
 
 **Colors:**
 - **Class colors:** Long War's color n is the armor tint palette's entry
-  n (`UnitPalettes.ArmorTint`, `Startup.upk`), as Long War's own picture
-  of the colors shows; its text list is one off in places. Checked
-  against that picture: 1 grey-cyan, 2 olive, 3 orange, 5 red, 17 red
-  with yellow side panels and crotch piece.
+  n − 1 (`UnitPalettes.ArmorTint`, `Startup.upk`); 0 is the armor's own,
+  the vanilla default. Long War's Armor Kit list agrees entry by entry (5
+  white with black is entry 4, 18 red with yellow 17, 32 black with black
+  31). Its linked picture shows the palette in order (A1 is entry 0),
+  which this report first misread as the numbers; the bench caught it.
 - **Where they go:** the top color goes where the specular map's alpha
   says, the bottom where its blue says. The top has the say where they
   overlap (Titan, Ghost and Archangel lay one inside the other). Each

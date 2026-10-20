@@ -59,7 +59,7 @@ void main() {
     // so each part's average is the color itself.
     // The top color has the say where both masks are (Titan, Ghost and
     // Archangel lay the second inside the first; Kevlar and Carapace keep
-    // them apart, as Long War's picture of the colors shows).
+    // them apart).
     c = mix(c, uBottom * l / uMeans.y, m.b * (1.0 - m.a));
     c = mix(c, uTop * l / uMeans.x, m.a);
   }

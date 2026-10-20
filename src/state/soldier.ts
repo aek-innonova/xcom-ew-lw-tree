@@ -192,16 +192,17 @@ export function gamePalette(name: string): Promise<PaletteEntry[]> {
 export const armorPalette = () => gamePalette('ArmorTint')
 
 /**
- * The colors for one of Long War's color numbers: entry n of the palette (as
- * Long War's own picture of the colors shows them; its text list is one off
- * in places); a number past the palette, or none, is the armor's own.
+ * The colors for one of Long War's color numbers (its Armor Kit codes): 0 is
+ * the armor's own (the vanilla default), n the palette's entry n − 1. Long
+ * War's list agrees entry by entry: 5 white with black is entry 4, 18 red
+ * with yellow entry 17, 32 black with black entry 31.
  */
 export function tintFor(
   code: number,
   palette: PaletteEntry[],
   own: Paint,
 ): { top: Color; bottom: Color } {
-  const e = code >= 0 ? palette[code] : undefined
+  const e = code >= 1 ? palette[code - 1] : undefined
   return e ? { top: e.primary, bottom: e.secondary } : { top: own.primary, bottom: own.secondary }
 }
 

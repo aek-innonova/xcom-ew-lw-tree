@@ -536,12 +536,12 @@ async function baseSetup(choice: BaseChoice): Promise<BaseSetup> {
   const known: BaseLayer[] = []
   // Every version in the library, to know their files when another is chosen.
   for (const [i, b] of tools.bases.entries()) {
-    const of = tools.bases.length > 1 ? ` (${i + 1} of ${tools.bases.length} in your library)` : ''
+    const of = tools.bases.length > 1 ? `, ${i + 1} of ${tools.bases.length} in your library` : ''
     tools.busy = b.unpacked
       ? `Reading ${b.name}${of}…`
       : b.kind === 'lw'
         ? `Unpacking ${b.name}${of}: reading the installer first (once, about 20 seconds)…`
-        : `Unpacking ${b.name}${of} (once)…`
+        : `Unpacking ${b.name}${of}, once…`
     known.push(layerOf(await api.unpack(b.id)))
   }
   const { lw, lwr } = basesFor(choice)
