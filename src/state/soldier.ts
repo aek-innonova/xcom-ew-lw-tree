@@ -6,7 +6,14 @@
 // machine or goes into the repository.
 
 import { readMaterialInstance, readPalette, type Color, type PaletteEntry } from '@/model/material'
-import { readAnimSet, readPose, type Quat } from '@/model/anim'
+import {
+  readAnimSet,
+  readClip,
+  sampleClip,
+  type BonePose,
+  type Clip,
+  type Quat,
+} from '@/model/anim'
 import {
   boneWorld,
   placeMesh,
@@ -43,37 +50,48 @@ export interface SoldierSpec {
   deco?: number
 }
 
-/** The barracks' standing idle (Anim_Barracks.upk): each bone's rotation by name, first frame. */
-let standing: Promise<Map<string, Quat>> | null = null
-function standingPose(): Promise<Map<string, Quat>> {
-  standing ??= pkg('Anim_Barracks.upk')
+/** The barracks idle the soldier stands in: at ease, arms at the sides, a 3 s loop. */
+const IDLE = 'Loadout_DressUniform_IdleA'
+let idle: Promise<Clip | null> | null = null
+function idleClip(): Promise<Clip | null> {
+  idle ??= pkg('Anim_Barracks.upk')
     .then((p) => {
       const set = readAnimSet(
         p,
         p.exports.findIndex((e) => e.type === 'AnimSet'),
       )
-      const seq =
-        set.sequences.find((s) => s.name === 'Loadout_Veteran_1Hand_IdleA') ?? set.sequences[0]
-      const pose = seq ? readPose(p, set, seq.index) : new Map()
-      // Stored the other way round from the skeleton's rest pose: conjugated.
-      return new Map(
-        [...pose].map(([bone, b]) => [
-          bone,
-          [-b.rotation[0], -b.rotation[1], -b.rotation[2], b.rotation[3]] as Quat,
-        ]),
-      )
+      const seq = set.sequences.find((s) => s.name === IDLE)
+      return seq ? readClip(p, set, seq.index) : null
     })
-    .catch(() => new Map())
-  return standing
+    .catch(() => null)
+  return idle
 }
 
-/** A pose for one mesh: the animation's rotations, the mesh's own bone lengths. */
-function poseFor(m: SkelMesh, rotations: Map<string, Quat>) {
+/**
+ * Each bone's place at a time in the clip. The animation stores rotations
+ * conjugated relative to the skeleton; it moves bones as well as turning them
+ * (the set is not rotation-only), so its positions count where it has them.
+ */
+function bonesAt(clip: Clip | null, seconds: number): Map<string, BonePose> {
+  if (!clip) return new Map()
+  return new Map(
+    [...sampleClip(clip, seconds)].map(([bone, b]) => [
+      bone,
+      {
+        rotation: [-b.rotation[0], -b.rotation[1], -b.rotation[2], b.rotation[3]] as Quat,
+        position: b.position,
+      },
+    ]),
+  )
+}
+
+/** A pose for one mesh, by bone name: where the animation lacks a position, the mesh's own. */
+function poseFor(m: SkelMesh, bones: Map<string, BonePose>) {
   const out = new Map<string, LocalPose>()
   for (const b of m.bones) {
-    const q = rotations.get(b.name)
-    if (q && b.parent >= 0 && b.name !== 'RigRoot')
-      out.set(b.name, { rotation: q, position: b.position })
+    const a = bones.get(b.name)
+    if (a && b.parent >= 0 && b.name !== 'RigRoot')
+      out.set(b.name, { rotation: a.rotation, position: a.position ?? b.position })
   }
   return out
 }
@@ -166,6 +184,8 @@ export interface DrawMesh {
 }
 export interface Soldier {
   meshes: DrawMesh[]
+  /** The meshes moved to a time in the idle (seconds), in the same order; none: it stands still. */
+  at?: (seconds: number) => SkelMesh[]
 }
 
 const packages = new Map<string, Promise<Package>>()
@@ -322,7 +342,6 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
     `Soldier_${spec.gender}${spec.armor}_SF.upk`,
     (n) => !/CovertOps/i.test(n),
   )
-  const bodyRest = body.mesh
   const head = await part(`${headPkg}_SF.upk`, () => true)
   // A helmet has a mesh for each gender (and "FB" ones, left alone).
   const helmetFor = new RegExp(`_${spec.gender === 'Male' ? 'male' : 'fem'}$`, 'i')
@@ -335,17 +354,28 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
   const deco = decoPkg
     ? await part(`${decoPkg}_SF.upk`, (n) => helmetFor.test(n)).catch(() => null)
     : null
-  // Standing as in the barracks, each mesh posed by bone name (the rest pose without it).
-  const rotations = await standingPose()
-  const pose = (m: SkelMesh) => (rotations.size ? poseMesh(m, poseFor(m, rotations)) : m)
-  body.mesh = pose(body.mesh)
-  head.mesh = pose(head.mesh)
-  if (deco) deco.mesh = pose(deco.mesh)
-  // The hair sits on the head's socket, on the head bone.
-  const headBone = rotations.size
-    ? posedBone(bodyRest, poseFor(bodyRest, rotations), 'RigHead')
-    : boneWorld(bodyRest.bones)[bodyRest.bones.findIndex((b) => b.name === 'RigHead')]
-  const hairMesh = headBone ? placeMesh(hair.mesh, headBone) : hair.mesh
+  // Standing in the barracks' idle, each mesh posed by bone name (the rest pose without it).
+  const clip = await idleClip()
+  const rest = { body: body.mesh, head: head.mesh, hair: hair.mesh, deco: deco?.mesh }
+  const at = (seconds: number): SkelMesh[] => {
+    const bones = bonesAt(clip, seconds)
+    const pose = (m: SkelMesh) => (bones.size ? poseMesh(m, poseFor(m, bones)) : m)
+    // The hair sits on the head's socket, on the head bone.
+    const headBone = bones.size
+      ? posedBone(rest.body, poseFor(rest.body, bones), 'RigHead')
+      : boneWorld(rest.body.bones)[rest.body.bones.findIndex((b) => b.name === 'RigHead')]
+    return [
+      pose(rest.body),
+      pose(rest.head),
+      headBone ? placeMesh(rest.hair, headBone) : rest.hair,
+      ...(rest.deco ? [pose(rest.deco)] : []),
+    ]
+  }
+  const first = at(0)
+  body.mesh = first[0]!
+  head.mesh = first[1]!
+  const hairMesh = first[2]!
+  if (deco) deco.mesh = first[3]!
   return {
     meshes: [
       { mesh: body.mesh, paints: await paints(body.p, body.file, body.mesh) },
@@ -353,5 +383,6 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
       { mesh: hairMesh, paints: await paints(hair.p, hair.file, hair.mesh) },
       ...(deco ? [{ mesh: deco.mesh, paints: await paints(deco.p, deco.file, deco.mesh) }] : []),
     ],
+    at: clip && clip.frames > 1 ? at : undefined,
   }
 }

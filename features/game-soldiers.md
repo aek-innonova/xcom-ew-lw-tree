@@ -86,13 +86,17 @@ settings (`src/components/SoldierPreview.vue`, `SoldierView.vue`,
   its helmet on: Long War's headgear numbers are hair ids marked
   `bIsHelmet`. Hair and helmets hang on the head's socket (`RigHead`),
   wherever the pose puts the head.
-- **The pose:** the soldier stands as in the barracks: the first frame of
-  `Loadout_Veteran_1Hand_IdleA` in `Anim_Barracks.upk`
-  (`src/model/anim.ts`, per-track compressed keys). Body, head and deco
-  are skinned to it by bone name, each vertex by its bones' weights
-  (`poseMesh`). The animation stores rotations conjugated relative to the
-  skeleton's rest pose. Without the package the soldier keeps the rest
-  pose, arms out.
+- **The pose:** the soldier stands at ease and breathes, in the game's own
+  barracks idle (`Loadout_DressUniform_IdleA` in `Anim_Barracks.upk`, a
+  3.3 s loop). Every key of its per-track compressed tracks is read, with
+  each track's frame table (`src/model/anim.ts`), and sampled about 30
+  times a second. Body, head and deco are skinned to it by bone name, each
+  vertex by its bones' weights (`poseMesh`, about 2 ms a frame). The
+  animation stores rotations conjugated relative to the skeleton's rest
+  pose. The set is not rotation-only, so the animation's bone positions
+  count too; without them the shoulder pads stood out like wings. It moves
+  only while on screen, and not when the system asks for reduced motion.
+  Without the package the soldier keeps the rest pose, arms out.
 - **Textures:** up to 1024 wide, from the package or `CharTextures.tfc`
   through ranged reads. Diffuse, the masks, and normal maps.
 
@@ -128,10 +132,15 @@ Verified:
   hair and its colors, by screenshot.
 - Unit tests: the material, the palette (17 red with yellow), the hair
   placed on the head (`src/model/__tests__/material.spec.ts`); the body
-  posed, arms at the sides at the same height
+  posed, arms at the sides at the same height, the head moving; every
+  barracks clip's frame tables in order and its loop closing
   (`src/model/__tests__/skelmesh.spec.ts`).
+- The idles compared by screenshots over time: the at-ease idle chosen
+  over one that looks around and slouches, one that scratches its head,
+  and one that holds a rifle that is not there. Female Kevlar and
+  Carapace, male Titan, Archangel, Ghost and Psi in it.
 
 Not done:
 - The game's own lighting and reflections (cube maps).
-- Animation: one still frame of the idle; it does not move.
+- Animation: the one idle; no fidgets, poses or salutes to choose.
 - Weapons and the MEC suits.

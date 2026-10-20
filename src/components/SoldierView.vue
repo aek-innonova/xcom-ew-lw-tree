@@ -3,7 +3,8 @@
 // from the player's install (state/soldier.ts), drawn with WebGL, turned by
 // dragging. Our own simple shader, not the game's: the armor's top and
 // bottom colors go through its tint masks, the hair's color through its
-// template; the lighting is plain.
+// template; the lighting is plain. It breathes in the barracks idle while on
+// screen, unless the system asks for less motion.
 
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Color } from '@/model/material'
@@ -29,6 +30,8 @@ interface Upload {
   count: number
   type: number
   sections: { first: number; count: number; paint: number }[]
+  /** Positions, normals and tangents: replaced as the soldier moves. */
+  moving: [WebGLBuffer, WebGLBuffer, WebGLBuffer]
 }
 let uploads: { upload: Upload; meshIndex: number }[] = []
 const texCache = new WeakMap<Texture, WebGLTexture>()
@@ -168,17 +171,20 @@ function upload() {
     const m = dm.mesh
     const vao = g.createVertexArray()!
     g.bindVertexArray(vao)
-    const buf = (data: Float32Array, loc: number, size: number) => {
+    const buf = (data: Float32Array, loc: number, size: number, usage: number = g.STATIC_DRAW) => {
       const b = g.createBuffer()
       g.bindBuffer(g.ARRAY_BUFFER, b)
-      g.bufferData(g.ARRAY_BUFFER, data, g.STATIC_DRAW)
+      g.bufferData(g.ARRAY_BUFFER, data, usage)
       g.enableVertexAttribArray(loc)
       g.vertexAttribPointer(loc, size, g.FLOAT, false, 0, 0)
+      return b
     }
-    buf(m.positions, 0, 3)
-    buf(m.normals, 1, 3)
+    const moving: Upload['moving'] = [
+      buf(m.positions, 0, 3, g.DYNAMIC_DRAW),
+      buf(m.normals, 1, 3, g.DYNAMIC_DRAW),
+      buf(m.tangents, 3, 4, g.DYNAMIC_DRAW),
+    ]
     buf(m.uvs, 2, 2)
-    buf(m.tangents, 3, 4)
     const ib = g.createBuffer()
     g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, ib)
     g.bufferData(g.ELEMENT_ARRAY_BUFFER, m.indices, g.STATIC_DRAW)
@@ -194,10 +200,45 @@ function upload() {
           count: s.triangles * 3,
           paint: i,
         })),
+        moving,
       },
     })
   })
+  started = performance.now()
   draw()
+  animate()
+}
+
+// The idle: about 30 times a second, only while the soldier is on screen.
+let started = 0
+let shown = true
+let lastStep = 0
+let ticking = 0
+const still = matchMedia('(prefers-reduced-motion: reduce)')
+function animate() {
+  cancelAnimationFrame(ticking)
+  if (!props.soldier?.at || !shown || still.matches) return
+  ticking = requestAnimationFrame(step)
+}
+function step(now: number) {
+  const g = gl
+  const at = props.soldier?.at
+  if (!g || !at || !shown) return
+  if (now - lastStep >= 33) {
+    lastStep = now
+    const meshes = at((now - started) / 1000)
+    for (const { upload: up, meshIndex } of uploads) {
+      const m = meshes[meshIndex]
+      if (!m) continue
+      const data = [m.positions, m.normals, m.tangents]
+      up.moving.forEach((b, k) => {
+        g.bindBuffer(g.ARRAY_BUFFER, b)
+        g.bufferSubData(g.ARRAY_BUFFER, 0, data[k]!)
+      })
+    }
+    draw()
+  }
+  ticking = requestAnimationFrame(step)
 }
 
 // Column-major 4×4 matrices.
@@ -318,8 +359,20 @@ onMounted(() => {
   compile()
   upload()
   addEventListener('resize', schedule)
+  seen = new IntersectionObserver(([e]) => {
+    shown = e?.isIntersecting ?? true
+    animate()
+  })
+  if (canvas.value) seen.observe(canvas.value)
+  still.addEventListener('change', animate)
 })
-onBeforeUnmount(() => removeEventListener('resize', schedule))
+let seen: IntersectionObserver | null = null
+onBeforeUnmount(() => {
+  removeEventListener('resize', schedule)
+  still.removeEventListener('change', animate)
+  seen?.disconnect()
+  cancelAnimationFrame(ticking)
+})
 watch(() => props.soldier, upload)
 watch(() => [props.top, props.bottom, props.hair], schedule)
 </script>
