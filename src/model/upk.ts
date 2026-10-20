@@ -476,3 +476,24 @@ export function decompressPackage(b: Uint8Array): Uint8Array {
   new DataView(out.buffer).setInt32(flagsAt + 4, 0, true)
   return out
 }
+
+/** An enum's names, in value order (an Enum export: no properties, then its names). */
+export function readEnum(pkg: Package, name: string): string[] {
+  const i = pkg.exports.findIndex((e) => e.type === 'Enum' && e.name === name)
+  if (i < 0) return []
+  const e = pkg.exports[i]!
+  const v = new DataView(pkg.bytes.buffer, pkg.bytes.byteOffset, pkg.bytes.byteLength)
+  let o = e.offset + 4 // net index
+  // Enums carry no properties but "None".
+  if (pkg.names[v.getInt32(o, true)] === 'None') o += 8
+  // UField: the next field in its scope.
+  o += 4
+  const n = v.getInt32(o, true)
+  o += 4
+  const out: string[] = []
+  for (let k = 0; k < n && o + 8 <= e.offset + e.size; k++) {
+    out.push(pkg.names[v.getInt32(o, true)] ?? '')
+    o += 8
+  }
+  return out
+}

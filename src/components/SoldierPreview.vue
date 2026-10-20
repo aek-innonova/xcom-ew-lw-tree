@@ -11,6 +11,7 @@ import {
   ARMORS,
   armorPalette,
   gameLooks,
+  gamePalette,
   loadSoldier,
   type Looks,
   tintFor,
@@ -28,7 +29,7 @@ const gender = ref<Gender>('Male')
 const whose = ref(props.colors[0]?.id ?? '')
 const head = ref(0)
 const hair = ref(0)
-const looks = shallowRef<Looks>({ heads: [], hair: [] })
+const looks = shallowRef<Looks>({ heads: [], hair: [], kits: {}, decos: {} })
 void gameLooks().then((l) => (looks.value = l))
 const heads = computed(() => looks.value.heads.filter((h) => h.gender === gender.value))
 const hairs = computed(() => looks.value.hair.filter((h) => !h.helmet && h.gender === gender.value))
@@ -54,6 +55,21 @@ const headgear = computed(() => {
   const v = Number(tools.gameValues[id] ?? d?.value ?? -1)
   return v >= 0 ? v : null
 })
+/** The rookie's armor deco setting, for the rookie (classes keep their armor's own). */
+const deco = computed(() => {
+  if (whose.value !== 'look.rookie-color') return undefined
+  const d = props.headgear.find((x) => x.id === 'look.rookie-deco')
+  const v = Number(tools.gameValues['look.rookie-deco'] ?? d?.value ?? -1)
+  return v >= 0 ? v : undefined
+})
+const hairColors = shallowRef<PaletteEntry[]>([])
+void gamePalette('HairColor').then((p) => (hairColors.value = p))
+const hairColor = ref(0)
+const srgbCss = (c: number[]) =>
+  `rgb(${c
+    .slice(0, 3)
+    .map((x) => Math.round(Math.pow(Math.max(0, x), 1 / 2.2) * 255))
+    .join(',')})`
 const soldier = shallowRef<Soldier | null>(null)
 const palette = shallowRef<PaletteEntry[]>([])
 const status = ref('Reading the soldier from your install…')
@@ -69,6 +85,7 @@ async function load() {
         gender: gender.value,
         head: head.value || undefined,
         hair: headgear.value ?? (hair.value || undefined),
+        deco: deco.value,
       }),
       armorPalette(),
     ])
@@ -80,7 +97,7 @@ async function load() {
     if (mine === run) status.value = `Could not read the soldier: ${(e as Error).message}`
   }
 }
-watch([armor, gender, head, hair, headgear], load, { immediate: true })
+watch([armor, gender, head, hair, headgear, deco], load, { immediate: true })
 
 const setting = computed(() => props.colors.find((c) => c.id === whose.value))
 const code = computed(() => Number(tools.gameValues[whose.value] ?? setting.value?.value ?? 0))
@@ -94,7 +111,12 @@ const tint = computed(() => {
 <template>
   <div class="preview">
     <div class="view">
-      <SoldierView :soldier="soldier" :top="tint.top" :bottom="tint.bottom" />
+      <SoldierView
+        :soldier="soldier"
+        :top="tint.top"
+        :bottom="tint.bottom"
+        :hair="hairColors[hairColor]?.primary ?? null"
+      />
       <p v-if="status" class="status small">{{ status }}</p>
     </div>
     <div class="controls small">
@@ -130,6 +152,20 @@ const tint = computed(() => {
           <option v-for="h in hairs" :key="h.id" :value="h.id">{{ hairName(h) }}</option>
         </select>
       </label>
+      <div v-if="hairColors.length" class="swatches" role="radiogroup" aria-label="Hair color">
+        <span>Hair color</span>
+        <button
+          v-for="(c, i) in hairColors"
+          :key="i"
+          type="button"
+          role="radio"
+          :aria-checked="hairColor === i"
+          :aria-label="`Hair color ${i}`"
+          :style="{ background: srgbCss(c.primary) }"
+          :class="{ on: hairColor === i }"
+          @click="hairColor = i"
+        />
+      </div>
       <p v-if="headgear !== null" class="muted">
         Wearing headgear {{ headgear
         }}{{
@@ -172,6 +208,26 @@ const tint = computed(() => {
   flex-direction: column;
   gap: 8px;
   max-width: 300px;
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+.swatches span {
+  margin-right: 5px;
+}
+.swatches button {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.swatches button.on {
+  outline: 2px solid var(--accent);
 }
 .controls label {
   display: flex;

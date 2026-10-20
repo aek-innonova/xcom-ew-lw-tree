@@ -8,7 +8,7 @@
 import { readMaterialInstance, readPalette, type Color, type PaletteEntry } from '@/model/material'
 import { boneWorld, placeMesh, readSkelMesh, type SkelMesh } from '@/model/skelmesh'
 import { decodeImage, readTexture, unchunk } from '@/model/texture'
-import { Package, decompressPackage } from '@/model/upk'
+import { Package, decompressPackage, readEnum } from '@/model/upk'
 import { desktop } from './desktop'
 
 export const ARMORS = [
@@ -30,18 +30,28 @@ export interface SoldierSpec {
   head?: number
   /** The game's hair id; a helmet's id puts the helmet on instead (Long War's headgear numbers). */
   hair?: number
+  /** An armor deco by its EArmorKit value (Long War's deco numbers); none: the armor's own. */
+  deco?: number
 }
 
-/** The game's heads and hair styles (helmets among them), from DefaultContent.ini. */
+/** The game's heads and hair styles (helmets among them), and armor decos, from DefaultContent.ini. */
 export interface Looks {
   heads: { id: number; gender: Gender; race: string; pkg: string }[]
   hair: { id: number; gender: Gender | null; helmet: boolean; pkg: string; name: string }[]
+  /** Armor kits by name (eKit_Deco_Kevlar0) → package. */
+  kits: Record<string, string>
+  /** Each armor's own deco: eItem_ArmorKevlar → eKit_Deco_Kevlar0. */
+  decos: Record<string, string>
 }
 
 /** Reads the head and hair lists from the game's DefaultContent.ini. */
 export function looksIn(ini: string): Looks {
-  const out: Looks = { heads: [], hair: [] }
+  const out: Looks = { heads: [], hair: [], kits: {}, decos: {} }
   for (const line of ini.split(/\r?\n/)) {
+    const kit = /^\s*ArmorKitPackageInfo=\(KitType=(\w+),\s*ArchetypeName="([^".]+)\./.exec(line)
+    if (kit) out.kits[kit[1]!] = kit[2]!
+    const deco = /^\s*ArmorDeco=\(Armor=(\w+),\s*ArmorKit=(\w+)\)/.exec(line)
+    if (deco && !(deco[1]! in out.decos)) out.decos[deco[1]!] = deco[2]!
     const kind = /^\s*(HeadPackageInfo|HairPackageInfo)\s*=/.exec(line)?.[1]
     if (!kind) continue
     const id = Number(/\bId=(\d+)/.exec(line)?.[1])
@@ -67,6 +77,15 @@ export function looksIn(ini: string): Looks {
       })
   }
   return out
+}
+
+let kitNames: Promise<string[]> | null = null
+/** The game's armor kit names, in value order (EArmorKit in XComGame.upk). */
+function armorKits(): Promise<string[]> {
+  kitNames ??= pkg('XComGame.upk')
+    .then((p) => readEnum(p, 'EArmorKit'))
+    .catch(() => [])
+  return kitNames
 }
 
 let looks: Promise<Looks> | null = null
@@ -105,7 +124,7 @@ export interface Soldier {
 
 const packages = new Map<string, Promise<Package>>()
 const textures = new Map<string, Promise<Texture | null>>()
-let palette: Promise<PaletteEntry[]> | null = null
+const palettes = new Map<string, Promise<PaletteEntry[]>>()
 
 async function pkg(file: string): Promise<Package> {
   if (!packages.has(file))
@@ -154,16 +173,21 @@ function texture(p: Package, index: number, key: string): Promise<Texture | null
   return textures.get(key)!
 }
 
-/** The armor tint palette (UnitPalettes.ArmorTint in Startup.upk). */
-export function armorPalette(): Promise<PaletteEntry[]> {
-  palette ??= pkg('Startup.upk').then((p) =>
-    readPalette(
-      p,
-      p.exports.findIndex((e) => e.type === 'XComLinearColorPalette' && e.name === 'ArmorTint'),
-    ),
-  )
-  return palette
+/** One of the game's color palettes (UnitPalettes in Startup.upk): ArmorTint, HairColor… */
+export function gamePalette(name: string): Promise<PaletteEntry[]> {
+  if (!palettes.has(name))
+    palettes.set(
+      name,
+      pkg('Startup.upk').then((p) =>
+        readPalette(
+          p,
+          p.exports.findIndex((e) => e.type === 'XComLinearColorPalette' && e.name === name),
+        ),
+      ),
+    )
+  return palettes.get(name)!
 }
+export const armorPalette = () => gamePalette('ArmorTint')
 
 /**
  * The colors for one of Long War's color numbers: entry n of the palette (as
@@ -183,6 +207,7 @@ const PAINTS: Record<string, PaintKind> = {
   CHH_Soldiers: 'armor',
   CHH_SkinCustomizable: 'skin',
   CHH_Hair: 'hair',
+  CHH_HairMask: 'hair',
 }
 
 /** A mesh's materials, as paints. */
@@ -252,6 +277,14 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
   // A helmet has a mesh for each gender (and "FB" ones, left alone).
   const helmetFor = new RegExp(`_${spec.gender === 'Male' ? 'male' : 'fem'}$`, 'i')
   const hair = await part(`${hairPkg}_SF.upk`, (n) => !chosen?.helmet || helmetFor.test(n))
+  // The armor's deco, over the body: the one chosen (by its kit number), else the armor's own.
+  const kitName =
+    (spec.deco !== undefined && spec.deco >= 0 ? (await armorKits())[spec.deco] : undefined) ??
+    l.decos[`eItem_Armor${spec.armor}`]
+  const decoPkg = kitName ? l.kits[kitName] : undefined
+  const deco = decoPkg
+    ? await part(`${decoPkg}_SF.upk`, (n) => helmetFor.test(n)).catch(() => null)
+    : null
   // The hair sits on the head's socket, on the head bone.
   const bones = boneWorld(body.mesh.bones)
   const at = body.mesh.bones.findIndex((b) => b.name === 'RigHead')
@@ -261,6 +294,7 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
       { mesh: body.mesh, paints: await paints(body.p, body.file, body.mesh) },
       { mesh: head.mesh, paints: await paints(head.p, head.file, head.mesh) },
       { mesh: hairMesh, paints: await paints(hair.p, hair.file, hair.mesh) },
+      ...(deco ? [{ mesh: deco.mesh, paints: await paints(deco.p, deco.file, deco.mesh) }] : []),
     ],
   }
 }

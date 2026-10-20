@@ -14,6 +14,8 @@ const props = defineProps<{
   /** The armor's top and bottom colors (linear), or null for the armor's own. */
   top: Color | null
   bottom: Color | null
+  /** The hair's color (linear), or null for the hair's own. */
+  hair?: Color | null
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -50,15 +52,18 @@ void main() {
     float l = dot(c, vec3(0.3, 0.59, 0.11));
     // The masked parts take the color, keeping the texture's detail: scaled
     // so each part's average is the color itself.
+    // The top color has the say where both masks are (Titan, Ghost and
+    // Archangel lay the second inside the first; Kevlar and Carapace keep
+    // them apart, as Long War's picture of the colors shows).
+    c = mix(c, uBottom * l / uMeans.y, m.b * (1.0 - m.a));
     c = mix(c, uTop * l / uMeans.x, m.a);
-    c = mix(c, uBottom * l / uMeans.y, m.b);
   }
   // Skin: the head's one generic texture, colored by the skin's own color where its mask says skin.
   if (uKind == 1) {
     float skin = uHasMask ? texture2D(uMask, vUV).b : 1.0;
     c = mix(c, c * uColor * 1.3, skin);
   }
-  if (uKind == 2) { if (d.a < 0.35) discard; c = d.r * uColor * 2.4; }
+  if (uKind == 2) { if (d.a < 0.35) discard; c = d.r * uColor * 1.5; }
   vec3 n = normalize(vN);
   float li = 0.38 + 0.68 * max(dot(n, normalize(vec3(0.45, 0.7, 0.6))), 0.0)
     + 0.22 * max(dot(n, normalize(vec3(-0.7, -0.2, 0.25))), 0.0);
@@ -89,7 +94,7 @@ function maskMeans(dif: Texture | null, mask: Texture | null): [number, number] 
           Math.floor((x * dif.width) / mask.width))
       const l = (0.3 * dif.rgba[di]! + 0.59 * dif.rgba[di + 1]! + 0.11 * dif.rgba[di + 2]!) / 255
       const a = mask.rgba[mi + 3]! / 255
-      const b = mask.rgba[mi + 2]! / 255
+      const b = (mask.rgba[mi + 2]! / 255) * (1 - a)
       sa += l * a
       wa += a
       sb += l * b
@@ -250,7 +255,10 @@ function draw() {
       g.uniform1i(u('uHasMask'), mask ? 1 : 0)
       g.uniform3fv(u('uTop'), srgb(props.top) ?? srgb(paint.primary)!)
       g.uniform3fv(u('uBottom'), srgb(props.bottom) ?? srgb(paint.secondary)!)
-      g.uniform3fv(u('uColor'), srgb(paint.primary)!)
+      g.uniform3fv(
+        u('uColor'),
+        (paint.kind === 'hair' ? srgb(props.hair ?? null) : null) ?? srgb(paint.primary)!,
+      )
       g.uniform2fv(u('uMeans'), maskMeans(paint.diffuse, paint.mask))
       g.drawElements(g.TRIANGLES, s.count, up.type, s.first * (up.type === g.UNSIGNED_INT ? 4 : 2))
     }
@@ -290,7 +298,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => removeEventListener('resize', schedule))
 watch(() => props.soldier, upload)
-watch(() => [props.top, props.bottom], schedule)
+watch(() => [props.top, props.bottom, props.hair], schedule)
 </script>
 
 <template>
