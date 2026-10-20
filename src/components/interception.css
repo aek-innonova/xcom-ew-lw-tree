@@ -1,0 +1,97 @@
+/* The game's interception screen in the desktop app (state/interception.ts),
+   for the air war's fights (AirFight.vue, AirSquadronFight.vue): a framed
+   dark screen with the game's dot grid behind and scan lines over, the ships
+   as flickering holograms, the game's own button faces. */
+.screen {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.screen.game {
+  background: radial-gradient(ellipse at center, #0b2230 0%, #06121c 75%);
+  border: 1px solid #3fd6ea;
+  box-shadow:
+    0 0 8px rgba(63, 214, 234, 0.45),
+    inset 0 0 18px rgba(63, 214, 234, 0.18);
+  border-radius: 0;
+  /* The game's bevelled corners. */
+  clip-path: polygon(
+    14px 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    14px 100%,
+    0 calc(100% - 14px),
+    0 14px
+  );
+}
+.screen.game .scene {
+  background: transparent;
+  position: relative;
+}
+.grid {
+  position: absolute;
+  inset: 0;
+  background-size: 24px 24px;
+  opacity: 0.22;
+  pointer-events: none;
+}
+.scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: 512px 128px;
+  opacity: 0.18;
+  mix-blend-mode: screen;
+}
+.holo {
+  animation: holo 3.2s steps(1) infinite;
+}
+@keyframes holo {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  47% {
+    opacity: 0.8;
+  }
+  49% {
+    opacity: 1;
+  }
+  83% {
+    opacity: 0.88;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .holo {
+    animation: none;
+  }
+}
+.game-shot-ufo {
+  filter: hue-rotate(170deg) saturate(3);
+}
+.controls.game button.face {
+  width: 76px;
+  height: 76px;
+  padding: 0 0 6px;
+  background: transparent center / contain no-repeat;
+  border: none;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0;
+  color: #bff4ff;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 0 4px #0b3b4a;
+}
+.controls.game button.face .small {
+  display: none;
+}
+.controls.game button.face:disabled {
+  opacity: 0.55;
+}
+.controls.game button.face.abort {
+  color: #ffd0d0;
+}

@@ -7,6 +7,7 @@
 
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { seeded, shipName, weaponName } from '@/model/airwar'
+import { interceptionArt } from '@/state/interception'
 import {
   CONSUMABLE_STANCE,
   consumableAllowed,
@@ -148,6 +149,23 @@ onBeforeUnmount(() => {
 
 // The scene: the squadron left, stacked; the UFO right; a shot flies for 0.3 s.
 const picture = (type: number) => `${import.meta.env.BASE_URL}ships/${type}.webp`
+/** The game's interception art, in the app with a game to read (state/interception.ts). */
+const art = computed(() => interceptionArt())
+const gridStyle = computed(() =>
+  art.value?.grid ? { backgroundImage: `url(${art.value.grid})` } : undefined,
+)
+/** A jet just hit: the Firestorm's hologram turns red for a moment, as in the game. */
+const hitNow = (k: number) =>
+  seen.value.some((e) => e.kind === 'hit' && e.to === k && t.value - e.time < 0.35)
+/** The game's button face for Aim, Dodge and Break off: ready, in use, or not to be had. */
+function face(u: 'aim' | 'dodge' | 'abort'): string | undefined {
+  const a = art.value
+  if (!a) return undefined
+  const state =
+    u === 'abort' ? 'ready' : charges(u) > 0 ? 'active' : canUse(u) ? 'ready' : 'disabled'
+  const src = a.button(u, state)
+  return src ? `url(${src})` : undefined
+}
 const W = 640
 const H = computed(() => Math.max(190, 56 * n.value + 24))
 const UFO = computed(() => ({ x: 550, y: H.value / 2 }))
@@ -188,6 +206,7 @@ const bursts = computed(() =>
         opacity: 1 - age / 0.9,
         text: e.kind === 'dodged' ? 'dodged' : `−${e.damage}${e.crit ? ' crit' : ''}`,
         dodged: e.kind === 'dodged',
+        ufo: (e.to ?? -1) < 0,
       }
     }),
 )
@@ -289,40 +308,103 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
         </div>
       </div>
 
-      <svg :viewBox="`0 0 ${W} ${H}`" class="scene" aria-hidden="true">
-        <g
-          v-for="(j, k) in fight.jets"
-          :key="k"
-          :transform="`translate(${jetAt(k).x} ${jetAt(k).y})`"
-          :class="{ down: hpAt(k) <= 0, away: !!status(k) && status(k) !== 'lead' && hpAt(k) > 0 }"
-        >
-          <image :href="picture(j.type)" x="-48" y="-24" width="96" height="48" />
-          <circle v-if="k === lead && !status(k).includes('home')" r="27" class="target" />
-          <circle v-if="charges('dodge') > 0" r="23" class="shield" />
-        </g>
-        <g :transform="`translate(${UFO.x} ${UFO.y})`" :class="{ down: hpAt(-1) <= 0 }">
-          <image :href="picture(fight.ufo.type)" x="-70" y="-35" width="140" height="70" />
-        </g>
-        <circle
-          v-for="s in inFlight"
-          :key="s.key"
-          :cx="s.x"
-          :cy="s.y"
-          :r="s.ufo ? 5 : 4"
-          :class="s.ufo ? 'shot-ufo' : 'shot-jet'"
-          :opacity="s.fade"
-        />
-        <g v-for="b in bursts" :key="b.key" :opacity="b.opacity">
-          <circle v-if="!b.dodged" :cx="b.cx" :cy="b.cy" :r="b.r" class="burst" />
-          <text :x="b.x" :y="b.y" text-anchor="middle" class="dmg">{{ b.text }}</text>
-        </g>
-      </svg>
+      <div class="screen" :class="{ game: art }">
+        <span v-if="gridStyle" class="grid" :style="gridStyle" />
+        <svg :viewBox="`0 0 ${W} ${H}`" class="scene" aria-hidden="true">
+          <g
+            v-for="(j, k) in fight.jets"
+            :key="k"
+            :transform="`translate(${jetAt(k).x} ${jetAt(k).y})`"
+            :class="{
+              down: hpAt(k) <= 0,
+              away: !!status(k) && status(k) !== 'lead' && hpAt(k) > 0,
+            }"
+          >
+            <g :class="{ holo: art }">
+              <template v-if="art?.ship(j.type, hitNow(k))">
+                <image
+                  v-if="art.ship(j.type, hitNow(k))!.turned"
+                  :href="art.ship(j.type, hitNow(k))!.src"
+                  transform="rotate(90)"
+                  x="-24"
+                  y="-48"
+                  width="48"
+                  height="96"
+                />
+                <image
+                  v-else
+                  :href="art.ship(j.type, hitNow(k))!.src"
+                  x="-48"
+                  y="-24"
+                  width="96"
+                  height="48"
+                />
+              </template>
+              <image v-else :href="picture(j.type)" x="-48" y="-24" width="96" height="48" />
+            </g>
+            <circle v-if="k === lead && !status(k).includes('home')" r="27" class="target" />
+            <circle v-if="charges('dodge') > 0" r="23" class="shield" />
+          </g>
+          <g :transform="`translate(${UFO.x} ${UFO.y})`" :class="{ down: hpAt(-1) <= 0 }">
+            <g
+              :class="{ holo: art }"
+              :transform="art?.ship(fight.ufo.type) ? 'scale(-1 1)' : undefined"
+            >
+              <image
+                :href="art?.ship(fight.ufo.type)?.src ?? picture(fight.ufo.type)"
+                x="-70"
+                y="-35"
+                width="140"
+                height="70"
+              />
+            </g>
+          </g>
+          <template v-for="s in inFlight" :key="s.key">
+            <image
+              v-if="art"
+              :href="art.shot"
+              :x="s.x - 9"
+              :y="s.y - 9"
+              width="18"
+              height="18"
+              :class="s.ufo ? 'game-shot-ufo' : 'game-shot-jet'"
+              :opacity="s.fade"
+            />
+            <circle
+              v-else
+              :cx="s.x"
+              :cy="s.y"
+              :r="s.ufo ? 5 : 4"
+              :class="s.ufo ? 'shot-ufo' : 'shot-jet'"
+              :opacity="s.fade"
+            />
+          </template>
+          <g v-for="b in bursts" :key="b.key" :opacity="b.opacity">
+            <template v-if="!b.dodged">
+              <image
+                v-if="art && (b.ufo ? art.hitUfo : art.hitJet)"
+                :href="(b.ufo ? art.hitUfo : art.hitJet)!"
+                :x="b.cx - b.r * 1.4"
+                :y="b.cy - b.r * 1.4"
+                :width="b.r * 2.8"
+                :height="b.r * 2.8"
+                preserveAspectRatio="xMidYMid slice"
+              />
+              <circle v-else :cx="b.cx" :cy="b.cy" :r="b.r" class="burst" />
+            </template>
+            <text :x="b.x" :y="b.y" text-anchor="middle" class="dmg">{{ b.text }}</text>
+          </g>
+        </svg>
+        <span v-if="art?.scan" class="scan" :style="{ backgroundImage: `url(${art.scan})` }" />
+      </div>
 
-      <div class="controls">
+      <div class="controls" :class="{ game: art }">
         <button
           v-for="u in ['aim', 'dodge', 'boost'] as const"
           :key="u"
           type="button"
+          :class="{ face: art && u !== 'boost' }"
+          :style="u !== 'boost' && face(u) ? { backgroundImage: face(u) } : undefined"
           :disabled="!canUse(u)"
           :aria-label="`${u}: ${why(u) || 'press'}`"
           @click="use(u)"
@@ -333,7 +415,13 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
             <template v-else>{{ why(u) }}</template>
           </span>
         </button>
-        <button type="button" :disabled="over || breakingOff" @click="breakOff">
+        <button
+          type="button"
+          :class="{ face: art, abort: art }"
+          :style="face('abort') ? { backgroundImage: face('abort') } : undefined"
+          :disabled="over || breakingOff"
+          @click="breakOff"
+        >
           Break off <span class="muted small">the lead leaves</span>
         </button>
         <span class="spacer" />
@@ -590,3 +678,4 @@ h3 {
   margin: 6px 0 0;
 }
 </style>
+<style src="./interception.css" scoped></style>

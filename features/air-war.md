@@ -208,3 +208,40 @@ selection sets alien research (in steps of 30, one category each).
 Each UFO card lists all of its type's upgrades: those already made at the
 alien research in use in the warning colour ("Upgraded at alien research
 270: UFO Weapon II"), those still to come faded ("Upgrade at …").
+
+## Response (2026-10-20)
+
+"the fly it in the air war uses our own graphics even in electron mode -
+maybe we could make it look a lot more like the real thing?"
+
+## Report (2026-10-20): the fights in the game's own look, in the app
+
+- `src/state/interception.ts` reads the game's interception screen art from
+  gfxInterception_SF.upk (all of it inline in the package):
+  - The jets: the interceptor hologram, and the Firestorm's, which turns
+    red for a moment when hit, as in the game.
+  - Each UFO class's hologram, by the image number the game gives the
+    class. Long War's extra UFOs share their parent's.
+  - The glowing projectile, the explosion sprites, the dot grid, the scan
+    lines.
+  - The Aim, Dodge and Abort buttons, with their ready, active and
+    disabled faces.
+- Both fights (`AirFight.vue`, and LWR's `AirSquadronFight.vue`) use it in
+  the app:
+  - A dark screen with a thin cyan frame and bevelled corners, the game's
+    dot grid faint behind it and its scan lines over it.
+  - The ships as softly flickering holograms (still under reduced motion),
+    the UFO turned to face the jets.
+  - Shots as the game's projectile, the UFO's tinted red; hits as the
+    game's explosions.
+  - The game's buttons for Aim, Dodge and Break off. Boost has no face in
+    the game's art and stays a plain button.
+- The website keeps its own pictures and look. The shared styles are in
+  `src/components/interception.css`.
+- The game's bracket pictures are corner pieces of the full interception
+  screen; stretched across the fight they crossed it, so the frame is drawn
+  instead.
+
+Verified by screenshots in the app on the person's packages: an
+Interceptor and a Firestorm against a Scout (Long War), and an LWR
+squadron. The air war e2e (website) is unchanged and passes.
