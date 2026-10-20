@@ -36,7 +36,9 @@ import {
   writeSettings,
   type BaseChoice,
   type GameKind,
+  type ModChoices,
   type LibrarySettings,
+  type SavedSetup,
 } from './library'
 import {
   GAME_INI,
@@ -118,6 +120,10 @@ export const tools = reactive({
   /** The player's library folder (Documents\Long War Tech Tree). */
   library: null as string | null,
   mods: [] as Mod[],
+  /** Setups saved by name (features/game-setups.md), newest first. */
+  setups: [] as { name: string; saved: string }[],
+  /** The saved setup the choices now match, if any. */
+  setupInUse: null as string | null,
   /** Long War and LWR as the library holds them (installers, zips, folders). */
   bases: [] as BaseFound[],
   /** The game version the player wants under the mods ('keep': as installed). */
@@ -284,6 +290,7 @@ export async function restoreTools(): Promise<void> {
     tools.settings = choices.ini
     tools.gameValues = { ...choices.game?.[gameKind()] }
     tools.base = choices.base ?? 'keep'
+    listSetups()
     await loadMods()
     await loadBases()
     // A mod copied into the folder by hand turns up when the app is back in front.
@@ -383,6 +390,7 @@ let writing = Promise.resolve()
 function saveChoices(): Promise<void> {
   const lib = desktop?.library
   if (!lib) return Promise.resolve()
+  tools.setupInUse = setupInUse()
   const snapshot = JSON.parse(JSON.stringify(choices)) as LibrarySettings
   writing = writing
     .then(() => writeSettings(lib, snapshot))
@@ -771,6 +779,103 @@ export async function adoptHandEdits(): Promise<void> {
   tools.gameValues = next
   tools.handEdits = []
   choices.game = { ...choices.game, [gameKind()]: { ...next } }
+  await saveChoices()
+}
+
+// --- Setups saved by name (features/game-setups.md) -------------------------------
+
+/** The choices that make up a setup, as they are now. */
+function snapshot(): Omit<SavedSetup, 'saved'> {
+  const mods: Record<string, ModChoices> = {}
+  for (const m of tools.mods)
+    mods[m.id] = JSON.parse(
+      JSON.stringify({ values: m.values, wanted: m.wanted ?? {}, wantFiles: !!m.wantFiles }),
+    )
+  return JSON.parse(
+    JSON.stringify({ base: tools.base, mods, ini: tools.settings, game: choices.game ?? {} }),
+  )
+}
+/** The same choices: what was ticked, set and chosen (a mod never ticked counts as not). */
+function sameSetup(a: Omit<SavedSetup, 'saved'>, b: Omit<SavedSetup, 'saved'>): boolean {
+  const norm = (s: Omit<SavedSetup, 'saved'>) => {
+    const mods = Object.fromEntries(
+      Object.entries(s.mods)
+        .map(([id, c]) => {
+          const wanted = Object.fromEntries(Object.entries(c.wanted ?? {}).filter(([, w]) => w))
+          const values = Object.fromEntries(
+            Object.entries(c.values ?? {}).filter(([, v]) => Object.keys(v).length),
+          )
+          return [id, { wanted, values, files: !!c.wantFiles }] as const
+        })
+        .filter(([, c]) => Object.keys(c.wanted).length || c.files)
+        .sort(([x], [y]) => x.localeCompare(y)),
+    )
+    const sorted = (o: object): unknown =>
+      Array.isArray(o)
+        ? o.map((x) => (x && typeof x === 'object' ? sorted(x) : x))
+        : Object.fromEntries(
+            Object.entries(o)
+              .sort(([x], [y]) => x.localeCompare(y))
+              .map(([k, v]) => [k, v && typeof v === 'object' ? sorted(v) : v]),
+          )
+    return JSON.stringify(sorted({ base: s.base, mods, ini: s.ini, game: s.game }))
+  }
+  return norm(a) === norm(b)
+}
+function setupInUse(): string | null {
+  const now = snapshot()
+  return Object.entries(choices.setups ?? {}).find(([, s]) => sameSetup(s, now))?.[0] ?? null
+}
+function listSetups() {
+  tools.setups = Object.entries(choices.setups ?? {})
+    .map(([name, s]) => ({ name, saved: s.saved }))
+    .sort((a, b) => b.saved.localeCompare(a.saved))
+  tools.setupInUse = setupInUse()
+}
+
+/** Saves the setup as it is now under a name (replacing one of that name). */
+export async function saveSetup(name: string): Promise<void> {
+  const n = name.trim()
+  if (!n) return
+  choices.setups = { ...choices.setups, [n]: { saved: new Date().toISOString(), ...snapshot() } }
+  listSetups()
+  await saveChoices()
+}
+
+/**
+ * Puts a saved setup's choices back: the version, every mod as it was ticked
+ * and set then (mods added since are left out), the INI and game settings.
+ * Written into the game when the player applies, as always.
+ */
+export async function useSetup(name: string): Promise<void> {
+  const s = choices.setups?.[name]
+  if (!s) return
+  for (const m of tools.mods) {
+    const c = s.mods[m.id]
+    m.values = { ...c?.values }
+    m.wanted = Object.fromEntries(
+      m.files.filter((f) => f.kind === 'script').map((f) => [f.path, !!c?.wanted?.[f.path]]),
+    )
+    m.wantFiles = !!c?.wantFiles
+    choices.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+  }
+  choices.ini = JSON.parse(JSON.stringify(s.ini))
+  tools.settings = choices.ini
+  choices.game = JSON.parse(JSON.stringify(s.game))
+  choices.base = s.base
+  tools.base = s.base
+  tools.plan = null
+  const current = files ? await files.read(GAME_INI) : null
+  await loadGameSettings(current ? iniText(current) : null)
+  await saveChoices()
+  void checkMods()
+}
+
+export async function deleteSetup(name: string): Promise<void> {
+  const next = { ...choices.setups }
+  delete next[name]
+  choices.setups = next
+  listSetups()
   await saveChoices()
 }
 

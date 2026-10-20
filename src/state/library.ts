@@ -35,6 +35,17 @@ export interface LibrarySettings {
    * on LWR or plain Enemy Within.
    */
   game?: Partial<Record<GameKind, Record<string, string>>>
+  /** Setups the player saved by name, to go back to (features/game-setups.md). */
+  setups?: Record<string, SavedSetup>
+}
+
+/** Everything that makes up a setup, as it was when saved. */
+export interface SavedSetup {
+  saved: string
+  base: BaseChoice
+  mods: Record<string, ModChoices>
+  ini: IniChange[]
+  game: Partial<Record<GameKind, Record<string, string>>>
 }
 export type BaseChoice = 'keep' | 'ew' | 'lw' | 'lwr'
 export type GameKind = 'ew' | 'lw' | 'lwr'
@@ -61,6 +72,7 @@ export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings
       ini: Array.isArray(s.ini) ? s.ini : [],
       base: (['keep', 'ew', 'lw', 'lwr'] as const).find((b) => b === s.base),
       game: gameOf(s.game),
+      setups: s.setups && typeof s.setups === 'object' ? s.setups : {},
     }
   } catch {
     await lib.write(`settings (unreadable ${Date.now()}).json`, b)

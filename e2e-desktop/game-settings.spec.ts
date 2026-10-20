@@ -71,17 +71,33 @@ test('game settings: hand edits kept, then set in words and written', async () =
   expect(settings()).toEqual({ 'soldier.hp': '5' })
 
   // In words: the starting soldiers, the pistol slot, the sniper's color.
-  await page.getByLabel('Soldiers at the start').fill('60')
-  await page.getByLabel('Soldiers at the start').press('Enter')
+  await page.getByRole('textbox', { name: 'Soldiers at the start' }).fill('60')
+  await page.getByRole('textbox', { name: 'Soldiers at the start' }).press('Enter')
   await page.getByLabel('In the pistol slot').check()
-  await page.getByLabel('Sniper color').fill('16')
-  await page.getByLabel('Sniper color').press('Enter')
+  await page.getByRole('textbox', { name: 'Sniper color' }).fill('16')
+  await page.getByRole('textbox', { name: 'Sniper color' }).press('Enter')
   await expect.poll(settings).toEqual({
     'soldier.hp': '5',
     'campaign.starting-soldiers': '60',
     'arcthrower.pistol': 'on',
     'class.sniper.color': '16',
   })
+
+  // Saved by name, changed, and back again (features/game-setups.md).
+  await page.getByLabel('Name for this setup').fill('Sixty')
+  await page.getByRole('button', { name: 'Save this setup' }).click()
+  await expect(page.getByText('in use')).toBeVisible()
+  await page.getByRole('textbox', { name: 'Soldiers at the start' }).fill('70')
+  await page.getByRole('textbox', { name: 'Soldiers at the start' }).press('Enter')
+  await expect(page.getByText('in use')).toHaveCount(0)
+  await page.getByLabel('Name for this setup').fill('Seventy')
+  await page.getByRole('button', { name: 'Save this setup' }).click()
+  await page.getByRole('button', { name: 'Use Sixty' }).click()
+  await expect(page.getByRole('textbox', { name: 'Soldiers at the start' })).toHaveValue('60')
+  await expect(page.getByRole('button', { name: 'Use Seventy' })).toBeVisible()
+  const saved = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).setups
+  expect(Object.keys(saved).sort()).toEqual(['Seventy', 'Sixty'])
+  expect(saved.Seventy.game.lw['campaign.starting-soldiers']).toBe('70')
 
   await page.getByRole('button', { name: 'Apply my setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })

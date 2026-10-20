@@ -158,7 +158,17 @@ test(
     const lwr = found.find((b) => b.kind === 'lwr')!
     assert.equal(lw.name, 'Long War 1.0')
     assert.equal(lwr.name, 'Long War Rebalanced 2.06.00')
+    // Unpacked off the main thread: a timer here keeps ticking meanwhile (it
+    // froze the window for some seconds when the unpacking ran on it).
+    let last = Date.now()
+    let gap = 0
+    const tick = setInterval(() => {
+      gap = Math.max(gap, Date.now() - last)
+      last = Date.now()
+    }, 50)
     const m = await store.unpack(lw.id)
+    clearInterval(tick)
+    assert.ok(gap < 1000, `the main thread stalled for ${gap} ms`)
     assert.equal(m.files.length, 380)
     assert.ok(m.files.some((f) => f.path === 'CookedPCConsole/LongWar.upk'))
     assert.deepEqual(m.deletes, [

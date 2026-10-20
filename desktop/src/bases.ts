@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, promises as fs } from 'node:fs'
 import path from 'node:path'
+import { Worker } from 'node:worker_threads'
 import { listTree } from './game'
 import { readInnoSetup } from './inno'
 import { readZip } from './zip'
@@ -141,7 +142,12 @@ export class BaseStore {
       let found: IndexEntry['found']
       if (known && known.size === f.size && known.modified === f.modified) found = known.found
       else {
-        found = await this.identify(source, f.path).catch(() => null)
+        found = await runTask<IndexEntry['found']>({
+          task: 'identify',
+          library: this.library,
+          source,
+          file: f.path,
+        }).catch(() => null)
         this.index.set(source, { source, size: f.size, modified: f.modified, found })
         await this.saveIndex()
       }
@@ -152,49 +158,6 @@ export class BaseStore {
 
   private manifestFile = (id: string) => path.join(this.cache, id, 'manifest.json')
   private abs = (rel: string) => path.join(this.library, ...rel.split('/'))
-
-  /** What a candidate is, without unpacking it. */
-  private async identify(source: string, file: string): Promise<IndexEntry['found']> {
-    const lower = file.toLowerCase()
-    if (lower.endsWith('.exe')) {
-      const b = await fs.readFile(this.abs(source))
-      const setup = readInnoSetup(b)
-      if (!/long war/i.test(setup.appName)) return null
-      if (!setup.files.some((f) => /\\LongWar\.upk$/i.test(f.destination))) return null
-      return {
-        id: sha(b),
-        kind: 'lw',
-        name: `Long War ${setup.appVersion}`,
-        version: setup.appVersion,
-        source,
-      }
-    }
-    if (lower.endsWith('.zip')) {
-      const b = await fs.readFile(this.abs(source))
-      const zip = readZip(b)
-      const marker = zip.entries.find((e) => /(^|\/)CookedPCConsole\/LWRebalance\.u$/i.test(e.path))
-      if (!marker) return null
-      const root = marker.path.slice(0, -'CookedPCConsole/LWRebalance.u'.length)
-      const version = versionIn(root) || versionIn(path.basename(source))
-      return {
-        id: sha(b),
-        kind: 'lwr',
-        name: `Long War Rebalanced ${version}`.trim(),
-        version,
-        source,
-      }
-    }
-    // A folder: identified by its listing (paths, sizes).
-    const listing = (await listTree(this.abs(source))).map((f) => `${f.path}:${f.size}`).join('\n')
-    const version = versionIn(path.basename(source))
-    return {
-      id: sha(new TextEncoder().encode(`${source}\n${listing}`)),
-      kind: 'lwr',
-      name: `Long War Rebalanced ${version}`.trim(),
-      version,
-      source,
-    }
-  }
 
   async manifest(id: string): Promise<BaseManifest | null> {
     try {
@@ -217,77 +180,12 @@ export class BaseStore {
     const dir = path.join(this.cache, id)
     const tmp = `${dir}.unpacking-${process.pid}`
     await fs.rm(tmp, { recursive: true, force: true })
-    const files: BaseFile[] = []
-    const put = async (rel: string, data: Uint8Array) => {
-      const p = path.join(tmp, 'files', ...rel.split('/'))
-      await fs.mkdir(path.dirname(p), { recursive: true })
-      await fs.writeFile(p, data)
-      files.push({ path: rel, size: data.length, sha256: sha(data) })
-    }
-    let deletes: string[] = []
-    const docs: string[] = []
-    let exePatches: ExePatch[] = []
+    const { unpacked: _, ...base } = found
     try {
-      if (found.kind === 'lw') {
-        const setup = readInnoSetup(await fs.readFile(this.abs(found.source)))
-        const wanted = setup.files.filter((f) => /^\{app\}\\XComGame\\/i.test(f.destination))
-        const own = (name: string) => {
-          const f = setup.files.find(
-            (x) => x.destination.toLowerCase() === `{app}\\long war files\\${name}`,
-          )
-          return f ? new TextDecoder('windows-1252').decode(setup.read(f)) : ''
-        }
-        // Long War's own notes beside the game folder: the Armor Kit codes name
-        // the class colors and headgear numbers (features/game-settings.md).
-        for (const f of setup.files.filter((x) => /^\{app\}\\[^\\]+\.txt$/i.test(x.destination))) {
-          const name = f.destination.slice('{app}\\'.length)
-          const p = path.join(tmp, 'docs', name)
-          await fs.mkdir(path.dirname(p), { recursive: true })
-          await fs.writeFile(p, setup.read(f))
-          docs.push(name)
-        }
-        deletes = deletesIn(own('run_init.bat'))
-        exePatches = exePatchesIn(own('long_war_ew_config_exe.xml') || '<x/>')
-        for (const [i, f] of wanted.entries()) {
-          progress?.(i, wanted.length)
-          await put(
-            f.destination.slice('{app}\\XComGame\\'.length).replace(/\\/g, '/'),
-            setup.read(f),
-          )
-        }
-      } else if (found.source.toLowerCase().endsWith('.zip')) {
-        const zip = readZip(await fs.readFile(this.abs(found.source)))
-        const marker = zip.entries.find((e) =>
-          /(^|\/)CookedPCConsole\/LWRebalance\.u$/i.test(e.path),
-        )!
-        const root = marker.path.slice(0, -'CookedPCConsole/LWRebalance.u'.length)
-        const wanted = zip.entries.filter((e) => {
-          const rel = e.path.slice(root.length)
-          return e.path.startsWith(root) && LWR_FOLDERS.some((d) => rel.startsWith(`${d}/`))
-        })
-        for (const [i, e] of wanted.entries()) {
-          progress?.(i, wanted.length)
-          await put(e.path.slice(root.length), zip.read(e))
-        }
-      } else {
-        const wanted = (await listTree(this.abs(found.source))).filter((f) =>
-          LWR_FOLDERS.some((d) => f.path.startsWith(`${d}/`)),
-        )
-        for (const [i, f] of wanted.entries()) {
-          progress?.(i, wanted.length)
-          await put(
-            f.path,
-            new Uint8Array(await fs.readFile(path.join(this.abs(found.source), f.path))),
-          )
-        }
-      }
-      const { unpacked: _, ...rest } = found
-      const manifest: BaseManifest = { ...rest, files, deletes, exePatches, docs }
-      // The manifest last: a base without one was not unpacked whole.
-      await fs.writeFile(path.join(tmp, 'manifest.json'), JSON.stringify(manifest))
+      await runTask({ task: 'unpack', found: base, source: this.abs(found.source), tmp }, progress)
       await fs.rm(dir, { recursive: true, force: true })
       await fs.rename(tmp, dir)
-      return manifest
+      return (await this.manifest(id))!
     } catch (e) {
       await fs.rm(tmp, { recursive: true, force: true })
       throw e
@@ -309,4 +207,148 @@ export class BaseStore {
     if (!f) throw new Error(`${rel} is not in that base`)
     return path.join(this.cache, id, 'files', ...f.path.split('/'))
   }
+}
+
+/** A job for the worker thread: identifying a download, or unpacking it. */
+export type Task =
+  | { task: 'identify'; library: string; source: string; file: string }
+  | { task: 'unpack'; found: Omit<BaseFound, 'unpacked'>; source: string; tmp: string }
+
+/** Runs a job on a worker thread (unpack-worker.ts), so the window stays responsive. */
+function runTask<T = void>(
+  job: Task,
+  progress?: (done: number, total: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(path.join(__dirname, 'unpack-worker.js'), { workerData: job })
+    w.on(
+      'message',
+      (m: { progress?: [number, number]; done?: true; result?: T; error?: string }) => {
+        if (m.progress) progress?.(...m.progress)
+        else if (m.error) reject(new Error(m.error))
+        else if (m.done) resolve(m.result as T)
+      },
+    )
+    w.on('error', reject)
+    w.on('exit', (code) => code && reject(new Error(`the unpacking stopped (${code})`)))
+  })
+}
+
+/** What a candidate in the library is, without unpacking it (on the worker thread). */
+export async function identifyBase(
+  library: string,
+  source: string,
+  file: string,
+): Promise<Omit<BaseFound, 'unpacked'> | null> {
+  const abs = (rel: string) => path.join(library, ...rel.split('/'))
+  const lower = file.toLowerCase()
+  if (lower.endsWith('.exe')) {
+    const b = await fs.readFile(abs(source))
+    const setup = readInnoSetup(b)
+    if (!/long war/i.test(setup.appName)) return null
+    if (!setup.files.some((f) => /\\LongWar\.upk$/i.test(f.destination))) return null
+    return {
+      id: sha(b),
+      kind: 'lw',
+      name: `Long War ${setup.appVersion}`,
+      version: setup.appVersion,
+      source,
+    }
+  }
+  if (lower.endsWith('.zip')) {
+    const b = await fs.readFile(abs(source))
+    const zip = readZip(b)
+    const marker = zip.entries.find((e) => /(^|\/)CookedPCConsole\/LWRebalance\.u$/i.test(e.path))
+    if (!marker) return null
+    const root = marker.path.slice(0, -'CookedPCConsole/LWRebalance.u'.length)
+    const version = versionIn(root) || versionIn(path.basename(source))
+    return {
+      id: sha(b),
+      kind: 'lwr',
+      name: `Long War Rebalanced ${version}`.trim(),
+      version,
+      source,
+    }
+  }
+  // A folder: identified by its listing (paths, sizes).
+  const listing = (await listTree(abs(source))).map((f) => `${f.path}:${f.size}`).join('\n')
+  const version = versionIn(path.basename(source))
+  return {
+    id: sha(new TextEncoder().encode(`${source}\n${listing}`)),
+    kind: 'lwr',
+    name: `Long War Rebalanced ${version}`.trim(),
+    version,
+    source,
+  }
+}
+
+/**
+ * Unpacks a base into a folder: its files, its notes, and its manifest last.
+ * Run on a worker thread (unpack-worker.ts): Long War's installer is one solid
+ * LZMA stream, seconds of work that would otherwise freeze the window.
+ */
+export async function unpackInto(
+  found: Omit<BaseFound, 'unpacked'>,
+  source: string,
+  tmp: string,
+  progress?: (done: number, total: number) => void,
+): Promise<void> {
+  const files: BaseFile[] = []
+  const put = async (rel: string, data: Uint8Array) => {
+    const p = path.join(tmp, 'files', ...rel.split('/'))
+    await fs.mkdir(path.dirname(p), { recursive: true })
+    await fs.writeFile(p, data)
+    files.push({ path: rel, size: data.length, sha256: sha(data) })
+  }
+  let deletes: string[] = []
+  const docs: string[] = []
+  let exePatches: ExePatch[] = []
+  if (found.kind === 'lw') {
+    const setup = readInnoSetup(await fs.readFile(source))
+    const wanted = setup.files.filter((f) => /^\{app\}\\XComGame\\/i.test(f.destination))
+    const own = (name: string) => {
+      const f = setup.files.find(
+        (x) => x.destination.toLowerCase() === `{app}\\long war files\\${name}`,
+      )
+      return f ? new TextDecoder('windows-1252').decode(setup.read(f)) : ''
+    }
+    // Long War's own notes beside the game folder: the Armor Kit codes name
+    // the class colors and headgear numbers (features/game-settings.md).
+    for (const f of setup.files.filter((x) => /^\{app\}\\[^\\]+\.txt$/i.test(x.destination))) {
+      const name = f.destination.slice('{app}\\'.length)
+      const p = path.join(tmp, 'docs', name)
+      await fs.mkdir(path.dirname(p), { recursive: true })
+      await fs.writeFile(p, setup.read(f))
+      docs.push(name)
+    }
+    deletes = deletesIn(own('run_init.bat'))
+    exePatches = exePatchesIn(own('long_war_ew_config_exe.xml') || '<x/>')
+    for (const [i, f] of wanted.entries()) {
+      progress?.(i, wanted.length)
+      await put(f.destination.slice('{app}\\XComGame\\'.length).replace(/\\/g, '/'), setup.read(f))
+    }
+  } else if (found.source.toLowerCase().endsWith('.zip')) {
+    const zip = readZip(await fs.readFile(source))
+    const marker = zip.entries.find((e) => /(^|\/)CookedPCConsole\/LWRebalance\.u$/i.test(e.path))!
+    const root = marker.path.slice(0, -'CookedPCConsole/LWRebalance.u'.length)
+    const wanted = zip.entries.filter((e) => {
+      const rel = e.path.slice(root.length)
+      return e.path.startsWith(root) && LWR_FOLDERS.some((d) => rel.startsWith(`${d}/`))
+    })
+    for (const [i, e] of wanted.entries()) {
+      progress?.(i, wanted.length)
+      await put(e.path.slice(root.length), zip.read(e))
+    }
+  } else {
+    const wanted = (await listTree(source)).filter((f) =>
+      LWR_FOLDERS.some((d) => f.path.startsWith(`${d}/`)),
+    )
+    for (const [i, f] of wanted.entries()) {
+      progress?.(i, wanted.length)
+      await put(f.path, new Uint8Array(await fs.readFile(path.join(source, f.path))))
+    }
+  }
+  const manifest: BaseManifest = { ...found, files, deletes, exePatches, docs }
+  // The manifest last: a base without one was not unpacked whole.
+  await fs.writeFile(path.join(tmp, 'manifest.json'), JSON.stringify(manifest))
 }

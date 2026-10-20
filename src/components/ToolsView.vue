@@ -25,6 +25,9 @@ import {
   removeMod,
   setOption,
   adoptHandEdits,
+  deleteSetup,
+  saveSetup,
+  useSetup,
   setBase,
   setGameValue,
   setSetting,
@@ -239,6 +242,12 @@ function shownValue(d: FoundSetting, v: string): string {
         ? tools.codes.headgear.get(v)
         : undefined
   return name ? `${v}, ${name}` : v
+}
+
+const setupName = ref('')
+async function onSaveSetup() {
+  await saveSetup(setupName.value)
+  setupName.value = ''
 }
 
 const ACTION_TEXT = { write: 'changed', create: 'added', remove: 'removed' }
@@ -581,7 +590,7 @@ const iniNote = computed(() =>
                   v-if="d.id in tools.gameValues"
                   type="button"
                   class="remove"
-                  :aria-label="`Back to ${tools.gameSettingsFrom} value of ${d.name}`"
+                  :aria-label="`Undo your value: ${d.name}`"
                   :title="`Back to ${shownValue(d, d.value)}`"
                   @click="setGameValue(d.id, null)"
                 >
@@ -660,6 +669,52 @@ const iniNote = computed(() =>
           </tr>
         </tbody>
       </table>
+    </section>
+
+    <section v-if="tools.library" class="block" aria-labelledby="setups-h">
+      <h3 id="setups-h">Saved setups</h3>
+      <p class="muted small">
+        Everything above under a name: the version, which mods are ticked and their options, the
+        game and INI settings. Use one to have all of it back, then apply it.
+      </p>
+      <ul v-if="tools.setups.length" class="saved">
+        <li v-for="x in tools.setups" :key="x.name">
+          <strong>{{ x.name }}</strong>
+          <span class="muted small"> · saved {{ new Date(x.saved).toLocaleString() }}</span>
+          <span v-if="tools.setupInUse === x.name" class="present small"> · in use</span>
+          <button
+            v-else
+            type="button"
+            :aria-label="`Use ${x.name}`"
+            :disabled="!!tools.busy"
+            @click="useSetup(x.name)"
+          >
+            Use it
+          </button>
+          <button
+            type="button"
+            class="remove"
+            :aria-label="`Delete ${x.name}`"
+            title="Delete this saved setup"
+            @click="deleteSetup(x.name)"
+          >
+            ×
+          </button>
+        </li>
+      </ul>
+      <form class="save-setup" @submit.prevent="onSaveSetup">
+        <input
+          v-model="setupName"
+          type="text"
+          placeholder="A name: LW ironman, LWR with all mods…"
+          aria-label="Name for this setup"
+        />
+        <button type="submit" :disabled="!setupName.trim()">
+          {{
+            tools.setups.some((x) => x.name === setupName.trim()) ? 'Replace it' : 'Save this setup'
+          }}
+        </button>
+      </form>
     </section>
 
     <section v-if="tools.install" class="block" aria-labelledby="apply-h">
@@ -746,6 +801,26 @@ const iniNote = computed(() =>
 }
 .choices .off {
   color: var(--muted);
+}
+ul.saved {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+ul.saved li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 13.5px;
+}
+form.save-setup {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0;
+}
+form.save-setup input {
+  flex: 0 1 320px;
 }
 .hand {
   border: 1px solid var(--accent);
