@@ -187,3 +187,51 @@ Open, for the person:
   and where that key lives. Prod is held.
 - Code signing: the installer is unsigned, so SmartScreen warns on the
   first install; the silent self-update does not show it.
+
+## Response (2026-10-20)
+
+"the whole update experience badly needs some better feedback, when you
+click install and restart nothing tells you that you clicked and it just
+sits there and lets you press again for several seconds / likewise the
+bundle only update having it show as a banner instead of where you just
+checked for updates is confusing"
+
+## Report (2026-10-20): updates said where they are checked
+
+**Site** (`UpdatePanel.vue`, `state/updates.ts`):
+- Help's "This app" shows what is ready, each with its button: a new site
+  ("Restart into it") and a new app ("Install it and restart").
+- Once clicked, the button is replaced by what is happening:
+  "Restarting…", "Downloading app 0.3.6 and checking its signature…",
+  "Installing app 0.3.6: the app closes now and starts again by itself in
+  about 20 seconds". Nothing can be pressed twice.
+- The banners are gone. A green "Update ready" mark beside Help opens Help
+  at "This app".
+- After a restart into something new: "Updated: now on app 0.3.6", once,
+  as a notice that goes by itself.
+
+**Shell 0.3.6:**
+- A newer app's installer is fetched and checked in the background as
+  soon as it is announced, so Install starts at once.
+- Install waits 1.5 s so the page can say it is installing, shows a
+  Windows notification (nothing of ours is on screen while NSIS runs), and
+  leaves a mark. When the installer starts the app again, the window comes
+  to the front.
+- One app per profile (0.3.5): a second start brings the window forward.
+
+Verified:
+- On the bench, from 0.3.5 to 0.3.6 through the app's own updater:
+  - The mark opened Help at the update.
+  - Install was replaced at once by "Downloading…"; a second click did
+    nothing.
+  - About 17 s in all, back on 0.3.6 and in front.
+- The bench found that the first start after the update showed no notice.
+  The shell's tidying failed on the installer, still in use, and stopped
+  the page's start-up. The page now says what is new first and does not
+  stop for that. The shell's tidying tolerates a file in use, which ships
+  with the next app.
+- The 0.3.6 install path itself (background fetch, the notification,
+  coming to the front) can only be seen on the next app update.
+- Desktop e2e: a newer site is found by Check, said in Help with
+  "Restart into it", marked in the header, and after the restart said
+  once.

@@ -68,3 +68,22 @@ Verified: the desktop e2e saves "Sixty" from the bar (with the offered name
 checked), sees it marked changed, saves "Seventy", switches back, and is
 asked before switching away from unsaved choices. Screenshots of the bar at
 the top, while naming, and while scrolled.
+
+## Response (2026-10-20)
+
+"apply my setup scrolls to the bottom for the nothing changes very
+confusing … maybe showing it as kind of a terminal right below the
+button"
+
+## Report (2026-10-20): the apply console
+
+- `ApplyConsole.vue`, under the setup bar:
+  - Each step as it happens ("› Reading Long War 1.0, 1 of 2 in your
+    library ✓", "› Working out what changes ✓").
+  - Then "✓ Nothing to change…", or the files that will change with Write
+    and Cancel, then what was written and "✓ Done."
+  - Keyboard focus moves to it, and it announces its lines.
+- The plan box at the bottom of the page is gone. The "no mods" choice
+  there opens the same console.
+- On the bench: the steps showed under the button, about 2.5 s to
+  "Nothing to change", and nothing was written.
