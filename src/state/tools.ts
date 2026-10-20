@@ -11,6 +11,7 @@
 
 import { markRaw, reactive } from 'vue'
 import {
+  CATALOGUE,
   armorKitCodes,
   findSettings,
   settingsChanged,
@@ -298,7 +299,7 @@ export async function restoreTools(): Promise<void> {
     desktop.bases?.onProgress((p) => {
       const b = tools.bases.find((x) => x.id === p.id)
       if (b && tools.busy?.startsWith('Unpacking'))
-        tools.busy = `Unpacking ${b.name} from ${b.source}: ${p.done + 1} of ${p.total} files (once)…`
+        tools.busy = `Unpacking ${b.name}: ${p.done + 1} of ${p.total} files (once)…`
     })
   }
   if (await desktop.game.current()) await readInstall()
@@ -533,10 +534,14 @@ const layerOf = (m: BaseManifest): BaseLayer => ({
 async function baseSetup(choice: BaseChoice): Promise<BaseSetup> {
   const api = desktop!.bases!
   const known: BaseLayer[] = []
-  for (const b of tools.bases) {
+  // Every version in the library, to know their files when another is chosen.
+  for (const [i, b] of tools.bases.entries()) {
+    const of = tools.bases.length > 1 ? ` (${i + 1} of ${tools.bases.length} in your library)` : ''
     tools.busy = b.unpacked
-      ? `Reading ${b.name}…`
-      : `Unpacking ${b.name} from ${b.source} (once; Long War takes a little while)…`
+      ? `Reading ${b.name}${of}…`
+      : b.kind === 'lw'
+        ? `Unpacking ${b.name}${of}: reading the installer first (once, about 20 seconds)…`
+        : `Unpacking ${b.name}${of} (once)…`
     known.push(layerOf(await api.unpack(b.id)))
   }
   const { lw, lwr } = basesFor(choice)
@@ -761,6 +766,11 @@ async function loadGameSettings(current: string | null): Promise<void> {
   )
 }
 
+/** A game setting's name by its id, where the catalogue knows it. */
+function settingName(id: string): string {
+  return CATALOGUE.find((d) => d.id === id)?.name ?? id
+}
+
 /** Sets (or, with null or the version's own value, drops) one game setting. */
 export async function setGameValue(id: string, value: string | null): Promise<void> {
   const own = tools.gameSettings.find((s) => s.id === id)?.value
@@ -934,18 +944,21 @@ export async function makePlan(everything = true): Promise<void> {
   tools.error = null
   tools.busy = 'Working out what changes…'
   try {
-    const wanted = await wantedSetup(everything)
     if (tools.base !== 'keep' && desktop?.bases && baseAvailable(tools.base)) {
       const base = await baseSetup(tools.base)
+      // The version's own file is in hand now (it may only just have been
+      // unpacked): the game settings are found in it, not in the game's file.
+      const current = await files.read(GAME_INI)
+      await loadGameSettings(current ? iniText(current) : null)
       tools.busy = 'Working out what changes…'
-      tools.plan = markRaw(await planBase(files, wanted, managed, base))
-    } else tools.plan = markRaw(await planSetup(files, wanted, managed))
+      tools.plan = markRaw(await planBase(files, await wantedSetup(everything), managed, base))
+    } else tools.plan = markRaw(await planSetup(files, await wantedSetup(everything), managed))
     if (everything) {
       const found = new Set(tools.gameSettings.map((d) => d.id))
       for (const id of Object.keys(tools.gameValues))
         if (!found.has(id))
           tools.plan.problems.push(
-            `Your setting ${id} is not in this version's DefaultGameCore.ini; it is left out.`,
+            `Your setting “${settingName(id)}” is not in ${baseName(tools.base)}'s DefaultGameCore.ini; it is left out.`,
           )
     }
   } catch (e) {
