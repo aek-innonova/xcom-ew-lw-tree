@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CampaignBar from '@/components/CampaignBar.vue'
 import FoundryDetail from '@/components/FoundryDetail.vue'
@@ -13,7 +21,7 @@ import TechTree from '@/components/TechTree.vue'
 import { loadFile, state, game } from '@/state/store'
 import { restoreWatch } from '@/state/watch'
 import { restoreTools, tools } from '@/state/tools'
-import { installNewApp, restartIntoUpdate, startUpdates, updates } from '@/state/updates'
+import { startUpdates, updateAvailable } from '@/state/updates'
 
 // Pages opened less often load when first shown.
 const AirWarView = defineAsyncComponent(() => import('@/components/AirWarView.vue'))
@@ -27,6 +35,30 @@ const foundryTree = ref<InstanceType<typeof FoundryTree> | null>(null)
 const HELP_SEEN_KEY = 'lwtree.helpSeen.v1'
 const helpOpen = ref(false)
 const helpNew = ref(typeof localStorage !== 'undefined' && !localStorage.getItem(HELP_SEEN_KEY))
+const helpAtUpdates = ref(false)
+function openHelp(atUpdates: boolean) {
+  helpAtUpdates.value = atUpdates
+  helpOpen.value = true
+}
+
+// A notice (not an error) goes by itself after a while, unless the pointer is on it.
+const holdToast = ref(false)
+let toastTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => [state.message, holdToast.value] as const,
+  ([m, held]) => {
+    clearTimeout(toastTimer)
+    if (m?.kind !== 'info' || held) return
+    const shown = m
+    toastTimer = setTimeout(
+      () => {
+        if (state.message === shown) state.message = null
+      },
+      Math.min(12_000, 4_000 + m.text.length * 40),
+    )
+  },
+)
+
 function closeHelp() {
   helpOpen.value = false
   helpNew.value = false
@@ -107,35 +139,35 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <AppHeader :help-new="helpNew" @find="onFind" @help="helpOpen = true" />
-    <HelpDialog :open="helpOpen" @close="closeHelp" />
+    <AppHeader
+      :help-new="helpNew"
+      :update="updateAvailable"
+      @find="onFind"
+      @help="openHelp(false)"
+      @updates="openHelp(true)"
+    />
+    <HelpDialog :open="helpOpen" :at-updates="helpAtUpdates" @close="closeHelp" />
     <CampaignBar />
-    <p
-      v-if="updates.state?.ready && updates.dismissed !== updates.state.ready"
-      class="message info update"
-      role="status"
-    >
-      A new version of the site is ready.
-      <button type="button" class="act" @click="restartIntoUpdate()">Restart into it</button>
-      <button type="button" class="act" @click="updates.dismissed = updates.state.ready">
-        At the next start
-      </button>
-    </p>
-    <p
-      v-else-if="updates.state?.shell?.needed && updates.dismissed !== updates.state.shell.version"
-      class="message info update"
-      role="status"
-    >
-      The site's newest version needs a newer app ({{ updates.state.shell.version }}).
-      <button type="button" class="act" @click="installNewApp()">Install it and restart</button>
-      <button type="button" class="act" @click="updates.dismissed = updates.state.shell.version">
-        Later
-      </button>
-    </p>
-    <p v-if="state.message" class="message" :class="state.message.kind" role="status">
+    <!-- An error asks for attention and stays; anything else is said briefly and goes. -->
+    <p v-if="state.message?.kind === 'error'" class="message error" role="alert">
       {{ state.message.text }}
       <button type="button" class="dismiss" title="Dismiss" @click="state.message = null">×</button>
     </p>
+    <Transition name="toast">
+      <p
+        v-if="state.message?.kind === 'info'"
+        :key="state.message.text"
+        class="message toast"
+        role="status"
+        @mouseenter="holdToast = true"
+        @mouseleave="holdToast = false"
+      >
+        {{ state.message.text }}
+        <button type="button" class="dismiss" title="Dismiss" @click="state.message = null">
+          ×
+        </button>
+      </p>
+    </Transition>
     <main class="main">
       <TechTree v-if="state.view === 'research'" ref="tree" />
       <FoundryTree v-else-if="state.view === 'foundry'" ref="foundryTree" />
@@ -314,11 +346,29 @@ a {
 .message.error {
   background: #3a1518;
 }
-.message.update {
-  background: #10263a;
+/* A notice: small, at the bottom right, going by itself. */
+.message.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 40px;
+  z-index: 60;
+  max-width: min(460px, 80vw);
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  background: #0f2a22;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  padding: 8px 12px;
 }
-.message .act {
-  padding: 2px 10px;
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 .dismiss {
   margin-left: auto;

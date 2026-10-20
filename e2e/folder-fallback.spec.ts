@@ -32,5 +32,7 @@ test('loads the newest save from a folder picked once, and says why it cannot wa
   // save1761 is the newest by time, though not by number.
   await expect(page.locator('.loaded')).toContainText('save1761')
   await expect(page.locator('.message')).toContainText('cannot follow a folder')
+  // A notice, not an error: it goes by itself.
+  await expect(page.locator('.message')).toBeHidden({ timeout: 15_000 })
   rmSync(dir, { recursive: true })
 })

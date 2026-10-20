@@ -52,7 +52,8 @@ export interface BundleState {
   serving: string
   base: string
   ready?: string
-  shell?: { version: string; needed: boolean; downloaded: boolean }
+  /** A newer app: needed by the newest site or simply newer; fetched (and checked) yet, or being fetched (0.3.6 on). */
+  shell?: { version: string; needed: boolean; downloaded: boolean; fetching?: boolean }
   checking: boolean
   lastCheck?: string
   error?: string

@@ -1,16 +1,23 @@
 <script setup lang="ts">
 // Help: where the files are, what the views show, what the colours mean.
-// Opens by itself on a first visit, then from the header's Help button.
+// Opens from the header's Help button (which glows until it has been opened
+// once), and at "This app" from the header's update mark.
 
-import { onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { game } from '@/state/store'
 import { desktop } from '@/state/desktop'
-import { checkForUpdates, installNewApp, updates } from '@/state/updates'
+import { updates } from '@/state/updates'
+import UpdatePanel from './UpdatePanel.vue'
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{
+  open: boolean
+  /** Opened for the app's updates: shown at "This app". */
+  atUpdates?: boolean
+}>()
 const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
+const appSection = ref<HTMLElement | null>(null)
 
 /** The desktop app's installer, when this copy of the site has one (deploy/deploy.sh puts it in app/). */
 const APP_DIR = `${import.meta.env.BASE_URL}app/`
@@ -30,6 +37,8 @@ watch(
     if (!dialog.value) return
     if (open && !dialog.value.open) dialog.value.showModal?.()
     else if (!open && dialog.value.open) dialog.value.close()
+    if (open && props.atUpdates)
+      void nextTick(() => appSection.value?.scrollIntoView({ block: 'start' }))
   },
 )
 onMounted(() => {
@@ -124,37 +133,9 @@ const INI_WINDOWS = String.raw`XCom-Enemy-Unknown\XEW\XComGame\Config\DefaultGam
       </p>
     </section>
 
-    <section v-if="desktop?.bundle && updates.state">
+    <section v-if="desktop?.bundle && updates.state" id="this-app" ref="appSection">
       <h3>This app</h3>
-      <p>
-        App {{ updates.state.shellVersion }} · site {{ updates.state.serving
-        }}<template v-if="updates.state.ready">
-          · {{ updates.state.ready }} ready at the next start</template
-        >. It fetches new versions of the site by itself, checks their signature, and asks before it
-        switches.
-      </p>
-      <p>
-        <button type="button" :disabled="updates.state.checking" @click="checkForUpdates()">
-          {{ updates.state.checking ? 'Checking…' : 'Check for updates' }}
-        </button>
-        <span v-if="updates.state.error" class="muted">
-          · the last check failed: {{ updates.state.error }}</span
-        >
-        <span
-          v-else-if="
-            updates.state.lastCheck && !updates.state.ready && !updates.state.shell?.needed
-          "
-          class="muted"
-        >
-          · up to date as of {{ new Date(updates.state.lastCheck).toLocaleTimeString() }}</span
-        >
-        <template v-if="updates.state.shell">
-          · app {{ updates.state.shell.version }} is out<template v-if="updates.state.shell.needed">
-            (the site's newest version needs it)</template
-          >
-          <button type="button" @click="installNewApp()">Install it and restart</button>
-        </template>
-      </p>
+      <UpdatePanel />
     </section>
 
     <section>

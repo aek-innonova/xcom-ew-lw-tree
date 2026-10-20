@@ -19,10 +19,16 @@ import { GAMES, type GameId } from '@/model/game'
 import { tools } from '@/state/tools'
 import { desktop } from '@/state/desktop'
 
-defineProps<{ /** Help not opened yet: its button glows. */ helpNew?: boolean }>()
+defineProps<{
+  /** Help not opened yet: its button glows. */
+  helpNew?: boolean
+  /** A newer site or app to take (desktop app): a mark beside Help, opening it at the app. */
+  update?: boolean
+}>()
 const emit = defineEmits<{
   find: [hit: { view: 'research' | 'foundry'; id: number }]
   help: []
+  updates: []
 }>()
 
 const saveInput = ref<HTMLInputElement | null>(null)
@@ -241,6 +247,15 @@ function onSearchKey(e: KeyboardEvent) {
       Tools
     </button>
     <button
+      v-if="update"
+      type="button"
+      class="update-mark"
+      title="A newer version is ready: see Help, This app"
+      @click="emit('updates')"
+    >
+      Update ready
+    </button>
+    <button
       type="button"
       class="help-button"
       :class="{ new: helpNew }"
@@ -408,6 +423,11 @@ h1 span {
 }
 .help-button {
   flex: none;
+}
+.update-mark {
+  flex: none;
+  border-color: var(--done-text);
+  color: var(--done-text);
 }
 .help-button.new {
   border-color: var(--accent);
