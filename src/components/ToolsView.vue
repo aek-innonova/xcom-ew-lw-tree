@@ -335,16 +335,25 @@ const iniNote = computed(() =>
       <h3 id="base-h">Version in the game</h3>
       <p class="muted small">
         The app can put Long War or LWR into the game itself, from their own downloads, and take
-        them out again: drop the Long War installer (<code>Long War EW 1.0 for PC-88-1-0.exe</code>)
-        and the LWR download (its zip, or the folder unpacked) anywhere in your library folder. The
-        version you choose is put in when you apply your setup, under your mods.
+        them out again. The version you choose is put in when you apply your setup, under your mods.
       </p>
       <ul v-if="tools.bases.length" class="files small">
         <li v-for="b in tools.bases" :key="b.id">
           <strong>{{ b.name }}</strong> <span class="muted">from</span> <code>{{ b.source }}</code>
         </li>
       </ul>
-      <p v-else class="muted small">Nothing in your library yet.</p>
+      <p v-else class="small">
+        No Long War or LWR download in your library folder yet. Put the Long War installer (<code
+          >Long War EW 1.0 for PC-88-1-0.exe</code
+        >) and the LWR download (its zip, or the folder unpacked) in
+        <code>{{ tools.library ?? 'your library folder' }}</code
+        >, the folder that holds <code>Mods</code> (in <code>Mods</code> works too, but not for an
+        unpacked LWR folder, which there would count as a mod); the app finds them when it is back
+        in front.
+      </p>
+      <p v-if="tools.library">
+        <button type="button" @click="openLibrary">Open the library folder</button>
+      </p>
       <div class="choices" role="radiogroup" aria-label="Version in the game">
         <label v-for="c in BASE_CHOICES" :key="c.value" :class="{ off: !baseAvailable(c.value) }">
           <input

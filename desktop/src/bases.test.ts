@@ -90,11 +90,14 @@ test('LWR from a zip or a folder in the library: found, named, unpacked to its g
   mkdirSync(path.join(library, 'Mods', 'x', 'CookedPCConsole'), { recursive: true })
   writeFileSync(path.join(library, 'Mods', 'x', 'CookedPCConsole', 'LWRebalance.u'), 'x')
   writeFileSync(path.join(library, 'notes.zip'), makeZip({ 'a.txt': 'not LWR' }))
+  // A zip dropped into Mods is found too.
+  writeFileSync(path.join(library, 'Mods', 'LWR in mods.zip'), makeZip(LWR_FILES))
 
   const store = new BaseStore(library, mkdtempSync(path.join(tmpdir(), 'lwtree-cache-')))
   const found = await store.list()
   assert.deepEqual(found.map((b) => [b.kind, b.name, b.source, b.unpacked]).sort(), [
     ['lwr', 'Long War Rebalanced 9.1.0', 'LWR download.zip', false],
+    ['lwr', 'Long War Rebalanced 9.1.0', 'Mods/LWR in mods.zip', false],
     ['lwr', 'Long War Rebalanced 9.1.0', 'unpacked/LW Rebalance v9.1.0', false],
   ])
   for (const b of found) {

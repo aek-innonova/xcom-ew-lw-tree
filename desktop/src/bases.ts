@@ -122,7 +122,11 @@ export class BaseStore {
   /** What the library holds: Long War installers, and LWR as zips or folders. */
   async list(): Promise<BaseFound[]> {
     await this.loadIndex()
-    const files = (await listTree(this.library)).filter((f) => !f.path.startsWith('Mods/'))
+    // Anywhere in the library; in Mods too for an installer or a zip (a player
+    // may well put them there), though not an unpacked LWR, which there would be a mod.
+    const files = (await listTree(this.library)).filter(
+      (f) => !f.path.startsWith('Mods/') || /\.(exe|zip)$/i.test(f.path),
+    )
     const out: BaseFound[] = []
     const seen = new Set<string>()
     for (const f of files) {
