@@ -68,7 +68,8 @@
     animation: none;
   }
 }
-.game-shot-ufo {
+.hit-flash {
+  /* A hit jet flashes red, as the game draws it (the Firestorm has its own red picture). */
   filter: hue-rotate(170deg) saturate(3);
 }
 .controls.game button.face {

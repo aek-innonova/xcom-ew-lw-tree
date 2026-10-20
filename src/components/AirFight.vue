@@ -171,11 +171,11 @@ const gridStyle = computed(() =>
   art.value?.grid ? { backgroundImage: `url(${art.value.grid})` } : undefined,
 )
 /** The game's button face for Aim, Dodge and Break off: ready, in use, or not to be had. */
-function face(u: 'aim' | 'dodge' | 'abort'): string | undefined {
+function face(u: 'aim' | 'dodge' | 'boost' | 'abort'): string | undefined {
   const a = art.value
   if (!a) return undefined
-  const state =
-    u === 'abort' ? 'ready' : charges.value[u] > 0 ? 'active' : canUse(u) ? 'ready' : 'disabled'
+  const inUse = u === 'boost' ? actions.boost !== undefined : u !== 'abort' && charges.value[u] > 0
+  const state = u === 'abort' ? 'ready' : inUse ? 'active' : canUse(u) ? 'ready' : 'disabled'
   const src = a.button(u, state)
   return src ? `url(${src})` : undefined
 }
@@ -198,6 +198,9 @@ const inFlight = computed(() =>
         key: `${e.time}-${s.source}-${s.slot}`,
         x: from.x + (to.x - from.x) * p,
         y: from.y + (to.y + miss - from.y) * p,
+        // Along its path, for the game's upright projectile pictures.
+        angle: (Math.atan2(to.y + miss - from.y, to.x - from.x) * 180) / Math.PI,
+        weapon: s.weapon,
         source: s.source,
         fade: p > 1 ? 1 - (p - 1) * 2 : 1,
         hits,
@@ -310,7 +313,7 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
         <span v-if="gridStyle" class="grid" :style="gridStyle" />
         <svg :viewBox="`0 0 ${W} ${H}`" class="scene" aria-hidden="true">
           <g :transform="`translate(${JET.x} ${JET.y})`" :class="{ down: hpAt(1) <= 0 }">
-            <g :class="{ holo: art }">
+            <g :class="{ holo: art, 'hit-flash': art && jetHit && !jetArt?.turned }">
               <image
                 v-if="jetArt"
                 :href="jetArt.src"
@@ -346,12 +349,12 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
           <template v-for="s in inFlight" :key="s.key">
             <image
               v-if="art"
-              :href="art.shot"
-              :x="s.x - 9"
-              :y="s.y - 9"
-              width="18"
-              height="18"
-              :class="s.source === 1 ? 'game-shot-jet' : 'game-shot-ufo'"
+              :href="art.projectile(s.weapon).src"
+              :x="-art.projectile(s.weapon).width / 2"
+              :y="-art.projectile(s.weapon).height / 2"
+              :width="art.projectile(s.weapon).width"
+              :height="art.projectile(s.weapon).height"
+              :transform="`translate(${s.x} ${s.y})${art.projectile(s.weapon).upright ? ` rotate(${s.angle + 90})` : ''}`"
               :opacity="s.fade"
             />
             <circle
@@ -393,8 +396,8 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
           v-for="u in ['aim', 'dodge', 'boost'] as const"
           :key="u"
           type="button"
-          :class="{ face: art && u !== 'boost', on: u !== 'boost' && charges[u] > 0 }"
-          :style="u !== 'boost' && face(u) ? { backgroundImage: face(u) } : undefined"
+          :class="{ face: art }"
+          :style="face(u) ? { backgroundImage: face(u) } : undefined"
           :disabled="!canUse(u)"
           :aria-label="`${u}: ${why(u) || 'press'}`"
           @click="use(u)"
