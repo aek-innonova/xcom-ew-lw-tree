@@ -436,10 +436,22 @@ async function createWindow() {
   await win.loadURL(`${ORIGIN}/`)
 }
 
-app.whenReady().then(async () => {
-  await loadSettings()
-  await bundles.start()
-  protocol.handle(SCHEME, serveSite)
-  await createWindow()
-})
+// One app at a time per profile: a second start brings the window forward
+// rather than opening another on the same profile (the bench found two
+// windows disagreeing about which save was loaded).
+if (!app.requestSingleInstanceLock()) app.quit()
+else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  })
+  app.whenReady().then(async () => {
+    await loadSettings()
+    await bundles.start()
+    protocol.handle(SCHEME, serveSite)
+    await createWindow()
+  })
+}
 app.on('window-all-closed', () => app.quit())
