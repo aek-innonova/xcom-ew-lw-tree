@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { freeName, gameOf, modsIn, orderOf, safeName } from '../library'
+import { freeName, fromShared, gameOf, modsIn, orderOf, safeName } from '../library'
 
 const f = (path: string) => ({ path, size: 1, modified: 0 })
 
@@ -37,5 +37,55 @@ describe('the library folder', () => {
       ew: {},
     })
     expect(gameOf(null)).toEqual({})
+  })
+
+  it('moves a 0.3 file over: shared choices to the version chosen, each setup to its own', () => {
+    const tick = { wanted: { 'a.txt': true } }
+    const old = {
+      order: ['a', 'b'],
+      mods: { a: tick },
+      ini: [{ section: 'S', key: 'K', occurrence: 0, value: '1' }],
+      base: 'lwr',
+      game: { lw: { 'soldier.hp': '5' }, lwr: { 'soldier.hp': '7' } },
+      setups: {
+        Hard: {
+          saved: '1',
+          base: 'lw',
+          mods: {},
+          ini: [],
+          game: { lw: { x: '1' }, lwr: { y: '2' } },
+        },
+        Mine: { saved: '2', base: 'lwr', mods: { a: tick }, ini: [], game: { lwr: { y: '3' } } },
+      },
+      setupFrom: 'Mine',
+    }
+    const s = fromShared(old, 'lwr')
+    expect(s.base).toBe('lwr')
+    expect(s.versions.lwr).toMatchObject({
+      order: ['a', 'b'],
+      mods: { a: tick },
+      game: { 'soldier.hp': '7' },
+      setupFrom: 'Mine',
+    })
+    expect(s.versions.lwr!.ini).toHaveLength(1)
+    expect(Object.keys(s.versions.lwr!.setups)).toEqual(['Mine'])
+    expect(s.versions.lwr!.setups.Mine!.game).toEqual({ y: '3' })
+    // Long War keeps its own game settings and its setup; nothing ticked carries over.
+    expect(s.versions.lw).toMatchObject({
+      order: [],
+      mods: {},
+      ini: [],
+      game: { 'soldier.hp': '5' },
+    })
+    expect(s.versions.lw!.setups.Hard!.game).toEqual({ x: '1' })
+    expect(s.versions.lw!.setupFrom).toBeUndefined()
+    expect(s.versions.ew).toBeUndefined()
+  })
+
+  it('moves "as installed" to the version installed', () => {
+    const s = fromShared({ base: 'keep', mods: { a: {} }, setups: { X: { base: 'keep' } } }, 'lw')
+    expect(s.base).toBeUndefined()
+    expect(s.versions.lw!.mods).toEqual({ a: {} })
+    expect(Object.keys(s.versions.lw!.setups)).toEqual(['X'])
   })
 })

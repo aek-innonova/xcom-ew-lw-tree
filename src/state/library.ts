@@ -22,35 +22,38 @@ export interface ModChoices {
   wantFiles?: boolean
 }
 
-export interface LibrarySettings {
+/**
+ * One game version's setup (features/version-setups.md): every version keeps
+ * its own, since a mod ticked or a value set for Long War means nothing for
+ * LWR or plain Enemy Within. Choosing a version is choosing its setup.
+ */
+export interface VersionSetup {
   /** Mods by their name in Mods\, in the order they are applied. */
   order: string[]
   mods: Record<string, ModChoices>
-  /** The player's DefaultGameCore.ini settings. */
+  /** The player's lines of DefaultGameCore.ini. */
   ini: IniChange[]
-  /** The game version under the mods: kept as installed, or put in by the app. */
-  base?: BaseChoice
-  /**
-   * Game settings in the player's words (model/gamesettings.ts): by version,
-   * then id. Each version has its own: a value set on Long War means nothing
-   * on LWR or plain Enemy Within.
-   */
-  game?: Partial<Record<GameKind, Record<string, string>>>
+  /** Game settings in the player's words (model/gamesettings.ts), by id. */
+  game: Record<string, string>
   /** Setups the player saved by name, to go back to (features/game-setups.md). */
-  setups?: Record<string, SavedSetup>
+  setups: Record<string, SavedSetup>
   /** The setup last used or saved: the current choices came from it. */
   setupFrom?: string
 }
 
-/** Everything that makes up a setup, as it was when saved. */
+export interface LibrarySettings {
+  /** The version chosen, whose setup is shown and put into the game; unset: the one installed. */
+  base?: GameKind
+  versions: Partial<Record<GameKind, VersionSetup>>
+}
+
+/** A version's setup as it was when saved. */
 export interface SavedSetup {
   saved: string
-  base: BaseChoice
   mods: Record<string, ModChoices>
   ini: IniChange[]
-  game: Partial<Record<GameKind, Record<string, string>>>
+  game: Record<string, string>
 }
-export type BaseChoice = 'keep' | 'ew' | 'lw' | 'lwr'
 export type GameKind = 'ew' | 'lw' | 'lwr'
 const KINDS: GameKind[] = ['ew', 'lw', 'lwr']
 
@@ -58,38 +61,102 @@ const stringsOf = (o: unknown): Record<string, string> =>
   o && typeof o === 'object'
     ? Object.fromEntries(Object.entries(o).filter(([, v]) => typeof v === 'string'))
     : {}
-export const emptySettings = (): LibrarySettings => ({ order: [], mods: {}, ini: [] })
+const objectOf = <T>(o: unknown): Record<string, T> =>
+  o && typeof o === 'object' && !Array.isArray(o) ? (o as Record<string, T>) : {}
+const kindOf = (v: unknown): GameKind | undefined => KINDS.find((k) => k === v)
+
+export const emptyVersion = (): VersionSetup => ({
+  order: [],
+  mods: {},
+  ini: [],
+  game: {},
+  setups: {},
+})
+export const emptySettings = (): LibrarySettings => ({ versions: {} })
 
 /**
  * settings.json, or null when there is none yet. One that does not read (an
- * edit by hand gone wrong) is kept aside under another name, not lost.
+ * edit by hand gone wrong) is kept aside under another name, not lost. A file
+ * from before each version had its own setup is moved over (`fromShared`),
+ * which needs the version installed when it said "as installed".
  */
-export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings | null> {
+export async function readSettings(
+  lib: DesktopLibrary,
+  installed: () => Promise<GameKind>,
+): Promise<LibrarySettings | null> {
   const b = await lib.read(SETTINGS)
   if (!b) return null
+  let s: Record<string, unknown>
   try {
-    const s = JSON.parse(new TextDecoder().decode(b)) as Partial<LibrarySettings>
-    return {
-      order: Array.isArray(s.order) ? s.order.filter((x) => typeof x === 'string') : [],
-      mods: s.mods && typeof s.mods === 'object' ? s.mods : {},
-      ini: Array.isArray(s.ini) ? s.ini : [],
-      base: (['keep', 'ew', 'lw', 'lwr'] as const).find((b) => b === s.base),
-      game: gameOf(s.game),
-      setups:
-        s.setups && typeof s.setups === 'object'
-          ? Object.fromEntries(
-              Object.entries(s.setups).map(([name, setup]) => [
-                name,
-                { ...setup, game: gameOf(setup?.game) ?? {} },
-              ]),
-            )
-          : {},
-      setupFrom: typeof s.setupFrom === 'string' ? s.setupFrom : undefined,
-    }
+    s = objectOf(JSON.parse(new TextDecoder().decode(b)))
   } catch {
     await lib.write(`settings (unreadable ${Date.now()}).json`, b)
     return null
   }
+  if (!('versions' in s)) {
+    const base = kindOf(s.base)
+    return fromShared(s, base ?? (await installed()))
+  }
+  const versions = objectOf<unknown>(s.versions)
+  return {
+    base: kindOf(s.base),
+    versions: Object.fromEntries(
+      KINDS.filter((k) => k in versions).map((k) => [k, versionOf(versions[k])]),
+    ),
+  }
+}
+
+function versionOf(v: unknown): VersionSetup {
+  const o = objectOf<unknown>(v)
+  return {
+    order: Array.isArray(o.order) ? o.order.filter((x) => typeof x === 'string') : [],
+    mods: objectOf<ModChoices>(o.mods),
+    ini: Array.isArray(o.ini) ? o.ini : [],
+    game: splitOldValues(stringsOf(o.game)),
+    setups: Object.fromEntries(
+      Object.entries(objectOf<Record<string, unknown>>(o.setups)).map(([name, x]) => [
+        name,
+        {
+          saved: typeof x?.saved === 'string' ? x.saved : '',
+          mods: objectOf<ModChoices>(x?.mods),
+          ini: Array.isArray(x?.ini) ? (x.ini as IniChange[]) : [],
+          game: splitOldValues(stringsOf(x?.game)),
+        },
+      ]),
+    ),
+    setupFrom: typeof o.setupFrom === 'string' ? o.setupFrom : undefined,
+  }
+}
+
+/**
+ * A settings.json from when the versions shared one setup (0.3): its mods,
+ * their order and the INI lines go to `kind`, the version it had chosen (or
+ * the one installed, for "as installed"); each saved setup to the version it
+ * was saved with, with that version's game settings; each version keeps its
+ * game settings. Nothing else carries over to another version.
+ */
+export function fromShared(s: Record<string, unknown>, kind: GameKind): LibrarySettings {
+  const game = gameOf(s.game)
+  const versions: LibrarySettings['versions'] = {}
+  const of = (k: GameKind) => (versions[k] ??= { ...emptyVersion(), game: game[k] ?? {} })
+  for (const k of KINDS) if (game[k]) of(k)
+  Object.assign(of(kind), {
+    order: Array.isArray(s.order) ? s.order.filter((x) => typeof x === 'string') : [],
+    mods: objectOf<ModChoices>(s.mods),
+    ini: Array.isArray(s.ini) ? s.ini : [],
+  })
+  for (const [name, x] of Object.entries(objectOf<Record<string, unknown>>(s.setups))) {
+    const k = kindOf(x?.base) ?? kind
+    of(k).setups[name] = {
+      saved: typeof x?.saved === 'string' ? x.saved : '',
+      mods: objectOf<ModChoices>(x?.mods),
+      ini: Array.isArray(x?.ini) ? (x.ini as IniChange[]) : [],
+      game: gameOf(x?.game)[k] ?? {},
+    }
+    // The current choices came from it: they are the chosen version's.
+    if (s.setupFrom === name && k === kind) of(k).setupFrom = name
+  }
+  return { base: kindOf(s.base), versions }
 }
 
 /**
@@ -97,7 +164,7 @@ export async function readSettings(lib: DesktopLibrary): Promise<LibrarySettings
  * only ever made on Long War (the bench), so it becomes Long War's. Settings
  * since split in two come back as their parts.
  */
-export function gameOf(g: unknown): LibrarySettings['game'] {
+export function gameOf(g: unknown): Partial<Record<GameKind, Record<string, string>>> {
   if (!g || typeof g !== 'object') return {}
   const o = g as Record<string, unknown>
   if (Object.values(o).some((v) => typeof v === 'string'))

@@ -22,6 +22,7 @@ const shot = (l: Locator | Page, name: string) => l.screenshot({ path: join(out,
 test('screenshots for the website', async () => {
   test.setTimeout(10 * 60_000)
   mkdirSync(out, { recursive: true })
+  mkdirSync('/tmp/lwtree-check', { recursive: true })
   const work = mkdtempSync(join(tmpdir(), 'lwtree-shots-'))
   const env: Record<string, string | undefined> = {
     ...process.env,
@@ -63,17 +64,20 @@ test('screenshots for the website', async () => {
   await shot(fight.locator('.fight'), 'air-war')
   await page.keyboard.press('Escape')
 
-  // Tools: the version in the game, from the library's downloads.
+  // Tools: the versions, each with its own setup, from the library's downloads.
   await page.getByRole('button', { name: 'Tools' }).click()
   await page.waitForTimeout(2500)
   // Parts of the page on their own: the bar and the footer not pinned over them.
   await page.addStyleTag({
     content: '.setup-bar { position: static !important } .foot { display: none }',
   })
-  const versions = page.locator('section[aria-labelledby="base-h"]')
-  await versions.getByRole('radio', { name: /^Long War 1\.0/ }).check()
+  const bar = page.getByRole('region', { name: 'Your setup' })
+  await expect(bar.getByRole('button', { name: /^Long War 1\.0/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
   await page.waitForTimeout(500)
-  await shot(versions, 'versions')
+  await shot(bar, 'versions')
 
   // Game settings: the soldier stats table.
   const stats = page.locator('details[aria-label="Soldier stats"]')
@@ -97,23 +101,30 @@ test('screenshots for the website', async () => {
   await page.waitForTimeout(800)
   await shot(items.locator('article'), 'item-card')
 
-  // Long War put in under a change: the console under the setup bar.
-  const startCount = page.getByRole('spinbutton', { name: 'Soldiers at the start' })
-  await startCount.fill('20')
-  await startCount.press('Enter')
+  // LWR put in place of Long War: the console under the setup bar.
   await page.evaluate(() => document.querySelector('.tools')?.scrollTo(0, 0))
-  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  await bar.getByRole('button', { name: /^Long War Rebalanced/ }).click()
+  await page.getByRole('button', { name: /^Switch the game to / }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
   await expect(plan).toContainText(/These files will change|Nothing to change/, {
     timeout: 120_000,
   })
   // The bar and the top of the console: the steps and the first files.
-  const bar = await page.getByRole('region', { name: 'Your setup' }).boundingBox()
+  const box = (await bar.boundingBox())!
   await page.screenshot({
     path: join(out, 'apply.png'),
-    clip: { x: bar!.x, y: bar!.y, width: Math.min(bar!.width, 980), height: 330 },
+    clip: { x: box.x, y: box.y, width: Math.min(box.width, 980), height: 420 },
   })
   await plan.getByRole('button', { name: /Cancel|Close/ }).click()
+
+  // Not for the site: LWR's class colours, to look at.
+  const lwrColors = page.locator('details[aria-label="Class colors"]')
+  await lwrColors.evaluate((d) => ((d as HTMLDetailsElement).open = true))
+  await lwrColors.getByRole('button', { name: 'Show Sniper on the soldier' }).click()
+  await lwrColors.scrollIntoViewIfNeeded()
+  await page.waitForTimeout(4000)
+  await lwrColors.locator('.looks').screenshot({ path: '/tmp/lwtree-check/lwr-colors.png' })
+  await bar.getByRole('button', { name: /^Long War 1\.0/ }).click()
 
   await app.close()
 })

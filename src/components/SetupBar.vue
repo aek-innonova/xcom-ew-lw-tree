@@ -1,20 +1,53 @@
 <script setup lang="ts">
-// The setup bar at the top of Tools (features/game-setups.md): which saved
-// setup the choices below are, switching to another, saving as a new one
-// (with a name offered), and putting the setup into the game. It stays in
-// view while the page scrolls, so what the tool does is never at the bottom.
+// The setup bar at the top of Tools (features/game-setups.md): the game
+// version, chosen with buttons since every version has its own setup
+// (features/version-setups.md); which of the version's saved setups the
+// choices below are, switching to another, saving as a new one (with a name
+// offered); and putting the setup into the game. It stays in view while the
+// page scrolls, so what the tool does is never at the bottom.
 
 import { computed, nextTick, ref, watch } from 'vue'
 import ApplyConsole from './ApplyConsole.vue'
+import { desktop } from '@/state/desktop'
+import type { GameKind } from '@/state/library'
 import {
+  baseAvailable,
+  baseName,
+  canChoose,
   deleteSetup,
+  gameKind,
   makePlan,
   resetToGame,
   saveSetup,
+  setBase,
   suggestSetupName,
   tools,
   useSetup,
 } from '@/state/tools'
+
+const VERSIONS: { kind: GameKind; needs: string }[] = [
+  { kind: 'ew', needs: 'needs the Long War installer in your library, to know its files' },
+  { kind: 'lw', needs: 'needs the Long War installer in your library' },
+  { kind: 'lwr', needs: 'needs the Long War installer and the LWR download in your library' },
+]
+const label = (k: GameKind) => baseName(k).replace(/^./, (c) => c.toUpperCase())
+/** What the button says under the name: in the game now, or what it takes. */
+function note(k: GameKind): string {
+  if (tools.install?.kind === k) return 'in the game'
+  return baseAvailable(k) ? 'from your library' : VERSIONS.find((v) => v.kind === k)!.needs
+}
+/** Apply puts another version in place of the one in the game. */
+const switchTo = computed(() =>
+  tools.install && gameKind() !== tools.install.kind ? label(gameKind()) : null,
+)
+async function choose(k: GameKind) {
+  if (k === gameKind() || !canChoose(k)) return
+  naming.value = false
+  switching.value = null
+  deleting.value = false
+  consoleOpen.value = false
+  await setBase(k)
+}
 
 const NEW = '\u0000new'
 const SAVE = '\u0000save'
@@ -127,13 +160,33 @@ watch(
 
 <template>
   <div class="setup-bar" role="region" aria-label="Your setup">
+    <div
+      v-if="tools.install && desktop?.bases"
+      class="versions"
+      role="group"
+      aria-label="Version in the game"
+    >
+      <button
+        v-for="v in VERSIONS"
+        :key="v.kind"
+        type="button"
+        class="version"
+        :class="{ chosen: v.kind === gameKind(), installed: v.kind === tools.install.kind }"
+        :aria-pressed="v.kind === gameKind()"
+        :disabled="!!tools.busy || (!canChoose(v.kind) && v.kind !== gameKind())"
+        @click="choose(v.kind)"
+      >
+        <span class="v-name">{{ label(v.kind) }}</span>
+        <span class="v-note">{{ note(v.kind) }}</span>
+      </button>
+    </div>
     <label class="pick">
       <span class="what">Setup</span>
       <select
         :value="current"
         aria-label="Your setup"
         :disabled="!!tools.busy"
-        title="The version, the mods ticked and their options, the game and INI settings, under a name"
+        title="The mods ticked and their options, the game and INI settings of this version, under a name"
         @change="onPick"
       >
         <option v-if="!tools.setupInUse && !tools.setupFrom" value="" disabled>
@@ -191,7 +244,7 @@ watch(
       :disabled="!!tools.busy"
       @click="apply"
     >
-      Apply my setup…
+      {{ switchTo ? `Switch the game to ${switchTo}…` : 'Apply my setup…' }}
     </button>
     <ApplyConsole :open="consoleOpen" class="console" @close="consoleOpen = false" />
   </div>
@@ -211,6 +264,50 @@ watch(
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 4px 10px -8px rgba(0, 0, 0, 0.6);
+}
+.versions {
+  display: flex;
+  flex-basis: 100%;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.version {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 190px;
+  padding: 6px 14px;
+  border: 1px solid var(--node-border);
+  border-radius: 5px;
+  background: var(--node);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.version:hover:not(:disabled):not(.chosen) {
+  border-color: var(--accent);
+}
+.version.chosen {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--node));
+  box-shadow: inset 0 0 0 1px var(--accent);
+  cursor: default;
+}
+.version:disabled:not(.chosen) {
+  opacity: 0.5;
+  cursor: default;
+}
+.v-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.v-note {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.version.installed .v-note {
+  color: var(--done-text);
 }
 .pick {
   display: flex;

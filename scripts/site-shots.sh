@@ -11,7 +11,9 @@ rm -rf /tmp/lwtree-shots
 
 # A stand-in game with Long War 1.0 installed, and a library with the two
 # downloads, made fresh from samples/ (this machine's copies, not in git):
-# the packages the views read, linked; the INIs copied, as the app writes them.
+# the packages the views read, hard-linked (the app's folder listing passes
+# over symbolic links, and would take the game for plain Enemy Within; the
+# spec never writes to the game); the INIs copied, as the app writes them.
 game=/tmp/shotgame lib=/tmp/shotlib s="$PWD/samples"
 lw="$s/Long War Mod Manager 1.0d-620-1-0d/LongWarFiles/_Long War EW 1.0 for PC-88-1-0.exe/{app}"
 rm -rf "$game" "$lib"
@@ -20,10 +22,10 @@ for p in Startup XComGame XComShell LongWar Anim_Barracks gfxInterception_SF UIC
   Soldier_{Male,Female}{Kevlar,Carapace}_SF Soldier_Male{Skeleton,Ghost,Titan,Archangel,Psi}_SF \
   Deco_{Kevlar0,Kevlar1,Carapace0,Skeleton0,Ghost0,Titan0,Archangel0,Psi0}_SF \
   Helmet_Kevlar{0,9}_SF Head_{CaucMale_A,CaucFem_A,AfrMale_B}_SF Hair_{MaleHair_A,MaleHair_C,FemHair_A}_SF; do
-  ln -s "$s/CookedPCConsole/$p.upk" "$game/XEW/XComGame/CookedPCConsole/"
+  ln "$s/CookedPCConsole/$p.upk" "$game/XEW/XComGame/CookedPCConsole/"
 done
-ln -s "$s/CookedPCConsole/"{CharTextures,Textures}.tfc "$game/XEW/XComGame/CookedPCConsole/"
-ln -s "$lw/Long_War_EW_Armor_Kit_Codes.txt" "$game/XEW/"
+ln "$s/CookedPCConsole/"{CharTextures,Textures}.tfc "$game/XEW/XComGame/CookedPCConsole/"
+ln "$lw/Long_War_EW_Armor_Kit_Codes.txt" "$game/XEW/"
 cp "$lw/XComGame/Config/"{DefaultGameCore,DefaultContent}.ini "$game/XEW/XComGame/Config/"
 ln -s "$s/Long War Mod Manager 1.0d-620-1-0d/Long War EW 1.0 for PC-88-1-0.exe" "$lib/"
 ln -s "$s/LW Rebalance V2.06.00 - Perkicon 686 2.06.00 2026-10-18T00-20Z IYVlw8ZX.zip" "$lib/LW Rebalance V2.06.00.zip"

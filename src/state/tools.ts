@@ -37,17 +37,18 @@ import { stored } from './idb'
 import {
   MODS,
   emptySettings,
+  emptyVersion,
   freeName,
   modsIn,
   orderOf,
   readSettings,
   safeName,
   writeSettings,
-  type BaseChoice,
   type GameKind,
   type ModChoices,
   type LibrarySettings,
   type SavedSetup,
+  type VersionSetup,
 } from './library'
 import {
   GAME_INI,
@@ -137,8 +138,11 @@ export const tools = reactive({
   setupFrom: null as string | null,
   /** Long War and LWR as the library holds them (installers, zips, folders). */
   bases: [] as BaseFound[],
-  /** The game version the player wants under the mods ('keep': as installed). */
-  base: 'keep' as BaseChoice,
+  /**
+   * The game version chosen (features/version-setups.md): its setup is the one
+   * shown and put into the game. Null: the one installed.
+   */
+  base: null as GameKind | null,
   /** Each script's state in the install, by `${mod id}:${path}`. */
   checks: {} as Record<string, ScriptCheck>,
   /** The install's DefaultGameCore.ini, as settings. */
@@ -227,6 +231,7 @@ async function readInstall(): Promise<void> {
       }
     }
     tools.install = { kind, path: game.root, ini, cooked }
+    showVersion()
     managed = await loadManaged(files)
     await loadGameSettings(iniBytes ? iniText(iniBytes) : null)
     // The game's own pictures, for the views (features/game-images.md), in the background.
@@ -306,6 +311,12 @@ export async function forgetGameFolder(): Promise<void> {
   })
 }
 
+/** The version in the game folder the app knows, for moving an older settings.json over. */
+async function installedKind(): Promise<GameKind> {
+  if (!desktop || !(await desktop.game.current())) return 'lw'
+  return installKind(await desktopFiles(desktop).list('CookedPCConsole'))
+}
+
 /** On start-up in the app: the library, the settings, and the game (found the first time). */
 export async function restoreTools(): Promise<void> {
   if (!desktop) return
@@ -313,15 +324,12 @@ export async function restoreTools(): Promise<void> {
   if (lib) {
     try {
       tools.library = (await lib.info()).dir
-      choices = (await readSettings(lib)) ?? emptySettings()
+      choices = (await readSettings(lib, installedKind)) ?? emptySettings()
+      tools.base = choices.base ?? null
       await moveOldLibrary()
     } catch (e) {
       tools.error = `Could not read your library folder: ${(e as Error).message}`
     }
-    tools.settings = choices.ini
-    tools.gameValues = { ...choices.game?.[gameKind()] }
-    tools.base = choices.base ?? 'keep'
-    listSetups()
     await loadMods()
     await loadBases()
     // A mod copied into the folder by hand turns up when the app is back in front.
@@ -388,8 +396,9 @@ export async function checkMods(): Promise<void> {
       if (runScript(text, { open }).status === 'installed') status = 'other-values'
     }
     tools.checks[checkKey(m, f)] = { status, steps: markRaw(r.steps) }
-    // A mod first seen in the game counts as wanted there.
-    if (m.wanted?.[f.path] === undefined) {
+    // A mod first seen in the game counts as wanted there, in the setup of
+    // the version installed (not in another version's).
+    if (m.wanted?.[f.path] === undefined && gameKind() === tools.install.kind) {
       m.wanted = {
         ...m.wanted,
         [f.path]: status === 'installed' || status === 'other-values',
@@ -413,6 +422,34 @@ export function fileKind(path: string, text?: string): ModFileKind {
 
 /** The player's choices: settings.json in the library. */
 let choices: LibrarySettings = emptySettings()
+/** A version's setup in the choices (the chosen version's, by default), made when first needed. */
+function setupOf(kind: GameKind = gameKind()): VersionSetup {
+  return (choices.versions[kind] ??= emptyVersion())
+}
+
+/**
+ * The chosen version's setup into the page: each mod as ticked and set for
+ * it, in its order; its INI lines, game settings and saved setups.
+ */
+function showVersion(): void {
+  const v = setupOf()
+  for (const m of tools.mods) {
+    const c = v.mods[m.id] ?? {}
+    m.values = c.values ?? {}
+    m.wanted = c.wanted
+    m.wantFiles = c.wantFiles
+  }
+  const order = orderOf(
+    tools.mods.map((m) => m.id),
+    v.order,
+  )
+  tools.mods = order.map((id) => tools.mods.find((m) => m.id === id)!)
+  v.order = order
+  tools.settings = v.ini
+  tools.gameValues = { ...v.game }
+  tools.plan = null
+  listSetups()
+}
 /** The library's Mods listing as last read, to see whether it changed. */
 let listing = ''
 let writing = Promise.resolve()
@@ -473,7 +510,7 @@ async function loadMods(): Promise<void> {
     }
     // A file on its own in Mods that is not a mod script is not a mod.
     if (!g.folder && modFiles[0]!.kind !== 'script') continue
-    const c = choices.mods[g.id] ?? {}
+    const c = setupOf().mods[g.id] ?? {}
     mods.push({
       id: g.id,
       name: g.folder ? g.id : modFiles[0]!.script!.name,
@@ -486,11 +523,11 @@ async function loadMods(): Promise<void> {
   }
   const order = orderOf(
     mods.map((m) => m.id),
-    choices.order,
+    setupOf().order,
   )
   tools.mods = order.map((id) => mods.find((m) => m.id === id)!)
-  if (JSON.stringify(order) !== JSON.stringify(choices.order)) {
-    choices.order = order
+  if (JSON.stringify(order) !== JSON.stringify(setupOf().order)) {
+    setupOf().order = order
     void saveChoices()
   }
 }
@@ -517,8 +554,8 @@ async function loadBases(): Promise<void> {
   }
 }
 
-/** The Long War and LWR the library holds that a choice would use. */
-function basesFor(choice: BaseChoice): { lw?: BaseFound; lwr?: BaseFound } {
+/** The Long War and LWR the library holds that a version would use. */
+function basesFor(choice: GameKind): { lw?: BaseFound; lwr?: BaseFound } {
   const lws = tools.bases.filter((b) => b.kind === 'lw')
   const lw = lws.find((b) => b.version === '1.0') ?? lws[0]
   const lwr = tools.bases
@@ -527,28 +564,35 @@ function basesFor(choice: BaseChoice): { lw?: BaseFound; lwr?: BaseFound } {
   return choice === 'lw' ? { lw } : choice === 'lwr' ? { lw, lwr } : {}
 }
 
-/** Whether the library holds what a choice needs. */
-export function baseAvailable(choice: BaseChoice): boolean {
-  if (choice === 'keep') return true
+/** Whether the library holds what it takes to put a version into the game. */
+export function baseAvailable(choice: GameKind): boolean {
   if (choice === 'ew') return tools.bases.length > 0
   const { lw, lwr } = basesFor(choice)
   return choice === 'lw' ? !!lw : !!lw && !!lwr
 }
-export function baseName(choice: BaseChoice): string {
+/**
+ * Whether a version can be chosen: the library can put it in, or it is the
+ * one installed (the setup then goes on top of the game as it is).
+ */
+export function canChoose(choice: GameKind): boolean {
+  return baseAvailable(choice) || tools.install?.kind === choice
+}
+export function baseName(choice: GameKind): string {
   const { lw, lwr } = basesFor(choice)
   if (choice === 'ew') return 'plain Enemy Within'
   if (choice === 'lw') return lw?.name ?? 'Long War'
-  if (choice === 'lwr') return lwr?.name ?? 'Long War Rebalanced'
-  return 'as installed'
+  return lwr?.name ?? 'Long War Rebalanced'
 }
 
-export async function setBase(choice: BaseChoice): Promise<void> {
+/** Chooses a version: its own setup comes up, to be put into the game when the player applies. */
+export async function setBase(choice: GameKind): Promise<void> {
   tools.base = choice
-  tools.plan = null
   choices.base = choice
+  showVersion()
   await saveChoices()
   const current = files ? await files.read(GAME_INI) : null
   await loadGameSettings(current ? iniText(current) : null)
+  void checkMods()
 }
 
 const layerOf = (m: BaseManifest): BaseLayer => ({
@@ -561,7 +605,7 @@ const layerOf = (m: BaseManifest): BaseLayer => ({
 })
 
 /** Everything the planner needs for a base: every base in the library unpacked, the game's own files. */
-async function baseSetup(choice: BaseChoice): Promise<BaseSetup> {
+async function baseSetup(choice: GameKind): Promise<BaseSetup> {
   const api = desktop!.bases!
   const known: BaseLayer[] = []
   // Every version in the library, to know their files when another is chosen.
@@ -598,7 +642,7 @@ export function openLibrary(): void {
 }
 
 async function save(m: Mod): Promise<void> {
-  choices.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+  setupOf().mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
   await saveChoices()
 }
 
@@ -658,8 +702,11 @@ export async function removeMod(id: string): Promise<void> {
     return
   }
   tools.mods = tools.mods.filter((m) => m.id !== id)
-  delete choices.mods[id]
-  choices.order = choices.order.filter((x) => x !== id)
+  // Gone from the library: from every version's setup.
+  for (const v of Object.values(choices.versions)) {
+    delete v.mods[id]
+    v.order = v.order.filter((x) => x !== id)
+  }
   await saveChoices()
 }
 
@@ -717,10 +764,10 @@ async function moveOldLibrary(): Promise<void> {
       const data = new Uint8Array(await f.data.arrayBuffer())
       await lib.write(loose ? `${MODS}/${id}` : `${MODS}/${id}/${f.path}`, data)
     }
-    choices.mods[id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
-    choices.order.push(id)
+    setupOf().mods[id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+    setupOf().order.push(id)
   }
-  if (oldIni?.length && !choices.ini.length) choices.ini = oldIni
+  if (oldIni?.length && !setupOf().ini.length) setupOf().ini = oldIni
   await saveChoices()
   await stored('mods', 'readwrite', (s) => s.clear()).catch(() => undefined)
   await stored('state', 'readwrite', (s) => s.delete('settings')).catch(() => undefined)
@@ -735,7 +782,7 @@ const sameSetting = (a: IniChange, b: IniChange) =>
 export async function setSetting(entry: IniChange, value: string | null) {
   const rest = tools.settings.filter((s) => !sameSetting(s, entry))
   tools.settings = value === null ? rest : [...rest, { ...entry, value }]
-  choices.ini = JSON.parse(JSON.stringify(tools.settings))
+  setupOf().ini = JSON.parse(JSON.stringify(tools.settings))
   await saveChoices()
 }
 
@@ -747,9 +794,10 @@ export async function setSetting(entry: IniChange, value: string | null) {
  */
 async function ownIni(current: string | null): Promise<{ text: string; from: string } | null> {
   if (!files) return null
-  if (tools.base !== 'keep' && tools.base !== 'ew' && desktop?.bases) {
-    const { lw, lwr } = basesFor(tools.base)
-    const top = tools.base === 'lwr' ? lwr : lw
+  const kind = gameKind()
+  if (kind !== 'ew' && desktop?.bases) {
+    const { lw, lwr } = basesFor(kind)
+    const top = kind === 'lwr' ? lwr : lw
     if (top?.unpacked) {
       try {
         return {
@@ -780,18 +828,18 @@ function pruneSplitHalves(kind: GameKind) {
   const pruned = (v?: Record<string, string>) =>
     v && Object.fromEntries(Object.entries(v).filter(([id, x]) => own.get(id) !== x))
   tools.gameValues = pruned(tools.gameValues)!
-  if (choices.game?.[kind]) choices.game = { ...choices.game, [kind]: pruned(choices.game[kind]) }
-  for (const s of Object.values(choices.setups ?? {}))
-    if (s.game?.[kind]) s.game = { ...s.game, [kind]: pruned(s.game[kind]) }
+  const v = setupOf(kind)
+  v.game = pruned(v.game)!
+  for (const s of Object.values(v.setups)) s.game = pruned(s.game)!
 }
 
-/** The version the game settings are for: the chosen one, else the one installed. */
-function gameKind(): GameKind {
-  return tools.base !== 'keep' ? tools.base : (tools.install?.kind ?? 'lw')
+/** The version chosen, whose setup is shown: the one picked, else the one installed. */
+export function gameKind(): GameKind {
+  return tools.base ?? tools.install?.kind ?? 'lw'
 }
 
 async function loadGameSettings(current: string | null): Promise<void> {
-  tools.gameValues = { ...choices.game?.[gameKind()] }
+  tools.gameValues = { ...setupOf().game }
   const own = await ownIni(current)
   const names = await itemNames()
   tools.gameSettings = markRaw(own ? findSettings(own.text, names) : [])
@@ -831,7 +879,7 @@ export async function setGameValue(id: string, value: string | null): Promise<vo
   if (value === null || value.trim() === '' || value.trim() === own) delete next[id]
   else next[id] = value.trim()
   tools.gameValues = next
-  choices.game = { ...choices.game, [gameKind()]: { ...next } }
+  setupOf().game = { ...next }
   await saveChoices()
 }
 
@@ -841,24 +889,22 @@ export async function adoptHandEdits(): Promise<void> {
   for (const c of tools.handEdits) next[c.def.id] = c.now
   tools.gameValues = next
   tools.handEdits = []
-  choices.game = { ...choices.game, [gameKind()]: { ...next } }
+  setupOf().game = { ...next }
   await saveChoices()
 }
 
 // --- Setups saved by name (features/game-setups.md) -------------------------------
 
-/** The choices that make up a setup, as they are now. */
+/** The choices that make up the chosen version's setup, as they are now. */
 function snapshot(): Omit<SavedSetup, 'saved'> {
   const mods: Record<string, ModChoices> = {}
   for (const m of tools.mods)
     mods[m.id] = JSON.parse(
       JSON.stringify({ values: m.values, wanted: m.wanted ?? {}, wantFiles: !!m.wantFiles }),
     )
-  return JSON.parse(
-    JSON.stringify({ base: tools.base, mods, ini: tools.settings, game: choices.game ?? {} }),
-  )
+  return JSON.parse(JSON.stringify({ mods, ini: tools.settings, game: tools.gameValues }))
 }
-/** The same choices: what was ticked, set and chosen (a mod never ticked counts as not). */
+/** The same choices: what was ticked and set (a mod never ticked counts as not). */
 function sameSetup(a: Omit<SavedSetup, 'saved'>, b: Omit<SavedSetup, 'saved'>): boolean {
   const norm = (s: Omit<SavedSetup, 'saved'>) => {
     const mods = Object.fromEntries(
@@ -881,41 +927,36 @@ function sameSetup(a: Omit<SavedSetup, 'saved'>, b: Omit<SavedSetup, 'saved'>): 
               .sort(([x], [y]) => x.localeCompare(y))
               .map(([k, v]) => [k, v && typeof v === 'object' ? sorted(v) : v]),
           )
-    return JSON.stringify(sorted({ base: s.base, mods, ini: s.ini, game: s.game }))
+    return JSON.stringify(sorted({ mods, ini: s.ini, game: s.game }))
   }
   return norm(a) === norm(b)
 }
 function setupInUse(): string | null {
   const now = snapshot()
-  return Object.entries(choices.setups ?? {}).find(([, s]) => sameSetup(s, now))?.[0] ?? null
+  return Object.entries(setupOf().setups).find(([, s]) => sameSetup(s, now))?.[0] ?? null
 }
 function listSetups() {
-  tools.setups = Object.entries(choices.setups ?? {})
+  const v = setupOf()
+  tools.setups = Object.entries(v.setups)
     .map(([name, s]) => ({ name, saved: s.saved }))
     .sort((a, b) => b.saved.localeCompare(a.saved))
   tools.setupInUse = setupInUse()
-  const from = tools.setupInUse ?? choices.setupFrom ?? null
-  tools.setupFrom = from && choices.setups?.[from] ? from : null
+  const from = tools.setupInUse ?? v.setupFrom ?? null
+  tools.setupFrom = from && v.setups[from] ? from : null
 }
 
 /**
- * A name for the setup as it is now, to offer when saving: the version, how
- * many mods are ticked and settings set ("Long War 1.0 · 2 mods · 14
- * settings"), made unique among the saved ones.
+ * A name for the setup as it is now, to offer when saving: how many mods are
+ * ticked and settings set ("2 mods · 14 settings"), made unique among the
+ * version's saved ones. The version needs no saying: the setups are its own.
  */
 export function suggestSetupName(): string {
-  const version =
-    tools.base !== 'keep'
-      ? baseName(tools.base)
-      : ({ lw: 'Long War', lwr: 'Long War Rebalanced', ew: 'Enemy Within' } as const)[
-          tools.install?.kind ?? 'lw'
-        ]
   const mods = tools.mods.filter((m) => Object.values(m.wanted ?? {}).some(Boolean)).length
   const settings = Object.keys(tools.gameValues).length + tools.settings.length
-  const parts = [version.replace(/^plain /, '').replace(/^\w/, (c) => c.toUpperCase())]
+  const parts: string[] = []
   if (mods) parts.push(`${mods} mod${mods === 1 ? '' : 's'}`)
   if (settings) parts.push(`${settings} setting${settings === 1 ? '' : 's'}`)
-  const base = parts.join(' · ')
+  const base = parts.join(' · ') || 'As it comes'
   let name = base
   for (let n = 2; tools.setups.some((x) => x.name === name); n++) name = `${base} (${n})`
   return name
@@ -925,19 +966,21 @@ export function suggestSetupName(): string {
 export async function saveSetup(name: string): Promise<void> {
   const n = name.trim()
   if (!n) return
-  choices.setups = { ...choices.setups, [n]: { saved: new Date().toISOString(), ...snapshot() } }
-  choices.setupFrom = n
+  const v = setupOf()
+  v.setups = { ...v.setups, [n]: { saved: new Date().toISOString(), ...snapshot() } }
+  v.setupFrom = n
   listSetups()
   await saveChoices()
 }
 
 /**
- * Puts a saved setup's choices back: the version, every mod as it was ticked
+ * Puts one of the version's saved setups back: every mod as it was ticked
  * and set then (mods added since are left out), the INI and game settings.
  * Written into the game when the player applies, as always.
  */
 export async function useSetup(name: string): Promise<void> {
-  const s = choices.setups?.[name]
+  const v = setupOf()
+  const s = v.setups[name]
   if (!s) return
   for (const m of tools.mods) {
     const c = s.mods[m.id]
@@ -946,15 +989,13 @@ export async function useSetup(name: string): Promise<void> {
       m.files.filter((f) => f.kind === 'script').map((f) => [f.path, !!c?.wanted?.[f.path]]),
     )
     m.wantFiles = !!c?.wantFiles
-    choices.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+    v.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
   }
-  choices.ini = JSON.parse(JSON.stringify(s.ini))
-  tools.settings = choices.ini
-  choices.game = JSON.parse(JSON.stringify(s.game))
-  choices.base = s.base
-  tools.base = s.base
+  v.ini = JSON.parse(JSON.stringify(s.ini))
+  tools.settings = v.ini
+  v.game = JSON.parse(JSON.stringify(s.game))
   tools.plan = null
-  choices.setupFrom = name
+  v.setupFrom = name
   const current = files ? await files.read(GAME_INI) : null
   await loadGameSettings(current ? iniText(current) : null)
   listSetups()
@@ -964,15 +1005,18 @@ export async function useSetup(name: string): Promise<void> {
 
 /**
  * The choices back to what the game has now (features/game-setups.md): the
- * version as installed; the mods ticked whose scripts are in the game (one in
- * it with other option values than the player's set keeps the script's own);
- * the game settings the game's file has where they differ from the version's
- * own; the INI lines the file already has. Applied, it changes nothing.
+ * version installed, and in its setup the mods ticked whose scripts are in
+ * the game (one in it with other option values than the player's set keeps
+ * the script's own); the game settings the game's file has where they differ
+ * from the version's own; the INI lines the file already has. Applied, it
+ * changes nothing.
  */
 export async function resetToGame(): Promise<void> {
-  if (!files) return
-  tools.base = 'keep'
-  choices.base = 'keep'
+  if (!files || !tools.install) return
+  tools.base = tools.install.kind
+  choices.base = tools.install.kind
+  showVersion()
+  const v = setupOf()
   for (const m of tools.mods) {
     const scripts = m.files.filter((f) => f.kind === 'script')
     const status = (f: ModFile) => tools.checks[checkKey(m, f)]?.status
@@ -984,7 +1028,7 @@ export async function resetToGame(): Promise<void> {
         ([path]) => !scripts.some((f) => f.path === path && status(f) === 'other-values'),
       ),
     )
-    choices.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
+    v.mods[m.id] = { values: m.values, wanted: m.wanted, wantFiles: m.wantFiles }
   }
   // INI lines: those the game's file already has.
   tools.settings = tools.settings.filter(
@@ -993,28 +1037,29 @@ export async function resetToGame(): Promise<void> {
         (e) => e.section === c.section && e.key === c.key && e.occurrence === c.occurrence,
       )?.value === c.value,
   )
-  choices.ini = tools.settings
+  v.ini = tools.settings
   // Game settings: everything the file has that the version's own does not.
   tools.gameValues = {}
-  choices.game = { ...choices.game, [gameKind()]: {} }
+  v.game = {}
   tools.plan = null
   const current = await files.read(GAME_INI)
   await loadGameSettings(current ? iniText(current) : null)
   const values = Object.fromEntries(tools.handEdits.map((c) => [c.def.id, c.now]))
   tools.gameValues = values
   tools.handEdits = []
-  choices.game = { ...choices.game, [gameKind()]: { ...values } }
-  delete choices.setupFrom
+  v.game = { ...values }
+  delete v.setupFrom
   listSetups()
   await saveChoices()
   void checkMods()
 }
 
 export async function deleteSetup(name: string): Promise<void> {
-  const next = { ...choices.setups }
+  const v = setupOf()
+  const next = { ...v.setups }
   delete next[name]
-  choices.setups = next
-  if (choices.setupFrom === name) delete choices.setupFrom
+  v.setups = next
+  if (v.setupFrom === name) delete v.setupFrom
   listSetups()
   await saveChoices()
 }
@@ -1073,22 +1118,25 @@ export async function makePlan(everything = true): Promise<void> {
   }
   tools.error = null
   tools.busy = 'Working out what changes…'
+  const kind = gameKind()
   try {
-    if (tools.base !== 'keep' && desktop?.bases && baseAvailable(tools.base)) {
-      const base = await baseSetup(tools.base)
+    if (desktop?.bases && baseAvailable(kind)) {
+      const base = await baseSetup(kind)
       // The version's own file is in hand now (it may only just have been
       // unpacked): the game settings are found in it, not in the game's file.
       const current = await files.read(GAME_INI)
       await loadGameSettings(current ? iniText(current) : null)
       tools.busy = 'Working out what changes…'
       tools.plan = markRaw(await planBase(files, await wantedSetup(everything), managed, base))
-    } else tools.plan = markRaw(await planSetup(files, await wantedSetup(everything), managed))
+    } else if (kind === tools.install?.kind)
+      tools.plan = markRaw(await planSetup(files, await wantedSetup(everything), managed))
+    else throw new Error(`Your library has nothing to put ${baseName(kind)} into the game from.`)
     if (everything) {
       const found = new Set(tools.gameSettings.map((d) => d.id))
       for (const id of Object.keys(tools.gameValues))
         if (!found.has(id))
           tools.plan.problems.push(
-            `Your setting “${settingName(id)}” is not in ${baseName(tools.base)}'s DefaultGameCore.ini; it is left out.`,
+            `Your setting “${settingName(id)}” is not in ${baseName(kind)}'s DefaultGameCore.ini; it is left out.`,
           )
     }
   } catch (e) {

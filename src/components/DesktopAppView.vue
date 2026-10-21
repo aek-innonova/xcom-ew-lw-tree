@@ -13,15 +13,15 @@ const shot = (name: string) => `${import.meta.env.BASE_URL}desktop/${name}.webp`
 const FEATURES: { title: string; text: string; shot: string; alt: string }[] = [
   {
     title: 'Long War or LWR into the game, and out again',
-    text: 'Drop the Long War installer and the LWR download in the app’s library folder: it puts either into the game from them, with your mods on top, or takes it back to plain Enemy Within. No mod manager, nothing run but the app; every file it changes is kept first.',
+    text: 'Drop the Long War installer and the LWR download in the app’s library folder: it puts either into the game from them, with your mods on top, or takes it back to plain Enemy Within. Each version keeps its own setup, so switching never drags Long War’s choices into LWR. No mod manager, nothing run but the app; every file it changes is kept first.',
     shot: 'versions',
-    alt: 'The version in the game: Long War 1.0 and LWR found in the library folder, Long War chosen',
+    alt: 'The version buttons: plain Enemy Within, Long War 1.0 (in the game) and LWR from the library folder',
   },
   {
     title: 'See what it will do before it does it',
-    text: 'Apply your setup and it says, step by step, what it reads and what will change, file by file. Nothing is written until you say so.',
+    text: 'Apply your setup and it says, step by step, what it reads and what will change, file by file, and plainly when it replaces the version in the game. Nothing is written until you say so.',
     shot: 'apply',
-    alt: 'The apply console: unpacking the downloads, then the files that will change for Long War 1.0',
+    alt: 'The apply console switching to LWR: unpacking the downloads, then that it replaces Long War 1.0, then the files',
   },
   {
     title: 'Game settings in plain terms',

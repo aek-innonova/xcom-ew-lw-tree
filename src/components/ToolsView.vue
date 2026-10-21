@@ -14,6 +14,7 @@ import {
   baseAvailable,
   baseName,
   checkKey,
+  gameKind,
   chooseGameFolder,
   findGameFolder,
   forgetGameFolder,
@@ -23,7 +24,6 @@ import {
   removeMod,
   setOption,
   adoptHandEdits,
-  setBase,
   setSetting,
   setWanted,
   setWantFiles,
@@ -33,7 +33,6 @@ import {
   type ModFile,
 } from '@/state/tools'
 import { BACKUP } from '@/state/setup'
-import type { BaseChoice } from '@/state/library'
 import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
 import { GROUPS, type FoundSetting } from '@/model/gamesettings'
@@ -229,16 +228,9 @@ function shownValue(d: FoundSetting, v: string): string {
   return name ? `${v}, ${name}` : describe(d.format ?? PLAIN, v)
 }
 
-/** What a change keeps first: the game's own, or a file the app did not recognise. */
-
-const BASE_CHOICES: { value: BaseChoice; needs: string }[] = [
-  { value: 'keep', needs: '' },
-  { value: 'ew', needs: 'Long War’s installer in your library, to know its files' },
-  { value: 'lw', needs: 'the Long War installer in your library' },
-  { value: 'lwr', needs: 'the Long War installer and the LWR download in your library' },
-]
-const baseLabel = (b: BaseChoice) =>
-  b === 'keep' ? 'Leave it as it is installed' : baseName(b).replace(/^./, (c) => c.toUpperCase())
+/** The version chosen is put in from the library; else the setup goes on top of the game as it is. */
+const putIn = computed(() => !!desktop?.bases && baseAvailable(gameKind()))
+const chosenName = computed(() => baseName(gameKind()).replace(/^./, (c) => c.toUpperCase()))
 
 const iniNote = computed(() =>
   tools.install?.ini && state.ini
@@ -310,10 +302,11 @@ const iniNote = computed(() =>
     </section>
 
     <section v-if="tools.install && desktop?.bases" class="block" aria-labelledby="base-h">
-      <h3 id="base-h">Version in the game</h3>
+      <h3 id="base-h">Long War and LWR downloads</h3>
       <p class="muted small">
-        The app can put Long War or LWR into the game itself, from their own downloads, and take
-        them out again. The version you choose is put in when you apply your setup, under your mods.
+        The app puts Long War or LWR into the game itself, from their own downloads in your library
+        folder, and takes them out again. Choose the version at the top: it goes in, under its own
+        setup, when you apply.
       </p>
       <ul v-if="tools.bases.length" class="files small">
         <li v-for="b in tools.bases" :key="b.id">
@@ -332,20 +325,6 @@ const iniNote = computed(() =>
       <p v-if="tools.library">
         <button type="button" @click="openLibrary">Open the library folder</button>
       </p>
-      <div class="choices" role="radiogroup" aria-label="Version in the game">
-        <label v-for="c in BASE_CHOICES" :key="c.value" :class="{ off: !baseAvailable(c.value) }">
-          <input
-            type="radio"
-            name="base"
-            :value="c.value"
-            :checked="tools.base === c.value"
-            :disabled="!baseAvailable(c.value) || !!tools.busy"
-            @change="setBase(c.value)"
-          />
-          {{ baseLabel(c.value) }}
-          <span v-if="!baseAvailable(c.value)" class="muted small"> · needs {{ c.needs }}</span>
-        </label>
-      </div>
     </section>
 
     <section class="block" aria-labelledby="mods-h">
@@ -353,8 +332,8 @@ const iniNote = computed(() =>
       <p v-if="tools.library" class="muted small">
         Your mods are in your library folder, <code>{{ tools.library }}</code
         >: each folder in its <code>Mods</code> is one mod, and so is a PatcherGUI script on its own
-        there. Copy mods in by hand or add them here; your choices are kept beside them in
-        <code>settings.json</code>. Tick what you want in the game, set the options, then apply your
+        there. Copy mods in by hand or add them here; your choices, each version its own, are kept
+        beside them in <code>settings.json</code>. Tick what you want in the game, set the options, then apply your
         setup below.
       </p>
       <p v-else class="error small">
@@ -471,7 +450,7 @@ const iniNote = computed(() =>
         Soldiers, rookies, the arc thrower, class colors and more, from the game's
         DefaultGameCore.ini. Each shows its value now; the ones you change are marked, with
         {{ tools.gameSettingsFrom }} beside them. Yours are written when you apply your setup, and
-        kept for the next install or version.
+        kept for the next install of this version.
       </p>
       <div v-if="tools.handEdits.length" class="hand" role="region" aria-label="Edits by hand">
         <p>
@@ -587,14 +566,14 @@ const iniNote = computed(() =>
 
     <section v-if="tools.install" class="block" aria-labelledby="apply-h">
       <h3 id="apply-h">Into the game</h3>
-      <p v-if="tools.base === 'keep'" class="muted small">
+      <p v-if="!putIn" class="muted small">
         Close the game first. The first time a file changes, its original is copied to
         <code>{{ BACKUP }}/</code> in the XComGame folder; your setup is always built from the
         originals, so taking a mod out takes it out of the game. After a reinstall, apply again: the
         new files become the originals.
       </p>
       <p v-else class="muted small">
-        Close the game first. Your setup is built on {{ baseName(tools.base) }}: its own files, and
+        Close the game first. Your setup is built on {{ baseName(gameKind()) }}: its own files, and
         the game's own where it has none. A file of the game's own is copied to
         <code>{{ BACKUP }}/</code> in the XComGame folder before it is first replaced, and a file
         the app does not recognise is kept there too, so going back is always possible.
@@ -604,9 +583,7 @@ const iniNote = computed(() =>
           >Your setup goes in with <strong>Apply my setup…</strong> at the top. Or:</span
         >
         <button type="button" :disabled="!!tools.busy" @click="makePlan(false)">
-          {{
-            tools.base === 'keep' ? 'Put the originals back…' : `${baseName(tools.base)}, no mods…`
-          }}
+          {{ chosenName }}, no mods…
         </button>
         <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
       </p>
@@ -615,16 +592,6 @@ const iniNote = computed(() =>
 </template>
 
 <style scoped>
-.choices {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 8px 0;
-  font-size: 13.5px;
-}
-.choices .off {
-  color: var(--muted);
-}
 .hand {
   border: 1px solid var(--accent);
   border-radius: 4px;

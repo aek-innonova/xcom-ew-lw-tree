@@ -8,7 +8,7 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import { EXE } from '@/state/baseplan'
-import { applyPlanNow, cancelPlan, tools } from '@/state/tools'
+import { applyPlanNow, baseName, cancelPlan, gameKind, tools } from '@/state/tools'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -46,6 +46,12 @@ function keptText(c: { keep?: { to: string }[] }): string {
 }
 
 const written = computed(() => !tools.plan && tools.log.length > 0)
+
+/** Said first when the plan puts another version in place of the one in the game. */
+const replaces = computed(() => {
+  const now = tools.install?.kind
+  return now && now !== gameKind() ? { from: baseName(now), to: baseName(gameKind()) } : null
+})
 
 const panel = ref<HTMLElement | null>(null)
 // Keyboard focus to the console when there is something to do or read.
@@ -88,6 +94,10 @@ function close() {
         >.
       </p>
       <template v-else>
+        <p v-if="replaces" class="result switch">
+          This replaces {{ replaces.from }} in the game with {{ replaces.to }}, under its own
+          setup.
+        </p>
         <p class="result">
           These files will change<template v-if="tools.plan.base">
             for {{ tools.plan.base }} under your setup</template
@@ -171,6 +181,10 @@ function close() {
 .result {
   margin-top: 6px !important;
   font-size: 13.5px;
+}
+.switch {
+  color: var(--accent);
+  font-weight: 600;
 }
 .changes,
 .problems {

@@ -31,7 +31,8 @@ function env(extra: Record<string, string>) {
 let app: ElectronApplication | undefined
 test.afterEach(async () => app?.close())
 
-test('a version from the library: offered, planned, written, with what is unknown kept aside', async () => {
+/** LWR "installed" by hand, and a library with an unpacked LWR; the app started on them. */
+async function start(mods: Record<string, string> = {}) {
   const work = mkdtempSync(join(tmpdir(), 'lwtree-bases-'))
   const steam = join(work, 'XCom-Enemy-Unknown')
   const game = join(steam, 'XEW', 'XComGame')
@@ -41,6 +42,10 @@ test('a version from the library: offered, planned, written, with what is unknow
   writeFileSync(join(game, 'Config', 'DefaultGameCore.ini'), '[XComGame.XGTacticalGameCore]\r\n')
   // The library: an unpacked LWR, as its zip unpacks.
   const library = join(work, 'library')
+  for (const [name, text] of Object.entries(mods)) {
+    mkdirSync(join(library, 'Mods'), { recursive: true })
+    writeFileSync(join(library, 'Mods', name), text)
+  }
   const lwr = join(library, 'LW Rebalance v9.1.0')
   for (const [p, t] of Object.entries({
     'CookedPCConsole/LWRebalance.u': 'rebalance',
@@ -66,17 +71,31 @@ test('a version from the library: offered, planned, written, with what is unknow
   await page.evaluate(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
   await page.reload()
   await page.getByRole('button', { name: 'Tools' }).click()
+  return { page, game, library }
+}
 
-  const versions = page.getByRole('radiogroup', { name: 'Version in the game' })
-  await expect(page.getByText('Long War Rebalanced 9.1.0', { exact: true })).toBeVisible()
-  // LWR goes over Long War: without its installer, neither is on offer.
-  await expect(versions.getByRole('radio', { name: /Long War Rebalanced/ })).toBeDisabled()
-  await expect(versions.getByRole('radio', { name: /^Long War\b/ }).first()).toBeDisabled()
-  await versions.getByRole('radio', { name: 'Plain Enemy Within' }).check()
+test('a version from the library: offered, planned, written, with what is unknown kept aside', async () => {
+  const { page, game, library } = await start()
+
+  const versions = page.getByRole('group', { name: 'Version in the game' })
+  const downloads = page.locator('section[aria-labelledby="base-h"]')
+  await expect(downloads.getByText('Long War Rebalanced 9.1.0', { exact: true })).toBeVisible()
+  // LWR is in the game: its setup is the one shown. LWR goes over Long War:
+  // without Long War's installer, Long War cannot be put in.
+  await expect(versions.getByRole('button', { name: /^Long War Rebalanced/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(versions.getByRole('button', { name: /^Long War (?!Rebalanced)/ })).toBeDisabled()
+  await versions.getByRole('button', { name: /^Plain Enemy Within/ }).click()
   expect(JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).base).toBe('ew')
 
-  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  // Another version than the one in the game: said on the button and in the plan.
+  await page.getByRole('button', { name: 'Switch the game to Plain Enemy Within…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
+  await expect(plan).toContainText(
+    'This replaces Long War Rebalanced 9.1.0 in the game with plain Enemy Within',
+  )
   await expect(plan).toContainText('for plain Enemy Within under your setup')
   await expect(plan).toContainText('CookedPCConsole/LWRebalance.u removed')
   await expect(plan).toContainText('the file as it is now kept first in lwtree-backup/found-')
@@ -94,4 +113,46 @@ test('a version from the library: offered, planned, written, with what is unknow
   expect(readFileSync(join(game, 'Config', 'DefaultGameCore.ini'), 'utf8')).toBe(
     '[XComGame.XGTacticalGameCore]\r\n',
   )
+})
+
+test('each version keeps its own setup: mods ticked, saved setups', async () => {
+  const mod =
+    'MOD_NAME=Faster\nAUTHOR=lwtree tests\n\nUPK_FILE=XComGame.upk\nOBJECT=XGUnit.Test:AUTO\n[REPLACEMENT_CODE]\n0B 53\n'
+  const { page, library } = await start({ 'Faster.txt': mod })
+  const versions = page.getByRole('group', { name: 'Version in the game' })
+  const lwr = versions.getByRole('button', { name: /^Long War Rebalanced/ })
+  const ew = versions.getByRole('button', { name: /^Plain Enemy Within/ })
+  const tick = page.getByRole('checkbox', { name: 'Install Faster.txt' })
+  const bar = page.getByRole('region', { name: 'Your setup' })
+  const pick = bar.getByRole('combobox', { name: 'Your setup' })
+
+  // In LWR's setup (the version installed): ticked, and saved by name.
+  await expect(lwr).toHaveAttribute('aria-pressed', 'true')
+  await tick.check()
+  await pick.selectOption({ label: 'Save as a new setup…' })
+  await bar.getByLabel('Name for this setup').fill('Mine')
+  await bar.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(bar.getByText('in use')).toBeVisible()
+
+  // Plain Enemy Within has its own: nothing ticked, no saved setups.
+  await ew.click()
+  await expect(ew).toHaveAttribute('aria-pressed', 'true')
+  await expect(tick).not.toBeChecked()
+  await expect(pick.locator('option', { hasText: 'Mine' })).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Switch the game to Plain Enemy Within…' }),
+  ).toBeVisible()
+
+  // Back to LWR: its choices as they were.
+  await lwr.click()
+  await expect(tick).toBeChecked()
+  await expect(bar.getByText('in use')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Apply my setup…' })).toBeVisible()
+
+  const s = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8'))
+  expect(s.base).toBe('lwr')
+  expect(s.versions.lwr.mods['Faster.txt'].wanted).toEqual({ 'Faster.txt': true })
+  expect(Object.keys(s.versions.lwr.setups)).toEqual(['Mine'])
+  expect(s.versions.ew.mods['Faster.txt']?.wanted?.['Faster.txt']).toBeFalsy()
+  expect(s.versions.ew.setups).toEqual({})
 })

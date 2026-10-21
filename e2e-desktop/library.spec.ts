@@ -73,7 +73,9 @@ test('mods live in the library folder: added there, found there, choices beside 
   await expect
     .poll(() => {
       const p = join(library, 'settings.json')
-      return existsSync(p) && JSON.parse(readFileSync(p, 'utf8')).mods['Faster.txt']?.wanted
+      return (
+        existsSync(p) && JSON.parse(readFileSync(p, 'utf8')).versions.lw?.mods['Faster.txt']?.wanted
+      )
     })
     .toEqual({ 'Faster.txt': true })
 
@@ -87,7 +89,8 @@ test('mods live in the library folder: added there, found there, choices beside 
   await page.getByRole('button', { name: 'Remove Faster Things' }).click()
   await expect(page.getByRole('article', { name: 'Faster Things' })).toHaveCount(0)
   expect(existsSync(join(library, 'Mods', 'Faster.txt'))).toBe(false)
-  const s = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8'))
+  // Long War's setup: the version installed.
+  const s = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).versions.lw
   expect(s.mods['Faster.txt']).toBeUndefined()
   expect(s.order).toEqual(['Hand Copied'])
 })
@@ -162,7 +165,7 @@ test('mods kept in the app by 0.2 move into the library folder once', async () =
   expect(
     readFileSync(join(library, 'Mods', 'Old Folder', 'Config', 'DefaultThing.ini'), 'utf8'),
   ).toBe('[A]\nB=1')
-  const s = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8'))
+  const s = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).versions.lw
   expect(s.order).toEqual(['Old.txt', 'Old Folder'])
   expect(s.mods['Old.txt']).toEqual({
     values: { 'Old.txt': { SPEED: '3' } },

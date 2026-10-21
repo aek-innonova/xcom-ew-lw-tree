@@ -85,7 +85,8 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await hand.getByRole('button', { name: 'Keep them as my settings' }).click()
   await expect(hand).toHaveCount(0)
   // Kept for Long War, the version installed.
-  const settings = () => JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).game.lw
+  const settings = () =>
+    JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).versions.lw.game
   // The old combined value came back as its one changed half.
   expect(settings()).toEqual({ 'soldier.hp': '5', 'rookie.cost-will': '5' })
 
@@ -144,8 +145,8 @@ test('game settings: hand edits kept, then set in words and written', async () =
   const saveAs = async (name: string) => {
     await pick.selectOption({ label: 'Save as a new setup…' })
     const field = bar.getByLabel('Name for this setup')
-    // A name is offered: the version and what is set.
-    await expect(field).toHaveValue(/^Long War · .*settings?$/)
+    // A name is offered: what is set (the setups are the version's own).
+    await expect(field).toHaveValue(/^\d+ settings?$/)
     await field.fill(name)
     await bar.getByRole('button', { name: 'Save', exact: true }).click()
   }
@@ -168,9 +169,9 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await pick.selectOption('Sixty')
   await expect(start).toHaveValue('60')
   await expect(bar.getByText('in use')).toBeVisible()
-  const saved = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).setups
+  const saved = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).versions.lw.setups
   expect(Object.keys(saved).sort()).toEqual(['Seventy', 'Sixty'])
-  expect(saved.Seventy.game.lw['campaign.starting-soldiers']).toBe('70')
+  expect(saved.Seventy.game['campaign.starting-soldiers']).toBe('70')
 
   await page.getByRole('button', { name: 'Apply my setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
@@ -212,4 +213,54 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await expect(start).toHaveValue('60')
   await page.getByRole('button', { name: 'Apply my setup…' }).click()
   await expect(plan).toContainText('Nothing to change')
+})
+
+test('in LWR the class colours are LWR’s own: shown, not edited; headgear stays yours', async () => {
+  const work = mkdtempSync(join(tmpdir(), 'lwtree-gs-'))
+  const steam = join(work, 'XCom-Enemy-Unknown')
+  const game = join(steam, 'XEW', 'XComGame')
+  for (const d of ['CookedPCConsole', 'Config']) mkdirSync(join(game, d), { recursive: true })
+  writeFileSync(join(game, 'CookedPCConsole', 'LongWar.upk'), 'x')
+  writeFileSync(join(game, 'CookedPCConsole', 'LWRebalance.u'), 'x')
+  writeFileSync(
+    join(game, 'Config', 'DefaultGameCore.ini'),
+    [
+      '[XComGame.XGTacticalGameCore]',
+      'HQ_BASE_POWER = 32\t\t\t; Sniper Color',
+      'HQ_BASE_POWER = 3\t\t\t; Sniper Headgear',
+      'SOLDIER_COST_CLASSIC=1\t\t; (LWR Default = 1) Set to 1 to have the tint of armors change to hardcoded values on LCPL promotions, Set to 0 to use the SPEC armor tint changes defined in this dgc.ini only',
+      '',
+    ].join('\r\n'),
+  )
+  app = await electron.launch({
+    executablePath: electronBin,
+    args: [join(root, 'desktop'), `--game-dir=${steam}`],
+    env: env({
+      LWTREE_SITE: join(root, 'dist'),
+      LWTREE_USER_DATA: join(work, 'userdata'),
+      LWTREE_LIBRARY: join(work, 'library'),
+      LWTREE_CACHE: join(work, 'cache'),
+      LWTREE_SAVES: join(work, 'SaveData'),
+      LWTREE_UPDATE_URL: '',
+    }),
+  })
+  const page = await app.firstWindow()
+  await page.evaluate(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
+  await page.reload()
+  await page.getByRole('button', { name: 'Tools' }).click()
+
+  const looks = page.locator('details[aria-label="Class colors"]')
+  await expect(looks.getByRole('button', { name: 'Show Sniper on the soldier' })).toBeVisible()
+  await expect(looks).toContainText('LWR colours each class itself')
+  // LWR's Sniper colour (6), not the INI's, and nothing to edit it with.
+  await expect(looks.getByText('LWR’s own')).toBeVisible()
+  await expect(looks.getByLabel('Sniper color', { exact: true })).toHaveCount(0)
+  // A perk's colour on the soldier, on request.
+  const perk = looks.getByRole('button', { name: 'Show Sniper with In The Zone on the soldier' })
+  await perk.click()
+  await expect(perk).toHaveAttribute('aria-pressed', 'true')
+  // The option handing the colours back to the INI is not on the card.
+  await expect(looks.getByText('Armor colors on promotion to Lance Corporal')).toHaveCount(0)
+  // The headgear is still the player's.
+  await expect(looks.getByRole('spinbutton', { name: 'Sniper headgear' })).toBeEditable()
 })
