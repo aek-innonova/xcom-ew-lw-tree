@@ -187,6 +187,12 @@ Declared too: constants, enums, structs (with their
 functions and code), delegates and delegate-typed variables, functions
 declared without a body.
 
+What the source leaves out stays in the package (nothing is deleted), and a
+declaration the package has, changed in the source (a function's parameters,
+a variable's or a struct member's type, an enum's values, what a class
+extends), is refused with that said: only bodies and defaults change what is
+there.
+
 Not compiled yet: native functions and interfaces; a changed signature or
 variable type; new subobjects in the defaults; replication.
 

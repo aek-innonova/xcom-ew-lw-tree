@@ -11,6 +11,7 @@ import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex, lineAt } from './parse.ts'
 import {
+  parseClassHeader,
   parseConst,
   parseEnum,
   parseSignature,
@@ -241,6 +242,23 @@ export function classEdits(
   always: Set<string> = new Set(),
 ): ClassEdits {
   const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [] }
+  // The class's own declaration: what it extends and is within stay as the package has them.
+  const own = pkg.find(className)
+  const co = own ? linker.object({ pkg, ref: own }) : null
+  if (co?.kind === 'class') {
+    let head: ReturnType<typeof parseClassHeader> | null = null
+    try {
+      head = parseClassHeader(src)
+    } catch {
+      head = null
+    }
+    const parent = co.head.superStruct ? pkg.objectName(co.head.superStruct) : null
+    if (head && parent && head.parent.toLowerCase() !== parent.toLowerCase())
+      throw new Error(`${className} extends ${parent} in the package, not ${head.parent}; a changed class declaration is not compiled`)
+    const within = co.within ? pkg.objectName(co.within) : 'Object'
+    if (head?.within && head.within.toLowerCase() !== within.toLowerCase())
+      throw new Error(`${className} is within ${within} in the package, not ${head.within}; a changed class declaration is not compiled`)
+  }
   for (const p of splitClass(src)) {
     // Declarations the class may not have yet: known by name.
     if (p.kind === 'const' || p.kind === 'enum' || p.kind === 'struct' || p.kind === 'state') {
