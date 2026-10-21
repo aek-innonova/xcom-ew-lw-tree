@@ -7,7 +7,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
-      exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-desktop/**', 'desktop/**'],
+      // (upkit has its own tests and config: npx vitest run in upkit/.)
+      exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-desktop/**', 'desktop/**', 'upkit/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
     },
   }),
