@@ -6,7 +6,8 @@
 // Commands:
 //   info <package>                          the summary and what the package holds
 //   list <package> [filter]                 functions (and states) by path
-//   decompile <package> <Class.Function>    a function as UnrealScript
+//   decompile <package> <Class.Function>    a function as UnrealScript (a state: its code)
+//   class <package> <Class>                 a whole class as UnrealScript (for reading)
 //   compile <package> <Class.Function> <file.uc> (--out <new package> | --patch <mod.txt>)
 //                                           an edited function back into the package:
 //                                           a whole new package, or a PatchUPK mod script
@@ -19,6 +20,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname } from 'node:path'
 import { binaryOperators, FunctionCompiler } from './compile.ts'
+import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import { withScript } from './edit.ts'
 import { Linker } from './linker.ts'
@@ -86,7 +88,14 @@ switch (command) {
   }
   case 'decompile': {
     if (!rest[0]) usage()
-    process.stdout.write(new FunctionDecompiler(linker, pkg, functionRef(pkg, rest[0])).decompile())
+    const ref = functionRef(pkg, rest[0])
+    const d = new FunctionDecompiler(linker, pkg, ref)
+    process.stdout.write(pkg.className(ref) === 'State' ? d.decompileStateCode() : d.decompile())
+    break
+  }
+  case 'class': {
+    if (!rest[0]) usage()
+    process.stdout.write(decompileClass(linker, pkg, rest[0]))
     break
   }
   case 'compile': {

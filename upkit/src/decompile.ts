@@ -7,9 +7,9 @@
 // says explicitly what the original compiler did implicitly: casts are
 // written out, a skipped optional argument is an empty place.
 
-import { decodeScript, TOKENS, type NameValue, type Node, type Value } from './bytecode.ts'
+import { decodeScript, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
 import type { Linker, Located } from './linker.ts'
-import { readStructHead, type FunctionObj, type PropertyObj } from './objects.ts'
+import { readStructHead, type FunctionObj, type PropertyObj, type StateObj } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, FUNC, typeOf, typeText } from './types.ts'
 
@@ -90,7 +90,7 @@ type Stmt =
   | { k: 'continue' }
   | { k: 'goto'; target: number }
   | { k: 'ifgoto'; cond: Node; target: number }
-  | { k: 'label'; mem: number }
+  | { k: 'label'; mem: number; name?: string }
 
 interface Ctx {
   breakTo?: number
@@ -107,6 +107,8 @@ export class FunctionDecompiler {
   private gotos = new Set<number>()
   /** Jump targets that need a label: known after a first pass. */
   private labelled = new Set<number>()
+  /** State code's own labels (Begin:), by memory offset. */
+  private named = new Map<number, string>()
   private noneName: number
 
   constructor(linker: Linker, pkg: Package, ref: number) {
@@ -366,7 +368,8 @@ export class FunctionDecompiler {
     const hiMem = hi < S.length ? S[hi]!.mem : this.memEnd
     for (let i = lo; i < hi; ) {
       const s = S[i]!
-      if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
+      if (this.named.has(s.mem)) out.push({ k: 'label', mem: s.mem, name: this.named.get(s.mem) })
+      else if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
       // A loop that starts here and ends with a jump back (do … until).
       const back = this.backJump(i, hi)
       if (back >= 0 && S[back]!.op === 0x07 && s.op !== 0x07) {
@@ -559,7 +562,7 @@ export class FunctionDecompiler {
           out.push(`${pad}if (!(${this.ex(s.cond).text})) goto L${s.target};`)
           break
         case 'label':
-          out.push(`${'    '.repeat(Math.max(0, depth - 1))}L${s.mem}:`)
+          out.push(`${'    '.repeat(Math.max(0, depth - 1))}${s.name ?? `L${s.mem}`}:`)
           break
       }
     }
@@ -590,6 +593,41 @@ export class FunctionDecompiler {
   }
 
   // --- The function ------------------------------------------------------------
+
+  /**
+   * A state's code: its statements with its labels (Begin: …) where the label
+   * table puts them. The closing stop and the table are the compiler's.
+   */
+  decompileStateCode(): string {
+    const st = this.linker.object({ pkg: this.pkg, ref: this.ref }) as StateObj
+    const head = st.head
+    if (head.size <= 2) return ''
+    const code = this.pkg.data(this.ref).subarray(head.scriptAt, head.end)
+    const script = decodeScript(code, (n) => n.index === this.noneName)
+    let S = script.statements
+    const table = S.findIndex((x) => x.op === 0x0c)
+    this.named = new Map()
+    if (table >= 0) {
+      for (const l of S[table]!.args[0] as Label[]) if (l.name.index !== this.noneName) this.named.set(l.offset, this.pkg.name(l.name))
+      S = S.slice(0, table)
+    } else if (S.at(-1)?.op === 0x53) S = S.slice(0, -1)
+    let end = table >= 0 ? script.statements[table]!.mem : script.memSize
+    if (S.at(-1)?.op === 0x08) {
+      end = S.at(-1)!.mem
+      S = S.slice(0, -1)
+    }
+    this.statements = S
+    this.memEnd = end
+    this.byMem = new Map(S.map((x, i) => [x.mem, i]))
+    this.gotos = new Set()
+    this.labelled = new Set()
+    this.block(0, S.length, {})
+    this.labelled = new Set(this.gotos)
+    this.gotos = new Set()
+    const lines: string[] = []
+    this.lines(this.block(0, S.length, {}), 1, lines)
+    return lines.join('\n') + '\n'
+  }
 
   /** The function's UnrealScript: declaration and body. */
   decompile(): string {
