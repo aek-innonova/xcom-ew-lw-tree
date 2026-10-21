@@ -23,6 +23,7 @@ import { binaryOperators, FunctionCompiler } from './compile.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import { withScript } from './edit.ts'
+import { fidelity, fidelityNote } from './fidelity.ts'
 import { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
@@ -90,7 +91,13 @@ switch (command) {
     if (!rest[0]) usage()
     const ref = functionRef(pkg, rest[0])
     const d = new FunctionDecompiler(linker, pkg, ref)
-    process.stdout.write(pkg.className(ref) === 'State' ? d.decompileStateCode() : d.decompile())
+    if (pkg.className(ref) === 'State') {
+      process.stdout.write(d.decompileStateCode())
+      break
+    }
+    // Said first when the source does not compile back to the same bytes (a hand patch).
+    const text = d.decompile()
+    process.stdout.write(readStructHead(pkg, ref).size ? fidelityNote(fidelity(linker, pkg, ref, text)) + text : text)
     break
   }
   case 'class': {

@@ -143,6 +143,7 @@ export type Stmt =
   | { k: 'label'; name: string }
   | { k: 'assert'; e: Expr }
   | { k: 'stop' }
+  | { k: 'local'; type: string; names: { name: string; dim: number }[] }
 
 export interface FunctionSource {
   name: string
@@ -295,8 +296,32 @@ export class Parser {
       }
       switch (w) {
         case 'local': {
-          while (!this.eat(';')) this.i++
-          return null
+          // local Type Name[, Name …]; the type as written ("array<XGUnit>", "class<Actor>").
+          this.i++
+          let type = this.id()
+          if (this.is('<')) {
+            let d = 0
+            do {
+              if (this.is('<')) d++
+              if (this.is('>')) d--
+              type += this.t.v
+              this.i++
+            } while (d > 0)
+          }
+          const names: { name: string; dim: number }[] = []
+          for (;;) {
+            const name = this.id()
+            let dim = 1
+            if (this.eat('[')) {
+              dim = Number(this.t.v)
+              this.i++
+              this.want(']')
+            }
+            names.push({ name, dim })
+            if (!this.eat(',')) break
+          }
+          this.want(';')
+          return { k: 'local', type, names }
         }
         case 'if': {
           this.i++

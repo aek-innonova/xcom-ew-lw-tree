@@ -11,7 +11,7 @@ import { decodeScript, TOKENS, type Label, type NameValue, type Node, type Value
 import type { Linker, Located } from './linker.ts'
 import { readStructHead, type FunctionObj, type PropertyObj, type StateObj } from './objects.ts'
 import type { Package } from './package.ts'
-import { CPF, FUNC, typeOf, typeText } from './types.ts'
+import { CPF, FUNC, typeOf, typeText, type Ty } from './types.ts'
 
 /** PrimitiveCast's codes (ECastToken): the type cast to, by code. */
 export const CASTS: Record<number, string> = {
@@ -107,6 +107,8 @@ export class FunctionDecompiler {
   private gotos = new Set<number>()
   /** Jump targets that need a label: known after a first pass. */
   private labelled = new Set<number>()
+  /** While a member is printed: the class of the object it is called on. */
+  private objClass: Located | null = null
   /** State code's own labels (Begin:), by memory offset. */
   private named = new Map<number, string>()
   private noneName: number
@@ -134,10 +136,158 @@ export class FunctionDecompiler {
     return o?.kind === 'function' ? { ...at, fn: o } : null
   }
 
-  private args(ps: Node[]): string {
-    const out = ps.map((p) => (p.op === 0x4a ? '' : this.ex(p).text))
+  private args(ps: Node[], enums: (Located | null)[] = []): string {
+    const out = ps.map((p, i) => (p.op === 0x4a ? '' : this.exHint(p, enums[i] ?? null).text))
     while (out.length && out[out.length - 1] === '') out.pop()
     return out.join(', ')
+  }
+
+  /** A property's type (followed through the linker). */
+  private propType(ref: number, pkg = this.pkg): Ty | null {
+    const at = this.linker.resolve(pkg, ref)
+    const p = at && this.linker.object(at)
+    return p && p.kind === 'property' ? typeOf(this.linker, at!, p) : null
+  }
+  /** The class this function's code runs in. */
+  private ownClass(): Located {
+    let outer = this.pkg.outerOf(this.ref)
+    if (this.pkg.className(outer) === 'State') outer = this.pkg.outerOf(outer)
+    return { pkg: this.pkg, ref: outer }
+  }
+  /** What a call reaches: the function object, where it can be known. */
+  private callee(n: Node, objClass?: Located | null): (Located & { fn: FunctionObj }) | null {
+    if (n.native !== undefined) return this.linker.native(n.native)
+    if (n.op === 0x1c) return this.fnAt(n.args[0] as number)
+    if (n.op === 0x1b) return this.virtualAt(n.args[0] as NameValue, objClass ?? this.ownClass())
+    return null
+  }
+  /** An expression's type, where the declarations say (variables, members, calls, casts). */
+  private typeNode(n: Node, objClass?: Located | null): Ty | null {
+    switch (n.op) {
+      case 0x00:
+      case 0x01:
+      case 0x02:
+      case 0x03:
+      case 0x48:
+        return this.propType(n.args[0] as number)
+      case 0x2d:
+        return this.typeNode(n.args[0] as Node, objClass)
+      case 0x19:
+      case 0x12: {
+        const o = this.typeNode(n.args[0] as Node)
+        const cls = o && (o.k === 'object' || o.k === 'interface' || o.k === 'component') ? o.cls : o?.k === 'class' ? o.meta : null
+        return this.typeNode(n.args[4] as Node, cls)
+      }
+      case 0x35:
+        return this.propType(n.args[0] as number)
+      case 0x10:
+      case 0x1a: {
+        const t = this.typeNode(n.args[1] as Node)
+        return t?.k === 'array' ? t.inner : t
+      }
+      case 0x2e: {
+        const at = this.linker.resolve(this.pkg, n.args[0] as number)
+        return { k: 'object', cls: at }
+      }
+      case 0x17:
+        return { k: 'object', cls: this.ownClass() }
+      case 0x38:
+        return n.args[0] === 0x3a ? this.typeNode(n.args[1] as Node) : null
+    }
+    const f = this.callee(n, objClass)
+    return f ? this.returnType(f) : null
+  }
+  private enumOf(n: Node): Located | null {
+    const t = this.typeNode(n)
+    return t?.k === 'byte' ? t.enumOf : null
+  }
+  private returnType(f: Located & { fn: FunctionObj }): Ty | null {
+    for (let c = f.fn.head.children; c; ) {
+      const p = this.linker.object({ pkg: f.pkg, ref: c })
+      if (!p || p.kind !== 'property') return null
+      if (p.flags & CPF.ReturnParm) return typeOf(this.linker, { pkg: f.pkg, ref: c }, p)
+      c = p.next
+    }
+    return null
+  }
+  /** A function's parameters' enums, in order (null where a parameter is not an enum). */
+  private paramEnums(f: (Located & { fn: FunctionObj }) | null): (Located | null)[] {
+    if (!f) return []
+    const out: (Located | null)[] = []
+    for (let c = f.fn.head.children; c; ) {
+      const p = this.linker.object({ pkg: f.pkg, ref: c })
+      if (!p || p.kind !== 'property') break
+      if (p.flags & CPF.Parm && !(p.flags & CPF.ReturnParm)) {
+        const t = typeOf(this.linker, { pkg: f.pkg, ref: c }, p)
+        out.push(t.k === 'byte' ? t.enumOf : null)
+      }
+      c = p.next
+    }
+    return out
+  }
+  private returnEnum(f: Located & { fn: FunctionObj }): Located | null {
+    const t = this.returnType(f)
+    return t?.k === 'byte' ? t.enumOf : null
+  }
+  /** A function called by name in a class (its own or a parent's). */
+  private virtualAt(name: NameValue, cls: Located): (Located & { fn: FunctionObj }) | null {
+    const want = this.pkg.name(name).toLowerCase()
+    for (let s: Located | null = cls; s; ) {
+      const o = this.linker.object(s)
+      if (!o || !('head' in o)) return null
+      for (let c = o.head.children; c; ) {
+        const fo = this.linker.object({ pkg: s.pkg, ref: c })
+        if (!fo) break
+        if (fo.kind === 'function' && s.pkg.objectName(c).toLowerCase() === want) return { pkg: s.pkg, ref: c, fn: fo }
+        c = 'head' in fo ? fo.head.next : fo.next
+      }
+      s = o.head.superStruct ? this.linker.resolve(s.pkg, o.head.superStruct) : null
+    }
+    return null
+  }
+  private nameReadsBack(name: string, value: number): boolean {
+    const v = this.linker.enumValues(this.pkg).get(name.toLowerCase())
+    if (!v || v.index !== value) return false
+    // A local, a parameter or a member of that name would be read instead.
+    const fo = this.linker.object({ pkg: this.pkg, ref: this.ref })
+    if (fo && 'head' in fo)
+      for (let c = fo.head.children; c; ) {
+        const p = this.linker.object({ pkg: this.pkg, ref: c })
+        if (!p || p.kind !== 'property') break
+        if (this.pkg.objectName(c).toLowerCase() === name.toLowerCase()) return false
+        c = p.next
+      }
+    return !this.memberNamed(this.ownClass(), name)
+  }
+  private memberNamed(cls: Located, name: string): boolean {
+    const want = name.toLowerCase()
+    for (let s: Located | null = cls; s; ) {
+      const o = this.linker.object(s)
+      if (!o || !('head' in o)) return false
+      for (let c = o.head.children; c; ) {
+        const fo = this.linker.object({ pkg: s.pkg, ref: c })
+        if (!fo) break
+        if ((fo.kind === 'property' || fo.kind === 'function') && s.pkg.objectName(c).toLowerCase() === want) return true
+        c = 'head' in fo ? fo.head.next : fo.next
+      }
+      s = o.head.superStruct ? this.linker.resolve(s.pkg, o.head.superStruct) : null
+    }
+    return false
+  }
+
+  /** An expression where a value of an enum is expected: a byte constant as the enum's value name. */
+  private exHint(n: Node, e: Located | null): Ex {
+    if (e) {
+      if (n.op === 0x24) {
+        const o = this.linker.object(e)
+        const name = o?.kind === 'enum' ? o.names[n.args[0] as number] : undefined
+        // Only a name that reads back as this value: not another enum's, not a variable's.
+        if (name && this.nameReadsBack(name, n.args[0] as number)) return atom(name)
+      }
+      if (n.op === 0x38 && n.args[0] === 0x3a && (n.args[1] as Node).op === 0x24)
+        return atom(`int(${this.exHint(n.args[1] as Node, e).text})`)
+    }
+    return this.ex(n)
   }
 
   /** An expression, with its binding for parentheses. */
@@ -164,7 +314,7 @@ export class FunctionDecompiler {
       case 0x0f:
       case 0x14:
       case 0x44:
-        return { text: `${this.ex(a[0] as Node).text} = ${this.ex(a[1] as Node).text}`, prec: 100 }
+        return { text: `${this.ex(a[0] as Node).text} = ${this.exHint(a[1] as Node, this.enumOf(a[0] as Node)).text}`, prec: 100 }
       case 0x10:
       case 0x1a:
         return atom(`${this.paren(a[1] as Node, 0)}[${this.ex(a[0] as Node).text}]`)
@@ -186,7 +336,12 @@ export class FunctionDecompiler {
         const m = a[4] as Node
         if ([0x1d, 0x2c, 0x25, 0x26, 0x24, 0x1e, 0x27, 0x28, 0x1f, 0x21, 0x2a].includes(m.op))
           return atom(`${this.paren(a[0] as Node, 0)}.(${this.ex(m).text})`)
-        return atom(`${this.paren(a[0] as Node, 0)}.${this.ex(m).text}`)
+        const o = this.typeNode(a[0] as Node)
+        const saved = this.objClass
+        this.objClass = o && (o.k === 'object' || o.k === 'interface' || o.k === 'component') ? o.cls : o?.k === 'class' ? o.meta : null
+        const memberText = this.ex(m).text
+        this.objClass = saved
+        return atom(`${this.paren(a[0] as Node, 0)}.${memberText}`)
       }
       case 0x13:
         return atom(`class<${this.obj(a[0] as number)}>(${this.ex(a[1] as Node).text})`)
@@ -206,11 +361,11 @@ export class FunctionDecompiler {
       case 0x17:
         return atom('self')
       case 0x1b:
-        return atom(`${this.nm(a[0] as NameValue)}(${this.args(a[1] as Node[])})`)
+        return atom(`${this.nm(a[0] as NameValue)}(${this.args(a[1] as Node[], this.paramEnums(this.callee(n, this.objClass)))})`)
       case 0x37:
         return atom(`global.${this.nm(a[0] as NameValue)}(${this.args(a[1] as Node[])})`)
       case 0x1c:
-        return atom(`${this.finalName(a[0] as number)}(${this.args(a[1] as Node[])})`)
+        return atom(`${this.finalName(a[0] as number)}(${this.args(a[1] as Node[], this.paramEnums(this.callee(n)))})`)
       // A delegate called: through its variable (the name is the delegate's signature).
       case 0x42:
         return atom(`${a[1] ? this.obj(a[1] as number) : this.nm(a[2] as NameValue)}(${this.args(a[3] as Node[])})`)
@@ -311,6 +466,10 @@ export class FunctionDecompiler {
     return atom(`__${TOKENS[n.op]?.name ?? n.op}`)
   }
 
+  private parenHint(n: Node, max: number, e: Located | null): string {
+    const x = this.exHint(n, e)
+    return x.prec > max || (max === 0 && x.prec > 0) ? `(${x.text})` : x.text
+  }
   /** A child in parentheses when it binds looser than its place allows. */
   private paren(n: Node, max: number): string {
     const e = this.ex(n)
@@ -349,11 +508,11 @@ export class FunctionDecompiler {
       const word = /^[A-Za-z]/.test(name)
       // Left-associative: the right side needs parentheses at the same binding.
       return {
-        text: `${this.paren(ps[0]!, prec)}${word ? ` ${name} ` : ` ${name} `}${this.paren(ps[1]!, prec - 1)}`,
+        text: `${this.parenHint(ps[0]!, prec, this.enumOf(ps[1]!))}${word ? ` ${name} ` : ` ${name} `}${this.parenHint(ps[1]!, prec - 1, this.enumOf(ps[0]!))}`,
         prec,
       }
     }
-    return atom(`${name}(${this.args(ps)})`)
+    return atom(`${name}(${this.args(ps, this.paramEnums(f))})`)
   }
 
   // --- Statements --------------------------------------------------------------
@@ -543,8 +702,9 @@ export class FunctionDecompiler {
           break
         case 'switch':
           out.push(`${pad}switch (${this.ex(s.node.args[2] as Node).text})`, `${pad}{`)
+          const swEnum = this.enumOf(s.node.args[2] as Node)
           for (const c of s.cases) {
-            out.push(c.value ? `${pad}    case ${this.ex(c.value).text}:` : `${pad}    default:`)
+            out.push(c.value ? `${pad}    case ${this.exHint(c.value, swEnum).text}:` : `${pad}    default:`)
             this.lines(c.body, depth + 2, out)
           }
           out.push(`${pad}}`)
@@ -568,11 +728,16 @@ export class FunctionDecompiler {
     }
   }
 
+  private ownReturnEnum(): Located | null {
+    const fo = this.linker.object({ pkg: this.pkg, ref: this.ref })
+    return fo?.kind === 'function' ? this.returnEnum({ pkg: this.pkg, ref: this.ref, fn: fo }) : null
+  }
+
   private stmtText(n: Node): string {
     switch (n.op) {
       case 0x04: {
         const v = n.args[0] as Node
-        return v.op === 0x0b || v.op === 0x3a ? 'return;' : `return ${this.ex(v).text};`
+        return v.op === 0x0b || v.op === 0x3a ? 'return;' : `return ${this.exHint(v, this.ownReturnEnum()).text};`
       }
       case 0x0b:
         return ';'

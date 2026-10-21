@@ -72,6 +72,29 @@ export class Linker {
     return m.get(at.ref)!
   }
 
+  /**
+   * Enum values by name, as a package sees them: its own enums, then the ones it
+   * imports; the first enum with a name wins (what the compiler resolves).
+   */
+  private enumMaps = new WeakMap<Package, Map<string, { at: Located; index: number }>>()
+  enumValues(pkg: Package): Map<string, { at: Located; index: number }> {
+    let values = this.enumMaps.get(pkg)
+    if (!values) {
+      values = new Map()
+      const add = (at: Located | null) => {
+        const o = at && this.object(at)
+        if (!o || o.kind !== 'enum') return
+        o.names.forEach((n, i) => {
+          if (!values!.has(n.toLowerCase())) values!.set(n.toLowerCase(), { at: at!, index: i })
+        })
+      }
+      for (let i = 1; i <= pkg.exports.length; i++) if (pkg.className(i) === 'Enum') add({ pkg, ref: i })
+      for (let i = 1; i <= pkg.imports.length; i++) if (pkg.className(-i) === 'Enum') add(this.resolve(pkg, -i))
+      this.enumMaps.set(pkg, values)
+    }
+    return values
+  }
+
   /** The native function with an index, from the packages that define natives. */
   native(index: number): (Located & { fn: FunctionObj }) | null {
     if (!this.natives) {

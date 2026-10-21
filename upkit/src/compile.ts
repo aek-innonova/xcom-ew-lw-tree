@@ -188,6 +188,11 @@ export class FunctionCompiler {
     if (ref === undefined) return null
     return ref > 0 ? { pkg: this.pkg, ref } : (this.linker.resolve(this.pkg, ref) ?? { pkg: this.pkg, ref })
   }
+  /** An enum value by name, from the enums this package has or imports. */
+  private enumValue(name: string): { at: Located; index: number } | null {
+    return this.linker.enumValues(this.pkg).get(name.toLowerCase()) ?? null
+  }
+
   private propTy(at: Located): { p: PropertyObj; ty: Ty } {
     const p = this.obj(at) as PropertyObj
     return { p, ty: typeOf(this.linker, at, p) }
@@ -343,6 +348,9 @@ export class FunctionCompiler {
       case 'id': {
         const v = this.variable(e.name)
         if (v) return v
+        // An enum's value by its name: a byte constant.
+        const ev = this.enumValue(e.name)
+        if (ev) return { node: N(0x24, ev.index), ty: { k: 'byte', enumOf: ev.at } }
         // A function's name as a value: a delegate to it. A declared delegate is
         // its hidden property (__Name__Delegate); any other function, by name.
         const f = this.findFunction(e.name)

@@ -6,7 +6,8 @@
 import { Reader } from './bytes.ts'
 import { floatText, FunctionDecompiler, stringText } from './decompile.ts'
 import type { Linker, Located } from './linker.ts'
-import { readTags, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
+import { fidelity, fidelityNote } from './fidelity.ts'
+import { readStructHead, readTags, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, typeOf, typeText, type Ty } from './types.ts'
 
@@ -74,10 +75,13 @@ export class ClassDecompiler {
   readonly linker: Linker
   readonly pkg: Package
   readonly ref: number
-  constructor(linker: Linker, pkg: Package, ref: number) {
+  /** Whether each function is compiled back and a difference noted (slower). */
+  checked: boolean
+  constructor(linker: Linker, pkg: Package, ref: number, checked = true) {
     this.linker = linker
     this.pkg = pkg
     this.ref = ref
+    this.checked = checked
   }
 
   private obj(ref: number): string {
@@ -159,8 +163,9 @@ export class ClassDecompiler {
 
   private functionText(ref: number, indent = ''): string {
     try {
-      return new FunctionDecompiler(this.linker, this.pkg, ref)
-        .decompile()
+      const text = new FunctionDecompiler(this.linker, this.pkg, ref).decompile()
+      const note = this.checked && readStructHead(this.pkg, ref).size ? fidelityNote(fidelity(this.linker, this.pkg, ref, text)) : ''
+      return (note + text)
         .split('\n')
         .map((l) => (l ? indent + l : l))
         .join('\n')
