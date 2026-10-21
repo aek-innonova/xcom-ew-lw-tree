@@ -7,7 +7,7 @@
 // says explicitly what the original compiler did implicitly: casts are
 // written out, a skipped optional argument is an empty place.
 
-import { decodeScript, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
+import { decodeScript, memSizeOf, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
 import type { Linker, Located } from './linker.ts'
 import { readStructHead, type FunctionObj, type PropertyObj, type StateObj } from './objects.ts'
 import type { Package } from './package.ts'
@@ -248,16 +248,19 @@ export class FunctionDecompiler {
   private nameReadsBack(name: string, value: number): boolean {
     const v = this.linker.enumValues(this.pkg).get(name.toLowerCase())
     if (!v || v.index !== value) return false
-    // A local, a parameter or a member of that name would be read instead.
+    return !this.shadowed(name)
+  }
+  /** Whether a local, a parameter or a member of the class has this name (and would be read for it). */
+  private shadowed(name: string): boolean {
     const fo = this.linker.object({ pkg: this.pkg, ref: this.ref })
     if (fo && 'head' in fo)
       for (let c = fo.head.children; c; ) {
         const p = this.linker.object({ pkg: this.pkg, ref: c })
         if (!p || p.kind !== 'property') break
-        if (this.pkg.objectName(c).toLowerCase() === name.toLowerCase()) return false
+        if (this.pkg.objectName(c).toLowerCase() === name.toLowerCase()) return true
         c = p.next
       }
-    return !this.memberNamed(this.ownClass(), name)
+    return this.memberNamed(this.ownClass(), name)
   }
   private memberNamed(cls: Located, name: string): boolean {
     const want = name.toLowerCase()
@@ -342,6 +345,12 @@ export class FunctionDecompiler {
         this.objClass = o && (o.k === 'object' || o.k === 'interface' || o.k === 'component') ? o.cls : o?.k === 'class' ? o.meta : null
         const memberText = this.ex(m).text
         this.objClass = saved
+        // The within class's member named without "Outer.": the compiler's own context, skip 9.
+        const base = a[0] as Node
+        if (base.op === 0x01 && a[1] === 9 && memSizeOf(m) !== 9 && this.pkg.objectName(base.args[0] as number) === 'Outer') {
+          const name = /^[A-Za-z_]\w*/.exec(memberText)?.[0]
+          if (name && !this.shadowed(name)) return atom(memberText)
+        }
         return atom(`${this.paren(a[0] as Node, 0)}.${memberText}`)
       }
       case 0x13:

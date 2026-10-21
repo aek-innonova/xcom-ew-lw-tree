@@ -27,6 +27,8 @@ interface Label {
   mem: number
 }
 const label = (): Label => ({ label: true, mem: -1 })
+/** A Context: one the compiler wrote itself (a within class's Outer), or an iterator's. */
+type Ctx = Node & { implicit?: boolean; loopEnd?: Label }
 
 const PRIMS: Record<string, Ty> = {
   int: { k: 'int' },
@@ -337,6 +339,20 @@ export class FunctionCompiler {
     }
     return null
   }
+  /**
+   * A name of the within class's, used without "Outer.": the compiler adds the
+   * context itself, and stores 9 for its skip whatever the member's size.
+   */
+  private throughOuter(name: string, kind: 'property' | 'function', as: () => Expr, lvalue = false): Gen | null {
+    const w = this.withinType()
+    if (w?.k !== 'object' || !w.cls || !this.member(w.cls, name, kind)) return null
+    const g = this.gen(as(), undefined, lvalue)
+    if (g.node.op !== 0x19) return null
+    const node = { ...g.node, args: [...g.node.args] } as Ctx
+    node.args[1] = 9
+    node.implicit = true
+    return { node, ty: g.ty }
+  }
   private withinType(): Ty | null {
     return this.withinOf(this.cls)
   }
@@ -410,6 +426,8 @@ export class FunctionCompiler {
           // (Any other function's name as a value: DelegateProperty without a property.)
           return { node: N(0x43, this.nameRef(e.name), hidden ? this.refOf(hidden) : 0), ty: { k: 'delegate', fn: f } }
         }
+        const w = this.throughOuter(e.name, 'property', () => ({ k: 'member', obj: { k: 'id', name: 'Outer' }, name: e.name }), lvalue)
+        if (w) return w
         throw new CompileError(`unknown name ${e.name}`)
       }
       case 'default': {
@@ -645,6 +663,12 @@ export class FunctionCompiler {
         }
         return this.callNode(f, args)
       }
+      const w = this.throughOuter(fn.name, 'function', () => ({
+        k: 'call',
+        fn: { k: 'member', obj: { k: 'id', name: 'Outer' }, name: fn.name },
+        args,
+      }))
+      if (w) return w
       throw new CompileError(`no function ${fn.name}`)
     }
     if (fn.k === 'super') {
@@ -1022,7 +1046,11 @@ export class FunctionCompiler {
         const idx = e.args[1] ? this.gen(e.args[1], undefined, true).node : N(0x4a)
         return N(0x58, this.unwrapBool(arr.node), this.unwrapBool(item.node), e.args[1] ? 1 : 0, idx, pop as unknown as Value)
       }
-      return N(0x2f, this.gen(e).node, pop as unknown as Value)
+      const call = this.gen(e).node
+      // Through a context, the compiler stores as its skip the distance to the loop's
+      // end (+1), not the call's size; the implicit Outer's stays 9.
+      if (call.op === 0x19 && !(call as Ctx).implicit) (call as Ctx).loopEnd = pop
+      return N(0x2f, call, pop as unknown as Value)
     }
     throw new CompileError('foreach needs an iterator call')
   }
@@ -1197,14 +1225,21 @@ export class FunctionCompiler {
   /** Places the labels: each takes the memory offset of what follows it. */
   private layout(): Node[] {
     const nodes: Node[] = []
+    const at: number[] = []
     let mem = 0
     for (const x of this.out) {
       if ('label' in x) x.mem = mem
       else {
         nodes.push(x)
+        at.push(mem)
         mem += memSizeOf(x)
       }
     }
+    nodes.forEach((n, i) => {
+      const c = n.op === 0x2f ? (n.args[0] as Ctx) : null
+      // Iterator, Context, base, skip (2), property (8), size (1), then the call.
+      if (c?.loopEnd) c.args[1] = c.loopEnd.mem - (at[i]! + 2 + memSizeOf(c.args[0] as Node) + 11) + 1
+    })
     for (const [name, l] of this.labels) if (l.mem < 0) throw new CompileError(`no label ${name}`)
     const fix = (n: Node) => {
       n.args = n.args.map((a) => {
