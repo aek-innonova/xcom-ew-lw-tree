@@ -8,12 +8,25 @@ import { FunctionDecompiler } from './decompile.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex } from './parse.ts'
-import { parseSignature, parseVar, type FunctionDecl, type VarDecl } from './declare.ts'
+import {
+  parseConst,
+  parseEnum,
+  parseSignature,
+  parseState,
+  parseStruct,
+  parseVar,
+  type ConstDecl,
+  type EnumDecl,
+  type FunctionDecl,
+  type StateDecl,
+  type StructDecl,
+  type VarDecl,
+} from './declare.ts'
 
 export interface ClassPart {
   /** "Function" in the class, "State.Function" in a state, or "State" for a state's code. */
   path: string
-  kind: 'function' | 'state code' | 'var'
+  kind: 'function' | 'state code' | 'var' | 'const' | 'enum' | 'struct' | 'state'
   text: string
 }
 
@@ -98,6 +111,8 @@ export function splitClass(src: string): ClassPart[] {
           let k = j + 2
           while (at(k).v !== '{' && at(k).t !== 'eof') k++
           const end = skipBlock(k)
+          // The state itself (its header), then its functions and code.
+          parts.push({ path: name, kind: 'state', text: text(i, k) })
           members(k + 1, end - 1, name)
           i = end
           continue
@@ -108,9 +123,23 @@ export function splitClass(src: string): ClassPart[] {
           while (at(i).v !== ';' && at(i).t !== 'eof') i++
           i++
           if (isWord(from, 'var')) parts.push({ path: '', kind: 'var', text: text(from, i) })
+          else parts.push({ path: at(from + 1).v, kind: 'const', text: text(from, i) })
           continue
         }
-        // Anything else with a block (struct, enum, replication, cpptext): skipped whole.
+        // An enum or a struct: its block, and the semicolon after it.
+        if (isWord(i, 'enum') || isWord(i, 'struct')) {
+          const from = i
+          while (at(i).v !== '{' && at(i).t !== 'eof') i++
+          // (struct [native] Name [extends Other]: the name is the word before the block or "extends".)
+          let n = i - 1
+          if (isWord(n - 1, 'extends')) n -= 2
+          const name = at(n).v
+          i = skipBlock(i)
+          if (at(i).v === ';') i++
+          parts.push({ path: name, kind: isWord(from, 'enum') ? 'enum' : 'struct', text: text(from, i) })
+          continue
+        }
+        // Anything else with a block (replication, cpptext): skipped whole.
         if (t.v === '{' && t.t === 'op') {
           i = skipBlock(i)
           continue
@@ -145,13 +174,26 @@ export interface ClassEdits {
   changes: (Change & { path: string })[]
   /** Member variables the class does not have. */
   vars: VarDecl[]
-  /** Functions the class (or a state of it) does not have, with their source. */
+  /** Functions the class (or a state of it) does not have, with their source (delegates among them). */
   functions: (FunctionDecl & { path: string; text: string })[]
+  consts: ConstDecl[]
+  enums: EnumDecl[]
+  structs: StructDecl[]
+  states: StateDecl[]
 }
 
 export function classEdits(linker: Linker, pkg: Package, className: string, src: string): ClassEdits {
-  const out: ClassEdits = { changes: [], vars: [], functions: [] }
+  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [] }
   for (const p of splitClass(src)) {
+    // Declarations the class may not have yet: known by name.
+    if (p.kind === 'const' || p.kind === 'enum' || p.kind === 'struct' || p.kind === 'state') {
+      if (pkg.find(`${className}.${p.path}`)) continue
+      if (p.kind === 'const') out.consts.push(parseConst(p.text))
+      else if (p.kind === 'enum') out.enums.push(parseEnum(p.text))
+      else if (p.kind === 'struct') out.structs.push(parseStruct(p.text))
+      else out.states.push(parseState(p.text))
+      continue
+    }
     if (p.kind === 'var') {
       // (A declaration upkit does not declare, a delegate's, is fine when the class has it.)
       const last = /(\w+)\s*(?:\[[^\]]*\])?\s*;\s*$/.exec(p.text)?.[1]
@@ -169,6 +211,8 @@ export function classEdits(linker: Linker, pkg: Package, className: string, src:
       out.functions.push({ ...parseSignature(p.text, dot > 0 ? p.path.slice(0, dot) : null), path, text: p.text })
       continue
     }
+    // (The code of a state not declared yet: compiled once it is.)
+    if (!ref && p.kind === 'state code') continue
     if (!ref || (p.kind === 'function' ? kind !== 'Function' : kind !== 'State'))
       throw new Error(`${path} is not in the package (new states are not compiled yet)`)
     const d = new FunctionDecompiler(linker, pkg, ref)
@@ -186,7 +230,11 @@ export function classEdits(linker: Linker, pkg: Package, className: string, src:
 /** What was edited in a class's source (new declarations are an error here: see classEdits). */
 export function classChanges(linker: Linker, pkg: Package, className: string, src: string): (Change & { path: string })[] {
   const e = classEdits(linker, pkg, className, src)
-  const fresh = [...e.vars.flatMap((v) => v.names.map((n) => n.name)), ...e.functions.map((f) => f.path)]
+  const fresh = [
+    ...e.vars.flatMap((v) => v.names.map((n) => n.name)),
+    ...e.functions.map((f) => f.path),
+    ...[...e.consts, ...e.enums, ...e.structs, ...e.states].map((x) => x.name),
+  ]
   if (fresh.length) throw new Error(`new declarations (${fresh.join(', ')}) need a whole package (--out)`)
   return e.changes
 }

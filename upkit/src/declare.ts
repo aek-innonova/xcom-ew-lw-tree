@@ -168,7 +168,8 @@ export function parseSignature(text: string, state: string | null): FunctionDecl
     if (t[i]?.v === '(') while (t[i] && t[i++]!.v !== ')');
   }
   const keyword = (t[i++]?.v ?? '').toLowerCase()
-  if (keyword !== 'function' && keyword !== 'event') throw new DeclareError(`a new ${keyword || 'declaration'} is not declared yet (functions and events are)`)
+  if (keyword !== 'function' && keyword !== 'event' && keyword !== 'delegate')
+    throw new DeclareError(`a new ${keyword || 'declaration'} is not declared yet (functions, events and delegates are)`)
   // The name is the word before the parameter list; any words between are the return type.
   let open = i
   while (open < t.length && t[open]!.v !== '(') open++
@@ -308,7 +309,8 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
     const fnAt = exports.length
     exports.push(null as never)
     const parms: number[] = []
-    let flags = FUNC.Defined
+    // A delegate has no body of its own (the bare return it is written with).
+    let flags = f.keyword === 'delegate' ? FUNC.Delegate : FUNC.Defined
     for (const p of f.params) {
       let pf = CPF.Parm
       if (p.out) pf |= CPF.OutParm
@@ -369,6 +371,14 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
     }
     o.children = ref
     o.functions.push({ name, ref, text: f.name })
+    // A delegate's hidden variable (__Name__Delegate): what is assigned to it is called.
+    if (f.keyword === 'delegate') {
+      const hidden = nextRef++
+      exports.push(
+        fc.propertyObject({ ref: hidden, outer, name: `__${f.name}__Delegate`, cls: 'DelegateProperty', refs: [ref, 0], next: o.children, dim: 1, flags: CPF_NeedCtorLink }),
+      )
+      o.children = hidden
+    }
   }
 
   const data = new Map<number, Uint8Array>()
@@ -551,4 +561,227 @@ export function declareClass(linker: Linker, pkg: Package, d: ClassDecl, sh: Sha
   }
   const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
   return { bytes: writePackage(pkg, { names, imports: sh.imports, exports, layout: 'keep' }), defaults }
+}
+
+export interface ConstDecl {
+  name: string
+  value: string
+}
+/** const NAME = value; (the value kept as written, as the compiler keeps it) */
+export function parseConst(text: string): ConstDecl {
+  const m = /^\s*const\s+(\w+)\s*=\s*([\s\S]*?)\s*;\s*$/i.exec(text)
+  if (!m) throw new DeclareError(`not a constant: ${text}`)
+  return { name: m[1]!, value: m[2]! }
+}
+
+export interface EnumDecl {
+  name: string
+  values: string[]
+}
+/** enum Name { A, B, C }; */
+export function parseEnum(text: string): EnumDecl {
+  const m = /^\s*enum\s+(\w+)\s*\{([\s\S]*)\}\s*;?\s*$/i.exec(text.replace(/\/\/.*$/gm, ''))
+  if (!m) throw new DeclareError(`not an enum: ${text}`)
+  return { name: m[1]!, values: m[2]!.split(',').map((x) => x.trim()).filter(Boolean) }
+}
+
+export interface StructDecl {
+  name: string
+  parent: string | null
+  vars: VarDecl[]
+  /** Its structdefaultproperties block's body, if it has one. */
+  defaults: string | null
+}
+/** struct Name [extends Other] { var …; structdefaultproperties { … } }; */
+export function parseStruct(text: string): StructDecl {
+  const m = /^\s*struct\s+(?:(\w+)\s+)??(\w+)(?:\s+extends\s+(\w+))?\s*\{([\s\S]*)\}\s*;?\s*$/i.exec(text)
+  if (!m) throw new DeclareError(`not a struct: ${text.slice(0, 60)}`)
+  if (m[1]?.toLowerCase() === 'native') throw new DeclareError(`struct ${m[2]}: a native struct needs C++`)
+  let body = m[4]!
+  let defaults: string | null = null
+  const d = /structdefaultproperties\s*\{/i.exec(body)
+  if (d) {
+    let depth = 1
+    let i = d.index + d[0].length
+    for (; i < body.length && depth; i++) {
+      if (body[i] === '{') depth++
+      if (body[i] === '}') depth--
+    }
+    defaults = body.slice(d.index + d[0].length, i - 1)
+    body = body.slice(0, d.index) + body.slice(i)
+  }
+  const vars = (body.match(/\bvar\b[^;]*;/g) ?? []).map((v) => parseVar(v, m[2]!))
+  return { name: m[2]!, parent: m[3] ?? null, vars, defaults }
+}
+
+export interface StateDecl {
+  name: string
+  parent: string | null
+  flags: number
+}
+/** [auto] [simulated] state Name [extends Other] */
+export function parseState(text: string): StateDecl {
+  const m = /^\s*((?:\w+\s+)*?)state\s+(\w+)(?:\s+extends\s+(\w+))?/i.exec(text)
+  if (!m) throw new DeclareError(`not a state: ${text}`)
+  const mods = m[1]!.toLowerCase()
+  return { name: m[2]!, parent: m[3] ?? null, flags: (/\bauto\b/.test(mods) ? 0x2 : 0) | (/\bsimulated\b/.test(mods) ? 0x4 : 0) }
+}
+
+/** A field of a class by name and kind (State, ScriptStruct …), in it or its parents. */
+function fieldOf(linker: Linker, cls: Located, name: string, kind: string): Located | null {
+  const want = name.toLowerCase()
+  for (let s: Located | null = cls; s; ) {
+    const o = linker.object(s)
+    if (!o || !('head' in o)) return null
+    for (let c = o.head.children; c; ) {
+      const f = { pkg: s.pkg, ref: c }
+      const fo = linker.object(f)
+      if (s.pkg.className(c) === kind && s.pkg.objectName(c).toLowerCase() === want) return f
+      if (!fo) break
+      c = 'head' in fo ? fo.head.next : fo.next
+    }
+    s = o.head.superStruct ? linker.resolve(s.pkg, o.head.superStruct) : null
+  }
+  return null
+}
+
+/**
+ * The package with a class's new constants, enums and states (states empty:
+ * their functions and code come as any function's do), linked first among its fields.
+ */
+export function declareFields(
+  linker: Linker,
+  pkg: Package,
+  classRef: number,
+  d: { consts: ConstDecl[]; enums: EnumDecl[]; states: StateDecl[] },
+  sh: Shared = shared(),
+): Uint8Array {
+  const fc = new FunctionCompiler(linker, pkg, classRef, sh)
+  fc.allow = 'all'
+  const cls = readObject(pkg, classRef) as ClassObj
+  const parentClass = cls.head.superStruct ? linker.resolve(pkg, cls.head.superStruct) : null
+  const none = fc.nameRef('None')
+  const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = []
+  let children = cls.head.children
+  let ref = pkg.exports.length
+  const entry = (kind: string, name: string, superIndex = 0) => ({
+    classIndex: fc.coreClass(kind),
+    superIndex,
+    outer: classRef,
+    objectName: fc.nameRef(name),
+    archetype: 0,
+    objectFlags: 0x7000400000000n,
+    serialSize: 0,
+    serialOffset: 0,
+    exportFlags: 0,
+    netObjects: [],
+    packageGuid: new Uint8Array(16),
+    packageFlags: 0,
+  })
+  for (const c of d.consts) {
+    ref++
+    const w = new Writer(32)
+    w.i32(ref - 1).i32(none.index).i32(none.number).i32(children).fstr(c.value)
+    exports.push({ entry: entry('Const', c.name), data: w.done() })
+    children = ref
+  }
+  for (const e of d.enums) {
+    ref++
+    const w = new Writer(32)
+    w.i32(ref - 1).i32(none.index).i32(none.number).i32(children)
+    const values = [...e.values, `${e.name}_MAX`]
+    w.i32(values.length)
+    for (const v of values) {
+      const n = fc.nameRef(v)
+      w.i32(n.index).i32(n.number)
+    }
+    exports.push({ entry: entry('Enum', e.name), data: w.done() })
+    children = ref
+  }
+  for (const s of d.states) {
+    ref++
+    // What it extends: the state named, or the parent class's state of its name.
+    const parent = s.parent
+      ? fieldOf(linker, { pkg, ref: classRef }, s.parent, 'State')
+      : parentClass
+        ? fieldOf(linker, parentClass, s.name, 'State')
+        : null
+    if (s.parent && !parent) throw new DeclareError(`state ${s.name} extends ${s.parent}: no such state`)
+    const superRef = parent ? fc.refOf(parent) : 0
+    const w = new Writer(64)
+    w.i32(ref - 1).i32(none.index).i32(none.number)
+    w.i32(children).i32(superRef).i32(0).i32(0) // next, super, script text, children
+    w.i32(0).i32(0).i32(0) // C++ text, line, text position
+    w.i32(2).i32(2).u8(0x08).u8(0x53) // no code yet: stop, and the end
+    w.u32(0).u16(0xffff).u32(s.flags).i32(0) // probe mask, no label table, flags, no functions
+    exports.push({ entry: entry('State', s.name, superRef), data: w.done() })
+    children = ref
+  }
+  const data = new Map<number, Uint8Array>()
+  if (exports.length) {
+    const cdata = pkg.data(classRef).slice()
+    new DataView(cdata.buffer).setInt32(readStructHead(pkg, classRef).scriptAt - 24, children, true)
+    data.set(classRef, cdata)
+  }
+  const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
+  return writePackage(pkg, { data, names, imports: sh.imports, exports, layout: 'keep' })
+}
+
+/** The package with a new struct in a class: its members in declaration order (its defaults: structDefaults). */
+export function declareStruct(linker: Linker, pkg: Package, classRef: number, s: StructDecl, sh: Shared = shared()): Uint8Array {
+  const fc = new FunctionCompiler(linker, pkg, classRef, sh)
+  fc.allow = 'all'
+  const cls = readObject(pkg, classRef) as ClassObj
+  const none = fc.nameRef('None')
+  const parent = s.parent ? fc.typeFromText(s.parent) : null
+  if (parent && parent.k !== 'struct') throw new DeclareError(`struct ${s.name} extends ${s.parent}: not a struct`)
+  const superRef = parent?.k === 'struct' && parent.struct ? fc.refOf(parent.struct) : 0
+  const structRef = pkg.exports.length + 1
+  const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = [null as never]
+  // Members: each linked to the next (the first is the struct's first child).
+  const members: number[] = []
+  let nextRef = structRef + 1
+  for (const v of s.vars)
+    for (const n of v.names) {
+      const ty = fc.typeFromText(v.type)
+      const ref = nextRef++
+      let { cls: pcls, refs } = fc.propertyClass(ty)
+      const inner = ty.k === 'array' ? { ref: nextRef++, ...fc.propertyClass(ty.inner) } : null
+      if (inner) refs = [inner.ref]
+      const flags = v.flags | (fc.needsCtor(ty) ? 0x400000n : 0n)
+      exports[ref - structRef] = fc.propertyObject({ ref, outer: structRef, name: n.name, cls: pcls, refs, next: 0, dim: n.dim, flags, category: v.category ?? undefined })
+      if (inner) exports[inner.ref - structRef] = fc.propertyObject({ ref: inner.ref, outer: ref, name: n.name, cls: inner.cls, refs: inner.refs, next: 0, dim: 1, flags: 0n })
+      members.push(ref)
+    }
+  for (let k = 0; k + 1 < members.length; k++) {
+    const e = exports[members[k]! - structRef]!
+    new DataView(e.data.buffer, e.data.byteOffset).setInt32(12, members[k + 1]!, true)
+  }
+  const w = new Writer(64)
+  w.i32(structRef - 1).i32(none.index).i32(none.number)
+  w.i32(cls.head.children).i32(superRef).i32(0).i32(members[0] ?? 0) // next, super, script text, children
+  w.i32(0).i32(0).i32(0).i32(0).i32(0) // C++ text, line, text position, no script
+  w.u32(0) // struct flags
+  w.i32(none.index).i32(none.number) // defaults: none yet
+  exports[0] = {
+    entry: {
+      classIndex: fc.coreClass('ScriptStruct'),
+      superIndex: superRef,
+      outer: classRef,
+      objectName: fc.nameRef(s.name),
+      archetype: 0,
+      objectFlags: 0x7000400000000n,
+      serialSize: 0,
+      serialOffset: 0,
+      exportFlags: 0,
+      netObjects: [],
+      packageGuid: new Uint8Array(16),
+      packageFlags: 0,
+    },
+    data: w.done(),
+  }
+  const cdata = pkg.data(classRef).slice()
+  new DataView(cdata.buffer).setInt32(readStructHead(pkg, classRef).scriptAt - 24, structRef, true)
+  const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
+  return writePackage(pkg, { data: new Map([[classRef, cdata]]), names, imports: sh.imports, exports, layout: 'keep' })
 }

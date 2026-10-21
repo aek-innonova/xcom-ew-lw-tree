@@ -3,7 +3,7 @@
 // folder and finds it there. Native functions are known by their index
 // (iNative) across all loaded packages.
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readObject, type FunctionObj, type ScriptObject } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
@@ -68,16 +68,23 @@ export class Linker {
         m = new Map()
         for (let i = pkg.exports.length; i >= 1; i--)
           if (['Class', 'ScriptStruct', 'Enum'].includes(pkg.className(i))) m.set(pkg.objectName(i).toLowerCase(), i)
+        // A class only C++ defines (cooked out: StaticMesh) is there as the package imports it.
+        for (let i = pkg.imports.length; i >= 1; i--) {
+          const key = pkg.objectName(-i).toLowerCase()
+          if (pkg.className(-i) === 'Class' && !m.has(key)) m.set(key, -i)
+        }
         this.types.set(pkg, m)
       }
       const ref = m.get(want)
-      return ref ? { pkg, ref } : null
+      return ref ? (ref > 0 ? { pkg, ref } : (this.resolve(pkg, ref) ?? { pkg, ref })) : null
     }
     for (const pkg of this.byName.values()) {
       const f = pkg && look(pkg)
       if (f) return f
     }
-    for (const n of Linker.SCRIPT_PACKAGES) {
+    // Then mods' script packages (.u) beside them.
+    const mods = this.dirs.flatMap((d) => (existsSync(d) ? readdirSync(d).filter((f) => /\.u$/i.test(f)).map((f) => f.slice(0, -2)) : []))
+    for (const n of [...Linker.SCRIPT_PACKAGES, ...mods]) {
       const pkg = this.package(n)
       const f = pkg && look(pkg)
       if (f) return f

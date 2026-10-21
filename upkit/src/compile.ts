@@ -4,7 +4,7 @@
 // (as measured on the game's code: test/compile.spec.ts).
 
 import { encodeScript, memSizeOf, type NameValue, type Node, type Value } from './bytecode.ts'
-import type { Linker, Located } from './linker.ts'
+import { Linker, type Located } from './linker.ts'
 import { readTags, type FunctionObj, type PropertyObj, type ScriptObject } from './objects.ts'
 import { Reader, Writer } from './bytes.ts'
 import type { Package } from './package.ts'
@@ -111,6 +111,7 @@ export class FunctionCompiler {
       this.added.names = shared.names
       this.added.imports = shared.imports
       this.exportsBefore = shared.exports
+      this.addedAt = shared.importAt
     }
     if (!shared || !shared.importMap.size)
       for (let i = 1; i <= pkg.imports.length; i++) {
@@ -162,6 +163,7 @@ export class FunctionCompiler {
   /** This package's reference to an object, wherever it is defined. */
   refOf(at: Located): number {
     if (at.pkg === this.pkg) return at.ref
+    if (at.ref < 0) return this.importOf(at.pkg, at.ref)
     const key = `${this.linker.nameOf(at.pkg)}.${at.pkg.path(at.ref)}`.toLowerCase()
     const r = this.imports.get(key)
     if (r !== undefined) return r
@@ -172,7 +174,29 @@ export class FunctionCompiler {
     const outerRef = outer ? this.refOf({ pkg: at.pkg, ref: outer }) : this.packageImport(this.linker.nameOf(at.pkg))
     const e = at.pkg.exports[at.ref - 1]!
     const clsPkg = e.classIndex < 0 ? at.pkg.path(e.classIndex).split('.')[0]! : e.classIndex > 0 ? this.linker.nameOf(at.pkg) : 'Core'
-    return this.addImport(key, clsPkg, at.pkg.className(at.ref), outerRef, at.pkg.objectName(at.ref))
+    const r2 = this.addImport(key, clsPkg, at.pkg.className(at.ref), outerRef, at.pkg.objectName(at.ref))
+    this.addedAt.set(r2, at)
+    return r2
+  }
+  /** What imports added here refer to (the package's table does not have them yet). */
+  private addedAt = new Map<number, Located>()
+  /** A reference here, followed to where it is defined (an import added here too). */
+  located(ref: number): Located {
+    const added = this.addedAt.get(ref)
+    if (added) return added.ref < 0 ? (this.linker.resolve(added.pkg, added.ref) ?? added) : added
+    return (ref > 0 ? { pkg: this.pkg, ref } : this.linker.resolve(this.pkg, ref)) ?? { pkg: this.pkg, ref }
+  }
+  /** Another package's import (an object only C++ defines): imported here too, the same way. */
+  private importOf(pkg: Package, ref: number): number {
+    const key = pkg.path(ref).toLowerCase()
+    const r = this.imports.get(key)
+    if (r !== undefined) return r
+    if (this.allow !== 'all') throw new CompileError(`${pkg.path(ref)} is not imported by this package (a whole package, --out, can add it)`)
+    const imp = pkg.imports[-ref - 1]!
+    const outer = imp.outer ? this.importOf(pkg, imp.outer) : 0
+    const r2 = this.addImport(key, pkg.name(imp.classPackage), pkg.name(imp.className), outer, pkg.name(imp.objectName))
+    this.addedAt.set(r2, { pkg, ref })
+    return r2
   }
   private addImport(key: string, classPackage: string, className: string, outer: number, name: string): number {
     const ref = -(this.pkg.imports.length + this.added.imports.length + 1)
@@ -286,8 +310,23 @@ export class FunctionCompiler {
     return ref > 0 ? { pkg: this.pkg, ref } : (this.linker.resolve(this.pkg, ref) ?? { pkg: this.pkg, ref })
   }
   /** An enum value by name, from the enums this package has or imports. */
-  private enumValue(name: string): { at: Located; index: number } | null {
-    return this.linker.enumValues(this.pkg).get(name.toLowerCase()) ?? null
+  private enumValue(name: string, want?: Ty): { at: Located; index: number } | null {
+    // The enum expected here first (its values need no import: they are byte constants).
+    if (want?.k === 'byte' && want.enumOf) {
+      const o = this.obj(want.enumOf)
+      const i = o?.kind === 'enum' ? o.names.findIndex((n) => n.toLowerCase() === name.toLowerCase()) : -1
+      if (i >= 0) return { at: want.enumOf, index: i }
+    }
+    const here = this.linker.enumValues(this.pkg).get(name.toLowerCase())
+    if (here) return here
+    // A whole package: any enum of the game's script packages.
+    if (this.allow !== 'all') return null
+    for (const n of Linker.SCRIPT_PACKAGES) {
+      const pkg = this.linker.package(n)
+      const v = pkg && this.linker.enumValues(pkg).get(name.toLowerCase())
+      if (v) return v
+    }
+    return null
   }
 
   private propTy(at: Located): { p: PropertyObj; ty: Ty } {
@@ -455,7 +494,7 @@ export class FunctionCompiler {
         return { node: N(0x17), ty: { k: 'object', cls: this.cls } }
       case 'objlit': {
         const ref = this.findPath(e.path)
-        const at = this.linker.resolve(this.pkg, ref) ?? { pkg: this.pkg, ref }
+        const at = this.located(ref)
         if (e.cls.toLowerCase() === 'class') return { node: N(0x20, ref), ty: { k: 'class', meta: at } }
         return { node: N(0x20, ref), ty: { k: 'object', cls: this.findType(e.cls) } }
       }
@@ -463,7 +502,7 @@ export class FunctionCompiler {
         const v = this.variable(e.name)
         if (v) return v
         // An enum's value by its name: a byte constant.
-        const ev = this.enumValue(e.name)
+        const ev = this.enumValue(e.name, want)
         if (ev) return { node: N(0x24, ev.index), ty: { k: 'byte', enumOf: ev.at } }
         // A function's name as a value: a delegate to it. A declared delegate is
         // its hidden property (__Name__Delegate); any other function, by name.
@@ -579,6 +618,17 @@ export class FunctionCompiler {
     if (r) return r
     const i = this.imports.get(path.toLowerCase())
     if (i !== undefined) return i
+    // A whole package can import it: Package.Path, found in that package (as it has it, or imports it).
+    if (this.allow === 'all') {
+      const dot = path.indexOf('.')
+      const other = dot > 0 ? this.linker.package(path.slice(0, dot)) : null
+      if (other) {
+        const rest = path.slice(dot + 1)
+        const e = other.find(rest)
+        if (e) return this.refOf({ pkg: other, ref: e })
+        for (let k = 1; k <= other.imports.length; k++) if (other.path(-k).toLowerCase() === path.toLowerCase()) return this.importOf(other, -k)
+      }
+    }
     throw new CompileError(`no object ${path} in this package`)
   }
 
@@ -727,7 +777,7 @@ export class FunctionCompiler {
     if (fn.k === 'super') {
       const owner = fn.cls
         ? fn.cls.includes('.')
-          ? this.linker.resolve(this.pkg, this.findPath(fn.cls))
+          ? this.located(this.findPath(fn.cls))
           : this.findType(fn.cls)
         : this.superClass()
       const f = owner && this.findFunction(fn.name, owner)
@@ -926,6 +976,8 @@ export class FunctionCompiler {
   /** This package's reference to an object if it already has one (never adds an import), else 0. */
   private refOfMaybe(at: Located): number {
     if (at.pkg === this.pkg) return at.ref
+    // A whole package imports it, as the compiler does; a patch uses it if it is there (else 0, as a cook leaves it).
+    if (this.allow === 'all') return this.refOf(at)
     return this.imports.get(`${this.linker.nameOf(at.pkg)}.${at.pkg.path(at.ref)}`.toLowerCase()) ?? 0
   }
 
@@ -1189,6 +1241,12 @@ export class FunctionCompiler {
     if (m) return { k: 'array', inner: this.typeFromText(m[1]!) }
     m = /^class<(.+)>$/i.exec(t)
     if (m) return { k: 'class', meta: this.findType(m[1]!) }
+    m = /^delegate<(.+)>$/i.exec(t)
+    if (m) {
+      const fn = this.findFunction(m[1]!)
+      if (!fn) throw new CompileError(`no delegate ${m[1]}`)
+      return { k: 'delegate', fn }
+    }
     if (lower === 'class') return { k: 'class', meta: this.findType('Object') }
     const found = this.findType(t)
     if (!found) throw new CompileError(`no type ${t}`)
@@ -1222,6 +1280,8 @@ export class FunctionCompiler {
         return { cls: 'StructProperty', refs: [r(ty.struct)] }
       case 'array':
         return { cls: 'ArrayProperty', refs: [0] }
+      case 'delegate':
+        return { cls: 'DelegateProperty', refs: [r(ty.fn), r(ty.fn)] }
     }
     throw new CompileError(`a local of type ${ty.k} is not covered`)
   }
@@ -1400,8 +1460,10 @@ export interface Shared {
   importMap: Map<string, number>
   /** Objects added so far (each compiler's additions() count, summed by the caller). */
   exports: number
+  /** What the imports added refer to. */
+  importAt: Map<number, Located>
 }
-export const shared = (): Shared => ({ names: [], imports: [], importMap: new Map(), exports: 0 })
+export const shared = (): Shared => ({ names: [], imports: [], importMap: new Map(), exports: 0, importAt: new Map() })
 
 /** Binary operators' bindings, from the natives that define them (what the decompiler parenthesizes by). */
 export function binaryOperators(linker: Linker): Record<string, number> {

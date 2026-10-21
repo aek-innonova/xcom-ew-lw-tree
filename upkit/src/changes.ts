@@ -5,8 +5,8 @@
 import { encodeScript, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classEdits } from './classsrc.ts'
-import { declare, declareClass, parseClassHeader } from './declare.ts'
-import { defaultsBlock, defaultsChanges } from './defaults.ts'
+import { declare, declareClass, declareFields, declareStruct, parseClassHeader } from './declare.ts'
+import { defaultsBlock, defaultsChanges, structDefaults } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
@@ -162,11 +162,40 @@ export function classesPackage(
     implicit.set(c.name, r.defaults)
     declared.push(c.name)
   }
+  // Then, for all the classes (each step can name what the one before declared):
+  // constants, enums and states; structs; delegates; variables and functions.
+  for (const c of classes) {
+    const e = classEdits(linker, target, c.name, c.src)
+    if (!e.consts.length && !e.enums.length && !e.states.length) continue
+    step(declareFields(linker, target, target.find(c.name), e))
+    declared.push(...[...e.consts, ...e.enums, ...e.states].map((x) => `${c.name}.${x.name}`))
+  }
+  const structDefaultsToDo: { cls: string; name: string; block: string }[] = []
+  for (const c of classes)
+    for (const s of classEdits(linker, target, c.name, c.src).structs) {
+      step(declareStruct(linker, target, target.find(c.name), s))
+      declared.push(`${c.name}.${s.name}`)
+      if (s.defaults?.trim()) structDefaultsToDo.push({ cls: c.name, name: s.name, block: s.defaults })
+    }
+  for (const c of classes) {
+    const e = classEdits(linker, target, c.name, c.src)
+    const delegates = e.functions.filter((f) => f.keyword === 'delegate')
+    if (!delegates.length) continue
+    step(declare(linker, target, target.find(c.name), [], delegates))
+    declared.push(...delegates.map((f) => f.path))
+  }
   for (const c of classes) {
     const e = classEdits(linker, target, c.name, c.src)
     if (!e.vars.length && !e.functions.length) continue
     step(declare(linker, target, target.find(c.name), e.vars, e.functions))
     declared.push(...e.vars.flatMap((v) => v.names.map((n) => `${c.name}.${n.name}`)), ...e.functions.map((f) => f.path))
+  }
+  // Structs' defaults, now that every type they name is there.
+  for (const d of structDefaultsToDo) {
+    const ref = target.find(`${d.cls}.${d.name}`)
+    const sh = shared()
+    const data = structDefaults(linker, target, target.find(d.cls), ref, d.block, { shared: sh, allow: 'all' })
+    step(writePackage(target, { data: new Map([[ref, data]]), names: sh.names.map((name) => ({ name, flags: 0x7001000000000n })) }))
   }
   const compiled: string[] = []
   const objects: string[] = []

@@ -10,7 +10,7 @@ import { Writer } from './bytes.ts'
 import { ClassDecompiler } from './classdecomp.ts'
 import type { Shared } from './compile.ts'
 import type { Linker, Located } from './linker.ts'
-import { readTags, tagsStart, type ClassObj, type PropertyObj, type Tag } from './objects.ts'
+import { readStructHead, readTags, tagsStart, type ClassObj, type PropertyObj, type Tag } from './objects.ts'
 import type { NameRef, Package } from './package.ts'
 import { Reader } from './bytes.ts'
 import { typeOf, type Ty } from './types.ts'
@@ -443,3 +443,31 @@ function unquote(text: string): string {
 }
 
 export type { Tag }
+
+/**
+ * A struct's data with its structdefaultproperties compiled (written from the
+ * text: a new struct has no bytes to keep).
+ */
+export function structDefaults(
+  linker: Linker,
+  pkg: Package,
+  classRef: number,
+  structRef: number,
+  block: string,
+  names: { shared: Shared; allow: 'none' | 'names' | 'all' },
+): Uint8Array {
+  const cd = new ClassDecompiler(linker, pkg, classRef, false)
+  const w = new TagWriter(linker, pkg, cd, names)
+  const scope = { pkg, ref: structRef }
+  const data = pkg.data(structRef)
+  const r = new Reader(data)
+  const h = readStructHead(pkg, structRef)
+  r.o = h.end + 4 // the struct flags, then the defaults
+  readTags(r, pkg)
+  const out = new Writer(data.length + 64)
+  out.bytes(data.subarray(0, h.end + 4))
+  for (const e of group(parseBlock(block).main, (n) => w.isDynArray(scope, n))) w.entry(out, scope, e)
+  w.name(out, 'None')
+  out.bytes(data.subarray(r.o))
+  return out.done()
+}

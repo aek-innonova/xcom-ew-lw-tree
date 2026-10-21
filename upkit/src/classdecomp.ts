@@ -177,7 +177,7 @@ export class ClassDecompiler {
   private stateText(ref: number): string[] {
     const s = this.object<StateObj>(ref)
     const sup = s.head.superStruct ? ` extends ${this.obj(s.head.superStruct)}` : ''
-    const mods = [s.stateFlags & 0x1 ? 'auto' : '', s.stateFlags & 0x2 ? 'simulated' : ''].filter(Boolean)
+    const mods = [s.stateFlags & 0x2 ? 'auto' : '', s.stateFlags & 0x4 ? 'simulated' : ''].filter(Boolean)
     const out = [`${[...mods, 'state'].join(' ')} ${this.pkg.objectName(ref)}${sup}`, '{']
     for (const m of this.inside(ref)) if (this.pkg.className(m) === 'Function') out.push(this.functionText(m, '    '))
     const code = new FunctionDecompiler(this.linker, this.pkg, ref).decompileStateCode()
