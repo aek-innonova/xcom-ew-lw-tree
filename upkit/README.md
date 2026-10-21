@@ -80,7 +80,7 @@ compile it, compare the bytes):
 | XComGame (vanilla) | 11,756 | 99.9% |
 | XComStrategyGame (vanilla) | 5,349 | 99.8% |
 | XComGame (Long War 1.0) | 11,756 | 98.4% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 95.3% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 95.2% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.1% |
 
 Long War's and LWR's packages carry many functions patched by hand, some of

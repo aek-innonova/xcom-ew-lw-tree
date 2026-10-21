@@ -428,6 +428,9 @@ export class FunctionCompiler {
       return { node: N(0x52, this.refOf(want.cls), g.node), ty: want }
     if (from === 'none') return g
     if (from === 'interface' && to === 'object') return { node: N(0x38, 0x36, g.node), ty: want }
+    // An object of a class not the one wanted, nor one of its subclasses: a cast is wanted.
+    if (!explicit && from === 'object' && to === 'object' && g.ty.k === 'object' && want.k === 'object' && g.ty.cls && want.cls && !this.isA(g.ty.cls, want.cls))
+      throw new CompileError(`${an(g.ty.cls.pkg.objectName(g.ty.cls.ref))} where ${an(want.cls.pkg.objectName(want.cls.ref))} is wanted (cast it: ${want.cls.pkg.objectName(want.cls.ref)}(…))`)
     if (to === 'object' || to === 'interface' || to === 'delegate' || from === 'object' && to === 'none') return g
     const key = `${from}>${to}`
     const code = CAST[key]
@@ -614,6 +617,8 @@ export class FunctionCompiler {
         return this.call(e, want)
       case 'assign': {
         const l = this.gen(e.l, undefined, true)
+        // Only a variable takes a value (a member, an element, a default …), not what a call returns.
+        if (!this.assignable(l.node)) throw new CompileError('this cannot be assigned to (a variable can)')
         const r = this.gen(e.r, l.ty)
         const op = l.ty.k === 'bool' ? 0x14 : l.ty.k === 'delegate' ? 0x44 : 0x0f
         return { node: N(op, l.node, r.node), ty: l.ty }
@@ -792,7 +797,9 @@ export class FunctionCompiler {
       if (native && p.p.flags & CPF.SkipParm) node = N(0x18, memSizeOf(node) + 1, node)
       out.push(node)
     }
-    // Arguments beyond the parameters (a variadic native): as they are.
+    // Arguments beyond the parameters: a native's (some take more) as they are; a script function's are a mistake.
+    if (!native && args.length > params.length && args.slice(params.length).some(Boolean))
+      throw new CompileError(`${args.length} arguments, where it takes ${params.length}`)
     for (let i = params.length; i < args.length; i++) if (args[i]) out.push(this.gen(args[i]!).node)
     return out
   }
@@ -1587,6 +1594,40 @@ export class FunctionCompiler {
       const o = this.obj(s)
       if (!o || !('head' in o) || !o.head.superStruct) return false
       s = this.linker.resolve(s.pkg, o.head.superStruct)
+    }
+    return false
+  }
+  /** Whether a class is the other or extends it (unknown parents: taken to be, so nothing is refused unseen). */
+  private isA(cls: Located, other: Located): boolean {
+    const want = other.pkg.path(other.ref).toLowerCase()
+    for (let s: Located | null = cls, n = 0; s && n < 64; n++) {
+      if (s.pkg.path(s.ref).toLowerCase() === want) return true
+      if (s.ref < 0) return true
+      const o = this.obj(s)
+      if (!o || !('head' in o)) return true
+      if (!o.head.superStruct) return false
+      s = this.linker.resolve(s.pkg, o.head.superStruct) ?? null
+      if (!s) return true
+    }
+    return true
+  }
+  /** Whether a value can be assigned to: a variable, a member, an element, a default (through contexts). */
+  private assignable(n: Node): boolean {
+    switch (n.op) {
+      case 0x00:
+      case 0x01:
+      case 0x02:
+      case 0x48:
+      case 0x10:
+      case 0x1a:
+      case 0x35:
+      case 0x36:
+        return true
+      case 0x2d:
+        return this.assignable(n.args[0] as Node)
+      case 0x19:
+      case 0x12:
+        return this.assignable(n.args[4] as Node)
     }
     return false
   }
