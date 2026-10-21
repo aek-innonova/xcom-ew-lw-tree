@@ -50,62 +50,84 @@ the repository.
 
 ## Report (2026-10-22)
 
-Interim, written at 23:20 CEST and kept current through the night; the
-final state is at the end of this section.
+Written through the night and kept current; the state below is as of the
+last commit before 07:00.
 
-upkit is in `upkit/` (TypeScript, run by Node 24 directly; `npx vitest run`
-in `upkit/` runs its 59 tests on the game's packages in the git-ignored
-`samples/`, and skips them without). `upkit/README.md` says how to use it,
-what compiles back, and the dialect the decompiler writes where UnrealScript
-cannot say what a hand patch did.
+upkit is in `upkit/` (TypeScript, run by Node 24 directly, or as one file:
+`node upkit/build.mjs` writes `upkit/dist/upkit.mjs`). `npx vitest run` in
+`upkit/` runs its tests on the game's packages in the git-ignored `samples/`
+(skipped without them). `upkit/README.md` is the manual: the common case
+first, every command, what compiles back, how the source reads, upkit's own
+syntax for what UnrealScript cannot say, and the files.
 
-What it does:
+### What it does
 
-- reads every package of the game, compressed or not, and writes any of
-  them back byte for byte;
-- decodes and encodes every script (41,666 in the corpus) byte for byte;
-  reads every object to its end;
-- decompiles a function, a state's code or a whole class (declarations,
-  structs, enums, constants, states, defaultproperties with components);
-- compiles back, from a function's source or a whole class's (it finds what
-  was edited): function bodies, state code with its label table,
-  defaultproperties (every value from its type; the rest kept byte for
-  byte);
-- writes the change as a PatchUPK mod script (`--patch`; checked through
-  the app's own PatchUPK implementation) or as a whole package (`--out`);
-- with `--out`, declares what a class does not have: member variables,
-  functions, states, structs, enums, constants, delegates; and new classes
-  in a package, or (`new`) a new script package of new classes.
+- Reads every package of the game, compressed or not; writes any of them back
+  byte for byte. Decodes and encodes every script (41,666 in the corpus) byte
+  for byte; reads every object to its end.
+- Decompiles a function, a state's code, a whole class (constants, enums,
+  structs, variables, functions, states, defaultproperties with components),
+  or a whole package (`export`: a .uc per class). The source reads as written
+  where that is provably the same code: `for`, `continue`, `else if`, the
+  conversions the compiler makes on its own left out (each function so
+  written is compiled and kept only if its bytes are the same).
+- Compiles back what was edited in a function's or a whole class's source:
+  bodies, state code (labels, the label table), defaultproperties (a value
+  from its type; the rest kept byte for byte). Mistakes are refused with the
+  function and the line (a type where another is wanted, a missing cast,
+  too many arguments, an unknown name, a parse error).
+- Writes the change as a PatchUPK mod script (`--patch`; it can add names)
+  or as a whole package (`--out`; also new imports, locals, and new
+  declarations: member variables, functions, states, structs, enums,
+  constants, delegates, classes; `new` builds a new script package).
+- `diff`: two versions of a package compared, each changed function as a
+  diff of its source (Long War changed 651 of XComStrategyGame's).
 
-How far it is, measured:
+### How far it is, measured
 
-| Compiled back in place, byte for byte | Functions | Identical |
+Decompiled and compiled back in place, byte for byte:
+
+| Package | Functions | Identical |
 |---|---|---|
-| Core | 311 | 100% |
-| Engine | 4,341 | 99.8% |
+| Core (vanilla) | 311 | 100% |
+| Engine (vanilla) | 4,341 | 99.8% |
 | XComGame (vanilla) | 11,756 | 99.9% |
 | XComStrategyGame (vanilla) | 5,349 | 99.8% |
 | XComGame (Long War 1.0) | 11,756 | 98.4% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.2% |
 | LWRebalance.u | 1,484 | 97.1% |
 
-Long War's own packages carry hand patches (bytecode no source compiles
-to: flags set otherwise, stale jumps, nested contexts); `decompile` says so
-above such a function. Every class's defaultproperties, compiled from the
-text alone, come back byte for byte in all seven corpus packages.
+Long War's packages carry hand patches (bytecode no source compiles to:
+flags set otherwise, stale jumps, nested contexts, arguments a function no
+longer takes); `decompile` says so above such a function. The vanilla
+packages came from the win VM's install into `samples/ew/`.
 
-Rebuilt from scratch: every class of LWR's `LWRebalance.u` decompiled and
-built anew as a package with `new` has 97.1% of its 1,493 functions and
-states token for token as the original, and 99.7% of its 9,235 objects
-the same declarations. Twelve more mod packages in LWR's install rebuild the
-same way (96.5% of their code); the table is in the README. What differs is
-mostly where a mod was built against its own stubs of the game's classes,
-and quirks of the UDK compiler those mods were built with.
+- Every class's defaultproperties, compiled from the text alone, come back
+  byte for byte (all seven corpus packages and vanilla).
+- Every class, decompiled, reads back as unchanged (nothing compiled when
+  nothing was edited).
+- Built anew from source: LWR's `LWRebalance.u`, every class decompiled and
+  built as a new package with `new`, has 97.1% of its 1,493 functions and
+  states token for token as the original Unreal compiler made them, and
+  99.7% of its 9,235 objects the same declarations. Twelve more mod packages
+  beside it rebuild with 96.5% of their code the same.
+- A whole package from upkit holds what PatchUPK makes of the same change:
+  the same names, imports, export entries and every object's bytes (the app's
+  PatchUPK implementation applying upkit's mod script; four kinds of edit).
+- On Windows (the VM's Node 24, its vanilla install) the one-file build
+  decompiles, writes a mod script and a whole package.
 
-Not verified: nothing upkit wrote has been loaded by the game. The win VM
-has no GPU (Microsoft Basic Display Adapter) so XCOM does not run there
-(recorded with `am learn`). The checks are structural: every package read
-back whole, every class decompiled to its source, every function compiled
-back to the same bytes against the written package, mod scripts applied by
-the app's PatchUPK implementation, and the rebuilt mod packages compared
-with what Unreal's own compiler made of the same source.
+### Not verified, and not done
+
+- Nothing upkit wrote has been loaded by the game. The win VM has no GPU
+  (Microsoft Basic Display Adapter), so XCOM does not run there (recorded
+  with `am learn`). The checks above are structural and by comparison with
+  what Unreal's compiler and PatchUPK make.
+- A mod script cannot add imports: the app's PatchUPK implementation does
+  not take `[ADD_IMPORT_ENTRY]`, so there is nothing to check one against;
+  an edit that needs an import says to use `--out`.
+- Not compiled: native functions, interfaces declared anew, replication, a
+  changed signature or variable type of something the package has.
+- upkit lives in this repository; standing on its own needs a repository of
+  its own (a person's decision: its name, its licence), with the test that
+  uses the app's PatchUPK implementation moved or dropped.
