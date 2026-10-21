@@ -324,8 +324,11 @@ export async function restoreTools(): Promise<void> {
   if (lib) {
     try {
       tools.library = (await lib.info()).dir
-      choices = (await readSettings(lib, installedKind)) ?? emptySettings()
+      const read = await readSettings(lib, installedKind)
+      choices = read?.settings ?? emptySettings()
       tools.base = choices.base ?? null
+      // An older file moved over is written in its new shape at once, not at the first change.
+      if (read?.moved) await saveChoices()
       await moveOldLibrary()
     } catch (e) {
       tools.error = `Could not read your library folder: ${(e as Error).message}`

@@ -82,6 +82,8 @@ test('game settings: hand edits kept, then set in words and written', async () =
 
   const hand = page.getByRole('region', { name: 'Edits by hand' })
   await expect(hand).toContainText('Soldier stats: Base HP 4 → 5')
+  // The older settings.json is in its new shape on disk before anything is changed.
+  expect(JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).versions.lw).toBeTruthy()
   await hand.getByRole('button', { name: 'Keep them as my settings' }).click()
   await expect(hand).toHaveCount(0)
   // Kept for Long War, the version installed.

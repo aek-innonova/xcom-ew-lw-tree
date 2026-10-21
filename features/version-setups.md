@@ -1,6 +1,6 @@
 ---
 title: "Each game version its own setup; the version chosen with buttons; LWR's colours its own"
-status: in-progress
+status: review
 priority: 1
 dependsOn: [game-setups, game-bases, game-soldiers]
 ---
@@ -130,4 +130,32 @@ Verified:
 - Looked at: the bar, the switch console, and the LWR colour card with
   the soldier, from the real packages.
 
-Open: the bench round, on the person's own settings.json.
+Bench (2026-10-21, winbench, the person's install, site 2026.1021.055651):
+- **The file before:** `base: ew`, six mods with none ticked, no INI
+  lines, the person's 14 game values under Long War, and no saved setups.
+- **After the migration:** the mods and their order went to plain Enemy
+  Within, the version that file had chosen. Long War kept its 14 values
+  unchanged, and LWR started empty. Nothing was lost or put in the wrong
+  version. With no saved setups on the bench, that part was tested only
+  by the unit tests.
+- **Buttons:** plain Enemy Within was pressed and "in the game"; the other
+  two showed "from your library". Switching between versions brought each
+  one's choices back unchanged.
+- **Plans** (all cancelled, nothing written):
+  - plain Enemy Within: "Nothing to change";
+  - Long War: begins "This replaces plain Enemy Within in the game with
+    Long War 1.0", then its 14 settings;
+  - LWR: the same opening, then 474 files.
+- **LWR card:** as specified. A perk click showed its colour on the soldier
+  (Scout, Hit and Run: pink).
+- **Afterwards:** the game was still Steam's Enemy Within byte for byte,
+  and the copy of the old `settings.json` was left beside the new one.
+
+Found by the bench, and fixed: the migrated file was only written at the
+player's first change, so the old shape stayed on disk and was migrated
+again at every start. Now it is written at once (`readSettings` says
+`moved`), and the game-settings e2e checks the file's new shape before
+anything is changed.
+
+Noted, left as it is: the header's version picker is the version the site
+shows (it follows the install), separate from the version chosen in Tools.

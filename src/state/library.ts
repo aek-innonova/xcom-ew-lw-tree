@@ -78,12 +78,13 @@ export const emptySettings = (): LibrarySettings => ({ versions: {} })
  * settings.json, or null when there is none yet. One that does not read (an
  * edit by hand gone wrong) is kept aside under another name, not lost. A file
  * from before each version had its own setup is moved over (`fromShared`),
- * which needs the version installed when it said "as installed".
+ * which needs the version installed when it said "as installed"; `moved`
+ * says so, for the caller to write it in its new shape.
  */
 export async function readSettings(
   lib: DesktopLibrary,
   installed: () => Promise<GameKind>,
-): Promise<LibrarySettings | null> {
+): Promise<{ settings: LibrarySettings; moved: boolean } | null> {
   const b = await lib.read(SETTINGS)
   if (!b) return null
   let s: Record<string, unknown>
@@ -95,14 +96,17 @@ export async function readSettings(
   }
   if (!('versions' in s)) {
     const base = kindOf(s.base)
-    return fromShared(s, base ?? (await installed()))
+    return { settings: fromShared(s, base ?? (await installed())), moved: true }
   }
   const versions = objectOf<unknown>(s.versions)
   return {
-    base: kindOf(s.base),
-    versions: Object.fromEntries(
-      KINDS.filter((k) => k in versions).map((k) => [k, versionOf(versions[k])]),
-    ),
+    settings: {
+      base: kindOf(s.base),
+      versions: Object.fromEntries(
+        KINDS.filter((k) => k in versions).map((k) => [k, versionOf(versions[k])]),
+      ),
+    },
+    moved: false,
   }
 }
 
