@@ -246,3 +246,27 @@ maybe we could make it look a lot more like the real thing?"
 Verified by screenshots in the app on the person's packages: an
 Interceptor and a Firestorm against a Scout (Long War), and an LWR
 squadron. The air war e2e (website) is unchanged and passes.
+
+## Report (2026-10-21, note cb07d)
+
+The person's note: "in the air war it might be nice to see the specific data
+of the selected weapon, like damage, armor pen, fire rate, aim".
+
+- **What it shows:** under each jet, a line per weapon with its damage a
+  shot, its armour penetration (the weapon's plus the jet's own, which the
+  tooltip names), how often it fires and its aim before kills and stance
+  (`weaponFacts` in `AirWarView.vue`).
+- **What changes the numbers:** they follow the Foundry and the alien
+  research the fight is set to. When the UFO's analysis is done, they say
+  so and include it: Long War's damage ×1.1, LWR's jets firing 30 % faster.
+- **Where:** campaign jets and freely chosen ones alike, Long War's
+  sequence and LWR's squadron alike.
+
+Found on the way and fixed: in LWR, the stance table for a jet added while
+the odds were being worked out read past the reply
+(`squadByStance[k][st] is undefined`, logged in every LWR e2e run). The odds
+are now laid out by the jets the reply was asked for.
+
+Verified: the site e2e asserts a Plasma Cannon's line (damage, penetration,
+"fires every 1 s", aim), and the LWR runs no longer log the error. Looked at
+in Long War (Avalanche Missiles 340 damage) and LWR (160).

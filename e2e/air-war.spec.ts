@@ -31,6 +31,10 @@ test('air war: odds for the hangar under each stance, then a fight played out', 
   await page.getByRole('combobox', { name: 'Jet type' }).selectOption({ label: 'Firestorm' })
   await page.getByRole('combobox', { name: 'Weapon' }).selectOption({ label: 'Plasma Cannon' })
   await expect(page.locator('.leg-odds h3').first()).toContainText('Firestorm, Plasma Cannon')
+  // The weapon's own numbers beside it (am note cb07d): a Plasma Cannon fires every second.
+  await expect(page.getByRole('list', { name: "Jet 1's weapons" })).toContainText(
+    /Plasma Cannon\s*\d[\d,]* damage\s*\d+ armor penetration\s*fires every 1 s\s*\d+ aim/,
+  )
 
   // Fly it at double speed until it ends.
   await page.getByRole('button', { name: 'Fly it' }).click()

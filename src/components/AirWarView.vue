@@ -33,6 +33,7 @@ import {
   type AirSetting,
   type Engagement,
   type Leg,
+  type ShipStats,
   type OddsJob,
   type OddsReply,
   type OddsRequest,
@@ -250,6 +251,25 @@ const legs = computed<(Leg & { label: string })[]>(() =>
   }),
 )
 
+/**
+ * A jet's weapons in numbers (am note cb07d): a shot's damage, the armor it
+ * goes through (the weapon's and the jet's own), how often it fires, its aim
+ * before kills and stance; with the UFO's analysis where it changes them
+ * (Long War: damage × 1.1; LWR: the jets fire 30 % faster).
+ */
+function weaponFacts(craft: ShipStats) {
+  const analysed = analysis.value
+  return craft.weapons.map((w) => ({
+    name: w.name,
+    damage: !lwr.value && analysed ? Math.trunc(w.damage * 1.1) : w.damage,
+    pen: w.ap + craft.ap,
+    jetPen: craft.ap,
+    every: lwr.value && analysed ? w.firingTime / 1.3 : w.firingTime,
+    aim: w.toHit,
+    note: analysed ? (lwr.value ? 'fires 30 % faster: analysed' : '+10 % damage: analysed') : '',
+  }))
+}
+
 // --- LWR: the jets fly together ----------------------------------------------
 
 /**
@@ -301,7 +321,9 @@ function receiveSquads(reply: SquadReply) {
   if (reply.id !== requestId) return
   const [main, ...rest] = reply.squads
   squadOdds.value = main!
-  squadByStance.value = squadJets.value.map(
+  // By the jets the reply was asked for: a jet added since has none yet.
+  squadByStance.value = Array.from(
+    { length: Math.floor(rest.length / STANCES.length) },
     (_, i) =>
       Object.fromEntries(STANCES.map((st, k) => [st, rest[i * STANCES.length + k]!])) as Record<
         Stance,
@@ -729,6 +751,24 @@ const DIFFICULTIES = computed(() => game.value.difficulties)
                 ×
               </button>
             </div>
+            <ul v-if="legs[i]" class="weapon-facts" :aria-label="`Jet ${i + 1}'s weapons`">
+              <li v-for="w in weaponFacts(legs[i].craft)" :key="w.name">
+                <span class="w-name">{{ w.name }}</span>
+                <span class="fact"
+                  ><b>{{ num(w.damage) }}</b> damage</span
+                >
+                <span class="fact" :title="w.jetPen ? `${w.jetPen} of it the jet's own` : undefined"
+                  ><b>{{ w.pen }}</b> armor penetration</span
+                >
+                <span class="fact"
+                  >fires every <b>{{ +w.every.toFixed(2) }}</b> s</span
+                >
+                <span class="fact"
+                  ><b>{{ w.aim }}</b> aim</span
+                >
+                <span v-if="w.note" class="muted">{{ w.note }}</span>
+              </li>
+            </ul>
             <div class="row">
               <div class="seg stance" role="group" aria-label="Stance">
                 <button
@@ -1319,6 +1359,29 @@ input.num {
   padding: 6px 10px;
   margin-bottom: 8px;
   background: var(--panel);
+}
+.weapon-facts {
+  list-style: none;
+  margin: 2px 0 4px 22px;
+  padding: 0;
+  font-size: 12px;
+}
+.weapon-facts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+.w-name {
+  font-weight: 600;
+  color: var(--accent);
+}
+.fact {
+  color: var(--muted);
+}
+.fact b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 .jet-pic {
   width: 64px;
