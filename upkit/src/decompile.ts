@@ -198,7 +198,7 @@ export class FunctionDecompiler {
         if (a[0] === 0x36) return this.ex(a[1] as Node)
         // A cast of a literal: byte(5) is a byte constant, so the cast is written byte(int(5)).
         const inner = a[1] as Node
-        const lit = [0x1d, 0x2c, 0x25, 0x26].includes(inner.op) ? `int(${this.ex(inner).text})` : this.ex(inner).text
+        const lit = a[0] === 0x3d && [0x1d, 0x2c, 0x25, 0x26].includes(inner.op) ? `int(${this.ex(inner).text})` : this.ex(inner).text
         return atom(`${CASTS[a[0] as number] ?? `cast${a[0]}`}(${lit})`)
       }
       case 0x17:
