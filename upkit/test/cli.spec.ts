@@ -46,3 +46,13 @@ describe.skipIf(!haveCorpus)('the command line', () => {
     }
   }, 120_000)
 })
+
+describe.skipIf(!haveCorpus || !existsSync(join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComStrategyGame.upk')))('diff', () => {
+  it('vanilla against Long War: what Long War changed in a function, as a diff of its source', () => {
+    const vanilla = join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComStrategyGame.upk')
+    const out = run('diff', vanilla, CORPUS[3]!, 'XGFacility_Labs.GetResearchPerHour')
+    expect(out).toContain('--- a/XGFacility_Labs.GetResearchPerHour')
+    expect(out).toContain('-    return int(float(GetAvailableScientists()) * m_fLabBonus * m_fAdjLabBonus);')
+    expect(out).toContain('+    return int(float(GetAvailableScientists()) * (float(1) + m_fLabBonus + m_fAdjLabBonus));')
+  })
+})

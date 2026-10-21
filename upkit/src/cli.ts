@@ -19,6 +19,8 @@ Commands:
                                           what was edited in a whole class's source (as
                                           class writes it), new declarations too (--out)
   new <package.u> <Class.uc>…             a new script package with these classes in it
+  diff <package> <other package> [filter] what the other version changed, added, took away:
+                                          each changed function as a diff of its source
   roundtrip <package>                     decompile and compile every function; how many
                                           come back byte for byte
 
@@ -31,6 +33,7 @@ import { basename, dirname, join } from 'node:path'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classesPackage, modScriptWith, packageWith } from './changes.ts'
 import { classEdits } from './classsrc.ts'
+import { diffPackages } from './diff.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
@@ -198,6 +201,18 @@ try {
         n++
       }
       console.log(`wrote ${n} classes of ${pkgName} to ${dir}`)
+      break
+    }
+    case 'diff': {
+      // The other version, read with its own folder's packages (a mod's beside it).
+      const [otherFile, filter] = rest
+      if (!otherFile) usage()
+      const other = openPackage(new Uint8Array(readFileSync(otherFile)))
+      const otherLinker = new Linker([...(game ? [game] : []), dirname(otherFile)])
+      otherLinker.add(basename(otherFile).replace(/\.(upk|u)$/i, ''), other)
+      const r = diffPackages(linker, pkg, otherLinker, other, filter ?? '')
+      process.stdout.write(r.text)
+      console.error(`${r.changed.length} changed, ${r.added.length} added, ${r.removed.length} taken away`)
       break
     }
     case 'new': {
