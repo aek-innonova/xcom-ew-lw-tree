@@ -52,8 +52,8 @@ compile it, compare the bytes):
 | Package | Functions | Identical |
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 96.6% |
-| XComGame (Long War 1.0) | 11,756 | 93.2% |
+| Engine (vanilla) | 4,341 | 97.3% |
+| XComGame (Long War 1.0) | 11,756 | 93.3% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 89.8% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 90.4% |
 

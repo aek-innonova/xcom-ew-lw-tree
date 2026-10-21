@@ -96,7 +96,12 @@ export const FUNC = {
 
 /** A property's type, its references followed through the linker. */
 export function typeOf(linker: Linker, at: Located, p: PropertyObj): Ty {
-  const ref = (i: number) => linker.resolve(at.pkg, p.refs[i] ?? 0)
+  // A reference followed to where it is defined; one that cannot be (a C++-only
+  // class) stays the import, so its name still shows.
+  const ref = (i: number) => {
+    const r = p.refs[i] ?? 0
+    return r ? (linker.resolve(at.pkg, r) ?? { pkg: at.pkg, ref: r }) : null
+  }
   switch (p.type) {
     case 'IntProperty':
       return { k: 'int' }

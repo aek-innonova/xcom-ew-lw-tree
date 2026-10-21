@@ -806,7 +806,8 @@ export class FunctionCompiler {
         const from = this.kindOf(types[i]!)
         const to = this.kindOf(info.params[i]!.ty)
         if (from === to) {
-          if (from === 'struct' && !this.same(types[i]!, info.params[i]!.ty)) cost += 100
+          // A struct's operator is for that struct only.
+          if (from === 'struct' && !this.same(types[i]!, info.params[i]!.ty)) cost += 1000
           continue
         }
         if (from === 'none' && (to === 'object' || to === 'interface' || to === 'delegate')) continue
@@ -822,7 +823,15 @@ export class FunctionCompiler {
         best = c
       }
     }
-    if (!best || bestCost >= 1000) throw new CompileError(`no operator ${e.op} for ${types.map((t) => t.k).join(', ')}`)
+    if (!best || bestCost >= 1000) {
+      // Structs without an operator of their own compare member by member.
+      if (e.k === 'bin' && (e.op === '==' || e.op === '!=') && types[0]!.k === 'struct' && types[0]!.struct) {
+        const l = this.gen(operands[0]!)
+        const r = this.gen(operands[1]!, types[0])
+        return { node: N(e.op === '==' ? 0x32 : 0x33, this.refOf(types[0]!.struct), l.node, r.node), ty: { k: 'bool' } }
+      }
+      throw new CompileError(`no operator ${e.op} for ${types.map((t) => t.k).join(', ')}`)
+    }
     const info = this.fnInfo(best)
     const ps = info.params.map((p, i) => {
       const out = !!(p.p.flags & CPF.OutParm)
