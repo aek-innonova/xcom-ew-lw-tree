@@ -56,3 +56,28 @@ describe.skipIf(!haveCorpus || !existsSync(join(dirname(CORPUS[0]!), '../ew/Cook
     expect(out).toContain('+    return int(GetAvailableScientists() * (1 + m_fLabBonus + m_fAdjLabBonus));')
   })
 })
+
+describe.skipIf(!haveCorpus)('what is not compiled is said, not ignored', () => {
+  it("a function's changed declaration, a variable's changed type", () => {
+    const pkg = CORPUS[3]!
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    const fails = (...args: string[]) => {
+      try {
+        execFileSync(process.execPath, [cli, ...args], { encoding: 'utf8', stdio: 'pipe' })
+        return ''
+      } catch (e) {
+        return String((e as { stderr: string }).stderr)
+      }
+    }
+    try {
+      const fn = run('decompile', pkg, 'XGFacility_Labs.GetHoursToResearchProject').replace(/^.*\n(?=function)/, '')
+      writeFileSync(join(dir, 'f.uc'), fn.replace('(int iTech)', '(float iTech)'))
+      expect(fails('compile', pkg, 'XGFacility_Labs.GetHoursToResearchProject', join(dir, 'f.uc'), '--patch', join(dir, 'x.txt'))).toContain('its declaration changed')
+      const cls = run('class', pkg, 'XGFacility_Labs')
+      writeFileSync(join(dir, 'c.uc'), cls.replace('var int m_iExplosiveNags;', 'var float m_iExplosiveNags;'))
+      expect(fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('a changed type is not compiled')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
+})

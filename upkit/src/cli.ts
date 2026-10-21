@@ -32,7 +32,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classesPackage, modScriptWith, packageWith } from './changes.ts'
-import { classEdits } from './classsrc.ts'
+import { classEdits, declaration } from './classsrc.ts'
 import { diffPackages } from './diff.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
@@ -157,6 +157,9 @@ try {
           ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)]
           : []
       const changes = edits ? edits.changes : isNew ? [] : [{ ref: functionRef(pkg, path), text, path }]
+      // One function's source: its declaration as the package has it (only the body compiles).
+      if (!isClass && pkg.className(changes[0]!.ref) === 'Function' && declaration(readableSource(linker, pkg, changes[0]!.ref)) !== declaration(text))
+        throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it`)
       const block = isClass && !isNew ? defaultsBlock(text) : null
       const defaults = block !== null ? { classRef: target, block } : undefined
       // What the defaults change (nothing when they are as the package has them; new variables' are checked when declared).

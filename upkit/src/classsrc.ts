@@ -6,6 +6,7 @@
 import type { Change } from './changes.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import { readableSource } from './fidelity.ts'
+import { typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex, lineAt } from './parse.ts'
@@ -165,6 +166,22 @@ export function splitClass(src: string): ClassPart[] {
   return parts
 }
 
+/** A function's declaration, without its parameters' defaults (those compile with the body): to compare. */
+export function declaration(text: string): string {
+  try {
+    const d = parseSignature(text, null)
+    return JSON.stringify([
+      [...d.modifiers].sort(),
+      d.keyword,
+      d.returnType?.toLowerCase() ?? null,
+      d.params.map((p) => [p.name.toLowerCase(), p.type.toLowerCase(), p.dim, p.out, p.optional, p.coerce, p.isConst]),
+      d.isConst,
+    ])
+  } catch {
+    return ''
+  }
+}
+
 const same = (a: string, b: string) => {
   const x = lex(a)
   const y = lex(b)
@@ -210,6 +227,15 @@ export function classEdits(
       if (last && pkg.find(`${className}.${last}`) && /\bdelegate\s*</i.test(p.text)) continue
       const v = parseVar(p.text, className)
       const fresh = v.names.filter((n) => !pkg.find(`${className}.${n.name}`))
+      // One the class has, declared with another type: not compiled (its type stays).
+      for (const n of v.names) {
+        const ref = pkg.find(`${className}.${n.name}`)
+        const prop = ref ? linker.object({ pkg, ref }) : null
+        if (prop?.kind !== 'property') continue
+        const has = typeText(typeOf(linker, { pkg, ref }, prop)).toLowerCase().replace(/\s+/g, '')
+        if (has !== '?' && has !== v.type.toLowerCase().replace(/\s+/g, '') && !/\?/.test(has))
+          throw new Error(`${className}.${n.name}: declared ${v.type}, the package has it ${has}; a changed type is not compiled`)
+      }
       if (fresh.length) out.vars.push({ ...v, names: fresh })
       continue
     }
@@ -245,7 +271,11 @@ export function classEdits(
     } catch {
       original = ''
     }
-    if (always.has(path.toLowerCase()) || !same(original, p.text)) out.changes.push({ ref, text: p.text, path, line: p.at === undefined ? 1 : lineAt(src, p.at) })
+    const edited = always.has(path.toLowerCase()) || !same(original, p.text)
+    // Its declaration as the package has it: a body is compiled, a changed declaration is not.
+    if (edited && p.kind === 'function' && !always.has(path.toLowerCase()) && declaration(original) !== declaration(p.text))
+      throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it`)
+    if (edited) out.changes.push({ ref, text: p.text, path, line: p.at === undefined ? 1 : lineAt(src, p.at) })
   }
   return out
 }
