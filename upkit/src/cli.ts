@@ -14,6 +14,7 @@
 //   compile <package> <Class> <Class.uc> (--out … | --patch …)
 //                                           the functions and states' code edited in a whole
 //                                           class's source (as `class` writes it)
+//   new <package.u> <Class.uc>…             a new script package with these classes in it
 //   roundtrip <package>                     decompile and compile every function; how many
 //                                           come back byte for byte
 //
@@ -23,7 +24,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname } from 'node:path'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
-import { classPackage, modScriptWith, packageWith } from './changes.ts'
+import { classesPackage, modScriptWith, packageWith } from './changes.ts'
 import { classEdits } from './classsrc.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
@@ -32,6 +33,7 @@ import { fidelity, fidelityNote } from './fidelity.ts'
 import { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
+import { emptyPackage } from './writer.ts'
 
 const argv = process.argv.slice(2)
 const flag = (name: string): string | undefined => {
@@ -52,7 +54,7 @@ function usage(): never {
     readFileSync(new URL(import.meta.url), 'utf8')
       .split('\n')
       .filter((l) => l.startsWith('//'))
-      .slice(0, 21)
+      .slice(0, 22)
       .map((l) => l.slice(3))
       .join('\n'),
   )
@@ -60,14 +62,27 @@ function usage(): never {
 }
 
 if (!command || !file) usage()
-if (!existsSync(file)) {
+// (new writes the package it is given; every other command reads it.)
+if (command !== 'new' && !existsSync(file)) {
   console.error(`no file ${file}`)
   process.exit(1)
 }
-const pkg = openPackage(new Uint8Array(readFileSync(file)))
 const pkgName = basename(file).replace(/\.(upk|u)$/i, '')
 const linker = new Linker([...(game ? [game] : []), dirname(file)])
-linker.add(pkgName, pkg)
+const pkg = command === 'new' ? (null as unknown as Package) : openPackage(new Uint8Array(readFileSync(file)))
+if (pkg) linker.add(pkgName, pkg)
+
+/** What a package build did, in a line. */
+function report(r: { compiled: string[]; objects: string[]; declared: string[]; added: { names: number; imports: number; exports: number } }): string {
+  return [
+    r.declared.length && `declared ${r.declared.join(', ')}`,
+    r.compiled.length && `compiled ${r.compiled.join(', ')}`,
+    r.objects.length && `defaults of ${r.objects.join(', ')}`,
+    `${r.added.names} names, ${r.added.imports} imports, ${r.added.exports} objects added`,
+  ]
+    .filter(Boolean)
+    .join('; ')
+}
 
 function functionRef(p: Package, path: string): number {
   const ref = p.find(path)
@@ -131,11 +146,17 @@ try {
       const text = readFileSync(source, 'utf8')
       // A class: what was edited (or declared anew) in its source. Else one function or state.
       const target = pkg.find(path)
-      const isClass = !!target && pkg.className(target) === 'Class'
-      const edits = isClass ? classEdits(linker, pkg, path, text) : null
-      const declared = edits ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)] : []
-      const changes = edits ? edits.changes : [{ ref: functionRef(pkg, path), text, path }]
-      const block = isClass ? defaultsBlock(text) : null
+      // (A class the package does not have, declared in the source: a new class.)
+      const isNew = !target && new RegExp(`^\\s*class\\s+${path}\\b`, 'im').test(text)
+      const isClass = isNew || (!!target && pkg.className(target) === 'Class')
+      const edits = isClass && !isNew ? classEdits(linker, pkg, path, text) : null
+      const declared = isNew
+        ? [path]
+        : edits
+          ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)]
+          : []
+      const changes = edits ? edits.changes : isNew ? [] : [{ ref: functionRef(pkg, path), text, path }]
+      const block = isClass && !isNew ? defaultsBlock(text) : null
       const defaults = block !== null ? { classRef: target, block } : undefined
       // What the defaults change (nothing when they are as the package has them; new variables' are checked when declared).
       const objects =
@@ -154,20 +175,27 @@ try {
         console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}`)
       }
       if (out) {
-        const r = isClass ? classPackage(linker, pkg, pkgName, path, text, layout) : { ...packageWith(linker, pkg, changes, layout, defaults), declared: [], edited: [] }
-        writeFileSync(out, r.bytes)
-        const extras = [
-          r.declared.length && `declared ${r.declared.join(', ')}`,
-          r.added.names && `${r.added.names} names`,
-          r.added.imports && `${r.added.imports} imports`,
-          r.added.exports && `${r.added.exports} new local properties`,
-        ].filter(Boolean)
-        const sizes = [
-          ...r.compiled.map((c, k) => `${r.edited[k] ?? pkg.path(c.ref)} → ${c.code.length} bytes`),
-          ...r.objects.map((o) => `${pkg.path(o)} (default properties)`),
-        ]
-        console.log(`wrote ${out} (${layout} layout): ${sizes.join('; ')}${extras.length ? `; ${extras.join(', ')}` : ''}`)
+        if (isClass) {
+          const r = classesPackage(linker, pkg, pkgName, [text], layout)
+          writeFileSync(out, r.bytes)
+          console.log(`wrote ${out} (${layout} layout): ${report(r)}`)
+        } else {
+          const r = packageWith(linker, pkg, changes, layout, defaults)
+          writeFileSync(out, r.bytes)
+          console.log(`wrote ${out} (${layout} layout): ${r.compiled.map((c) => `${pkg.path(c.ref)} → ${c.code.length} bytes`).join('; ')}`)
+        }
       }
+      break
+    }
+    case 'new': {
+      // A new script package: file is the package to write, rest the classes' sources.
+      if (!rest.length) usage()
+      const template = linker.package('Core')
+      if (!template) throw new Error('no Core package to take the header from (--game <the game\'s CookedPCConsole>)')
+      const sources = rest.map((f) => readFileSync(f, 'utf8'))
+      const r = classesPackage(linker, openPackage(emptyPackage(template)), pkgName, sources, layout)
+      writeFileSync(file, r.bytes)
+      console.log(`wrote ${file}: ${report(r)}`)
       break
     }
     case 'roundtrip': {
@@ -197,6 +225,7 @@ try {
       usage()
   }
 } catch (e) {
+  if (process.env.UPKIT_DEBUG) console.error(e)
   // A compile error or a bad package: said, without a stack.
   console.error(`upkit: ${(e as Error).message}`)
   process.exit(1)

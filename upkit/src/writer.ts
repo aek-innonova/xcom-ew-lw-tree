@@ -131,3 +131,40 @@ export function writePackage(pkg: Package, changes: Changes = {}): Uint8Array {
   out.bytes(body.done())
   return out.done()
 }
+
+/**
+ * A package with nothing in it but the name None, its summary the template's
+ * (a script package of the game's: its versions, its flags but compression),
+ * a new GUID. What a new script package starts from.
+ */
+export function emptyPackage(template: Package): Uint8Array {
+  const t = template.summary
+  const names = new Writer()
+  names.fstr('None').u64(0x7001000000000n)
+  const nameOffset = t.nameOffset
+  const headerSize = nameOffset + names.o
+  const guid = new Uint8Array(16)
+  crypto.getRandomValues(guid)
+  const summary = {
+    ...t,
+    headerSize,
+    // Stored as it is: not compressed (fully or by chunks).
+    packageFlags: (t.packageFlags & ~0x6000000) >>> 0,
+    nameCount: 1,
+    nameOffset,
+    exportCount: 0,
+    exportOffset: headerSize,
+    importCount: 0,
+    importOffset: headerSize,
+    dependsOffset: headerSize,
+    extra: t.extra.length ? [headerSize, ...t.extra.slice(1).map(() => 0)] : [],
+    guid,
+    generations: [{ exports: 0, names: 1, netObjects: 0 }],
+    compressionFlags: 0,
+    chunks: [],
+  }
+  const w = new Writer(headerSize)
+  writeSummary(w, summary)
+  w.padTo(nameOffset).bytes(names.done())
+  return w.done()
+}

@@ -5,7 +5,7 @@
 import { encodeScript, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classEdits } from './classsrc.ts'
-import { declare } from './declare.ts'
+import { declare, declareClass, parseClassHeader } from './declare.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
@@ -129,28 +129,63 @@ function compileOne(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<s
 const u16 = (v: number) => new Uint8Array([v & 0xff, (v >> 8) & 0xff])
 
 /**
- * A whole class's source into a whole package: new member variables and
- * functions declared first (a package with them, bodies to come), then every
- * edited or new function, state code and default compiled against it.
+ * Classes' sources into a whole package: classes it does not have declared
+ * first (parents before the classes extending them), then every class's new
+ * member variables and functions, then every edited or new function, state
+ * code and default compiled. In that order, the classes can name each other.
  */
-export function classPackage(
+export function classesPackage(
   linker: Linker,
   pkg: Package,
   pkgName: string,
-  className: string,
-  src: string,
+  sources: string[],
   layout: 'keep' | 'compact' = 'keep',
-): ReturnType<typeof packageWith> & { declared: string[]; edited: string[] } {
-  const classRef = pkg.find(className)
-  const first = classEdits(linker, pkg, className, src)
-  const declared = [...first.vars.flatMap((v) => v.names.map((n) => `${className}.${n.name}`)), ...first.functions.map((f) => f.path)]
+): { bytes: Uint8Array; compiled: string[]; objects: string[]; declared: string[]; added: { names: number; imports: number; exports: number } } {
   let target = pkg
-  if (declared.length) {
-    target = openPackage(declare(linker, pkg, classRef, first.vars, first.functions))
+  let bytes = pkg.bytes
+  const step = (b: Uint8Array) => {
+    bytes = b
+    target = openPackage(b)
     linker.add(pkgName, target)
   }
-  const edits = declared.length ? classEdits(linker, target, className, src) : first
-  const block = defaultsBlock(src)
-  const r = packageWith(linker, target, edits.changes, layout, block === null ? undefined : { classRef, block })
-  return { ...r, declared, edited: edits.changes.map((c) => c.path) }
+  const classes = sources.map((src) => ({ src, name: parseClassHeader(src).name, head: parseClassHeader(src) }))
+  const declared: string[] = []
+  const implicit = new Map<string, string[]>()
+  // The new classes, each after its parent if that is new too.
+  const pending = classes.filter((c) => !pkg.find(c.name))
+  while (pending.length) {
+    const i = pending.findIndex((c) => !pending.some((p) => p.name.toLowerCase() === c.head.parent.toLowerCase()))
+    if (i < 0) throw new Error(`the classes ${pending.map((c) => c.name).join(', ')} extend each other`)
+    const c = pending.splice(i, 1)[0]!
+    const r = declareClass(linker, target, c.head)
+    step(r.bytes)
+    implicit.set(c.name, r.defaults)
+    declared.push(c.name)
+  }
+  for (const c of classes) {
+    const e = classEdits(linker, target, c.name, c.src)
+    if (!e.vars.length && !e.functions.length) continue
+    step(declare(linker, target, target.find(c.name), e.vars, e.functions))
+    declared.push(...e.vars.flatMap((v) => v.names.map((n) => `${c.name}.${n.name}`)), ...e.functions.map((f) => f.path))
+  }
+  const compiled: string[] = []
+  const objects: string[] = []
+  const added = { names: target.names.length - pkg.names.length, imports: target.imports.length - pkg.imports.length, exports: target.exports.length - pkg.exports.length }
+  for (const c of classes) {
+    const e = classEdits(linker, target, c.name, c.src)
+    const own = defaultsBlock(c.src)
+    const extra = implicit.get(c.name) ?? []
+    const block = extra.length || own !== null ? [...extra, own ?? ''].join('\n') : null
+    const classRef = target.find(c.name)
+    const r = packageWith(linker, target, e.changes, 'keep', block === null ? undefined : { classRef, block })
+    if (!e.changes.length && !r.objects.length) continue
+    compiled.push(...e.changes.map((x) => x.path))
+    objects.push(...r.objects.map((o) => target.path(o)))
+    added.names += r.added.names
+    added.imports += r.added.imports
+    added.exports += r.added.exports
+    step(r.bytes)
+  }
+  if (layout === 'compact') bytes = writePackage(target, { layout: 'compact' })
+  return { bytes, compiled, objects, declared, added }
 }

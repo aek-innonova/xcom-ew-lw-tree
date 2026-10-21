@@ -30,6 +30,12 @@ node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs.GetResearchPe
 # or edit any of a whole class's functions and states' code, and compile what was edited
 node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
 
+# a new class in a package (its source declares it: class UpkitHelper extends XGStrategyActor; …)
+node upkit/src/cli.ts compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --out XComStrategyGame.new.upk
+
+# a new script package of your own classes
+node upkit/src/cli.ts new MyMod.u MyModInfo.uc MyModData.uc --game <the game's CookedPCConsole>
+
 node upkit/src/cli.ts roundtrip XComGame.upk   # how much of a package compiles back byte for byte
 ```
 
@@ -94,7 +100,26 @@ compiled like any edited function; a default can be given in
 `defaultproperties`. A native class cannot get new variables (its C++ fixes
 its layout), and a mod script cannot add objects at all.
 
-Not compiled yet: new states, classes, delegates and native functions; a
+A class the package does not have can be declared too (`class X extends Y
+[within Z] [config(Name)] [abstract] [placeable] …;`), into a package, or
+with `new` into a new script package of its own (its header a cooked script
+package's, as Core's: the game's versions and flags, not compressed). Its
+parent can be in any of the game's script packages; what it names there is
+imported. It inherits as the compiler has it inherit: its parent's flags
+(but the native ones), `within`, config file and hidden categories; a copy
+of each component its parent's default object owns, archetyped from the
+parent's, with the defaults that pointed at the parent's pointing at its
+own; the probe-mask bits of the events it defines (Tick, Touch,
+PostBeginPlay …), without which the engine does not send them. Classes
+compiled together can name each other.
+
+None of what upkit writes has been loaded by the game yet: the packages are
+checked by reading them back (every object to its end, every class
+decompiled to its source, every function compiled back to the same bytes),
+and mod scripts by the app's own PatchUPK implementation. Getting the game to
+load a new package (Long War's mutators are one way) is outside upkit.
+
+Not compiled yet: new states, delegates, native functions and interfaces; a
 changed signature or variable type; new subobjects in the defaults;
 replication.
 

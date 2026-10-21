@@ -17,6 +17,9 @@ export interface Located {
 export class Linker {
   private dirs: string[]
   private byName = new Map<string, Package | null>()
+  /** Packages' names as given (byName's keys are lower case). */
+  private given = new Map<string, string>()
+  private types = new WeakMap<Package, Map<string, number>>()
   private objects = new WeakMap<Package, Map<number, ScriptObject | null>>()
   private natives?: Map<number, Located & { fn: FunctionObj }>
 
@@ -28,6 +31,7 @@ export class Linker {
   /** Adds a package already read (named by its file name without the extension). */
   add(name: string, pkg: Package) {
     this.byName.set(name.toLowerCase(), pkg)
+    this.given.set(name.toLowerCase(), name)
   }
 
   /** A package by name ("Core"), opened from the folders once; null if none has it. */
@@ -41,14 +45,44 @@ export class Linker {
           if (!pkg && existsSync(p)) pkg = openPackage(new Uint8Array(readFileSync(p)))
         }
       this.byName.set(key, pkg)
+      this.given.set(key, name)
     }
     return this.byName.get(key)!
   }
 
   /** The package's own name, as other packages import it. */
   nameOf(pkg: Package): string {
-    for (const [k, v] of this.byName) if (v === pkg) return k
+    for (const [k, v] of this.byName) if (v === pkg) return this.given.get(k) ?? k
     return ''
+  }
+
+  /** The game's script packages: where a type that new code names may be, beyond what its package imports. */
+  static readonly SCRIPT_PACKAGES = ['Core', 'Engine', 'GameFramework', 'GFxUI', 'IpDrv', 'XComGame', 'XComStrategyGame', 'XComUIShell']
+
+  /** A class, struct or enum by name: in the packages read so far, then the game's script packages. */
+  findType(name: string): Located | null {
+    const want = name.toLowerCase()
+    const look = (pkg: Package) => {
+      let m = this.types.get(pkg)
+      if (!m) {
+        m = new Map()
+        for (let i = pkg.exports.length; i >= 1; i--)
+          if (['Class', 'ScriptStruct', 'Enum'].includes(pkg.className(i))) m.set(pkg.objectName(i).toLowerCase(), i)
+        this.types.set(pkg, m)
+      }
+      const ref = m.get(want)
+      return ref ? { pkg, ref } : null
+    }
+    for (const pkg of this.byName.values()) {
+      const f = pkg && look(pkg)
+      if (f) return f
+    }
+    for (const n of Linker.SCRIPT_PACKAGES) {
+      const pkg = this.package(n)
+      const f = pkg && look(pkg)
+      if (f) return f
+    }
+    return null
   }
 
   /** Where a reference really is: an export as it is, an import followed to its package. */

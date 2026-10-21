@@ -274,6 +274,24 @@ export class FunctionDecompiler {
       }
     return this.memberNamed(this.ownClass(), name)
   }
+  /** The function a parent class of this one defines by that name, the nearest. */
+  private parentFunction(name: string): Located | null {
+    const want = name.toLowerCase()
+    const own = this.linker.object(this.ownClass())
+    let s = own && 'head' in own && own.head.superStruct ? this.linker.resolve(this.pkg, own.head.superStruct) : null
+    while (s) {
+      const o = this.linker.object(s)
+      if (!o || !('head' in o)) return null
+      for (let c = o.head.children; c; ) {
+        const fo = this.linker.object({ pkg: s.pkg, ref: c })
+        if (!fo) break
+        if (fo.kind === 'function' && s.pkg.objectName(c).toLowerCase() === want) return { pkg: s.pkg, ref: c }
+        c = 'head' in fo ? fo.head.next : fo.next
+      }
+      s = o.head.superStruct ? this.linker.resolve(s.pkg, o.head.superStruct) : null
+    }
+    return null
+  }
   private memberNamed(cls: Located, name: string): boolean {
     const want = name.toLowerCase()
     for (let s: Located | null = cls; s; ) {
@@ -505,6 +523,10 @@ export class FunctionDecompiler {
     if (!f) return name
     // A final call to a function that is not final is a super call.
     if (!(f.fn.flags & FUNC.Final)) {
+      // What plain super finds (in a class's function: the nearest parent's): written so.
+      const inState = this.pkg.className(this.pkg.outerOf(this.ref)) === 'State'
+      const near = inState ? null : this.parentFunction(name)
+      if (near && near.pkg === f.pkg && near.ref === f.ref) return `super.${name}`
       const outer = f.pkg.outerOf(f.ref)
       // A state's function: its path (Class.State), upkit's dialect; a class's: its name.
       const owner = f.pkg.className(outer) === 'State' ? f.pkg.path(outer) : f.pkg.objectName(outer)

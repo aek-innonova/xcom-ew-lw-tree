@@ -220,7 +220,7 @@ describe.skipIf(!haveCorpus)('a whole class edited', () => {
 describe.skipIf(!haveCorpus)('new declarations in a class', () => {
   it('a member variable, an array, a function calling it and a default: declared, compiled, read back', async () => {
     const { decompileClass } = await import('../src/classdecomp.ts')
-    const { classPackage } = await import('../src/changes.ts')
+    const { classesPackage } = await import('../src/changes.ts')
     const { Package } = await import('../src/package.ts')
     const { readObject } = await import('../src/objects.ts')
     const linker = new Linker([dirname(CORPUS[0]!)])
@@ -245,7 +245,7 @@ function float UpkitBonus(int iScale, optional string strWhy)
 ` +
       src.slice(d)
     src = src.replace('defaultproperties\n{', 'defaultproperties\n{\n    m_fUpkitBonus=0.25')
-    const r = classPackage(linker, pkg, 'XComStrategyGame', 'XGFacility_Labs', src)
+    const r = classesPackage(linker, pkg, 'XComStrategyGame', [src])
     expect(r.declared).toEqual(['XGFacility_Labs.m_fUpkitBonus', 'XGFacility_Labs.m_arrUpkitLog', 'XGFacility_Labs.UpkitBonus'])
     const out = new Package(r.bytes)
     // Every object reads to its end.
@@ -269,5 +269,33 @@ function float UpkitBonus(int iScale, optional string strWhy)
     const again = new FunctionDecompiler(back, out, fn).decompile()
     const h = (await import('../src/objects.ts')).readStructHead(out, fn)
     expect([...new FunctionCompiler(back, out, fn).compile(again, binaryOperators(back)).code]).toEqual([...out.data(fn).subarray(h.scriptAt, h.end)])
+  })
+})
+
+describe.skipIf(!haveCorpus)('a new script package', () => {
+  it('two classes that use each other, from their sources: declared, compiled, read back as written', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { classesPackage } = await import('../src/changes.ts')
+    const { decompileClass } = await import('../src/classdecomp.ts')
+    const { emptyPackage } = await import('../src/writer.ts')
+    const { openPackage } = await import('../src/package.ts')
+    const { readObject } = await import('../src/objects.ts')
+    const { lex } = await import('../src/parse.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const sources = ['UpkitModInfo', 'UpkitModData'].map((n) => readFileSync(new URL(`./fixtures/${n}.uc`, import.meta.url), 'utf8'))
+    const r = classesPackage(linker, openPackage(emptyPackage(linker.package('Core')!)), 'UpkitMod', sources)
+    const out = openPackage(r.bytes)
+    for (let i = 1; i <= out.exports.length; i++) expect(() => readObject(out, i)).not.toThrow()
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('UpkitMod', out)
+    // Each class decompiles to its source (token for token, the header and local lists aside).
+    const body = (src: string) =>
+      lex(src.slice(src.indexOf(';') + 1).replace(/local int I, iTotal;/, 'local int I; local int iTotal;'))
+        .map((t) => t.v)
+        .join(' ')
+    expect(body(decompileClass(back, out, 'UpkitModData'))).toBe(body(sources[1]!))
+    const info = decompileClass(back, out, 'UpkitModInfo')
+    expect(body(info)).toBe(body(sources[0]!))
+    expect(info).toContain('extends Info')
   })
 })

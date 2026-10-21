@@ -117,6 +117,12 @@ export class FunctionCompiler {
         const key = pkg.path(-i).toLowerCase()
         if (!this.imports.has(key)) this.imports.set(key, -i)
       }
+    // The package alone (one with no classes yet): names, imports, types.
+    if (ref === 0) {
+      this.fn = { head: { children: 0 } } as unknown as FunctionObj
+      this.cls = { pkg, ref: 0 }
+      return
+    }
     // A class itself (its declarations): no function, no locals.
     if (pkg.className(ref) === 'Class') {
       this.fn = linker.object({ pkg, ref }) as unknown as FunctionObj
@@ -253,6 +259,15 @@ export class FunctionCompiler {
     }
     return this.member(inClass ?? this.cls, name, 'function')
   }
+  /** A compiler for a package as a whole (to name and import things in it, as a new class does). */
+  static forPackage(linker: Linker, pkg: Package, sh?: Shared): FunctionCompiler {
+    return new FunctionCompiler(linker, pkg, 0, sh)
+  }
+  /** A class by name (a whole package: from wherever the game has it). */
+  findClass(name: string): Located | null {
+    const t = this.findType(name)
+    return t && t.pkg.className(t.ref) === 'Class' ? t : null
+  }
   /** A class (or struct, enum) by name, from this package or the ones it imports. */
   private findType(name: string): Located | null {
     let types = TYPES.get(this.pkg)
@@ -266,7 +281,8 @@ export class FunctionCompiler {
       TYPES.set(this.pkg, types)
     }
     const ref = types.get(name.toLowerCase())
-    if (ref === undefined) return null
+    // Not here or imported: a whole package can import it from wherever the game has it.
+    if (ref === undefined) return this.allow === 'all' ? this.linker.findType(name) : null
     return ref > 0 ? { pkg: this.pkg, ref } : (this.linker.resolve(this.pkg, ref) ?? { pkg: this.pkg, ref })
   }
   /** An enum value by name, from the enums this package has or imports. */

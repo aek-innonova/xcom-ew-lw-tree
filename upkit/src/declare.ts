@@ -7,10 +7,11 @@
 // entered in the function map. The bodies are then compiled against that
 // package like any edited function (the function exists by then).
 
-import { Writer } from './bytes.ts'
+import { Reader, Writer } from './bytes.ts'
+import { ClassDecompiler } from './classdecomp.ts'
 import { FunctionCompiler, shared, type Shared } from './compile.ts'
 import type { Linker, Located } from './linker.ts'
-import { readObject, readStructHead, type ClassObj, type StateObj } from './objects.ts'
+import { readObject, readStructHead, readTags, tagsStart, type ClassObj, type StateObj } from './objects.ts'
 import type { Package } from './package.ts'
 import { lex, type Tok } from './parse.ts'
 import { CPF, FUNC } from './types.ts'
@@ -223,7 +224,12 @@ export function parseSignature(text: string, state: string | null): FunctionDecl
 }
 
 /** The data of a class or state with another first field, and more functions in its map. */
-function withFields(pkg: Package, ref: number, children: number, functions: { name: { index: number; number: number }; ref: number }[]): Uint8Array {
+function withFields(
+  pkg: Package,
+  ref: number,
+  children: number,
+  functions: { name: { index: number; number: number }; ref: number; text: string }[],
+): Uint8Array {
   const data = pkg.data(ref)
   const h = readStructHead(pkg, ref)
   // After the script: probe mask (4), label table offset (2), state flags (4), then the map.
@@ -238,6 +244,8 @@ function withFields(pkg: Package, ref: number, children: number, functions: { na
   const v = new DataView(out.buffer, out.byteOffset)
   v.setInt32(h.scriptAt - 24, children, true)
   v.setInt32(mapAt, count + functions.length, true)
+  // Events the engine sends only when asked for: the probe mask asks for the new ones.
+  v.setUint32(h.end, (v.getUint32(h.end, true) | probeBits(functions.map((f) => f.text))) >>> 0, true)
   return out
 }
 
@@ -254,7 +262,7 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
   const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = []
   let nextRef = pkg.exports.length + 1
   // Per class or state: its first field and the functions added to its map.
-  const owners = new Map<number, { children: number; functions: { name: { index: number; number: number }; ref: number }[] }>()
+  const owners = new Map<number, { children: number; functions: { name: { index: number; number: number }; ref: number; text: string }[] }>()
   const owner = (ref: number) => {
     let o = owners.get(ref)
     if (!o) {
@@ -360,11 +368,187 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
       data: w.done(),
     }
     o.children = ref
-    o.functions.push({ name, ref })
+    o.functions.push({ name, ref, text: f.name })
   }
 
   const data = new Map<number, Uint8Array>()
   for (const [ref, o] of owners) data.set(ref, withFields(pkg, ref, o.children, o.functions))
   const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
   return writePackage(pkg, { data, names, imports: sh.imports, exports, layout: 'keep' })
+}
+
+export interface ClassDecl {
+  name: string
+  parent: string
+  within: string | null
+  config: string | null
+  flags: number
+  /** Flags the parent's that it drops (notplaceable). */
+  clears: number
+}
+
+const CLASS_MODIFIERS: Record<string, number> = {
+  abstract: 0x1,
+  transient: 0x8,
+  placeable: 0x200,
+  perobjectconfig: 0x400,
+  editinlinenew: 0x1000,
+  collapsecategories: 0x2000,
+  deprecated: 0x2000000,
+  hidedropdown: 0x4000000,
+}
+
+/** class Name extends Parent [within Outer] [modifiers]; */
+export function parseClassHeader(src: string): ClassDecl {
+  const m = /^\s*class\s+(\w+)\s+extends\s+(\w+)([^;]*);/im.exec(src.replace(/\/\/.*$/gm, ''))
+  if (!m) throw new DeclareError('no "class Name extends Parent …;" declaration')
+  const d: ClassDecl = { name: m[1]!, parent: m[2]!, within: null, config: null, flags: 0, clears: 0 }
+  const rest = m[3]!
+  const within = /\bwithin\s+(\w+)/i.exec(rest)
+  if (within) d.within = within[1]!
+  const config = /\bconfig\s*\(\s*(\w+)\s*\)/i.exec(rest)
+  if (config) {
+    d.config = config[1]!
+    d.flags |= 0x4
+  }
+  for (const w of rest.replace(/\([^)]*\)/g, ' ').split(/\s+/).map((x) => x.toLowerCase()).filter(Boolean)) {
+    if (w === 'native' || w === 'nativereplication' || w === 'implements') throw new DeclareError(`a new ${w} class is not declared (it needs C++, or interfaces upkit does not declare yet)`)
+    if (w === 'notplaceable') d.clears |= 0x200
+    else if (w in CLASS_MODIFIERS) d.flags |= CLASS_MODIFIERS[w]!
+  }
+  return d
+}
+
+/** Events the engine sends only to a class (or state) whose probe mask has their bit. */
+const PROBES: Record<string, number> = {
+  destroyed: 0, gainedchild: 1, lostchild: 2, hitwall: 3, falling: 4, landed: 5, touch: 6, untouch: 7, bump: 8,
+  beginstate: 9, endstate: 10, basechange: 11, attach: 12, detach: 13, encroachingon: 14, encroachedby: 15,
+  tick: 17, postbeginplay: 29,
+}
+/** The probe bits for the functions a class or state defines. */
+export function probeBits(names: string[]): number {
+  let m = 0
+  for (const n of names) {
+    const b = PROBES[n.toLowerCase()]
+    if (b !== undefined) m |= 1 << b
+  }
+  return m >>> 0
+}
+
+/** Flags a class does not pass on (abstract, native, its C++ export and replication, …). */
+const NOT_INHERITED = 0x1 | 0x80 | 0x100 | 0x800 | 0x8000000
+
+/**
+ * The package with a new class in it: the class (no fields yet), its default
+ * object, and a copy of each component its parent's default object owns (the
+ * copy's archetype the parent's). Returned with the defaultproperties lines
+ * that point the class's defaults at its own components.
+ */
+export function declareClass(linker: Linker, pkg: Package, d: ClassDecl, sh: Shared = shared()): { bytes: Uint8Array; defaults: string[] } {
+  if (pkg.find(d.name)) throw new DeclareError(`${d.name} is in the package already`)
+  // A compiler for this package, to find and import what the class names (any function of it will do).
+  let anyRef = 0
+  for (let i = 1; i <= pkg.exports.length && !anyRef; i++) if (['Class', 'Function'].includes(pkg.className(i))) anyRef = i
+  const fc = anyRef ? new FunctionCompiler(linker, pkg, anyRef, sh) : FunctionCompiler.forPackage(linker, pkg, sh)
+  fc.allow = 'all'
+  const parent = fc.findClass(d.parent)
+  if (!parent) throw new DeclareError(`no class ${d.parent} to extend`)
+  const pc = linker.object(parent) as ClassObj
+  const within = d.within ? fc.findClass(d.within) : pc.within ? linker.resolve(parent.pkg, pc.within) : null
+  const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = []
+  const classRef = pkg.exports.length + 1
+  const defaultRef = classRef + 1
+  const parentDefault = pc.defaultObject ? linker.resolve(parent.pkg, pc.defaultObject) : null
+  const entry = (classIndex: number, superIndex: number, outer: number, name: string, archetype: number, objectFlags: bigint) => ({
+    classIndex,
+    superIndex,
+    outer,
+    objectName: fc.nameRef(name),
+    archetype,
+    objectFlags,
+    serialSize: 0,
+    serialOffset: 0,
+    exportFlags: 0,
+    netObjects: [],
+    packageGuid: new Uint8Array(16),
+    packageFlags: 0,
+  })
+  // The parent's components: copied under the new default object.
+  const components: { name: string; ref: number; cls: number; archetype: number }[] = []
+  let nextRef = defaultRef + 1
+  for (const c of pc.componentMap) {
+    // (One the cook stripped, editor-only: mapped to nothing, as the parent maps it.)
+    if (!c.obj) {
+      components.push({ name: c.name, ref: 0, cls: 0, archetype: 0 })
+      continue
+    }
+    const at = linker.resolve(parent.pkg, c.obj)
+    if (!at) throw new DeclareError(`${d.parent}'s component ${c.name} is not found`)
+    const clsAt = linker.resolve(at.pkg, at.pkg.exports[at.ref - 1]!.classIndex)
+    if (!clsAt) throw new DeclareError(`${d.parent}'s component ${c.name}: its class is not found`)
+    components.push({ name: c.name, ref: nextRef++, cls: fc.refOf(clsAt), archetype: fc.refOf(at) })
+  }
+  const parentRef = fc.refOf(parent)
+  const withinRef = within ? fc.refOf(within) : 0
+  const none = fc.nameRef('None')
+  const configName = fc.nameRef(d.config ?? pc.configName)
+  const hide = pc.hideCategories.map((n) => fc.nameRef(n))
+
+  const w = new Writer(256)
+  w.i32(classRef - 1) // its own index (a class has no tagged properties)
+  w.i32(0) // next
+  w.i32(parentRef)
+  w.i32(0) // script text
+  w.i32(0) // children: none yet
+  w.i32(0).i32(-1).i32(-1) // C++ text, line, text position
+  w.i32(0).i32(0) // no script
+  w.u32((pc.probeMask >>> 0) | 0).u16(0xffff).u32(2) // probe mask, no label table, state flags
+  w.i32(0) // function map: none yet
+  w.u32(((pc.classFlags & ~NOT_INHERITED & ~d.clears) | d.flags | 0x2 | 0x10) >>> 0) // … compiled, parsed
+  w.i32(withinRef)
+  w.i32(configName.index).i32(configName.number)
+  w.i32(components.length)
+  for (const c of components) {
+    const n = fc.nameRef(c.name)
+    w.i32(n.index).i32(n.number).i32(c.ref)
+  }
+  w.i32(0) // interfaces
+  w.i32(0) // don't sort
+  w.i32(hide.length)
+  for (const n of hide) w.i32(n.index).i32(n.number)
+  w.i32(0).i32(0).i32(0).i32(0) // auto expand, auto collapse, force script order, class groups
+  w.fstr('') // native class name
+  w.i32(none.index).i32(none.number) // DLL bind name
+  w.i32(defaultRef)
+  exports.push({ entry: entry(0, parentRef, 0, d.name, 0, 0xf000400000000n), data: w.done() })
+
+  const dw = new Writer(16)
+  dw.i32(defaultRef - 1).i32(none.index).i32(none.number)
+  exports.push({
+    entry: entry(classRef, 0, 0, `Default__${d.name}`, parentDefault ? fc.refOf(parentDefault) : 0, 0x7000400000200n),
+    data: dw.done(),
+  })
+  for (const c of components) {
+    if (!c.ref) continue
+    const n = fc.nameRef(c.name)
+    const cw = new Writer(32)
+    cw.i32(0).i32(n.index).i32(n.number) // template owner class, template name
+    cw.i32(c.ref - 1).i32(none.index).i32(none.number)
+    exports.push({ entry: entry(c.cls, 0, defaultRef, c.name, c.archetype, 0x4000400000000n), data: cw.done() })
+  }
+
+  // Defaults that pointed at the parent's components point at the class's own.
+  const defaults: string[] = []
+  if (parentDefault && components.length) {
+    const cd = new ClassDecompiler(linker, parent.pkg, parent.ref, false)
+    const r = new Reader(parent.pkg.data(parentDefault.ref))
+    r.o = tagsStart(linker, parent.pkg, parentDefault.ref)
+    const prefix = `'${parent.pkg.objectName(parentDefault.ref)}.`
+    for (const t of readTags(r, parent.pkg)) {
+      const line = cd.tagLine(t, parent)
+      if (line.includes(prefix)) defaults.push(...line.split('\n').map((l) => l.trim().split(prefix).join(`'Default__${d.name}.`)))
+    }
+  }
+  const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
+  return { bytes: writePackage(pkg, { names, imports: sh.imports, exports, layout: 'keep' }), defaults }
 }
