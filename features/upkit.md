@@ -82,10 +82,12 @@ How far it is, measured:
 | Compiled back in place, byte for byte | Functions | Identical |
 |---|---|---|
 | Core | 311 | 100% |
-| Engine | 4,341 | 99.6% |
-| XComGame (Long War 1.0) | 11,756 | 97.6% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 94.3% |
-| LWRebalance.u | 1,484 | 96.9% |
+| Engine | 4,341 | 99.7% |
+| XComGame (vanilla) | 11,756 | 99.4% |
+| XComStrategyGame (vanilla) | 5,349 | 99.2% |
+| XComGame (Long War 1.0) | 11,756 | 97.9% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 94.8% |
+| LWRebalance.u | 1,484 | 97.1% |
 
 Long War's own packages carry hand patches (bytecode no source compiles
 to: flags set otherwise, stale jumps, nested contexts); `decompile` says so

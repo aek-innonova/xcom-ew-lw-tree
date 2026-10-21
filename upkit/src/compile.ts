@@ -514,7 +514,8 @@ export class FunctionCompiler {
       case 'bool':
         return { node: N(e.v ? 0x27 : 0x28), ty: { k: 'bool' } }
       case 'none':
-        return { node: N(want?.k === 'delegate' ? 0x3f : 0x2a), ty: { k: 'none' } }
+        // As a delegate: none named (DelegateProperty None); compared, the empty delegate (see operator).
+        return { node: want?.k === 'delegate' ? N(0x43, this.nameRef('None'), 0) : N(0x2a), ty: { k: 'none' } }
       case 'self':
         return { node: N(0x17), ty: { k: 'object', cls: this.cls } }
       case 'objlit': {
@@ -701,7 +702,12 @@ export class FunctionCompiler {
       // Of a call's result (directly or through a context): a copy.
       const isCall = (n: Node): boolean =>
         n.native !== undefined || [0x1b, 0x1c, 0x42].includes(n.op) || ((n.op === 0x19 || n.op === 0x12) && isCall(n.args[4] as Node))
-      const node = N(0x35, this.refOf(f), this.refOf(o.ty.struct), isCall(base) ? 1 : 0, lvalue && base.op !== 0x35 ? 1 : 0, base)
+      // (One link per written chain is marked, the innermost: none after a context or an
+      // array element whose object already has one.)
+      const marked = (n: Node): boolean =>
+        (n.op === 0x35 && n.args[3] === 1) || n.args.some((a) => !!a && typeof a === 'object' && 'op' in (a as object) && marked(a as Node))
+      const modifying = lvalue && base.op !== 0x35 && !marked(base)
+      const node = N(0x35, this.refOf(f), this.refOf(o.ty.struct), isCall(base) ? 1 : 0, modifying ? 1 : 0, base)
       return { node: this.boolWrap(node, ty), ty }
     }
     // A class value's members are Object's (Class itself is C++ only).
@@ -856,12 +862,9 @@ export class FunctionCompiler {
       const m = fn.name.toLowerCase()
       // Called on: read, unless an array method changes the array.
       const changes = ['additem', 'removeitem', 'insertitem', 'add', 'insert', 'remove', 'sort'].includes(m)
-      let o = this.gen(fn.obj)
-      if (o.ty.k === 'array' && changes) {
-        // Written to, but the compiler does not mark the struct member it is (as it does on assignment).
-        o = this.gen(fn.obj, undefined, true)
-        if (o.node.op === 0x35 && o.node.args[3] === 1) o = { ...o, node: { ...o.node, args: o.node.args.map((x, i) => (i === 3 ? 0 : x)) } }
-      }
+      // (An array changed by a method is not marked written anywhere in its chain, as an assignment marks it.)
+      const o = this.gen(fn.obj)
+      void changes
       if (o.ty.k === 'array') return this.arrayMethod(o, m, args)
       const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.objectClass() : null
       const f = cls && this.findFunction(fn.name, cls)
@@ -978,6 +981,7 @@ export class FunctionCompiler {
       const side = (x: Expr) => {
         if (x.k === 'id' && !this.variable(x.name) && this.findFunction(x.name))
           return { node: N(0x4b, this.nameRef(x.name)), ty: { k: 'delegate', fn: null } as Ty }
+        if (x.k === 'none') return { node: N(0x3f), ty: { k: 'none' } as Ty }
         return this.gen(x, { k: 'delegate', fn: null })
       }
       const l = side(operands[0]!)

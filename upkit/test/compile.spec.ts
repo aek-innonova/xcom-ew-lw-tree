@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { dirname } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { openPackage } from '../src/package.ts'
 import { readStructHead } from '../src/objects.ts'
 import { FunctionDecompiler } from '../src/decompile.ts'
 import { binaryOperators, FunctionCompiler } from '../src/compile.ts'
@@ -355,4 +357,33 @@ describe.skipIf(!haveCorpus)('the other mod packages beside LWR, rebuilt from th
     console.log(`${mods.length} mod packages rebuilt: code ${same}/${total} (${((100 * same) / total).toFixed(1)}%)`)
     expect(same / total).toBeGreaterThan(0.95)
   }, 300_000)
+})
+
+// Vanilla Enemy Within (no hand patches): in samples/ew/CookedPCConsole when it is there.
+const VANILLA = resolve(dirname(CORPUS[0]!), '../ew/CookedPCConsole')
+describe.skipIf(!existsSync(`${VANILLA}/XComGame.upk`))('vanilla Enemy Within: decompiled, compiled back, byte for byte', () => {
+  for (const name of ['XComGame.upk', 'XComStrategyGame.upk', 'Engine.upk'])
+    it(name, () => {
+      const linker = new Linker([VANILLA])
+      const pkg = openPackage(new Uint8Array(readFileSync(`${VANILLA}/${name}`)))
+      linker.add(name.replace(/\.upk$/, ''), pkg)
+      const ops = binaryOperators(linker)
+      let total = 0
+      let same = 0
+      for (let i = 1; i <= pkg.exports.length; i++) {
+        if (pkg.className(i) !== 'Function') continue
+        const h = readStructHead(pkg, i)
+        if (!h.size) continue
+        total++
+        const orig = pkg.data(i).subarray(h.scriptAt, h.end)
+        try {
+          const out = new FunctionCompiler(linker, pkg, i).compile(new FunctionDecompiler(linker, pkg, i).decompile(), ops).code
+          if (out.length === orig.length && out.every((b, k) => b === orig[k])) same++
+        } catch {
+          // counted as different
+        }
+      }
+      console.log(`vanilla ${name}: ${same} of ${total} functions identical (${((100 * same) / total).toFixed(1)}%)`)
+      expect(same / total).toBeGreaterThan(0.99)
+    }, 120_000)
 })
