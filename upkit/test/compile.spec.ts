@@ -324,6 +324,16 @@ describe.skipIf(!haveCorpus)('a mod package rebuilt from its decompiled source',
     // As compiling each function back in place (the rest: LWR built against its own stubs of the game).
     expect(code.same / code.total).toBeGreaterThan(0.96)
     expect(decl.same / decl.total).toBeGreaterThan(0.995)
+    // Its imports: each the original has, imported as the original imports it (its class's package and name).
+    const how = (p: typeof orig, i: number) => `${p.name(p.imports[-i - 1]!.classPackage)}.${p.name(p.imports[-i - 1]!.className)}`.toLowerCase()
+    const theirs = new Map<string, string>()
+    for (let i = 1; i <= orig.imports.length; i++) theirs.set(orig.path(-i).toLowerCase(), how(orig, -i))
+    const otherwise: string[] = []
+    for (let i = 1; i <= built.imports.length; i++) {
+      const t = theirs.get(built.path(-i).toLowerCase())
+      if (t !== undefined && t !== how(built, -i)) otherwise.push(built.path(-i))
+    }
+    expect(otherwise).toEqual([])
   }, 180_000)
 })
 
