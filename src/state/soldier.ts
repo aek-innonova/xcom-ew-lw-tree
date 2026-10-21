@@ -350,9 +350,24 @@ export function tintFor(
 
 const PAINTS: Record<string, PaintKind> = {
   CHH_Soldiers: 'armor',
+  // A weapon's kit takes the armor's colors too (XComHumanPawn.UpdateMeshMaterials).
+  CHH_WeaponKits: 'armor',
   CHH_SkinCustomizable: 'skin',
   CHH_Hair: 'hair',
   CHH_HairMask: 'hair',
+}
+
+/**
+ * A weapon kit's mask (Spc_Ems_Ref_CMod) in the armor's layout: its alpha
+ * says where the armor's color goes, as the armor's does; its blue is the
+ * reflection, not a second color, so it is cleared. The kits' own plates are
+ * outside the mask and keep their color (Long War's olive LMG plates).
+ */
+function kitMask(t: Texture | null): Texture | null {
+  if (!t) return null
+  const rgba = new Uint8ClampedArray(t.rgba)
+  for (let i = 2; i < rgba.length; i += 4) rgba[i] = 0
+  return { ...t, rgba }
 }
 
 /** A mesh's materials, as paints. */
@@ -384,7 +399,7 @@ async function paints(p: Package, file: string, mesh: SkelMesh): Promise<Paint[]
       // Armor: its tint masks; skin: the skin mask ("Skn", the third channel).
       const mask =
         kind === 'armor'
-          ? await tex('Spc_Ems_Ref_Opc')
+          ? ((await tex('Spc_Ems_Ref_Opc')) ?? kitMask(await tex('Spc_Ems_Ref_CMod')))
           : kind === 'skin'
             ? await tex('Spc_dNrm_Skn_iBrw')
             : null

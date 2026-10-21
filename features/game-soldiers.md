@@ -251,3 +251,34 @@ Verified:
 
 Open: the colours on LWR's heavy kit (an olive-brown under "cyan with
 brown") have not been compared with the game.
+
+## Report (2026-10-21, the LWR rookie questioned)
+
+The person, with our LWR rookie in view: "are you sure about the LWR armor
+because this is not what i saw in game maybe they replaced some models?"
+
+Checked from four sides:
+- **The script:** LWR ships its own XComGame.upk, and its
+  `AddKitRequests`/`RequestKitPostArmor` are Long War's.
+- **The deco:** `CreateTSoldier` sets the colour to `DEFENDER_MEDIKIT − 1`,
+  and the deco to `COUNCIL_STAT_BONUS − 1` only when that setting is 0 or
+  more. LWR (and Long War) ship −1.
+- **The person's LWR saves** (lwr-save1740, lwr-save1779): every soldier's
+  `iArmorDeco` is −1 and the tint 7. So they wear the weapon's kit, the LMG
+  kit in LWR.
+- **The packages:** LWR replaces no soldier or kit package. Its
+  CookedPCConsole has XComGame, the UI, scripts, the Furies DLC patches and
+  EU2EW_Textures, which is only streamed by commented-out map lines.
+  CharacterColorizer recolours aliens only. The kit's package lines are
+  Long War's.
+
+**What was wrong: the tint on weapon kits.** Their material is
+`CHH_WeaponKits`, which the game colours like armour (`UpdateMeshMaterials`
+sends it to `UpdateArmorMaterial`). The tool drew it untinted. Its mask
+`Spc_Ems_Ref_CMod` carries the colour in alpha, with reflection in blue,
+not a second colour. It covers only the kit's pads, so the plates keep the
+kit's own olive. Now the pads take the armour's colour: LWR's rookie wears
+olive LMG plates with cyan pads, Long War's rookie red ones.
+
+Open: compared with the game only through the person's eye; a screenshot
+from the game would settle the rest.
