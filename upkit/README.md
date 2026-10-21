@@ -15,8 +15,10 @@ part of upkit, and decompiled code stays where you put it.
 ## Use
 
 Node 24 or later runs it as it is (`node upkit/src/cli.ts …`, no build
-step), or as one file: `node upkit/build.mjs` writes `upkit/dist/upkit.mjs`,
-which is all a modder needs beside Node (`node upkit.mjs …`).
+step), or as one file: `npm run build` in `upkit/` (`node build.mjs`) writes
+`upkit/dist/upkit.mjs`, which is all a modder needs beside Node
+(`node upkit.mjs …`). `npm test` runs its tests, `npm run type-check` checks
+its types.
 
 The common case, a change to a function as a mod script:
 
