@@ -19,6 +19,7 @@
 #   SIGNING_ENDPOINT                   e.g. https://weu.codesigning.azure.net
 #   SIGNING_ACCOUNT                    the Artifact Signing account
 #   SIGNING_PROFILE                    its certificate profile
+#   SIGNING_PUBLISHER                  the certificate's subject CN (optional)
 name: desktop
 on:
   workflow_dispatch:
@@ -75,12 +76,15 @@ jobs:
           ENDPOINT: ${{ vars.SIGNING_ENDPOINT }}
           ACCOUNT: ${{ vars.SIGNING_ACCOUNT }}
           PROFILE: ${{ vars.SIGNING_PROFILE }}
+          # electron-builder's schema wants it; only electron-updater reads it (not used here).
+          PUBLISHER: ${{ vars.SIGNING_PUBLISHER || vars.SIGNING_ACCOUNT }}
         run: >
           npx electron-builder --win nsis
           -c.win.signExecutable=true
           "-c.win.azureSignOptions.endpoint=$ENDPOINT"
           "-c.win.azureSignOptions.codeSigningAccountName=$ACCOUNT"
           "-c.win.azureSignOptions.certificateProfileName=$PROFILE"
+          "-c.win.azureSignOptions.publisherName=$PUBLISHER"
       - name: the signatures hold
         shell: pwsh
         run: |
