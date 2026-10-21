@@ -20,7 +20,7 @@ describe.skipIf(!haveCorpus)('linker', () => {
       }
       console.log(`${short(path)}: ${pkg.imports.length} imports, ${missing.length} not found`, missing.slice(0, 8))
       // Engine imports native-only things the cooker left out (their names still print).
-      if (!path.endsWith('Engine.upk')) expect(missing.length).toBeLessThan(pkg.imports.length / 100)
+      expect(path.endsWith('Engine.upk') || missing.length < pkg.imports.length / 100).toBe(true)
     }
   })
   it('every native call in the game names a native function', () => {

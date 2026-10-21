@@ -177,7 +177,7 @@ function declaredOtherwise(linker: Linker, pkg: Package, ref: number, kind: stri
     }
     if (kind === 'enum' && o?.kind === 'enum') {
       const want = parseEnum(text).values.map((x) => x.toLowerCase())
-      const has = o.names.filter((x, i, a) => !(i === a.length - 1 && /_MAX$/.test(x))).map((x) => x.toLowerCase())
+      const has = o.names.filter((x, i, a) => !(i === a.length - 1 && x.endsWith('_MAX'))).map((x) => x.toLowerCase())
       return want.join(',') === has.join(',') ? null : 'its values differ from the package'
     }
     if (kind === 'struct' && o?.kind === 'struct') {

@@ -4,7 +4,7 @@ import { CORPUS, haveCorpus, load, short } from './corpus.ts'
 
 describe.skipIf(!haveCorpus)('objects: every script object read to its end', () => {
   for (const path of CORPUS)
-    it(short(path), () => {
+    it(`${short(path)}`, () => {
       const pkg = load(path)
       const read = new Map<string, number>()
       const failures = new Map<string, string[]>()

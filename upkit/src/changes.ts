@@ -210,7 +210,7 @@ export function classesPackage(
       try {
         step(declareStruct(linker, target, target.find(c.name), s))
       } catch (e) {
-        if (!/^no type /.test((e as Error).message)) throw e
+        if (!(e as Error).message.startsWith('no type ')) throw e
         left.push({ c, s })
         lastError = e
         continue

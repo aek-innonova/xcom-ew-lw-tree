@@ -284,7 +284,8 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
   const property = (outer: number, name: string, type: string, dim: number, flags: bigint, next: number, category?: string | null) => {
     const ty = fc.typeFromText(type)
     const ref = nextRef++
-    let { cls: pcls, refs } = fc.propertyClass(ty)
+    const { cls: pcls, refs: own } = fc.propertyClass(ty)
+    let refs = own
     const inner = ty.k === 'array' ? { ref: nextRef++, ...fc.propertyClass(ty.inner) } : null
     if (inner) refs = [inner.ref]
     const all = flags | (fc.needsCtor(ty) ? CPF_NeedCtorLink : 0n) | fc.typeFlags(ty)
@@ -785,7 +786,8 @@ export function declareStruct(linker: Linker, pkg: Package, classRef: number, s:
     for (const n of v.names) {
       const ty = fc.typeFromText(v.type)
       const ref = nextRef++
-      let { cls: pcls, refs } = fc.propertyClass(ty)
+      const { cls: pcls, refs: own } = fc.propertyClass(ty)
+      let refs = own
       const inner = ty.k === 'array' ? { ref: nextRef++, ...fc.propertyClass(ty.inner) } : null
       if (inner) refs = [inner.ref]
       const flags = v.flags | (fc.needsCtor(ty) ? 0x400000n : 0n) | fc.typeFlags(ty)

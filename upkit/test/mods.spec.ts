@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { FunctionDecompiler } from '../src/decompile.ts'
 import { binaryOperators, FunctionCompiler } from '../src/compile.ts'
 import { Linker } from '../src/linker.ts'
 import { readStructHead } from '../src/objects.ts'
@@ -82,7 +81,6 @@ describe.skipIf(!haveCorpus || !scripts.length || !existsSync(`${VANILLA}/XComGa
         } catch (e) {
           if (process.env.UPKIT_MODS_WHY) report.push(`    ${path}: ${(e as Error).message}`)
         }
-        void FunctionDecompiler
       }
       total += modTotal
       same += modSame

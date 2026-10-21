@@ -141,7 +141,7 @@ export type Stmt =
   | { k: 'expr'; e: Expr }
   | { k: 'nothing' }
   | { k: 'block'; body: Stmt[] }
-  | { k: 'if'; c: Expr; then: Stmt[]; else: Stmt[] | null }
+  | { k: 'if'; c: Expr; body: Stmt[]; else: Stmt[] | null }
   | { k: 'while'; c: Expr; body: Stmt[] }
   | { k: 'do'; body: Stmt[]; c: Expr }
   | { k: 'for'; init: Expr | null; c: Expr; step: Expr | null; body: Stmt[] }
@@ -375,9 +375,9 @@ export class Parser {
             this.want(';')
             return { k: 'ifgoto', c: c.e, label }
           }
-          const then = this.body()
+          const body = this.body()
           const els = this.eat('else') ? this.body() : null
-          return { k: 'if', c, then, else: els }
+          return { k: 'if', c, body, else: els }
         }
         case 'while': {
           this.i++

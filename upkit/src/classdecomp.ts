@@ -145,7 +145,7 @@ export class ClassDecompiler {
 
   private enumText(ref: number): string[] {
     const e = this.object<EnumObj>(ref)
-    const names = e.names.filter((n, i) => !(i === e.names.length - 1 && /_MAX$/.test(n)))
+    const names = e.names.filter((n, i) => !(i === e.names.length - 1 && n.endsWith('_MAX')))
     return [`enum ${this.pkg.objectName(ref)}`, '{', ...names.map((n, i) => `    ${n}${i < names.length - 1 ? ',' : ''}`), '};']
   }
 

@@ -6,7 +6,7 @@
 import { encodeScript, memSizeOf, type NameValue, type Node, type Value } from './bytecode.ts'
 import { Linker, type Located } from './linker.ts'
 import { readTags, type FunctionObj, type PropertyObj, type ScriptObject } from './objects.ts'
-import { Reader, Writer } from './bytes.ts'
+import { isLatin1, Reader, Writer } from './bytes.ts'
 import type { Package } from './package.ts'
 import { Parser, type Expr, type FunctionSource, type Stmt } from './parse.ts'
 import { CPF, FUNC, typeOf, type Ty } from './types.ts'
@@ -549,7 +549,7 @@ export class FunctionCompiler {
       case 'float':
         return { node: N(0x1e, e.v), ty: { k: 'float' } }
       case 'str':
-        return { node: /^[\x00-\xff]*$/.test(e.v) ? N(0x1f, e.v) : N(0x34, e.v), ty: { k: 'string' } }
+        return { node: isLatin1(e.v) ? N(0x1f, e.v) : N(0x34, e.v), ty: { k: 'string' } }
       case 'name':
         return { node: N(0x21, this.nameRef(e.v)), ty: { k: 'name' } }
       case 'bool':
@@ -839,7 +839,7 @@ export class FunctionCompiler {
     return { node, ty }
   }
 
-  private call(e: Expr & { k: 'call' }, want: Ty | undefined): Gen {
+  private call(e: Expr & { k: 'call' }, _want: Ty | undefined): Gen {
     const fn = e.fn
     const args = e.args
     if (fn.k === 'id') {
@@ -924,11 +924,8 @@ export class FunctionCompiler {
     }
     if (fn.k === 'member') {
       const m = fn.name.toLowerCase()
-      // Called on: read, unless an array method changes the array.
-      const changes = ['additem', 'removeitem', 'insertitem', 'add', 'insert', 'remove', 'sort'].includes(m)
-      // (An array changed by a method is not marked written anywhere in its chain, as an assignment marks it.)
+      // Called on: read (an array a method changes too: its chain is not marked written, as an assignment marks it).
       const o = this.gen(fn.obj)
-      void changes
       if (o.ty.k === 'array') return this.arrayMethod(o, m, args)
       const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.objectClass() : null
       const f = cls && this.findFunction(fn.name, cls)
@@ -1191,7 +1188,7 @@ export class FunctionCompiler {
         return this.stmts(s.body)
       case 'expr': {
         // upkit's dialect for tokens a source does not say: iterator steps, no closing return.
-        if (s.e.k === 'id' && /^__/.test(s.e.name)) {
+        if (s.e.k === 'id' && s.e.name.startsWith('__')) {
           const raw = s.e.name.toLowerCase()
           if (raw === '__iteratornext') return this.emit(N(0x31))
           if (raw === '__iteratorpop') return this.emit(N(0x30))
@@ -1233,7 +1230,7 @@ export class FunctionCompiler {
         const c = this.gen(s.c, { k: 'bool' })
         const elseL = label()
         this.emit(N(0x07, elseL as unknown as Value, c.node))
-        this.stmts(s.then)
+        this.stmts(s.body)
         if (s.else) {
           const end = label()
           this.emit(N(0x06, end as unknown as Value))

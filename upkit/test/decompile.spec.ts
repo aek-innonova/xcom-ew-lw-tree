@@ -7,7 +7,7 @@ import { CORPUS, haveCorpus, load, short } from './corpus.ts'
 describe.skipIf(!haveCorpus)('decompiler: every function in the game', () => {
   const linker = new Linker([dirname(CORPUS[0]!)])
   for (const path of CORPUS)
-    it(short(path), () => {
+    it(`${short(path)}`, () => {
       const pkg = load(path)
       linker.add(short(path).replace(/^lwr\//, '').replace(/\.(upk|u)$/, ''), pkg)
       let total = 0

@@ -7,9 +7,9 @@
 // says explicitly what the original compiler did implicitly: casts are
 // written out, a skipped optional argument is an empty place.
 
-import { decodeScript, memSizeOf, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
+import { decodeScript, memSizeOf, TOKENS, type Label, type NameValue, type Node } from './bytecode.ts'
 import type { Linker, Located } from './linker.ts'
-import { readStructHead, type FunctionObj, type PropertyObj, type StateObj } from './objects.ts'
+import type { FunctionObj, PropertyObj, StateObj } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, FUNC, typeOf, typeText, type Ty } from './types.ts'
 
@@ -83,7 +83,7 @@ const atom = (text: string): Ex => ({ text, prec: 0 })
 
 type Stmt =
   | { k: 'expr'; node: Node }
-  | { k: 'if'; cond: Node; then: Stmt[]; else?: Stmt[] }
+  | { k: 'if'; cond: Node; body: Stmt[]; else?: Stmt[] }
   | { k: 'while'; cond: Node; body: Stmt[] }
   | { k: 'for'; init: Node; cond: Node; step: Node; body: Stmt[] }
   | { k: 'do'; body: Stmt[]; cond: Node }
@@ -653,12 +653,12 @@ export class FunctionDecompiler {
               // from the end of a then-branch that the block ends at is the join of an else.)
               const isBreak = J === ctx.breakTo || (J === ctx.continueTo && !(e === hi && J === hiMem))
               if (!isBreak && J > T && e > t - 1 && e <= hi) {
-                out.push({ k: 'if', cond, then: this.block(i + 1, t - 1, ctx), else: this.block(t, e, ctx) })
+                out.push({ k: 'if', cond, body: this.block(i + 1, t - 1, ctx), else: this.block(t, e, ctx) })
                 i = e
                 continue
               }
             }
-            out.push({ k: 'if', cond, then: this.block(i + 1, t, ctx) })
+            out.push({ k: 'if', cond, body: this.block(i + 1, t, ctx) })
             i = t
             continue
           }
@@ -773,14 +773,14 @@ export class FunctionDecompiler {
           break
         case 'if': {
           out.push(`${pad}if (${this.ex(s.cond).text})`, `${pad}{`)
-          this.lines(s.then, depth + 1, out)
+          this.lines(s.body, depth + 1, out)
           out.push(`${pad}}`)
           // An else that is one if: else if (…), down the chain.
           let rest = s.else
           while (rest && rest.length === 1 && rest[0]!.k === 'if') {
             const next = rest[0] as Stmt & { k: 'if' }
             out.push(`${pad}else if (${this.ex(next.cond).text})`, `${pad}{`)
-            this.lines(next.then, depth + 1, out)
+            this.lines(next.body, depth + 1, out)
             out.push(`${pad}}`)
             rest = next.else
           }
@@ -928,14 +928,11 @@ export class FunctionDecompiler {
     const params: { p: PropertyObj; ref: number }[] = []
     const locals: { p: PropertyObj; ref: number }[] = []
     let ret: PropertyObj | null = null
-    let retRef = 0
     for (let c = head.children; c; ) {
       const o = this.linker.object({ pkg, ref: c })
       if (!o || o.kind !== 'property') break
-      if (o.flags & CPF.ReturnParm) {
-        ret = o
-        retRef = c
-      } else if (o.flags & CPF.Parm) params.push({ p: o, ref: c })
+      if (o.flags & CPF.ReturnParm) ret = o
+      else if (o.flags & CPF.Parm) params.push({ p: o, ref: c })
       else locals.push({ p: o, ref: c })
       c = o.next
     }
@@ -1000,7 +997,6 @@ export class FunctionDecompiler {
     // A script without the compiler's closing return (a hand patch): said, so it compiles back the same.
     if (!epilogue && head.size) lines.push('    __NoEpilogue;')
     lines.push('}')
-    void retRef
     return unplacedJumps(lines).join('\n') + '\n'
   }
 
@@ -1065,5 +1061,3 @@ export function decompileFunction(linker: Linker, pkg: Package, path: string): s
   return new FunctionDecompiler(linker, pkg, ref).decompile()
 }
 
-void readStructHead
-void (null as unknown as Value)

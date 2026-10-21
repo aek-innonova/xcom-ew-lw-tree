@@ -143,7 +143,7 @@ export class Writer {
   /** An FString as the engine writes it: Latin-1 with a terminator, UTF-16 when it must be. */
   fstr(s: string): this {
     if (s === '') return this.i32(0)
-    if (/^[\x00-\xff]*$/.test(s)) {
+    if (isLatin1(s)) {
       this.i32(s.length + 1)
       for (let i = 0; i < s.length; i++) this.u8(s.charCodeAt(i))
       return this.u8(0)
@@ -178,4 +178,10 @@ export class Writer {
   done(): Uint8Array {
     return this.buf.slice(0, this.o)
   }
+}
+
+/** Whether every character of the text is Latin-1 (stored a byte each; else UTF-16). */
+export const isLatin1 = (s: string) => {
+  for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) > 0xff) return false
+  return true
 }

@@ -12,7 +12,7 @@ const PATCHED = new Set(['XGCharacter_Soldier.GetName'])
 
 describe.skipIf(!haveCorpus)('bytecode: every script in the game, decoded and encoded back', () => {
   for (const path of CORPUS)
-    it(short(path), () => {
+    it(`${short(path)}`, () => {
       const pkg = load(path)
       const none = pkg.findName('None')
       let scripts = 0

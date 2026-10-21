@@ -10,7 +10,7 @@ import { CORPUS, haveCorpus, load, short, VANILLA } from './corpus.ts'
 // the text alone (no entry's bytes kept): the default objects come out as they are.
 describe.skipIf(!haveCorpus)('defaultproperties: written, compiled back, byte for byte', () => {
   for (const path of [...CORPUS, ...VANILLA])
-    it(short(path), () => {
+    it(`${short(path)}`, () => {
       const pkg = load(path)
       const linker = new Linker([...new Set([dirname(path), dirname(CORPUS[0]!)])])
       linker.add(short(path).replace(/^(lwr|ew)\//, '').replace(/\.(upk|u)$/, ''), pkg)

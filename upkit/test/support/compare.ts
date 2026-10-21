@@ -62,6 +62,8 @@ export function sameDeclarations(a: Package, b: Package, own: string): { total: 
     return out.join(',')
   }
   const describe = (p: Package, r: number) => {
+    // (Every kind of object's fields, read loosely: this only lists them to compare.)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const o = readObject(p, r) as Record<string, any> | null
     const e = p.exports[r - 1]!
     const d: Record<string, unknown> = { cls: P(p, e.classIndex), sup: P(p, e.superIndex), outer: P(p, e.outer), arche: P(p, e.archetype), flags: e.objectFlags.toString(16) }
@@ -74,7 +76,7 @@ export function sameDeclarations(a: Package, b: Package, own: string): { total: 
     if (o.kind === 'function') Object.assign(d, { fflags: o.flags >>> 0, native: o.native })
     if (o.kind === 'state') Object.assign(d, { probe: o.probeMask >>> 0, stateFlags: o.stateFlags })
     if (o.kind === 'class') Object.assign(d, { classFlags: o.classFlags >>> 0, within: P(p, o.within), comps: o.componentMap.length })
-    if (o.kind === 'struct') Object.assign(d, { sflags: o.structFlags, defaults: o.defaults.map((t: any) => `${t.name}:${t.type}:${t.size}`).join(',') })
+    if (o.kind === 'struct') Object.assign(d, { sflags: o.structFlags, defaults: o.defaults.map((t: { name: string; type: string; size: number }) => `${t.name}:${t.type}:${t.size}`).join(',') })
     return JSON.stringify(d)
   }
   let total = 0

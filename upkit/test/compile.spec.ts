@@ -47,7 +47,7 @@ export function roundTrip(path: string, linker: Linker, limit = Infinity) {
 describe.skipIf(!haveCorpus)('compiler: decompiled, compiled back, byte for byte', () => {
   // Each package against the ones it is installed with (LWR's own XComGame for LWRebalance), then the game's.
   for (const path of [CORPUS[3]!, CORPUS[2]!, CORPUS[4]!, CORPUS[0]!, CORPUS[1]!])
-    it(short(path), () => {
+    it(`${short(path)}`, () => {
       const r = roundTrip(path, new Linker([...new Set([dirname(path), dirname(CORPUS[0]!)])]))
       console.log(`${short(path)}: ${r.same} of ${r.total} functions identical (${((100 * r.same) / r.total).toFixed(1)}%)`)
       for (const [k, v] of [...r.why].sort((a, b) => b[1].n - a[1].n).slice(0, 25)) console.log(`  ${String(v.n).padStart(5)} ${k}   e.g. ${v.eg}`)
@@ -363,7 +363,7 @@ describe.skipIf(!haveCorpus)('the other mod packages beside LWR, rebuilt from th
 const VANILLA = resolve(dirname(CORPUS[0]!), '../ew/CookedPCConsole')
 describe.skipIf(!existsSync(`${VANILLA}/XComGame.upk`))('vanilla Enemy Within: decompiled, compiled back, byte for byte', () => {
   for (const name of ['XComGame.upk', 'XComStrategyGame.upk', 'Engine.upk'])
-    it(name, () => {
+    it(`${name}`, () => {
       const linker = new Linker([VANILLA])
       const pkg = openPackage(new Uint8Array(readFileSync(`${VANILLA}/${name}`)))
       linker.add(name.replace(/\.upk$/, ''), pkg)
@@ -447,7 +447,7 @@ describe.skipIf(!haveCorpus)('mistakes the compiler refuses, said with the line'
     ['return (1 + ;', /line 3: /],
   ]
   for (const [body, want] of cases)
-    it(body.split('\n').at(-1)!.trim(), async () => {
+    it(`${body.split('\n').at(-1)!.trim()}`, async () => {
       const { packageWith } = await import('../src/changes.ts')
       const linker = new Linker([dirname(CORPUS[0]!)])
       const pkg = load(CORPUS[3]!)
