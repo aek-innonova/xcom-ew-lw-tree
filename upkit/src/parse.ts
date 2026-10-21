@@ -323,10 +323,11 @@ export class Parser {
             let d = 0
             do {
               if (this.is('<')) d++
-              if (this.is('>')) d--
+              // (array<class<X>> closes two at once: the lexer reads >> as one.)
+              if (this.t.t === 'op' && /^>+$/.test(this.t.v)) d -= this.t.v.length
               type += this.t.v
               this.i++
-            } while (d > 0)
+            } while (d > 0 && this.t.t !== 'eof')
           }
           const names: { name: string; dim: number }[] = []
           for (;;) {

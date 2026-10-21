@@ -133,11 +133,8 @@ export function parseVar(text: string, className: string): VarDecl {
     let d = 0
     for (; i < t.length; i++) {
       if (t[i]!.v === '<') d++
-      if (t[i]!.v === '>' && --d === 0) break
-      if (t[i]!.v === '>>') {
-        d -= 2
-        if (d <= 0) break
-      }
+      if (/^>+$/.test(t[i]!.v)) d -= t[i]!.v.length
+      if (d <= 0) break
     }
     i++
   }
@@ -205,7 +202,8 @@ export function parseSignature(text: string, state: string | null): FunctionDecl
       let d = 0
       for (; i < t.length; i++) {
         if (t[i]!.v === '<') d++
-        if (t[i]!.v === '>' && --d === 0) break
+        if (/^>+$/.test(t[i]!.v)) d -= t[i]!.v.length
+        if (d <= 0) break
       }
       i++
     }

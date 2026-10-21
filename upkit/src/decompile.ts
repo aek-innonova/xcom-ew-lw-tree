@@ -407,8 +407,13 @@ export class FunctionDecompiler {
       case 0x1c:
         return atom(`${this.finalName(a[0] as number)}(${this.args(a[1] as Node[], this.paramEnums(this.callee(n)))})`)
       // A delegate called: through its variable (the name is the delegate's signature).
-      case 0x42:
-        return atom(`${a[1] ? this.obj(a[1] as number) : this.nm(a[2] as NameValue)}(${this.args(a[3] as Node[])})`)
+      case 0x42: {
+        // A delegate called: by its variable; a declared delegate's hidden one (__Name__Delegate) by its name.
+        const prop = a[1] ? this.obj(a[1] as number) : ''
+        const sig = this.nm(a[2] as NameValue)
+        const name = !prop || prop.toLowerCase() === `__${sig}__delegate`.toLowerCase() ? sig : prop
+        return atom(`${name}(${this.args(a[3] as Node[])})`)
+      }
       case 0x43:
         return atom(this.nm(a[0] as NameValue))
       case 0x4b:

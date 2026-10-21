@@ -275,6 +275,12 @@ export class FunctionCompiler {
       const o = this.obj(f)
       if (!kind || o?.kind === kind) return f
     }
+    // A class only C++ defines (cooked out): a property of it the package imports.
+    if (at.ref < 0 && kind !== 'function')
+      for (let i = 1; i <= at.pkg.imports.length; i++) {
+        const imp = at.pkg.imports[i - 1]!
+        if (imp.outer === at.ref && at.pkg.objectName(-i).toLowerCase() === want && at.pkg.className(-i).endsWith('Property')) return { pkg: at.pkg, ref: -i }
+      }
     return null
   }
   /** A function by name, as the function's scope sees it: its state, then the class's chain. */
@@ -284,6 +290,16 @@ export class FunctionCompiler {
       if (s) return s
     }
     return this.member(inClass ?? this.cls, name, 'function')
+  }
+  /** Class.State: here, or the class (wherever it is) and its state. */
+  private stateAt(path: string): Located | null {
+    const here = this.pkg.find(path)
+    if (here) return { pkg: this.pkg, ref: here }
+    const [c, st] = path.split('.')
+    const cls = this.findType(c!) ?? this.linker.findType(c!)
+    if (!cls || cls.ref < 0) return null
+    const ref = cls.pkg.find(`${cls.pkg.objectName(cls.ref)}.${st}`)
+    return ref && cls.pkg.className(ref) === 'State' ? { pkg: cls.pkg, ref } : null
   }
   /** A compiler for a package as a whole (to name and import things in it, as a new class does). */
   static forPackage(linker: Linker, pkg: Package, sh?: Shared): FunctionCompiler {
@@ -332,8 +348,15 @@ export class FunctionCompiler {
   }
 
   private propTy(at: Located): { p: PropertyObj; ty: Ty } {
-    const p = this.obj(at) as PropertyObj
-    return { p, ty: typeOf(this.linker, at, p) }
+    const p = this.obj(at) as PropertyObj | null
+    if (p) return { p, ty: typeOf(this.linker, at, p) }
+    // Known only as imported (a C++-only class's): its type from its class, what it holds unknown.
+    const cls = at.pkg.className(at.ref)
+    const ty: Ty =
+      cls === 'IntProperty' ? { k: 'int' } : cls === 'FloatProperty' ? { k: 'float' } : cls === 'BoolProperty' ? { k: 'bool' }
+        : cls === 'NameProperty' ? { k: 'name' } : cls === 'StrProperty' ? { k: 'string' } : cls === 'ByteProperty' ? { k: 'byte', enumOf: null }
+          : cls === 'ObjectProperty' || cls === 'ComponentProperty' ? { k: 'object', cls: null } : cls === 'ArrayProperty' ? { k: 'array', inner: { k: 'unknown' } } : { k: 'unknown' }
+    return { p: { kind: 'property', type: cls, flags: 0n, arrayDim: 1, refs: [] } as unknown as PropertyObj, ty }
   }
   private fnInfo(at: Located): { fn: FunctionObj; params: { at: Located; p: PropertyObj; ty: Ty }[]; ret: { at: Located; ty: Ty } | null } {
     const fn = this.obj(at) as FunctionObj
@@ -808,11 +831,7 @@ export class FunctionCompiler {
       throw new CompileError(`no function ${fn.name}`)
     }
     if (fn.k === 'super') {
-      const owner = fn.cls
-        ? fn.cls.includes('.')
-          ? this.located(this.findPath(fn.cls))
-          : this.findType(fn.cls)
-        : this.superClass()
+      const owner = fn.cls ? (fn.cls.includes('.') ? this.stateAt(fn.cls) : this.findType(fn.cls)) : this.superClass()
       const f = owner && this.findFunction(fn.name, owner)
       if (!f) throw new CompileError(`no super.${fn.name}`)
       return this.callNode(f, args, true)
@@ -846,6 +865,18 @@ export class FunctionCompiler {
       if (o.ty.k === 'array') return this.arrayMethod(o, m, args)
       const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.objectClass() : null
       const f = cls && this.findFunction(fn.name, cls)
+      // A delegate of the object's: through its variable (a declared delegate's hidden __Name__Delegate).
+      const fo = f ? (this.obj(f) as FunctionObj) : null
+      const dvar = cls && (fo && fo.flags & FUNC.Delegate ? this.member(cls, `__${fn.name}__Delegate`, 'property') : !f ? this.member(cls, fn.name, 'property') : null)
+      const dty = dvar ? this.propTy(dvar).ty : null
+      if (dvar && dty?.k === 'delegate' && dty.fn) {
+        const info = this.fnInfo(dty.fn)
+        const call = N(0x42, 0, this.refOf(dvar), this.nameRef(dty.fn.pkg.objectName(dty.fn.ref)), this.argsFor(info.params, args, false))
+        const retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
+        const node = N(0x19, this.unwrapBool(o.node), memSizeOf(call), retProp, 0, call)
+        ;(node as Node & { retProp?: number }).retProp = retProp
+        return { node, ty: info.ret?.ty ?? { k: 'none' } }
+      }
       if (!f) throw new CompileError(`no function ${fn.name}`)
       const c = this.callNode(f, args)
       const retProp = (c.node as Node & { retProp?: number }).retProp ?? 0

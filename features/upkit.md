@@ -82,9 +82,9 @@ How far it is, measured:
 | Compiled back in place, byte for byte | Functions | Identical |
 |---|---|---|
 | Core | 311 | 100% |
-| Engine | 4,341 | 99.4% |
-| XComGame (Long War 1.0) | 11,756 | 97.4% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 94.2% |
+| Engine | 4,341 | 99.6% |
+| XComGame (Long War 1.0) | 11,756 | 97.6% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 94.3% |
 | LWRebalance.u | 1,484 | 96.9% |
 
 Long War's own packages carry hand patches (bytecode no source compiles
