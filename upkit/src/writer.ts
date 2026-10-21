@@ -148,8 +148,9 @@ export function emptyPackage(template: Package): Uint8Array {
   const summary = {
     ...t,
     headerSize,
-    // Stored as it is: not compressed (fully or by chunks).
-    packageFlags: (t.packageFlags & ~0x6000000) >>> 0,
+    // Stored as it is: not compressed (fully or by chunks); and the packages it imports
+    // loaded when it is (a mod's other packages too), as LWR's own package has it.
+    packageFlags: (t.packageFlags & ~0x6000000 & ~0x800000) >>> 0,
     nameCount: 1,
     nameOffset,
     exportCount: 0,
