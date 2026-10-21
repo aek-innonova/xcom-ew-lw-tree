@@ -276,12 +276,16 @@ export class FunctionCompiler {
       const o = this.obj(f)
       if (!kind || o?.kind === kind) return f
     }
-    // A class only C++ defines (cooked out): a property of it the package imports.
-    if (at.ref < 0 && kind !== 'function')
-      for (let i = 1; i <= at.pkg.imports.length; i++) {
-        const imp = at.pkg.imports[i - 1]!
-        if (imp.outer === at.ref && at.pkg.objectName(-i).toLowerCase() === want && at.pkg.className(-i).endsWith('Property')) return { pkg: at.pkg, ref: -i }
-      }
+    // A class only C++ defines (cooked out): a property of it the package imports; else Object's (all have those).
+    if (at.ref < 0) {
+      if (kind !== 'function')
+        for (let i = 1; i <= at.pkg.imports.length; i++) {
+          const imp = at.pkg.imports[i - 1]!
+          if (imp.outer === at.ref && at.pkg.objectName(-i).toLowerCase() === want && at.pkg.className(-i).endsWith('Property')) return { pkg: at.pkg, ref: -i }
+        }
+      const object = this.objectClass()
+      if (object) return this.memberUncached(object, name, kind)
+    }
     return null
   }
   /** A function by name, as the function's scope sees it: its state, then the class's chain. */

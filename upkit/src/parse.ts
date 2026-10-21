@@ -255,13 +255,13 @@ export class Parser {
       while (!this.is(',') && !this.is(')') && !this.is('=')) {
         if (this.t.t === 'id') last = this.t.v
         if (this.is('<')) {
-          // array<…>, class<…>, delegate<…>
+          // array<…>, class<…>, delegate<…> (>> closes two)
           let d = 0
           do {
             if (this.is('<')) d++
-            if (this.is('>')) d--
+            if (this.t.t === 'op' && /^>+$/.test(this.t.v)) d -= this.t.v.length
             this.i++
-          } while (d > 0)
+          } while (d > 0 && this.i < this.toks.length - 1)
           continue
         }
         if (this.is('[')) {
