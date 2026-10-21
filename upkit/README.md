@@ -194,8 +194,7 @@ a variable's or a struct member's type, an enum's values, what a class
 extends), is refused with that said: only bodies and defaults change what is
 there.
 
-Not compiled yet: native functions and interfaces; a changed signature or
-variable type; new subobjects in the defaults; replication.
+Not compiled yet: native functions (their code is C++); replication.
 
 Hand patches can hold bytecode no UnrealScript compiles to (a flag set
 otherwise, a skip size that is not what it skips). `decompile` says so above
