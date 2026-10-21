@@ -801,8 +801,10 @@ export class FunctionCompiler {
         // interface to a class: made an object first.
         const fromIface = g.ty.k === 'interface'
         if (fromIface && !isIface) g = { node: N(0x38, 0x36, g.node), ty: { k: 'object', cls: null } }
-        // To an interface: none and self by InterfaceCast, any other object by DynamicCast.
-        const op = isIface && (g.node.op === 0x2a || g.node.op === 0x17) ? 0x52 : 0x2e
+        // To an interface: none, self, or an object whose class implements it by InterfaceCast
+        // (nothing to check); any other object by DynamicCast.
+        const known = g.ty.k === 'object' && g.ty.cls && this.implementsInterface(g.ty.cls, t)
+        const op = isIface && (g.node.op === 0x2a || g.node.op === 0x17 || known) ? 0x52 : 0x2e
         return { node: N(op, this.refOf(t), g.node), ty: { k: isIface ? 'interface' : 'object', cls: t } as Ty }
       }
       // A delegate variable called: local (1) or the class's (0), with the delegate's signature.
@@ -895,6 +897,25 @@ export class FunctionCompiler {
     const core = this.linker.package('Core')
     const ref = core?.find('Object')
     return core && ref ? { pkg: core, ref } : null
+  }
+  /** Whether a class (or a parent of it) declares it implements the interface (or one extending it). */
+  private implementsInterface(cls: Located, iface: Located): boolean {
+    const same = (a: Located, b: Located) => a.pkg.path(a.ref).toLowerCase() === b.pkg.path(b.ref).toLowerCase()
+    const extendsIface = (i: Located | null): boolean => {
+      for (let s = i, n = 0; s && n < 32; n++) {
+        if (same(s, iface)) return true
+        const o = this.obj(s)
+        s = o && 'head' in o && o.head.superStruct ? this.linker.resolve(s.pkg, o.head.superStruct) : null
+      }
+      return false
+    }
+    for (let s: Located | null = cls, n = 0; s && n < 64; n++) {
+      const o = this.obj(s)
+      if (!o || o.kind !== 'class') return false
+      if (o.interfaces.some((x) => extendsIface(this.linker.resolve(s!.pkg, x.cls)))) return true
+      s = o.head.superStruct ? this.linker.resolve(s.pkg, o.head.superStruct) : null
+    }
+    return false
   }
   private isInterface(t: Located): boolean {
     for (let s: Located | null = t; s; ) {
@@ -1091,6 +1112,16 @@ export class FunctionCompiler {
         const retProp = (g.node as Node & { retProp?: number }).retProp ?? 0
         if (isCall && retProp && (k === 'string' || k === 'struct' || k === 'array') && g.node.op !== 0x0f)
           return this.emit(N(0x0e, retProp, g.node))
+        // A sort of elements that are constructed (structs holding strings, arrays): its
+        // result eaten, as the array's element (so the compiler writes it).
+        if (g.node.op === 0x59) {
+          const arr = this.propOf(g.node.args[0] as Node)
+          const at = arr ? this.located(arr) : null
+          const ap = at ? this.obj(at) : null
+          const inner = ap?.kind === 'property' && ap.refs[0] ? this.linker.resolve(at!.pkg, ap.refs[0]) : null
+          const ip = inner ? this.obj(inner) : null
+          if (inner && ip?.kind === 'property' && ip.flags & 0x400000n) return this.emit(N(0x0e, this.refOf(inner), g.node))
+        }
         return this.emit(g.node)
       }
       case 'return': {
@@ -1258,7 +1289,8 @@ export class FunctionCompiler {
       if (!(p.p.flags & CPF.OptionalParm)) continue
       const d = f.defaults.get(this.pkg.objectName(p.ref).toLowerCase())
       if (d) {
-        const g = this.gen(d, p.ty)
+        // (none as an interface's default: as it is, not cast.)
+        const g = this.gen(d, d.k === 'none' && p.ty.k === 'interface' ? undefined : p.ty)
         this.emit(N(0x49, memSizeOf(g.node) + 1, g.node, 0x15))
       } else this.emit(N(0x0b))
     }

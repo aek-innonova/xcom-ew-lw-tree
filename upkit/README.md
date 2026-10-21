@@ -64,9 +64,9 @@ compile it, compare the bytes):
 | Core (vanilla) | 311 | 100% |
 | Engine (vanilla) | 4,341 | 99.7% |
 | XComGame (vanilla) | 11,756 | 99.4% |
-| XComStrategyGame (vanilla) | 5,349 | 99.2% |
+| XComStrategyGame (vanilla) | 5,349 | 99.5% |
 | XComGame (Long War 1.0) | 11,756 | 97.9% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 94.8% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 95.0% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.1% |
 
 Long War's and LWR's packages carry many functions patched by hand, some of
@@ -119,7 +119,7 @@ The whole of it is measured on a real mod package: LWR's `LWRebalance.u`
 (13 classes, 1,484 functions, 192 constants, 10 structs, 9 states,
 delegates; built by its authors with Unreal's own compiler) decompiled class
 by class and built anew from that source with `new`. Compared with the
-original object by object: 96.9% of its functions and states have the same
+original object by object: 97.1% of its functions and states have the same
 code token for token (as compiling each function back in place does: the
 rest are where LWR was built against its own stubs of the game's classes),
 and 99.7% of its objects the same declarations (flags, links, members,
@@ -130,7 +130,7 @@ with Unreal's compiler):
 
 | Package | Functions and states | Same code | Same declarations |
 |---|---|---|---|
-| LWRebalance.u | 1,493 | 96.9% | 99.7% of 9,235 objects |
+| LWRebalance.u | 1,493 | 97.1% | 99.7% of 9,235 objects |
 | MiniModsCollection.u | 569 | 96.0% | 96.8% of 2,121 |
 | XComCampaignSummary.u | 100 | 89.0% | 96.6% of 441 |
 | XComLZMutator.u | 72 | 98.6% | 96.4% of 474 |
