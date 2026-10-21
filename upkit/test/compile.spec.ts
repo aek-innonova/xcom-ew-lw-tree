@@ -387,3 +387,25 @@ describe.skipIf(!existsSync(`${VANILLA}/XComGame.upk`))('vanilla Enemy Within: d
       expect(same / total).toBeGreaterThan(0.99)
     }, 120_000)
 })
+
+describe.skipIf(!haveCorpus)('UnrealScript written by hand (not as the decompiler writes it)', () => {
+  it('compiles; decompiles to the same structure; that compiles to the same bytes', async () => {
+    const { readFileSync: read } = await import('node:fs')
+    const { packageWith } = await import('../src/changes.ts')
+    const { readStructHead: head } = await import('../src/objects.ts')
+    const src = read(new URL('./fixtures/HandWritten.uc', import.meta.url), 'utf8')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const ref = pkg.find('XGFacility_Labs.GetResearchPerHour')
+    const out = openPackage(packageWith(linker, pkg, [{ ref, text: src }]).bytes)
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('XComStrategyGame', out)
+    const text = new FunctionDecompiler(back, out, ref).decompile()
+    // for, continue, else if, switch with its break, coerced $ and @, a float comparison kept float.
+    for (const want of ['for (I = 0; I < 5; I++)', 'continue;', 'else if (I > 3)', 'break;', '"Total: " $ string(iTotal) @ "bonus"', 'VSize(vOffset) > float(0)', '} until (iTotal <= 0);'])
+      expect(text).toContain(want)
+    const h = head(out, ref)
+    expect([...new FunctionCompiler(back, out, ref).compile(text, binaryOperators(back)).code]).toEqual([...out.data(ref).subarray(h.scriptAt, h.end)])
+  })
+})

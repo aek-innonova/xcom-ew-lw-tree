@@ -85,6 +85,7 @@ type Stmt =
   | { k: 'expr'; node: Node }
   | { k: 'if'; cond: Node; then: Stmt[]; else?: Stmt[] }
   | { k: 'while'; cond: Node; body: Stmt[] }
+  | { k: 'for'; init: Node; cond: Node; step: Node; body: Stmt[] }
   | { k: 'do'; body: Stmt[]; cond: Node }
   | { k: 'foreach'; iter: Node; body: Stmt[] }
   | { k: 'switch'; node: Node; cases: { value: Node | null; body: Stmt[] }[] }
@@ -600,14 +601,29 @@ export class FunctionDecompiler {
           if (t > i && t <= hi) {
             const last = S[t - 1]!
             if (last.op === 0x06 && (last.args[0] as number) === s.mem) {
+              // X = …; while (c) { …; X++; }: a for loop (its continue goes to the step).
+              const prev = out.at(-1)
+              const step = t - 2 > i ? S[t - 2]! : null
+              const lhs = prev?.k === 'expr' && prev.node.op === 0x0f ? this.ex(prev.node.args[0] as Node).text : null
+              const stepText = step ? this.stmtText(step).replace(/;$/, '') : ''
+              const steps = lhs && step && new RegExp(`^(\\+\\+|--)?${lhs.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\+\\+|--|\\s*[-+*/]?=)`).test(stepText)
+              if (steps && prev?.k === 'expr') {
+                out.pop()
+                const body = this.block(i + 1, t - 2, { breakTo: T, continueTo: step!.mem })
+                out.push({ k: 'for', init: (prev as { node: Node }).node, cond, step: step!, body })
+                i = t
+                continue
+              }
               out.push({ k: 'while', cond, body: this.block(i + 1, t - 1, { breakTo: T, continueTo: s.mem }) })
               i = t
               continue
             }
             if (last.op === 0x06 && t - 1 > i) {
               const J = last.args[0] as number
-              const isBreak = J === ctx.breakTo || J === ctx.continueTo
               const e = J === hiMem ? hi : this.idx(J)
+              // (In a for loop the end of the body is the step, continue's target: a jump there
+              // from the end of a then-branch that the block ends at is the join of an else.)
+              const isBreak = J === ctx.breakTo || (J === ctx.continueTo && !(e === hi && J === hiMem))
               if (!isBreak && J > T && e > t - 1 && e <= hi) {
                 out.push({ k: 'if', cond, then: this.block(i + 1, t - 1, ctx), else: this.block(t, e, ctx) })
                 i = e
@@ -699,8 +715,9 @@ export class FunctionDecompiler {
     let endMem = -1
     for (let j = i + 1; j < hi; j++) {
       const s = S[j]!
-      if (s.op === 0x06 && (s.args[0] as number) > S[lastCase]!.mem && (s.args[0] as number) !== ctx.breakTo && (s.args[0] as number) !== ctx.continueTo)
-        endMem = Math.max(endMem, s.args[0] as number)
+      // (A break jumps forward: a later loop's jump back is not one.)
+      const t = s.args[0] as number
+      if (s.op === 0x06 && t > s.mem && t > S[lastCase]!.mem && t !== ctx.breakTo && t !== ctx.continueTo) endMem = Math.max(endMem, t)
     }
     const [lastNext] = S[lastCase]!.args[0] as unknown as [number]
     if (lastNext !== 0xffff && endMem < 0) endMem = lastNext
@@ -730,13 +747,27 @@ export class FunctionDecompiler {
           out.push(`${pad}if (${this.ex(s.cond).text})`, `${pad}{`)
           this.lines(s.then, depth + 1, out)
           out.push(`${pad}}`)
-          if (s.else) {
+          // An else that is one if: else if (…), down the chain.
+          let rest = s.else
+          while (rest && rest.length === 1 && rest[0]!.k === 'if') {
+            const next = rest[0] as Stmt & { k: 'if' }
+            out.push(`${pad}else if (${this.ex(next.cond).text})`, `${pad}{`)
+            this.lines(next.then, depth + 1, out)
+            out.push(`${pad}}`)
+            rest = next.else
+          }
+          if (rest) {
             out.push(`${pad}else`, `${pad}{`)
-            this.lines(s.else, depth + 1, out)
+            this.lines(rest, depth + 1, out)
             out.push(`${pad}}`)
           }
           break
         }
+        case 'for':
+          out.push(`${pad}for (${this.stmtText(s.init).replace(/;$/, '')}; ${this.ex(s.cond).text}; ${this.stmtText(s.step).replace(/;$/, '')})`, `${pad}{`)
+          this.lines(s.body, depth + 1, out)
+          out.push(`${pad}}`)
+          break
         case 'while':
           out.push(`${pad}while (${this.ex(s.cond).text})`, `${pad}{`)
           this.lines(s.body, depth + 1, out)

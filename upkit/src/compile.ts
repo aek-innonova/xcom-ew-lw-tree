@@ -56,6 +56,7 @@ const CAST: Record<string, number> = {
 }
 /** Conversions UnrealScript makes by itself. */
 const AUTO = new Set(['byte>int', 'int>byte', 'byte>float', 'int>float', 'float>int', 'float>byte', 'interface>object'])
+const NARROWING = new Set(['int>byte', 'float>int', 'float>byte'])
 
 interface Gen {
   node: Node
@@ -1036,7 +1037,10 @@ export class FunctionCompiler {
           continue
         }
         const key = `${from}>${to}`
-        cost += AUTO.has(key) ? 10 : 1000
+        // A coerced parameter ($'s and @'s strings) takes what converts to it at all.
+        const coerced = !!(info.params[i]!.p.flags & CPF.CoerceParm) && CAST[key] !== undefined
+        // Widening (byte to int, int to float) before narrowing (float to int: it truncates).
+        cost += AUTO.has(key) ? (NARROWING.has(key) ? 30 : 10) : coerced ? 20 : 1000
       }
       if (cost < bestCost) {
         bestCost = cost
@@ -1055,7 +1059,8 @@ export class FunctionCompiler {
     const info = this.fnInfo(best)
     const ps = info.params.map((p, i) => {
       const out = !!(p.p.flags & CPF.OutParm)
-      const g = out ? this.gen(operands[i]!, undefined, true) : this.gen(operands[i]!, p.ty)
+      let g = out ? this.gen(operands[i]!, undefined, true) : this.gen(operands[i]!, p.ty)
+      if (!out && p.p.flags & CPF.CoerceParm) g = this.convert(g, p.ty, true)
       return p.p.flags & CPF.SkipParm ? N(0x18, memSizeOf(g.node) + 1, g.node) : g.node
     })
     const node = NATIVE(info.fn.native, ps)
