@@ -5,7 +5,8 @@
 
 import { encodeScript, memSizeOf, type NameValue, type Node, type Value } from './bytecode.ts'
 import type { Linker, Located } from './linker.ts'
-import type { FunctionObj, PropertyObj, ScriptObject } from './objects.ts'
+import { readTags, type FunctionObj, type PropertyObj, type ScriptObject } from './objects.ts'
+import { Reader, Writer } from './bytes.ts'
 import type { Package } from './package.ts'
 import { Parser, type Expr, type FunctionSource, type Stmt } from './parse.ts'
 import { CPF, FUNC, typeOf, type Ty } from './types.ts'
@@ -1208,60 +1209,94 @@ export class FunctionCompiler {
    * new locals as exports, and the function's data with them linked in (the
    * script itself is put in by the caller, edit.ts).
    */
-  additions(): { names: import('./package.ts').NameEntry[]; imports: import('./package.ts').Import[]; exports: { entry: import('./package.ts').Export; data: Uint8Array }[]; children: number } {
+  additions(): {
+    names: import('./package.ts').NameEntry[]
+    imports: import('./package.ts').Import[]
+    exports: { entry: import('./package.ts').Export; data: Uint8Array }[]
+    /** The function's new first child (when it had none), for withScript. */
+    children: number | undefined
+    /** Other objects' data changed: the function's last child, linked to the new locals. */
+    edits: Map<number, Uint8Array>
+  } {
     const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = []
-    const none = this.nameRef('None')
-    const fnHead = this.fn.head.children
-    const property = (ref: number, outer: number, name: string, cls: string, refs: number[], next: number, dim: number) => {
-      const w: number[] = []
-      const i32 = (x: number) => {
-        const b = new Uint8Array(4)
-        new DataView(b.buffer).setInt32(0, x, true)
-        w.push(...b)
-      }
-      i32(ref - 1) // the object's own index
-      i32(none.index)
-      i32(none.number)
-      i32(next)
-      i32(dim)
-      i32(0)
-      i32(0) // flags: a local's are none
-      i32(none.index)
-      i32(none.number) // category
-      i32(0) // array enum
-      for (const x of refs) i32(x)
-      const n = this.nameRef(name)
-      exports.push({
-        entry: {
-          classIndex: this.coreClass(cls),
-          superIndex: 0,
-          outer,
-          objectName: n,
-          archetype: 0,
-          objectFlags: 0x7000400000000n,
-          serialSize: 0,
-          serialOffset: 0,
-          exportFlags: 0,
-          netObjects: [],
-          packageGuid: new Uint8Array(16),
-          packageFlags: 0,
-        },
-        data: new Uint8Array(w),
-      })
-    }
+    const edits = new Map<number, Uint8Array>()
     const locals = this.added.locals
+    // New locals go after the function's own children: the engine copies a call's
+    // arguments into the parameters by walking the children from the first.
+    let last = 0
+    for (let c = this.fn.head.children; c; ) {
+      last = c
+      const p = this.obj({ pkg: this.pkg, ref: c })
+      c = p && p.kind === 'property' ? p.next : 0
+    }
     locals.forEach((l, k) => {
-      const next = k + 1 < locals.length ? locals[k + 1]!.ref : fnHead
-      property(l.ref, this.ref, l.name, l.cls, l.refs, next, l.dim)
-      if (l.inner) property(l.inner.ref, l.ref, l.name, l.inner.cls, l.inner.refs, 0, 1)
+      const next = k + 1 < locals.length ? locals[k + 1]!.ref : 0
+      const flags = this.needsCtor(l.ty) ? CPF_NeedCtorLink : 0n
+      exports.push(this.propertyObject({ ref: l.ref, outer: this.ref, name: l.name, cls: l.cls, refs: l.refs, next, dim: l.dim, flags }))
+      if (l.inner) exports.push(this.propertyObject({ ref: l.inner.ref, outer: l.ref, name: l.name, cls: l.inner.cls, refs: l.inner.refs, next: 0, dim: 1, flags: 0n }))
     })
+    if (locals.length && last) edits.set(last, withNext(this.pkg, last, locals[0]!.ref))
     return {
       names: this.added.names.map((name) => ({ name, flags: 0x7001000000000n })),
       imports: this.added.imports,
       exports,
-      children: locals.length ? locals[0]!.ref : fnHead,
+      children: locals.length && !last ? locals[0]!.ref : undefined,
+      edits,
     }
   }
+
+  /** A property object: its data and its export entry (a local, a parameter, a member variable). */
+  propertyObject(o: {
+    ref: number
+    outer: number
+    name: string
+    cls: string
+    refs: number[]
+    next: number
+    dim: number
+    flags: bigint
+    category?: string
+  }): { entry: import('./package.ts').Export; data: Uint8Array } {
+    const none = this.nameRef('None')
+    const category = this.nameRef(o.category ?? 'None')
+    const w = new Writer(64)
+    w.i32(o.ref - 1) // the object's own index
+    w.i32(none.index).i32(none.number) // no tagged properties
+    w.i32(o.next).i32(o.dim).u64(o.flags)
+    w.i32(category.index).i32(category.number)
+    w.i32(0) // array enum
+    if (o.flags & CPF.Net) w.u16(0)
+    for (const x of o.refs) w.i32(x)
+    return {
+      entry: {
+        classIndex: this.coreClass(o.cls),
+        superIndex: 0,
+        outer: o.outer,
+        objectName: this.nameRef(o.name),
+        archetype: 0,
+        objectFlags: 0x7000400000000n,
+        serialSize: 0,
+        serialOffset: 0,
+        exportFlags: 0,
+        netObjects: [],
+        packageGuid: new Uint8Array(16),
+        packageFlags: 0,
+      },
+      data: w.done(),
+    }
+  }
+
+  /** Whether a variable of the type is constructed and destroyed (strings, arrays, delegates, structs holding them). */
+  needsCtor(ty: Ty, depth = 0): boolean {
+    if (ty.k === 'string' || ty.k === 'array' || ty.k === 'delegate' || ty.k === 'map') return true
+    if (ty.k !== 'struct' || !ty.struct || depth > 8) return false
+    for (const f of this.fields(ty.struct)) {
+      const p = this.obj(f)
+      if (p?.kind === 'property' && this.needsCtor(typeOf(this.linker, f, p), depth + 1)) return true
+    }
+    return false
+  }
+
 
   /** Places the labels: each takes the memory offset of what follows it. */
   private layout(): Node[] {
@@ -1322,6 +1357,18 @@ export class FunctionCompiler {
   compile(src: string, binary?: Record<string, number>): { code: Uint8Array; memSize: number } {
     return encodeScript(this.compileStatements(src, binary))
   }
+}
+
+const CPF_NeedCtorLink = 0x400000n
+
+/** A property's data with another next field (the next field in its chain). */
+export function withNext(pkg: Package, ref: number, next: number): Uint8Array {
+  const data = pkg.data(ref).slice()
+  const r = new Reader(data)
+  r.i32()
+  readTags(r, pkg)
+  new DataView(data.buffer, data.byteOffset).setInt32(r.o, next, true)
+  return data
 }
 
 /** What the compilers of one change set add, shared between them. */

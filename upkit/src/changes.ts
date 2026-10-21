@@ -58,6 +58,7 @@ export function packageWith(
     }
     const add = fc.additions()
     data.set(c.ref, withScript(pkg, c.ref, one.code, one.memSize, add.children))
+    for (const [ref, d] of add.edits) data.set(ref, d)
     exports.push(...add.exports)
     sh.exports += add.exports.length
   }

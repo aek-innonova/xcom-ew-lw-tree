@@ -108,8 +108,13 @@ describe.skipIf(!haveCorpus)('edits that add to the package', () => {
     const add = fc.additions()
     expect(add.exports.length).toBe(3) // fBonus, arrSeen and its inner int
     const out = new Package(
-      writePackage(pkg, { data: new Map([[ref, withScript(pkg, ref, code, memSize, add.children)]]), ...add }),
+      writePackage(pkg, { data: new Map([[ref, withScript(pkg, ref, code, memSize, add.children)], ...add.edits]), ...add }),
     )
+    // The new locals follow the function's own children (its return value here): parameters stay first.
+    const chain: string[] = []
+    for (let c = (readObject(out, ref) as { head: { children: number } }).head.children; c; c = (readObject(out, c) as { next: number }).next)
+      chain.push(out.objectName(c))
+    expect(chain).toEqual(['ReturnValue', 'fBonus', 'arrSeen'])
     // Every new object reads to its end; the function lists its new locals.
     for (let i = pkg.exports.length + 1; i <= out.exports.length; i++) expect(readObject(out, i)).not.toBeNull()
     const back = new Linker([dirname(CORPUS[0]!)])
