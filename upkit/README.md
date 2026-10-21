@@ -84,8 +84,18 @@ alone, come back byte for byte. In a mod script, a change that keeps the
 object's size is hex at offsets in it; one that does not replaces the part
 that changed, and PatchUPK resizes the object.
 
-Not compiled yet: other declarations (new member variables, functions,
-states, classes, a function's signature), new subobjects in the defaults,
+With `--out`, a class's source can also declare what the class does not
+have: member variables (`var config float m_fBonus;`, arrays, structs,
+objects) and functions (in the class or in one of its states, with
+parameters, optional and out ones, and a return value). They are declared as
+the compiler lays them out (linked first among the class's fields, entered
+in its function map, an override linked to the function it overrides), then
+compiled like any edited function; a default can be given in
+`defaultproperties`. A native class cannot get new variables (its C++ fixes
+its layout), and a mod script cannot add objects at all.
+
+Not compiled yet: new states, classes, delegates and native functions; a
+changed signature or variable type; new subobjects in the defaults;
 replication.
 
 Hand patches can hold bytecode no UnrealScript compiles to (a flag set
@@ -132,6 +142,7 @@ writes it in a form the compiler reads back the same:
 | `src/patch.ts` | a change as a PatchUPK mod script |
 | `src/changes.ts` | a set of changes compiled together, into a package or a mod script |
 | `src/classsrc.ts` | a class's source split into its functions and states' code; what was edited |
+| `src/declare.ts` | new member variables and functions declared in a class |
 | `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
 | `src/fidelity.ts` | whether a function's source says all its bytecode (the note on hand patches) |
 | `src/cli.ts` | the command line |

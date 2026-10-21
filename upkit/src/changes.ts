@@ -4,11 +4,13 @@
 
 import { encodeScript, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
-import { defaultsChanges } from './defaults.ts'
+import { classEdits } from './classsrc.ts'
+import { declare } from './declare.ts'
+import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
-import type { Package } from './package.ts'
+import { openPackage, type Package } from './package.ts'
 import { modScript } from './patch.ts'
 import { writePackage } from './writer.ts'
 
@@ -125,3 +127,30 @@ function compileOne(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<s
 }
 
 const u16 = (v: number) => new Uint8Array([v & 0xff, (v >> 8) & 0xff])
+
+/**
+ * A whole class's source into a whole package: new member variables and
+ * functions declared first (a package with them, bodies to come), then every
+ * edited or new function, state code and default compiled against it.
+ */
+export function classPackage(
+  linker: Linker,
+  pkg: Package,
+  pkgName: string,
+  className: string,
+  src: string,
+  layout: 'keep' | 'compact' = 'keep',
+): ReturnType<typeof packageWith> & { declared: string[]; edited: string[] } {
+  const classRef = pkg.find(className)
+  const first = classEdits(linker, pkg, className, src)
+  const declared = [...first.vars.flatMap((v) => v.names.map((n) => `${className}.${n.name}`)), ...first.functions.map((f) => f.path)]
+  let target = pkg
+  if (declared.length) {
+    target = openPackage(declare(linker, pkg, classRef, first.vars, first.functions))
+    linker.add(pkgName, target)
+  }
+  const edits = declared.length ? classEdits(linker, target, className, src) : first
+  const block = defaultsBlock(src)
+  const r = packageWith(linker, target, edits.changes, layout, block === null ? undefined : { classRef, block })
+  return { ...r, declared, edited: edits.changes.map((c) => c.path) }
+}

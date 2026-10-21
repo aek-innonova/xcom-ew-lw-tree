@@ -8,11 +8,12 @@ import { FunctionDecompiler } from './decompile.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex } from './parse.ts'
+import { parseSignature, parseVar, type FunctionDecl, type VarDecl } from './declare.ts'
 
 export interface ClassPart {
   /** "Function" in the class, "State.Function" in a state, or "State" for a state's code. */
   path: string
-  kind: 'function' | 'state code'
+  kind: 'function' | 'state code' | 'var'
   text: string
 }
 
@@ -103,8 +104,10 @@ export function splitClass(src: string): ClassPart[] {
         }
         // Declarations up to their semicolon (var delegate<…> is not a delegate's declaration).
         if (isWord(i, 'var') || isWord(i, 'const')) {
+          const from = i
           while (at(i).v !== ';' && at(i).t !== 'eof') i++
           i++
+          if (isWord(from, 'var')) parts.push({ path: '', kind: 'var', text: text(from, i) })
           continue
         }
         // Anything else with a block (struct, enum, replication, cpptext): skipped whole.
@@ -136,20 +139,38 @@ const same = (a: string, b: string) => {
   return x.length === y.length && x.every((t, i) => t.t === y[i]!.t && t.v === y[i]!.v)
 }
 
-/**
- * What was edited in a class's source: each function or state code whose
- * source differs (token for token) from what the package's bytecode
- * decompiles to. A function the package does not have is an error (adding
- * functions is not compiled yet).
- */
-export function classChanges(linker: Linker, pkg: Package, className: string, src: string): (Change & { path: string })[] {
-  const out: (Change & { path: string })[] = []
+/** A class's source against its package: what was edited, and what is new. */
+export interface ClassEdits {
+  /** Functions and states' code whose source differs from what the package decompiles to. */
+  changes: (Change & { path: string })[]
+  /** Member variables the class does not have. */
+  vars: VarDecl[]
+  /** Functions the class (or a state of it) does not have, with their source. */
+  functions: (FunctionDecl & { path: string; text: string })[]
+}
+
+export function classEdits(linker: Linker, pkg: Package, className: string, src: string): ClassEdits {
+  const out: ClassEdits = { changes: [], vars: [], functions: [] }
   for (const p of splitClass(src)) {
+    if (p.kind === 'var') {
+      // (A declaration upkit does not declare, a delegate's, is fine when the class has it.)
+      const last = /(\w+)\s*(?:\[[^\]]*\])?\s*;\s*$/.exec(p.text)?.[1]
+      if (last && pkg.find(`${className}.${last}`) && /\bdelegate\s*</i.test(p.text)) continue
+      const v = parseVar(p.text, className)
+      const fresh = v.names.filter((n) => !pkg.find(`${className}.${n.name}`))
+      if (fresh.length) out.vars.push({ ...v, names: fresh })
+      continue
+    }
     const path = `${className}.${p.path}`
     const ref = pkg.find(path)
     const kind = ref ? pkg.className(ref) : ''
+    if (!ref && p.kind === 'function') {
+      const dot = p.path.indexOf('.')
+      out.functions.push({ ...parseSignature(p.text, dot > 0 ? p.path.slice(0, dot) : null), path, text: p.text })
+      continue
+    }
     if (!ref || (p.kind === 'function' ? kind !== 'Function' : kind !== 'State'))
-      throw new Error(`${path} is not in the package (new functions and states are not compiled yet)`)
+      throw new Error(`${path} is not in the package (new states are not compiled yet)`)
     const d = new FunctionDecompiler(linker, pkg, ref)
     let original: string
     try {
@@ -157,7 +178,15 @@ export function classChanges(linker: Linker, pkg: Package, className: string, sr
     } catch {
       original = ''
     }
-    if (!same(original, p.text)) out.push({ ref, text: p.text, path })
+    if (!same(original, p.text)) out.changes.push({ ref, text: p.text, path })
   }
   return out
+}
+
+/** What was edited in a class's source (new declarations are an error here: see classEdits). */
+export function classChanges(linker: Linker, pkg: Package, className: string, src: string): (Change & { path: string })[] {
+  const e = classEdits(linker, pkg, className, src)
+  const fresh = [...e.vars.flatMap((v) => v.names.map((n) => n.name)), ...e.functions.map((f) => f.path)]
+  if (fresh.length) throw new Error(`new declarations (${fresh.join(', ')}) need a whole package (--out)`)
+  return e.changes
 }

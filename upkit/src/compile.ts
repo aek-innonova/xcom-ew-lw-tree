@@ -117,6 +117,12 @@ export class FunctionCompiler {
         const key = pkg.path(-i).toLowerCase()
         if (!this.imports.has(key)) this.imports.set(key, -i)
       }
+    // A class itself (its declarations): no function, no locals.
+    if (pkg.className(ref) === 'Class') {
+      this.fn = linker.object({ pkg, ref }) as unknown as FunctionObj
+      this.cls = { pkg, ref }
+      return
+    }
     // A state's code: the state's class, no locals.
     if (pkg.className(ref) === 'State') {
       this.fn = linker.object({ pkg, ref }) as unknown as FunctionObj
@@ -179,7 +185,7 @@ export class FunctionCompiler {
     return this.addImport(name.toLowerCase(), 'Core', 'Package', 0, name)
   }
   /** Core's class for a property kind ("IntProperty"): imported by every package with scripts, else added. */
-  private coreClass(name: string): number {
+  coreClass(name: string): number {
     const r = this.imports.get(`core.${name}`.toLowerCase())
     if (r !== undefined) return r
     if (this.allow !== 'all') throw new CompileError(`Core.${name} is not imported by this package`)
@@ -188,7 +194,7 @@ export class FunctionCompiler {
   private obj(at: Located): ScriptObject | null {
     return this.linker.object(at)
   }
-  private nameRef(name: string): NameValue {
+  nameRef(name: string): NameValue {
     const us = name.lastIndexOf('_')
     let base = name
     let number = 0
@@ -240,7 +246,7 @@ export class FunctionCompiler {
     return null
   }
   /** A function by name, as the function's scope sees it: its state, then the class's chain. */
-  private findFunction(name: string, inClass?: Located): Located | null {
+  findFunction(name: string, inClass?: Located): Located | null {
     if (!inClass && this.state) {
       const s = this.member(this.state, name, 'function')
       if (s) return s
@@ -1158,7 +1164,7 @@ export class FunctionCompiler {
       }
     }
   }
-  private typeFromText(text: string): Ty {
+  typeFromText(text: string): Ty {
     const t = text.trim()
     const lower = t.toLowerCase()
     if (lower in PRIMS) return PRIMS[lower]!
@@ -1175,7 +1181,7 @@ export class FunctionCompiler {
     if (kind === 'ScriptStruct') return { k: 'struct', struct: found }
     return this.isInterface(found) ? { k: 'interface', cls: found } : { k: 'object', cls: found }
   }
-  private propertyClass(ty: Ty): { cls: string; refs: number[] } {
+  propertyClass(ty: Ty): { cls: string; refs: number[] } {
     const r = (at: Located | null | undefined) => (at ? this.refOf(at) : 0)
     switch (ty.k) {
       case 'int':

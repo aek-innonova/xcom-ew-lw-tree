@@ -23,8 +23,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname } from 'node:path'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
-import { modScriptWith, packageWith } from './changes.ts'
-import { classChanges } from './classsrc.ts'
+import { classPackage, modScriptWith, packageWith } from './changes.ts'
+import { classEdits } from './classsrc.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
@@ -129,37 +129,44 @@ try {
       const [path, source] = rest
       if (!path || !source || (!out && !patch)) usage()
       const text = readFileSync(source, 'utf8')
-      // A class: the functions and states' code that were edited in its source. Else one function or state.
+      // A class: what was edited (or declared anew) in its source. Else one function or state.
       const target = pkg.find(path)
       const isClass = !!target && pkg.className(target) === 'Class'
-      const changes = isClass ? classChanges(linker, pkg, path, text) : [{ ref: functionRef(pkg, path), text, path }]
+      const edits = isClass ? classEdits(linker, pkg, path, text) : null
+      const declared = edits ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)] : []
+      const changes = edits ? edits.changes : [{ ref: functionRef(pkg, path), text, path }]
       const block = isClass ? defaultsBlock(text) : null
       const defaults = block !== null ? { classRef: target, block } : undefined
-      // What the defaults change (nothing when they are as the package has them).
-      const objects = defaults ? defaultsChanges(linker, pkg, target, defaults.block, { shared: shared(), allow: 'all' }).map((e) => e.ref) : []
-      if (!changes.length && !objects.length) {
+      // What the defaults change (nothing when they are as the package has them; new variables' are checked when declared).
+      const objects =
+        defaults && !declared.length
+          ? defaultsChanges(linker, pkg, target, defaults.block, { shared: shared(), allow: 'all' }).map((e) => e.ref)
+          : []
+      if (!changes.length && !objects.length && !declared.length) {
         console.log(`${path}: nothing edited (the source decompiles from the package as it is)`)
         break
       }
       const what = [...changes.map((c) => c.path), ...objects.map((r) => `${pkg.path(r)} (default properties)`)].join(', ')
       if (patch) {
+        if (declared.length) throw new Error(`new declarations (${declared.join(', ')}) need a whole package (--out): a mod script cannot add objects`)
         const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` }, defaults)
         writeFileSync(patch, r.text)
         console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}`)
       }
       if (out) {
-        const r = packageWith(linker, pkg, changes, layout, defaults)
+        const r = isClass ? classPackage(linker, pkg, pkgName, path, text, layout) : { ...packageWith(linker, pkg, changes, layout, defaults), declared: [], edited: [] }
         writeFileSync(out, r.bytes)
         const extras = [
+          r.declared.length && `declared ${r.declared.join(', ')}`,
           r.added.names && `${r.added.names} names`,
           r.added.imports && `${r.added.imports} imports`,
           r.added.exports && `${r.added.exports} new local properties`,
         ].filter(Boolean)
         const sizes = [
-          ...r.compiled.map((c) => `${pkg.path(c.ref)} ${readStructHead(pkg, c.ref).size} → ${c.code.length} bytes`),
+          ...r.compiled.map((c, k) => `${r.edited[k] ?? pkg.path(c.ref)} → ${c.code.length} bytes`),
           ...r.objects.map((o) => `${pkg.path(o)} (default properties)`),
         ]
-        console.log(`wrote ${out} (${layout} layout): ${sizes.join('; ')}${extras.length ? `; added ${extras.join(', ')}` : ''}`)
+        console.log(`wrote ${out} (${layout} layout): ${sizes.join('; ')}${extras.length ? `; ${extras.join(', ')}` : ''}`)
       }
       break
     }

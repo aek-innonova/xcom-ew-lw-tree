@@ -216,3 +216,58 @@ describe.skipIf(!haveCorpus)('a whole class edited', () => {
     expect(text).toContain('DefaultFOV=45.0\n    fEarthTransitionInterp=2.5\n}')
   })
 })
+
+describe.skipIf(!haveCorpus)('new declarations in a class', () => {
+  it('a member variable, an array, a function calling it and a default: declared, compiled, read back', async () => {
+    const { decompileClass } = await import('../src/classdecomp.ts')
+    const { classPackage } = await import('../src/changes.ts')
+    const { Package } = await import('../src/package.ts')
+    const { readObject } = await import('../src/objects.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    let src = decompileClass(linker, pkg, 'XGFacility_Labs')
+    const v = src.indexOf('\nvar')
+    src = src.slice(0, v) + '\nvar config float m_fUpkitBonus;\nvar array<string> m_arrUpkitLog;' + src.slice(v)
+    src = src.replace('float(1) + m_fLabBonus', 'float(1) + UpkitBonus(2) + m_fLabBonus')
+    const d = src.indexOf('\ndefaultproperties')
+    src =
+      src.slice(0, d) +
+      `
+function float UpkitBonus(int iScale, optional string strWhy)
+{
+    local int iCount;
+
+    iCount = m_arrUpkitLog.Length;
+    m_arrUpkitLog.AddItem("bonus " $ string(iScale) $ strWhy);
+    return m_fUpkitBonus * float(iScale) + float(iCount);
+}
+` +
+      src.slice(d)
+    src = src.replace('defaultproperties\n{', 'defaultproperties\n{\n    m_fUpkitBonus=0.25')
+    const r = classPackage(linker, pkg, 'XComStrategyGame', 'XGFacility_Labs', src)
+    expect(r.declared).toEqual(['XGFacility_Labs.m_fUpkitBonus', 'XGFacility_Labs.m_arrUpkitLog', 'XGFacility_Labs.UpkitBonus'])
+    const out = new Package(r.bytes)
+    // Every object reads to its end.
+    for (let i = 1; i <= out.exports.length; i++) expect(() => readObject(out, i)).not.toThrow()
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('XComStrategyGame', out)
+    const text = decompileClass(back, out, 'XGFacility_Labs')
+    expect(text).toContain('var config float m_fUpkitBonus;')
+    expect(text).toContain('var array<string> m_arrUpkitLog;')
+    expect(text).toContain('function float UpkitBonus(int iScale, optional string strWhy)')
+    expect(text).toContain('m_fUpkitBonus=0.25')
+    expect(text).toContain('UpkitBonus(2)')
+    // The new function: in the class's function map, parameters first in its fields, and compiled back the same.
+    const fn = out.find('XGFacility_Labs.UpkitBonus')
+    const cls = readObject(out, out.find('XGFacility_Labs')) as { funcMap: { name: string; func: number }[] }
+    expect(cls.funcMap.find((f) => f.name === 'UpkitBonus')?.func).toBe(fn)
+    const chain: string[] = []
+    for (let c = (readObject(out, fn) as { head: { children: number } }).head.children; c; c = (readObject(out, c) as { next: number }).next)
+      chain.push(out.objectName(c))
+    expect(chain).toEqual(['iScale', 'strWhy', 'ReturnValue', 'iCount'])
+    const again = new FunctionDecompiler(back, out, fn).decompile()
+    const h = (await import('../src/objects.ts')).readStructHead(out, fn)
+    expect([...new FunctionCompiler(back, out, fn).compile(again, binaryOperators(back)).code]).toEqual([...out.data(fn).subarray(h.scriptAt, h.end)])
+  })
+})
