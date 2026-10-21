@@ -15,8 +15,8 @@ import { CPF, FUNC, typeOf, typeText } from './types.ts'
 
 /** PrimitiveCast's codes (ECastToken): the type cast to, by code. */
 export const CASTS: Record<number, string> = {
-  0x36: 'bool', // InterfaceToBool
-  0x37: 'Object', // InterfaceToObject (written as the object cast)
+  0x36: 'Object', // InterfaceToObject: the compiler adds it (a class cast of an interface); not written
+  0x37: 'bool', // InterfaceToBool
   0x39: 'vector', // RotatorToVector
   0x3a: 'int', // ByteToInt
   0x3b: 'bool', // ByteToBool
@@ -179,14 +179,21 @@ export class FunctionDecompiler {
         const sep = inner.op === 0x02 ? '' : 'static.'
         return atom(`${this.paren(a[0] as Node, 0)}.${sep}${this.ex(inner).text}`)
       }
-      case 0x19:
-        return atom(`${this.paren(a[0] as Node, 0)}.${this.ex(a[4] as Node).text}`)
+      case 0x19: {
+        // A literal through an object (a patch's constant in place of a member): obj.(5), upkit's dialect.
+        const m = a[4] as Node
+        if ([0x1d, 0x2c, 0x25, 0x26, 0x24, 0x1e, 0x27, 0x28, 0x1f, 0x21, 0x2a].includes(m.op))
+          return atom(`${this.paren(a[0] as Node, 0)}.(${this.ex(m).text})`)
+        return atom(`${this.paren(a[0] as Node, 0)}.${this.ex(m).text}`)
+      }
       case 0x13:
         return atom(`class<${this.obj(a[0] as number)}>(${this.ex(a[1] as Node).text})`)
       case 0x2e:
       case 0x52:
         return atom(`${this.obj(a[0] as number)}(${this.ex(a[1] as Node).text})`)
       case 0x38: {
+        // An interface made an object: the compiler's own step, not written.
+        if (a[0] === 0x36) return this.ex(a[1] as Node)
         // A cast of a literal: byte(5) is a byte constant, so the cast is written byte(int(5)).
         const inner = a[1] as Node
         const lit = [0x1d, 0x2c, 0x25, 0x26].includes(inner.op) ? `int(${this.ex(inner).text})` : this.ex(inner).text
@@ -200,8 +207,9 @@ export class FunctionDecompiler {
         return atom(`global.${this.nm(a[0] as NameValue)}(${this.args(a[1] as Node[])})`)
       case 0x1c:
         return atom(`${this.finalName(a[0] as number)}(${this.args(a[1] as Node[])})`)
+      // A delegate called: through its variable (the name is the delegate's signature).
       case 0x42:
-        return atom(`${this.nm(a[2] as NameValue)}(${this.args(a[3] as Node[])})`)
+        return atom(`${a[1] ? this.obj(a[1] as number) : this.nm(a[2] as NameValue)}(${this.args(a[3] as Node[])})`)
       case 0x43:
         return atom(this.nm(a[0] as NameValue))
       case 0x4b:
@@ -311,7 +319,7 @@ export class FunctionDecompiler {
     const f = this.fnAt(ref)
     if (!f) return name
     // A final call to a function that is not final is a super call.
-    if (!(f.fn.flags & FUNC.Final) && !(f.fn.flags & FUNC.Static)) {
+    if (!(f.fn.flags & FUNC.Final)) {
       const outer = f.pkg.outerOf(f.ref)
       // A state's function: its path (Class.State), upkit's dialect; a class's: its name.
       const owner = f.pkg.className(outer) === 'State' ? f.pkg.path(outer) : f.pkg.objectName(outer)
@@ -481,7 +489,7 @@ export class FunctionDecompiler {
     const [lastNext] = S[lastCase]!.args[0] as unknown as [number]
     if (lastNext !== 0xffff && endMem < 0) endMem = lastNext
     const end = endMem < 0 ? hi : endMem === (hi < S.length ? S[hi]!.mem : this.memEnd) ? hi : this.idx(endMem)
-    if (end < 0 || end > hi) return null
+    if (end <= i || end > hi) return null
     const breakTo = end < S.length ? S[end]!.mem : this.memEnd
     const out: { value: Node | null; body: Stmt[] }[] = []
     for (let k = 0; k < cases.length; k++) {
@@ -641,7 +649,14 @@ export class FunctionDecompiler {
 
     const lines: string[] = []
     lines.push(this.signature(fn, params, ret, defaults))
-    const nativeBody = !!(fn.flags & FUNC.Native) && !head.size
+    // A native function declared in script: no body, or the stub the compiler
+    // writes for it (each parameter as NativeParm, then nothing).
+    const stub =
+      S.length === params.length + 2 &&
+      params.every((p, i) => S[i]?.op === 0x29 && (S[i]!.args[0] as number) === p.ref) &&
+      S[params.length]?.op === 0x0b &&
+      S[params.length + 1]?.op === 0x53
+    const nativeBody = !!(fn.flags & FUNC.Native) && (!head.size || stub)
     if (nativeBody) return lines[0] + ';\n'
     lines.push('{')
     for (const l of locals) lines.push(`    local ${this.typeOf(l)} ${pkg.objectName(l.ref)}${this.dims(l.p)};`)

@@ -49,10 +49,10 @@ const CAST: Record<string, number> = {
   'string>vector': 0x4d, 'string>rotator': 0x4e, 'string>name': 0x60,
   'vector>bool': 0x4f, 'vector>rotator': 0x50, 'vector>string': 0x58,
   'rotator>bool': 0x51, 'rotator>string': 0x59, 'rotator>vector': 0x39,
-  'delegate>string': 0x5a, 'interface>bool': 0x36, 'interface>object': 0x37,
+  'delegate>string': 0x5a, 'interface>object': 0x36, 'interface>bool': 0x37,
 }
 /** Conversions UnrealScript makes by itself. */
-const AUTO = new Set(['byte>int', 'int>byte', 'byte>float', 'int>float', 'float>int', 'float>byte'])
+const AUTO = new Set(['byte>int', 'int>byte', 'byte>float', 'int>float', 'float>int', 'float>byte', 'interface>object'])
 
 interface Gen {
   node: Node
@@ -230,6 +230,7 @@ export class FunctionCompiler {
     const to = this.kindOf(want)
     if (from === to || this.same(g.ty, want)) return g
     if (from === 'none') return g
+    if (from === 'interface' && to === 'object') return { node: N(0x38, 0x36, g.node), ty: want }
     if (to === 'object' || to === 'interface' || to === 'delegate' || from === 'object' && to === 'none') return g
     const key = `${from}>${to}`
     const code = CAST[key]
@@ -274,14 +275,34 @@ export class FunctionCompiler {
     }
     const f = this.member(this.cls, name, 'property')
     if (f) {
-      const { ty } = this.propTy(f)
+      let { ty } = this.propTy(f)
+      // In a class declared "within X", Outer is an X.
+      if (name.toLowerCase() === 'outer') ty = this.withinType() ?? ty
       return { node: this.boolWrap(N(0x01, this.refOf(f)), ty), ty }
     }
     return null
   }
+  private withinType(): Ty | null {
+    for (let s: Located | null = this.cls; s; ) {
+      const o = this.obj(s)
+      if (!o || o.kind !== 'class') return null
+      if (o.within) {
+        const w = this.linker.resolve(s.pkg, o.within)
+        if (w && w.pkg.objectName(w.ref) !== 'Object') return { k: 'object', cls: w }
+      }
+      s = o.head.superStruct ? this.linker.resolve(s.pkg, o.head.superStruct) : null
+    }
+    return null
+  }
 
+  /** Generated code by expression (generating has no side effects): operands are asked for twice. */
+  private memo = new WeakMap<Expr, Map<string, Gen>>()
   gen(e: Expr, want?: Ty, lvalue = false): Gen {
-    const g = this.gen1(e, want, lvalue)
+    let m = this.memo.get(e)
+    if (!m) this.memo.set(e, (m = new Map()))
+    const key = `${lvalue}|${want?.k === 'delegate'}`
+    let g = m.get(key)
+    if (!g) m.set(key, (g = this.gen1(e, want, lvalue)))
     return lvalue ? g : this.convert(g, want)
   }
 
@@ -319,9 +340,15 @@ export class FunctionCompiler {
       case 'id': {
         const v = this.variable(e.name)
         if (v) return v
-        // A function's name as a value: a delegate to it.
+        // A function's name as a value: a delegate to it. A declared delegate is
+        // its hidden property (__Name__Delegate); any other function, by name.
         const f = this.findFunction(e.name)
-        if (f) return { node: N(0x4b, this.nameRef(e.name)), ty: { k: 'delegate', fn: f } }
+        if (f) {
+          const fo = this.obj(f) as FunctionObj
+          const hidden = fo.flags & FUNC.Delegate ? this.member(this.cls, `__${e.name}__Delegate`, 'property') : null
+          if (hidden) return { node: N(0x43, this.nameRef(e.name), this.refOf(hidden)), ty: { k: 'delegate', fn: f } }
+          return { node: N(0x4b, this.nameRef(e.name)), ty: { k: 'delegate', fn: f } }
+        }
         throw new CompileError(`unknown name ${e.name}`)
       }
       case 'default': {
@@ -332,6 +359,11 @@ export class FunctionCompiler {
       }
       case 'member':
         return this.memberAccess(e.obj, e.name, lvalue)
+      case 'ctxlit': {
+        const o = this.gen(e.obj)
+        const lit = this.gen(e.e)
+        return { node: N(0x19, this.unwrapBool(o.node), memSizeOf(lit.node), this.propOf(o.node), 0, lit.node), ty: lit.ty }
+      }
       case 'defmember': {
         const o = this.gen(e.obj)
         const cls = o.ty.k === 'class' ? o.ty.meta : null
@@ -428,7 +460,7 @@ export class FunctionCompiler {
       const node = N(0x35, this.refOf(f), this.refOf(o.ty.struct), 0, lvalue && base.op !== 0x35 ? 1 : 0, base)
       return { node: this.boolWrap(node, ty), ty }
     }
-    const cls = o.ty.k === 'object' || o.ty.k === 'interface' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
+    const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
     if (!cls) throw new CompileError(`${name} of something that is not an object`)
     const f = this.member(cls, name, 'property')
     if (!f) throw new CompileError(`no ${name} in ${cls.pkg.objectName(cls.ref)}`)
@@ -496,16 +528,38 @@ export class FunctionCompiler {
       // A class cast.
       const t = this.findType(fn.name)
       if (t && args.length === 1 && args[0] && t.pkg.className(t.ref) === 'Class') {
-        const g = this.gen(args[0])
+        let g = this.gen(args[0])
         const isIface = this.isInterface(t)
-        return { node: N(isIface ? 0x52 : 0x2e, this.refOf(t), g.node), ty: { k: isIface ? 'interface' : 'object', cls: t } as Ty }
+        // An object to an interface: InterfaceCast; an interface to another: DynamicCast; an
+        // interface to a class: made an object first.
+        const fromIface = g.ty.k === 'interface'
+        if (fromIface && !isIface) g = { node: N(0x38, 0x36, g.node), ty: { k: 'object', cls: null } }
+        const op = isIface && !fromIface ? 0x52 : 0x2e
+        return { node: N(op, this.refOf(t), g.node), ty: { k: isIface ? 'interface' : 'object', cls: t } as Ty }
       }
-      // A delegate variable called.
-      const dv = this.locals.get(lower)
-      const dp = dv ?? null
+      // A delegate variable called: local (1) or the class's (0), with the delegate's signature.
+      const local = this.locals.get(lower)
+      const member = local ? null : this.member(this.cls, fn.name, 'property')
+      const dv = local ? { ref: local.ref, ty: local.ty } : member ? { ref: this.refOf(member), ty: this.propTy(member).ty } : null
+      if (dv && dv.ty.k === 'delegate' && dv.ty.fn) {
+        const info = this.fnInfo(dv.ty.fn)
+        const node = N(0x42, local ? 1 : 0, dv.ref, this.nameRef(dv.ty.fn.pkg.objectName(dv.ty.fn.ref)), this.argsFor(info.params, args, false))
+        ;(node as Node & { retProp?: number }).retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
+        return { node, ty: info.ret?.ty ?? { k: 'none' } }
+      }
       const f = this.findFunction(fn.name)
-      if (f) return this.callNode(f, args)
-      if (dp && dp.ty.k === 'delegate') throw new CompileError('delegate calls are not covered yet')
+      if (f) {
+        // A declared delegate called by its own name: through its hidden property.
+        const fo = this.obj(f) as FunctionObj
+        const hidden = fo.flags & FUNC.Delegate ? this.member(this.cls, `__${fn.name}__Delegate`, 'property') : null
+        if (hidden) {
+          const info = this.fnInfo(f)
+          const node = N(0x42, 0, this.refOf(hidden), this.nameRef(fn.name), this.argsFor(info.params, args, false))
+          ;(node as Node & { retProp?: number }).retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
+          return { node, ty: info.ret?.ty ?? { k: 'none' } }
+        }
+        return this.callNode(f, args)
+      }
       throw new CompileError(`no function ${fn.name}`)
     }
     if (fn.k === 'super') {
@@ -538,7 +592,7 @@ export class FunctionCompiler {
       const o = this.gen(fn.obj, undefined, true)
       const m = fn.name.toLowerCase()
       if (o.ty.k === 'array') return this.arrayMethod(o, m, args)
-      const cls = o.ty.k === 'object' || o.ty.k === 'interface' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
+      const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
       const f = cls && this.findFunction(fn.name, cls)
       if (!f) throw new CompileError(`no function ${fn.name}`)
       const c = this.callNode(f, args)
@@ -630,6 +684,14 @@ export class FunctionCompiler {
   private operator(e: Expr & { k: 'pre' | 'post' | 'bin' }): Gen {
     const operands = e.k === 'bin' ? [e.l, e.r] : [e.e]
     const types = operands.map((x) => this.gen(x, undefined, true).ty)
+    // Delegates compare with their own tokens: with a delegate (or none), or with a function.
+    if (e.k === 'bin' && (e.op === '==' || e.op === '!=') && (types[0]!.k === 'delegate' || types[1]!.k === 'delegate')) {
+      const l = this.gen(operands[0]!, { k: 'delegate', fn: null })
+      const r = this.gen(operands[1]!, { k: 'delegate', fn: null })
+      const withFn = r.node.op === 0x4b || l.node.op === 0x4b
+      const op = e.op === '==' ? (withFn ? 0x3d : 0x3b) : withFn ? 0x3e : 0x3c
+      return { node: N(op, [l.node, r.node]), ty: { k: 'bool' } }
+    }
     const cands = this.operatorsFor(e.op).filter((at) => {
       const info = this.fnInfo(at)
       if (info.params.length !== operands.length) return false
@@ -881,6 +943,13 @@ export class FunctionCompiler {
         const g = this.gen(d, p.ty)
         this.emit(N(0x49, memSizeOf(g.node) + 1, g.node, 0x15))
       } else this.emit(N(0x0b))
+    }
+    // A native function without a body: the stub (each parameter as NativeParm, then nothing).
+    if (!f.body && this.fn.flags & FUNC.Native) {
+      for (const p of this.params) this.emit(N(0x29, p.ref))
+      this.emit(N(0x0b))
+      this.emit(N(0x53))
+      return this.layout()
     }
     if (f.body) this.stmts(f.body)
     // The epilogue: a return with the return value (none in a hand patch that left it out), and the end.

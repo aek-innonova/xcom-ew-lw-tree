@@ -81,6 +81,7 @@ export function lex(src: string): Tok[] {
       i = j + 1
     } else if (c === "'") {
       const j = src.indexOf("'", i + 1)
+      if (j < 0) throw new Error(`unclosed name at ${i}`)
       out.push({ t: 'name', v: src.slice(i + 1, j), pos, space })
       i = j + 1
     } else {
@@ -107,6 +108,7 @@ export type Expr =
   | { k: 'objlit'; cls: string; path: string }
   | { k: 'call'; fn: Expr; args: (Expr | null)[] }
   | { k: 'member'; obj: Expr; name: string }
+  | { k: 'ctxlit'; obj: Expr; e: Expr }
   | { k: 'static'; obj: Expr; name: string }
   | { k: 'defmember'; obj: Expr; name: string }
   | { k: 'default'; name: string }
@@ -222,10 +224,19 @@ export class Parser {
   /** A whole function: declaration and body (null for a declaration without one). */
   function(): FunctionSource {
     // Modifiers and the kind, up to the name before the parameter list.
+    // Modifiers with an argument (native(129), operator(16)) are skipped; the
+    // name is the token before the parameter list: a word, or an operator's symbol.
     let name = ''
-    while (!(this.t.t === 'id' && this.peek().v === '(' && !/^(native|operator|preoperator|postoperator)$/i.test(this.t.v)))
+    for (;;) {
+      if (this.t.t === 'eof') throw new Error('no function declaration')
+      if (this.t.t === 'id' && /^(native|operator)$/i.test(this.t.v) && this.peek().v === '(') {
+        while (!this.eat(')')) this.i++
+        continue
+      }
+      if (this.peek().v === '(' && (this.t.t === 'id' || this.t.t === 'op')) break
       this.i++
-    name = this.id()
+    }
+    name = this.toks[this.i++]!.v
     this.want('(')
     const defaults = new Map<string, Expr>()
     while (!this.eat(')')) {
@@ -464,6 +475,12 @@ export class Parser {
         e = { k: 'index', arr: e, idx }
       } else if (this.is('.')) {
         this.i++
+        if (this.eat('(')) {
+          const lit = this.expr()
+          this.want(')')
+          e = { k: 'ctxlit', obj: e, e: lit }
+          continue
+        }
         const name = this.id()
         if (name.toLowerCase() === 'static') e = { k: 'static', obj: e, name: (this.want('.'), this.id()) }
         else if (name.toLowerCase() === 'default') e = { k: 'defmember', obj: e, name: (this.want('.'), this.id()) }
