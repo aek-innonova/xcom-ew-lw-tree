@@ -159,3 +159,16 @@ anything is changed.
 
 Noted, left as it is: the header's version picker is the version the site
 shows (it follows the install), separate from the version chosen in Tools.
+
+## Report (2026-10-21, note a4510)
+
+The person's note: after switching between LWR and Long War, "The game's file
+differs from Long War Rebalanced 2.06.00's own in 792 settings, edited by
+hand…" grew too long to be any use. The comparison ran against the chosen
+version's own file even when another version was in the game, so every
+difference between Long War and LWR counted as a hand edit. Hand edits are
+now looked for only when the chosen version is the one in the game.
+
+Verified with `scripts/site-shots.sh` on the real packages: it chooses LWR
+over the Long War in the game, after a plan has unpacked LWR, and finds no
+hand-edits list. Without the fix, the same run fails there.

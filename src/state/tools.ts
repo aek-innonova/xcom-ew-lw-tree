@@ -849,9 +849,10 @@ async function loadGameSettings(current: string | null): Promise<void> {
   tools.gameSettingsFrom = own?.from ?? ''
   pruneSplitHalves(gameKind())
   // Hand edits: where the file differs from the version's own, other than by
-  // the player's settings already.
+  // the player's settings already. Only for the version in the game: another
+  // version's own file differs from the game's everywhere they differ.
   tools.handEdits = markRaw(
-    own && current !== null && own.text !== current
+    own && current !== null && own.text !== current && gameKind() === tools.install?.kind
       ? settingsChanged(own.text, current, names).filter(
           (c) => tools.gameValues[c.def.id] !== c.now,
         )

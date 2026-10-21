@@ -118,6 +118,8 @@ test('screenshots for the website', async () => {
     clip: { x: box.x, y: box.y, width: Math.min(box.width, 980), height: 420 },
   })
   await plan.getByRole('button', { name: /Cancel|Close/ }).click()
+  // LWR unpacked now: Long War's file in the game is no list of hand edits to LWR's own.
+  await expect(page.getByRole('region', { name: 'Edits by hand' })).toHaveCount(0)
 
   // Not for the site: LWR's class colours, to look at.
   const lwrColors = page.locator('details[aria-label="Class colors"]')
