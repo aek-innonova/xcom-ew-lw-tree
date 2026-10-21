@@ -127,7 +127,6 @@ export function parseVar(text: string, className: string): VarDecl {
     }
     break
   }
-  if (t[i]?.v.toLowerCase() === 'delegate') throw new DeclareError('a delegate variable is not declared yet')
   // The type: a word, with <…> after it.
   const typeStart = i
   i++
@@ -618,6 +617,8 @@ export function parseEnum(text: string): EnumDecl {
 
 export interface StructDecl {
   name: string
+  /** Declared native (read; declareStruct refuses a new one: C++ would have to have it). */
+  native: boolean
   parent: string | null
   vars: VarDecl[]
   /** Its structdefaultproperties block's body, if it has one. */
@@ -627,7 +628,6 @@ export interface StructDecl {
 export function parseStruct(text: string): StructDecl {
   const m = /^\s*struct\s+(?:(\w+)\s+)??(\w+)(?:\s+extends\s+(\w+))?\s*\{([\s\S]*)\}\s*;?\s*$/i.exec(text)
   if (!m) throw new DeclareError(`not a struct: ${text.slice(0, 60)}`)
-  if (m[1]?.toLowerCase() === 'native') throw new DeclareError(`struct ${m[2]}: a native struct needs C++`)
   let body = m[4]!
   let defaults: string | null = null
   const d = /structdefaultproperties\s*\{/i.exec(body)
@@ -642,7 +642,7 @@ export function parseStruct(text: string): StructDecl {
     body = body.slice(0, d.index) + body.slice(i)
   }
   const vars = (body.match(/\bvar\b[^;]*;/g) ?? []).map((v) => parseVar(v, m[2]!))
-  return { name: m[2]!, parent: m[3] ?? null, vars, defaults }
+  return { name: m[2]!, native: m[1]?.toLowerCase() === 'native', parent: m[3] ?? null, vars, defaults }
 }
 
 export interface StateDecl {
@@ -772,6 +772,7 @@ export function declareFields(
 
 /** The package with a new struct in a class: its members in declaration order (its defaults: structDefaults). */
 export function declareStruct(linker: Linker, pkg: Package, classRef: number, s: StructDecl, sh: Shared = shared()): Uint8Array {
+  if (s.native) throw new DeclareError(`struct ${s.name}: a native struct needs C++`)
   const fc = new FunctionCompiler(linker, pkg, classRef, sh)
   fc.allow = 'all'
   const cls = readObject(pkg, classRef) as ClassObj

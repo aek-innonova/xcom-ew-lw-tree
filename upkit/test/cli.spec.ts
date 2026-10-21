@@ -85,3 +85,23 @@ describe.skipIf(!haveCorpus)('what is not compiled is said, not ignored', () => 
     }
   }, 120_000)
 })
+
+describe.skipIf(!haveCorpus)("a struct's defaults edited", () => {
+  it('compiled into the struct, as a mod script and as a package', () => {
+    const pkg = CORPUS[2]!
+    const game = dirname(CORPUS[0]!)
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const cls = run('class', pkg, 'XGTacticalScreenMgr')
+      const edited = cls.replace(/(struct TProgressGraph[\s\S]*?)iProgressState=0/, '$1iProgressState=5')
+      expect(edited).not.toBe(cls)
+      writeFileSync(join(dir, 'c.uc'), edited)
+      expect(run('compile', pkg, 'XGTacticalScreenMgr', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('XGTacticalScreenMgr.TProgressGraph (default properties)')
+      expect(readFileSync(join(dir, 'x.txt'), 'utf8')).toContain('OBJECT=XGTacticalScreenMgr.TProgressGraph')
+      run('compile', pkg, 'XGTacticalScreenMgr', join(dir, 'c.uc'), '--out', join(dir, 'new.upk'), '--game', game)
+      expect(run('class', join(dir, 'new.upk'), 'XGTacticalScreenMgr', '--game', game)).toMatch(/struct TProgressGraph[\s\S]*?iProgressState=5/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
+})

@@ -6,6 +6,7 @@
 import type { Change } from './changes.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import { readableSource } from './fidelity.ts'
+import { ClassDecompiler } from './classdecomp.ts'
 import { typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
@@ -174,6 +175,21 @@ export function splitClass(src: string): ClassPart[] {
   return parts
 }
 
+const lines = (text: string) =>
+  text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join('\n')
+
+/** A struct's structdefaultproperties as the decompiler writes them. */
+function structDefaultsText(linker: Linker, pkg: Package, classRef: number, ref: number): string {
+  const o = linker.object({ pkg, ref })
+  if (o?.kind !== 'struct') return ''
+  const cd = new ClassDecompiler(linker, pkg, classRef, false)
+  return o.defaults.map((t) => cd.tagLine(t, { pkg, ref })).join('\n')
+}
+
 /** How a constant, enum or struct the package has is declared otherwise in source (null: as it is). */
 function declaredOtherwise(linker: Linker, pkg: Package, ref: number, kind: string, text: string): string | null {
   const o = linker.object({ pkg, ref })
@@ -240,6 +256,8 @@ export interface ClassEdits {
   states: StateDecl[]
   /** A new class's replication block (an existing class's must be as the package has it). */
   replication: string | null
+  /** Structs the class has whose structdefaultproperties were edited: compiled into the struct. */
+  structDefaults: { ref: number; path: string; block: string }[]
 }
 
 export function classEdits(
@@ -250,7 +268,7 @@ export function classEdits(
   /** Paths compiled whatever they decompile to now (just declared: their bodies are stubs). */
   always: Set<string> = new Set(),
 ): ClassEdits {
-  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null }
+  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [] }
   // The class's own declaration: what it extends and is within stay as the package has them.
   const own = pkg.find(className)
   const co = own ? linker.object({ pkg, ref: own }) : null
@@ -283,6 +301,12 @@ export function classEdits(
         // One the class has, declared otherwise: not compiled (it stays as the package has it).
         const differs = declaredOtherwise(linker, pkg, has, p.kind, p.text)
         if (differs) throw new Error(`${className}.${p.path}: ${differs}; a changed ${p.kind} is not compiled`)
+        // A struct's defaults edited: those compile (into the struct, as a class's do into its default object).
+        if (p.kind === 'struct') {
+          const block = parseStruct(p.text).defaults ?? ''
+          if (lines(block) !== lines(structDefaultsText(linker, pkg, own!, has)))
+            out.structDefaults.push({ ref: has, path: `${className}.${p.path}`, block })
+        }
         continue
       }
       if (p.kind === 'const') out.consts.push(parseConst(p.text))

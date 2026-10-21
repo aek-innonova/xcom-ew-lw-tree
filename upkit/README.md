@@ -100,7 +100,8 @@ functions and states' code whose source differs from what the package
 decompiles to, and compiles those, together (what they add is added once).
 Its `defaultproperties` are compiled too: a value changed or added (in the
 class's default object, or a component it owns) is written from the
-variable's type, every entry left as it was keeps its bytes. (Every class's
+variable's type, every entry left as it was keeps its bytes; so are a
+struct's `structdefaultproperties`, edited. (Every class's
 defaults in the packages above, compiled from the text alone, come back byte
 for byte.)
 

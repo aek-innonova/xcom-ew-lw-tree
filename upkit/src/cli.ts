@@ -161,11 +161,15 @@ try {
       if (!isClass && pkg.className(changes[0]!.ref) === 'Function' && declaration(readableSource(linker, pkg, changes[0]!.ref)) !== declaration(text))
         throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it`)
       const block = isClass && !isNew ? defaultsBlock(text) : null
-      const defaults = block !== null ? { classRef: target, block } : undefined
+      const structs = edits?.structDefaults.map((x) => ({ ref: x.ref, block: x.block })) ?? []
+      const defaults = block !== null || structs.length ? { classRef: target, block, structs } : undefined
       // What the defaults change (nothing when they are as the package has them; new variables' are checked when declared).
       const objects =
         defaults && !declared.length
-          ? defaultsChanges(linker, pkg, target, defaults.block, { shared: shared(), allow: 'all' }).map((e) => e.ref)
+          ? [
+              ...(defaults.block === null ? [] : defaultsChanges(linker, pkg, target, defaults.block, { shared: shared(), allow: 'all' }).map((e) => e.ref)),
+              ...structs.map((x) => x.ref),
+            ]
           : []
       if (!changes.length && !objects.length && !declared.length) {
         console.log(`${path}: nothing edited (the source decompiles from the package as it is)`)

@@ -3,7 +3,7 @@
 // (names, imports, new locals), so one change set numbers them once.
 
 import { encodeScript, type Node } from './bytecode.ts'
-import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
+import { binaryOperators, FunctionCompiler, shared, type Shared } from './compile.ts'
 import { classEdits } from './classsrc.ts'
 import { declare, declareClass, declareFields, declareReplication, declareStruct, declareSubobjects, parseClassHeader, subobjectsOf } from './declare.ts'
 import { defaultsBlock, defaultsChanges, structDefaults } from './defaults.ts'
@@ -24,10 +24,22 @@ export interface Change {
   line?: number
 }
 
-/** A class's defaultproperties, as its source has them. */
+/** A class's defaultproperties, as its source has them (and its structs' edited defaults). */
 export interface DefaultsSource {
   classRef: number
-  block: string
+  block: string | null
+  structs?: { ref: number; block: string }[]
+}
+
+/** What the defaults change: the default object, its components, the structs' defaults. */
+function defaultsEdits(linker: Linker, pkg: Package, d: DefaultsSource, names: { shared: Shared; allow: 'none' | 'names' | 'all' }) {
+  const edits = d.block === null ? [] : defaultsChanges(linker, pkg, d.classRef, d.block, names)
+  for (const s of d.structs ?? []) {
+    const data = structDefaults(linker, pkg, d.classRef, s.ref, s.block, names)
+    const old = pkg.data(s.ref)
+    if (data.length !== old.length || data.some((b, i) => b !== old[i])) edits.push({ ref: s.ref, data })
+  }
+  return edits
 }
 
 export interface Compiled {
@@ -77,7 +89,7 @@ export function packageWith(
   }
   const objects: number[] = []
   if (defaults)
-    for (const e of defaultsChanges(linker, pkg, defaults.classRef, defaults.block, { shared: sh, allow: 'all' })) {
+    for (const e of defaultsEdits(linker, pkg, defaults, { shared: sh, allow: 'all' })) {
       data.set(e.ref, e.data)
       objects.push(e.ref)
     }
@@ -106,7 +118,7 @@ export function modScriptWith(
     fc.allow = 'names'
     compiled.push(compileOne(fc, pkg, c, ops))
   }
-  const edits = defaults ? defaultsChanges(linker, pkg, defaults.classRef, defaults.block, { shared: sh, allow: 'names' }) : []
+  const edits = defaults ? defaultsEdits(linker, pkg, defaults, { shared: sh, allow: 'names' }) : []
   const text = modScript(
     info,
     compiled.map((c) => ({
@@ -253,7 +265,8 @@ export function classesPackage(
     const extra = implicit.get(c.name) ?? []
     const block = extra.length || own !== null ? [...extra, own ?? ''].join('\n') : null
     const classRef = target.find(c.name)
-    const r = packageWith(linker, target, e.changes, 'keep', block === null ? undefined : { classRef, block })
+    const structs = e.structDefaults.map((x) => ({ ref: x.ref, block: x.block }))
+    const r = packageWith(linker, target, e.changes, 'keep', block === null && !structs.length ? undefined : { classRef, block, structs })
     if (!e.changes.length && !r.objects.length && !e.replication) continue
     compiled.push(...e.changes.map((x) => x.path))
     objects.push(...r.objects.map((o) => target.path(o)))
