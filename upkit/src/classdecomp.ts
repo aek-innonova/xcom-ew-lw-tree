@@ -160,7 +160,7 @@ export class ClassDecompiler {
     return typeOf(this.linker, { pkg: this.pkg, ref }, this.object<PropertyObj>(ref))
   }
 
-  private varText(ref: number, indent = ''): string {
+  varText(ref: number, indent = ''): string {
     const p = this.object<PropertyObj>(ref)
     const mods: string[] = []
     for (const [f, w] of VAR_FLAGS) if (p.flags & f) mods.push(w)

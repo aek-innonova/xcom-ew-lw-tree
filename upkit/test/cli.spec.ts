@@ -77,6 +77,12 @@ describe.skipIf(!haveCorpus)('what is not compiled is said, not ignored', () => 
       writeFileSync(join(dir, 'c.uc'), cls.replace(/^var int m_iExplosiveNags;/m, 'var float m_iExplosiveNags;'))
       const why = fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))
       expect(why).toContain('a changed type is not compiled')
+      // A variable's modifiers changed, a state's declaration changed: said too.
+      writeFileSync(join(dir, 'c.uc'), cls.replace(/^var int m_iExplosiveNags;/m, 'var config int m_iExplosiveNags;'))
+      expect(fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('declared otherwise than the package has it')
+      const cam = run('class', pkg, 'XComHeadquartersCamera')
+      writeFileSync(join(dir, 'cam.uc'), cam.replace(/^state EarthViewTransition$/m, 'simulated state EarthViewTransition'))
+      expect(fails('compile', pkg, 'XComHeadquartersCamera', join(dir, 'cam.uc'), '--patch', join(dir, 'x.txt'))).toContain('its state declaration differs')
       // A struct's member changed: said too.
       writeFileSync(join(dir, 'c.uc'), cls.replace(/^( {4})var int m_iExplosiveNags;/m, '$1var float m_iExplosiveNags;'))
       expect(fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('a changed struct is not compiled')

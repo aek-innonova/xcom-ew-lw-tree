@@ -301,6 +301,15 @@ export function classEdits(
         // One the class has, declared otherwise: not compiled (it stays as the package has it).
         const differs = declaredOtherwise(linker, pkg, has, p.kind, p.text)
         if (differs) throw new Error(`${className}.${p.path}: ${differs}; a changed ${p.kind} is not compiled`)
+        // A state's header (auto, simulated, what it extends): as the package has it.
+        if (p.kind === 'state') {
+          const so = linker.object({ pkg, ref: has })
+          const d = parseState(p.text)
+          const parent = so?.kind === 'state' && so.head.superStruct ? pkg.objectName(so.head.superStruct) : null
+          const declared = d.parent ?? parent
+          if (so?.kind === 'state' && (((so.stateFlags & 0x6) !== d.flags) || (declared ?? '').toLowerCase() !== (parent ?? '').toLowerCase()))
+            throw new Error(`${className}.${p.path}: its state declaration differs from the package's; a changed declaration is not compiled`)
+        }
         // A struct's defaults edited: those compile (into the struct, as a class's do into its default object).
         if (p.kind === 'struct') {
           const block = parseStruct(p.text).defaults ?? ''
@@ -329,6 +338,17 @@ export function classEdits(
         const has = typeText(typeOf(linker, { pkg, ref }, prop)).toLowerCase().replace(/\s+/g, '')
         if (has !== '?' && has !== v.type.toLowerCase().replace(/\s+/g, '') && !/\?/.test(has))
           throw new Error(`${className}.${n.name}: declared ${v.type}, the package has it ${has}; a changed type is not compiled`)
+        // Its modifiers (config, transient, a category …): as the package has them, one name to a line.
+        // (Not for a class being declared; and private, protected, public are the compiler's checks, not stored.)
+        if (v.names.length === 1 && !always.has(className.toLowerCase())) {
+          const line = new ClassDecompiler(linker, pkg, own!, false).varText(ref)
+          const norm = (x: string) =>
+            lex(x)
+              .map((t) => t.v.toLowerCase())
+              .filter((w) => !['private', 'protected', 'public'].includes(w))
+              .join(' ')
+          if (norm(line) !== norm(p.text)) throw new Error(`${className}.${n.name}: declared otherwise than the package has it (${line}); a changed declaration is not compiled`)
+        }
       }
       if (fresh.length) out.vars.push({ ...v, names: fresh })
       continue

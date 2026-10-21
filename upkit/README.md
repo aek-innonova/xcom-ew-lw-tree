@@ -156,8 +156,9 @@ name each other.
 
 What the source leaves out stays in the package (nothing is deleted), and a
 declaration the package has, changed in the source (a function's parameters,
-return type or modifiers; a variable's or a struct member's type; an enum's
-values; a constant's value; what a class extends; a replication block), is
+return type or modifiers; a variable's type or modifiers; a struct's members;
+an enum's values; a constant's value; a state's or a class's declaration; a
+replication block), is
 refused with that said: for what the package has, only bodies and defaults
 compile. Native functions are not compiled (their code is C++), and a mod
 script cannot add objects at all.
