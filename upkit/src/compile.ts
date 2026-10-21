@@ -695,8 +695,17 @@ export class FunctionCompiler {
   private objectLiteral(cls: string, path: string): number {
     // Object'None': an object constant of nothing (as a cook leaves a stripped one).
     if (path.toLowerCase() === 'none') return 0
+    // class'Engine': the class of that name (not the package Engine).
+    if (cls.toLowerCase() === 'class' && !path.includes('.')) {
+      const k = this.findClass(path)
+      if (k) return this.refOf(k)
+    }
     try {
-      return this.findPath(path)
+      const ref = this.findPath(path)
+      // (A class literal is a class: not a package or anything else of that path.)
+      const inTables = ref > 0 ? ref <= this.pkg.exports.length : -ref <= this.pkg.imports.length
+      if (cls.toLowerCase() === 'class' && inTables && this.pkg.className(ref) !== 'Class') throw new CompileError(`no class ${path} here (class'${path}' names a class)`)
+      return ref
     } catch (e) {
       // class'Pawn': the class by name (a whole package imports it).
       if (cls.toLowerCase() === 'class') {

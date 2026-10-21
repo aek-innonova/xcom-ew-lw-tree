@@ -485,7 +485,9 @@ export class FunctionDecompiler {
         if (!ref) return atom("Object'None'")
         const cls = this.pkg.className(ref)
         const path = this.pkg.path(ref)
-        return atom(cls === 'Class' ? `class'${path}'` : `${cls}'${path}'`)
+        // (Readable: a class by its name alone, class'Engine', where the compiler finds that one.)
+        if (cls === 'Class') return atom(`class'${this.readable ? this.pkg.objectName(ref) : path}'`)
+        return atom(`${cls}'${path}'`)
       }
       case 0x22:
         return atom(`rot(${a[0]}, ${a[1]}, ${a[2]})`)
