@@ -3,17 +3,17 @@ import { dirname } from 'node:path'
 import { ClassDecompiler } from '../src/classdecomp.ts'
 import { classEdits } from '../src/classsrc.ts'
 import { Linker } from '../src/linker.ts'
-import { CORPUS, haveCorpus, load, short } from './corpus.ts'
+import { CORPUS, haveCorpus, load, short, VANILLA } from './corpus.ts'
 
 // Every class decompiled whole, then read back as a class's source: nothing
 // counts as edited and nothing is new (what `compile <package> <Class>` sees
 // when a modder changed nothing), and no declaration fails to read.
 describe.skipIf(!haveCorpus)('a class as decompiled is a class unchanged', () => {
-  for (const path of CORPUS)
+  for (const path of [...CORPUS, ...VANILLA])
     it(short(path), () => {
       const pkg = load(path)
       const linker = new Linker([...new Set([dirname(path), dirname(CORPUS[0]!)])])
-      linker.add(short(path).replace(/^lwr\//, '').replace(/\.(upk|u)$/, ''), pkg)
+      linker.add(short(path).replace(/^(lwr|ew)\//, '').replace(/\.(upk|u)$/, ''), pkg)
       const wrong: string[] = []
       for (let ref = 1; ref <= pkg.exports.length; ref++) {
         if (pkg.className(ref) !== 'Class') continue

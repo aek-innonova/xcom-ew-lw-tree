@@ -17,10 +17,15 @@ export const CORPUS = [
 
 export const haveCorpus = CORPUS.every((p) => existsSync(p))
 
+/** Vanilla Enemy Within's script packages (no hand patches), where the samples have them: ew/CookedPCConsole. */
+export const VANILLA = ['Core.upk', 'Engine.upk', 'XComGame.upk', 'XComStrategyGame.upk']
+  .map((p) => resolve(SAMPLES, 'ew/CookedPCConsole', p))
+  .filter((p) => existsSync(p))
+
 const cache = new Map<string, Package>()
 export function load(path: string): Package {
   if (!cache.has(path)) cache.set(path, openPackage(new Uint8Array(readFileSync(path))))
   return cache.get(path)!
 }
 /** "XComGame.upk", or "lwr/XComGame.upk" for LWR's own. */
-export const short = (p: string) => (p.includes('/lwr/') ? 'lwr/' : '') + p.split('/').pop()!
+export const short = (p: string) => (p.includes('/lwr/') ? 'lwr/' : p.includes('/ew/') ? 'ew/' : '') + p.split('/').pop()!
