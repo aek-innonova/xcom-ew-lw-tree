@@ -435,3 +435,24 @@ describe.skipIf(!haveCorpus)('a mod class written by hand, built as a new packag
     expect(defaultsChanges(back, out, out.find('UpkitTestMod'), defaultsBlock(text)!, { shared: shared(), allow: 'none' })).toEqual([])
   })
 })
+
+describe.skipIf(!haveCorpus)('mistakes the compiler refuses, said with the line', () => {
+  const cases: [string, RegExp][] = [
+    ['local int iCount;\n    iCount = "abc";\n    return iCount;', /line 4: a string where an int is wanted/],
+    ['return GetAvailableScientists() $ 2;', /line 3: a string where an int is wanted/],
+    ['local XGFacility kFac;\n    local XGFacility_Labs kLabs;\n    kLabs = kFac;\n    return 0;', /line 5: an? XGFacility where an? XGFacility_Labs is wanted \(cast it/],
+    ['GetAvailableScientists() = 5;\n    return 0;', /line 3: this cannot be assigned to/],
+    ['return GetAvailableScientists(1, 2);', /line 3: 3 arguments, where it takes 0|line 3: 2 arguments, where it takes 0/],
+    ['return m_fNoSuchThing;', /line 3: unknown name m_fNoSuchThing/],
+    ['return (1 + ;', /line 3: /],
+  ]
+  for (const [body, want] of cases)
+    it(body.split('\n').at(-1)!.trim(), async () => {
+      const { packageWith } = await import('../src/changes.ts')
+      const linker = new Linker([dirname(CORPUS[0]!)])
+      const pkg = load(CORPUS[3]!)
+      linker.add('XComStrategyGame', pkg)
+      const ref = pkg.find('XGFacility_Labs.GetResearchPerHour')
+      expect(() => packageWith(linker, pkg, [{ ref, text: `function int GetResearchPerHour()\n{\n    ${body}\n}\n` }])).toThrow(want)
+    })
+})

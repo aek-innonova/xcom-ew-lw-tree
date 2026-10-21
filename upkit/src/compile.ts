@@ -422,15 +422,15 @@ export class FunctionCompiler {
     if (!want || want.k === 'unknown' || g.ty.k === 'unknown') return g
     const from = this.kindOf(g.ty)
     const to = this.kindOf(want)
+    // An object of a class not the one wanted, nor one of its subclasses: a cast is wanted.
+    if (!explicit && from === 'object' && to === 'object' && g.ty.k === 'object' && want.k === 'object' && g.ty.cls && want.cls && !this.isA(g.ty.cls, want.cls))
+      throw new CompileError(`${an(g.ty.cls.pkg.objectName(g.ty.cls.ref))} where ${an(want.cls.pkg.objectName(want.cls.ref))} is wanted (cast it: ${want.cls.pkg.objectName(want.cls.ref)}(…))`)
     if (from === to || this.same(g.ty, want)) return g
     // An object (self …) where an interface is wanted: InterfaceCast, the compiler's own; none as it is.
     if (to === 'interface' && from !== 'interface' && from !== 'none' && want.k === 'interface' && want.cls)
       return { node: N(0x52, this.refOf(want.cls), g.node), ty: want }
     if (from === 'none') return g
     if (from === 'interface' && to === 'object') return { node: N(0x38, 0x36, g.node), ty: want }
-    // An object of a class not the one wanted, nor one of its subclasses: a cast is wanted.
-    if (!explicit && from === 'object' && to === 'object' && g.ty.k === 'object' && want.k === 'object' && g.ty.cls && want.cls && !this.isA(g.ty.cls, want.cls))
-      throw new CompileError(`${an(g.ty.cls.pkg.objectName(g.ty.cls.ref))} where ${an(want.cls.pkg.objectName(want.cls.ref))} is wanted (cast it: ${want.cls.pkg.objectName(want.cls.ref)}(…))`)
     if (to === 'object' || to === 'interface' || to === 'delegate' || from === 'object' && to === 'none') return g
     const key = `${from}>${to}`
     const code = CAST[key]
@@ -479,8 +479,9 @@ export class FunctionCompiler {
     const f = this.member(this.cls, name, 'property')
     if (f) {
       let { ty } = this.propTy(f)
-      // In a class declared "within X", Outer is an X.
+      // In a class declared "within X", Outer is an X; Class is this class's class.
       if (name.toLowerCase() === 'outer') ty = this.withinType() ?? ty
+      if (name.toLowerCase() === 'class' && ty.k === 'class' && this.cls.ref) ty = { k: 'class', meta: this.cls }
       return { node: this.boolWrap(N(0x01, this.refOf(f)), ty), ty }
     }
     return null
@@ -554,6 +555,8 @@ export class FunctionCompiler {
         return { node: N(0x17), ty: { k: 'object', cls: this.cls } }
       case 'objlit': {
         const ref = this.objectLiteral(e.cls, e.path)
+        // Object'None': nothing, of any class.
+        if (!ref) return { node: N(0x20, 0), ty: { k: 'none' } }
         const at = this.located(ref)
         if (e.cls.toLowerCase() === 'class') return { node: N(0x20, ref), ty: { k: 'class', meta: at } }
         return { node: N(0x20, ref), ty: { k: 'object', cls: this.findType(e.cls) } }
@@ -769,7 +772,9 @@ export class FunctionCompiler {
       }
       throw new CompileError(`no ${name} in ${cls.pkg.objectName(cls.ref)}`)
     }
-    const { ty } = this.propTy(f)
+    let { ty } = this.propTy(f)
+    // obj.Class: the class of what obj is (as far as its type says).
+    if (name.toLowerCase() === 'class' && ty.k === 'class' && (o.ty.k === 'object' || o.ty.k === 'component') && o.ty.cls) ty = { k: 'class', meta: o.ty.cls }
     const ref = this.refOf(f)
     const inner = this.boolWrap(N(0x01, ref), ty)
     const ctx = o.ty.k === 'interface' ? N(0x51, o.node) : o.node
@@ -1003,7 +1008,8 @@ export class FunctionCompiler {
   private arrayMethod(arr: Gen, m: string, args: (Expr | null)[]): Gen {
     const a = this.unwrapBool(arr.node)
     const inner = arr.ty.k === 'array' ? arr.ty.inner : undefined
-    const arg = (i: number, t?: Ty) => this.gen(args[i]!, t).node
+    // (An item of a class the array's class extends passes, as the compiler lets it.)
+    const arg = (i: number, t?: Ty) => (t?.k === 'object' ? this.convert(this.gen(args[i]!), t, true) : this.gen(args[i]!, t)).node
     switch (m) {
       case 'additem': {
         const x = arg(0, inner)
