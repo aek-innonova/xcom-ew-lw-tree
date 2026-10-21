@@ -84,7 +84,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await expect(hand).toContainText('Soldier stats: Base HP 4 → 5')
   // The older settings.json is in its new shape on disk before anything is changed.
   expect(JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8')).versions.lw).toBeTruthy()
-  await hand.getByRole('button', { name: 'Keep them as my settings' }).click()
+  await hand.getByRole('button', { name: 'Keep them as settings' }).click()
   await expect(hand).toHaveCount(0)
   // Kept for Long War, the version installed.
   const settings = () =>
@@ -120,7 +120,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   // base HP's and the mobility cost's are both 4.
   await expect(page.getByText('was 4', { exact: true })).toHaveCount(2)
   await expect(
-    page.getByRole('button', { name: 'Undo your value: Point cost of mobility' }),
+    page.getByRole('button', { name: 'Undo the change: Point cost of mobility' }),
   ).toHaveAttribute('title', 'Back to the original the app kept: 4')
   // An item's card: the arc thrower's cost to build, and its mobility carried.
   const items = page.locator('details[aria-label="Items"]')
@@ -142,8 +142,8 @@ test('game settings: hand edits kept, then set in words and written', async () =
   })
 
   // Saved by name from the setup bar, changed, and back again (features/game-setups.md).
-  const bar = page.getByRole('region', { name: 'Your setup' })
-  const pick = bar.getByRole('combobox', { name: 'Your setup' })
+  const bar = page.getByRole('region', { name: 'Setup' })
+  const pick = bar.getByRole('combobox', { name: 'Setup' })
   const saveAs = async (name: string) => {
     await pick.selectOption({ label: 'Save as a new setup…' })
     const field = bar.getByLabel('Name for this setup')
@@ -165,7 +165,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await start.fill('65')
   await start.press('Enter')
   await pick.selectOption('Seventy')
-  await expect(bar).toContainText('Your choices now are not saved.')
+  await expect(bar).toContainText('The current choices are not saved.')
   await bar.getByRole('button', { name: 'Switch to Seventy' }).click()
   await expect(start).toHaveValue('70')
   await pick.selectOption('Sixty')
@@ -175,7 +175,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   expect(Object.keys(saved).sort()).toEqual(['Seventy', 'Sixty'])
   expect(saved.Seventy.game['campaign.starting-soldiers']).toBe('70')
 
-  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  await page.getByRole('button', { name: 'Apply the setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
   await expect(plan).toContainText('8 game settings')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
@@ -213,7 +213,7 @@ test('game settings: hand edits kept, then set in words and written', async () =
   await bar.getByRole('button', { name: 'Use what the game has' }).click()
   await expect(bar).toContainText('Now what the game has')
   await expect(start).toHaveValue('60')
-  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  await page.getByRole('button', { name: 'Apply the setup…' }).click()
   await expect(plan).toContainText('Nothing to change')
 })
 

@@ -90,18 +90,17 @@ function close() {
 
     <template v-if="tools.plan && !tools.busy">
       <p v-if="!tools.plan.changes.length" class="result ok">
-        ✓ Nothing to change: the game already has your setup<template v-if="tools.plan.base">
+        ✓ Nothing to change: the game already has this setup<template v-if="tools.plan.base">
           on {{ tools.plan.base }}</template
         >.
       </p>
       <template v-else>
         <p v-if="replaces" class="result switch">
-          This replaces {{ replaces.from }} in the game with {{ replaces.to }}, under its own
-          setup.
+          This replaces {{ replaces.from }} in the game with {{ replaces.to }}, under its own setup.
         </p>
         <p class="result">
           These files will change<template v-if="tools.plan.base">
-            for {{ tools.plan.base }} under your setup</template
+            for {{ tools.plan.base }} under this setup</template
           >:
         </p>
         <ul class="changes">
@@ -127,7 +126,7 @@ function close() {
       <p v-for="l in tools.log" :key="l" class="step written">
         <span class="prompt">›</span> {{ l }}
       </p>
-      <p class="result ok">✓ Done. Start the game when you are ready.</p>
+      <p class="result ok">✓ Done. The game is ready to start.</p>
     </template>
 
     <p class="actions">

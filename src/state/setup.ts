@@ -285,7 +285,7 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
   // Files the page put there for mods no longer wanted.
   for (const path of managed.created)
     if (!keep.has(path)) {
-      changes.push({ path, action: 'remove', why: ['no longer in your setup'] })
+      changes.push({ path, action: 'remove', why: ['no longer in the setup'] })
       next.created = next.created.filter((p) => p !== path)
     }
   return { changes, problems, managed: next }

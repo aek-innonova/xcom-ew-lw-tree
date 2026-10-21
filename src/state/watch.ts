@@ -289,7 +289,7 @@ export async function loadNewestFromFolder(files: File[]): Promise<void> {
       kind: 'info',
       text:
         `Loaded ${newest.name}, the newest save in ${folder}. This browser cannot follow ` +
-        'a folder as you play (Chrome and Edge can): pick it again after you save.',
+        'a folder during play (Chrome and Edge can): it is picked again after each save.',
     }
   toldOnce = true
 }

@@ -26,15 +26,15 @@ import {
 } from '@/state/tools'
 
 const VERSIONS: { kind: GameKind; needs: string }[] = [
-  { kind: 'ew', needs: 'needs the Long War installer in your library, to know its files' },
-  { kind: 'lw', needs: 'needs the Long War installer in your library' },
-  { kind: 'lwr', needs: 'needs the Long War installer and the LWR download in your library' },
+  { kind: 'ew', needs: 'needs the Long War installer in the library, to know its files' },
+  { kind: 'lw', needs: 'needs the Long War installer in the library' },
+  { kind: 'lwr', needs: 'needs the Long War installer and the LWR download in the library' },
 ]
 const label = (k: GameKind) => baseName(k).replace(/^./, (c) => c.toUpperCase())
 /** What the button says under the name: in the game now, or what it takes. */
 function note(k: GameKind): string {
   if (tools.install?.kind === k) return 'in the game'
-  return baseAvailable(k) ? 'from your library' : VERSIONS.find((v) => v.kind === k)!.needs
+  return baseAvailable(k) ? 'from the library' : VERSIONS.find((v) => v.kind === k)!.needs
 }
 /** Apply puts another version in place of the one in the game. */
 const switchTo = computed(() =>
@@ -165,7 +165,7 @@ watch(
 </script>
 
 <template>
-  <div class="setup-bar" role="region" aria-label="Your setup">
+  <div class="setup-bar" role="region" aria-label="Setup">
     <div
       v-if="tools.install && desktop?.bases"
       class="versions"
@@ -190,7 +190,7 @@ watch(
       <span class="what">Setup</span>
       <select
         :value="current"
-        aria-label="Your setup"
+        aria-label="Setup"
         :disabled="!!tools.busy"
         title="The mods ticked and their options, the game and INI settings of this version, under a name"
         @change="onPick"
@@ -228,7 +228,7 @@ watch(
       <button type="button" @click="naming = false">Cancel</button>
     </form>
     <span v-else-if="switching" class="ask small">
-      Your choices now are not saved.
+      The current choices are not saved.
       <button type="button" @click="startNaming">Save them first…</button>
       <button type="button" @click="switchAnyway">
         {{ switching === GAME ? 'Use what the game has' : `Switch to ${switching}` }}
@@ -236,7 +236,7 @@ watch(
       <button type="button" @click="switching = null">Cancel</button>
     </span>
     <span v-else-if="deleting" class="ask small">
-      Delete {{ tools.setupInUse ?? tools.setupFrom }}? Your choices below stay as they are.
+      Delete {{ tools.setupInUse ?? tools.setupFrom }}? The choices below stay as they are.
       <button type="button" @click="onDelete">Delete it</button>
       <button type="button" @click="deleting = false">Cancel</button>
     </span>
@@ -253,7 +253,7 @@ watch(
       :disabled="!!tools.busy"
       @click="apply"
     >
-      {{ switchTo ? `Switch the game to ${switchTo}…` : 'Apply my setup…' }}
+      {{ switchTo ? `Switch the game to ${switchTo}…` : 'Apply the setup…' }}
     </button>
     <ApplyConsole :open="consoleOpen" class="console" @close="consoleOpen = false" />
   </div>

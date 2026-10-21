@@ -232,18 +232,18 @@ const bursts = computed(() =>
 
 function describe(e: FightEvent): string {
   const s = e.shot
-  const who = s?.source === 1 ? 'You' : shipName(props.ufo.type)
+  const who = s?.source === 1 ? leg.value.label : shipName(props.ufo.type)
   switch (e.kind) {
     case 'shot':
       return `${who}: ${weaponName(s!.weapon)} ${e.aimed ? 'hits (Aim)' : s!.hit ? 'hits' : 'misses'} (${s!.toHit + 1}%)`
     case 'hit':
-      return `${e.target === 0 ? `${shipName(props.ufo.type)} takes` : 'You take'} ${s!.damage}${s!.crit ? ' (critical)' : ''}, ${Math.max(0, e.hp!)} left`
+      return `${e.target === 0 ? `${shipName(props.ufo.type)} takes` : `${leg.value.label} takes`} ${s!.damage}${s!.crit ? ' (critical)' : ''}, ${Math.max(0, e.hp!)} left`
     case 'dodged':
       return `Dodge cancels a hit of ${s!.damage}`
     case 'aim':
       return 'Aim: the next two misses hit'
     case 'dodge':
-      return 'Dodge: the next two hits miss you'
+      return 'Dodge: the next two hits miss the jet'
     case 'boost':
       return 'Boost: the UFO escapes later'
     case 'abort':
@@ -260,18 +260,18 @@ const log = computed(() =>
 )
 const outcomeText = computed(() => {
   const r = result.value
-  const lost = r.craftLost ? ' Your jet is shot down.' : ''
+  const lost = r.craftLost ? ' The jet is shot down.' : ''
   switch (r.outcome) {
     case 'crashed':
       return `${shipName(props.ufo.type)} down: it crashes.${lost}`
     case 'destroyed':
       return `${shipName(props.ufo.type)} destroyed in the air.${lost}`
     case 'disengaged':
-      return `You break off. The UFO has ${Math.max(0, r.ufoHp)} HP left.${lost}`
+      return `The jet breaks off. The UFO has ${Math.max(0, r.ufoHp)} HP left.${lost}`
     default:
       return r.craftLost
-        ? `Your jet is shot down. The UFO flies on with ${Math.max(0, r.ufoHp)} HP.`
-        : `The UFO outruns you with ${Math.max(0, r.ufoHp)} HP left.`
+        ? `The jet is shot down. The UFO flies on with ${Math.max(0, r.ufoHp)} HP.`
+        : `The UFO outruns the jet with ${Math.max(0, r.ufoHp)} HP left.`
   }
 })
 const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / max) * 100))}%`
@@ -290,7 +290,7 @@ const pctOf = (hp: number, max: number) => `${Math.max(0, Math.min(100, (hp / ma
 
       <div class="hud">
         <div class="side">
-          <span class="who">You</span>
+          <span class="who">{{ leg.label }}</span>
           <span class="hp"
             ><span class="hp-fill jet" :style="{ width: pctOf(hpAt(1), leg.craft.maxHp) }"
           /></span>

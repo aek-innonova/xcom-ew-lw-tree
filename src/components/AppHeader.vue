@@ -201,7 +201,7 @@ function onSearchKey(e: KeyboardEvent) {
       <div v-else class="file watch">
         <button
           type="button"
-          title="Loads the newest save in the folder you pick. This browser cannot follow the folder as you play (Chrome and Edge can), so pick it again after you save."
+          title="Loads the newest save in the folder picked. This browser cannot follow a folder during play (Chrome and Edge can): it is picked again after each save."
           @click="folderInput?.click()"
         >
           Load newest from folder
@@ -251,7 +251,7 @@ function onSearchKey(e: KeyboardEvent) {
       type="button"
       class="help-button"
       :class="{ on: state.view === 'tools' }"
-      title="Your game install, mods and settings"
+      title="The game install, its mods and settings"
       @click="state.view = 'tools'"
     >
       Tools

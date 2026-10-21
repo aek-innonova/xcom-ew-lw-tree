@@ -96,7 +96,7 @@ test('a version from the library: offered, planned, written, with what is unknow
   await expect(plan).toContainText(
     'This replaces Long War Rebalanced 9.1.0 in the game with plain Enemy Within',
   )
-  await expect(plan).toContainText('for plain Enemy Within under your setup')
+  await expect(plan).toContainText('for plain Enemy Within under this setup')
   await expect(plan).toContainText('CookedPCConsole/LWRebalance.u removed')
   await expect(plan).toContainText('the file as it is now kept first in lwtree-backup/found-')
   // The game's own DefaultGameCore.ini is nowhere to be had: said, and left.
@@ -123,8 +123,8 @@ test('each version keeps its own setup: mods ticked, saved setups', async () => 
   const lwr = versions.getByRole('button', { name: /^Long War Rebalanced/ })
   const ew = versions.getByRole('button', { name: /^Plain Enemy Within/ })
   const tick = page.getByRole('checkbox', { name: 'Install Faster.txt' })
-  const bar = page.getByRole('region', { name: 'Your setup' })
-  const pick = bar.getByRole('combobox', { name: 'Your setup' })
+  const bar = page.getByRole('region', { name: 'Setup' })
+  const pick = bar.getByRole('combobox', { name: 'Setup' })
 
   // In LWR's setup (the version installed): ticked, and saved by name.
   await expect(lwr).toHaveAttribute('aria-pressed', 'true')
@@ -147,7 +147,7 @@ test('each version keeps its own setup: mods ticked, saved setups', async () => 
   await lwr.click()
   await expect(tick).toBeChecked()
   await expect(bar.getByText('in use')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Apply my setup…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Apply the setup…' })).toBeVisible()
 
   const s = JSON.parse(readFileSync(join(library, 'settings.json'), 'utf8'))
   expect(s.base).toBe('lwr')

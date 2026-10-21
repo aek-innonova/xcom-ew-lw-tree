@@ -127,7 +127,7 @@ test.describe('real game: versions put in and taken out by the app', () => {
 
     async function apply(p: Page, label: RegExp) {
       await versions.getByRole('radio', { name: label }).check()
-      await p.getByRole('button', { name: 'Apply my setup…' }).click()
+      await p.getByRole('button', { name: 'Apply the setup…' }).click()
       const plan = p.getByRole('region', { name: 'What will change' })
       await expect(plan).toBeVisible({ timeout: 5 * 60_000 })
       await expect(plan.locator('.problems')).toHaveCount(0)
@@ -164,7 +164,7 @@ test.describe('real game: versions put in and taken out by the app', () => {
       const n = ticked.length
       if (n) {
         for (let i = 0; i < n; i++) await boxes.nth(i).check()
-        await page.getByRole('button', { name: 'Apply my setup…' }).click()
+        await page.getByRole('button', { name: 'Apply the setup…' }).click()
         const plan = page.getByRole('region', { name: 'What will change' })
         await plan.getByRole('button', { name: 'Write these changes' }).click()
         await expect(plan.getByText('✓ Done.')).toBeVisible({ timeout: 10 * 60_000 })

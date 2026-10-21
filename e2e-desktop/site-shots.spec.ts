@@ -73,7 +73,7 @@ test('screenshots for the website', async () => {
   await page.addStyleTag({
     content: '.setup-bar { position: static !important } .foot { display: none }',
   })
-  const bar = page.getByRole('region', { name: 'Your setup' })
+  const bar = page.getByRole('region', { name: 'Setup' })
   await expect(bar.getByRole('button', { name: /^Long War 1\.0/ })).toHaveAttribute(
     'aria-pressed',
     'true',

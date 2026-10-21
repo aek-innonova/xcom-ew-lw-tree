@@ -74,7 +74,7 @@ const nodes = computed<NodeView[]>(() =>
         days = est.exact ? `${est.days}d` : `≈${est.days}d`
         daysTitle = est.exact
           ? `${dayWord(est.days)} left (the game's own figure)`
-          : `about ${dayWord(est.days)} at your current research speed${est.credited ? ', with research credit' : ''}`
+          : `about ${dayWord(est.days)} at the campaign's research speed${est.credited ? ', with research credit' : ''}`
       }
       const cost = Math.round(t.base_days * 720)
       const done = c.progress[t.id] ?? 0
@@ -107,7 +107,7 @@ const nodes = computed<NodeView[]>(() =>
         t.cost.elerium && `${t.cost.elerium} elerium`,
         t.cost.weapon_fragments && `${t.cost.weapon_fragments} weapon fragments`,
         t.cost.items,
-        changedByIni.value.has(t.id) && 'cost from your DefaultGameCore.ini',
+        changedByIni.value.has(t.id) && 'cost from the loaded DefaultGameCore.ini',
         planSteps.value.has(t.id) && `step ${planSteps.value.get(t.id)} of the plan`,
       ]
         .filter(Boolean)

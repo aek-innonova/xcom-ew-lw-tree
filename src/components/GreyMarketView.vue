@@ -43,7 +43,7 @@ const picture = (slot: number) => (gameImages.version >= 0 ? gamePicture('item',
     <div class="bar">
       <h2>Grey market</h2>
       <span v-if="campaign" class="total">Spare worth §{{ fmt(total) }}</span>
-      <span v-else class="muted">Load a save to see your stores.</span>
+      <span v-else class="muted">A save loaded shows its stores.</span>
       <span class="muted">Needed = what remaining research and Foundry projects use.</span>
     </div>
 

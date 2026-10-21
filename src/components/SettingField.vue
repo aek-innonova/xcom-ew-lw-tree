@@ -131,7 +131,7 @@ const chosen = computed(
       :class="{ hidden: mine === undefined }"
       :tabindex="mine === undefined ? -1 : 0"
       :aria-hidden="mine === undefined"
-      :aria-label="`Undo your value: ${def.name}`"
+      :aria-label="`Undo the change: ${def.name}`"
       :title="`Back to ${tools.gameSettingsFrom}: ${own}`"
       @click.stop="emit('set', null)"
     >

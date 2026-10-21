@@ -293,7 +293,7 @@ const where = (b: Bonus) => (b.type === 'continent' ? b.continent : b.country)
         </section>
         <p class="foot">
           A country's bonus counts while it has a satellite, except the starting country's. Values
-          come from your DefaultGameCore.ini when loaded.
+          come from the loaded DefaultGameCore.ini.
         </p>
       </div>
     </span>

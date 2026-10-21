@@ -390,7 +390,7 @@ export async function planBase(
   for (const path of managed.created)
     if (!keepCreated.has(path)) {
       if (await hash(path))
-        changes.push({ path, action: 'remove', why: ['no longer in your setup'] })
+        changes.push({ path, action: 'remove', why: ['no longer in the setup'] })
       next.created = next.created.filter((p) => p !== path)
     }
 

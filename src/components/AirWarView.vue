@@ -564,7 +564,7 @@ const STANCE_LABEL: Record<Stance, string> = {
 const USE_LABEL: Record<Use, string> = { aim: 'Aim', dodge: 'Dodge', boost: 'Boost' }
 const USE_HELP: Record<Use, string> = {
   aim: 'next 2 misses hit',
-  dodge: 'next 2 hits on you cancelled',
+  dodge: 'next 2 hits on the jet cancelled',
   boost: '+50 % speed: the UFO escapes later',
 }
 const SQUAD_USE_HELP: Record<Use, string> = {
@@ -640,15 +640,15 @@ const DIFFICULTIES = computed(() => game.value.difficulties)
           :disabled="!campaign"
           @click="setMode('campaign')"
         >
-          Your campaign
+          The campaign
         </button>
         <button type="button" :class="{ on: !fromCampaign }" @click="setMode('free')">
           Anything
         </button>
       </div>
-      <span v-if="!campaign" class="muted">Load a save to fly your own hangar.</span>
+      <span v-if="!campaign" class="muted">A save loaded brings its own hangar.</span>
       <span v-else-if="fromCampaign" class="muted">
-        Your hangar, Foundry projects and the UFOs at your alien research ({{
+        The campaign's hangar, Foundry projects and the UFOs at its alien research ({{
           campaign?.recap.Days ?? 0
         }}).
       </span>
@@ -1056,7 +1056,8 @@ const DIFFICULTIES = computed(() => game.value.difficulties)
                 <strong>{{ shipLabel(setup.ufo) }}, {{ m.x.weapon.name }}:</strong> to hit
                 {{ m.parts.join(' ') }} → {{ pct(m.x.hitChance) }} ·
                 {{ num(m.x.weapon.damage) }} damage<template v-if="m.x.mitigation > 0"
-                  >, your armor takes {{ pct(m.x.mitigation) }} → {{ num(m.x.damage) }}</template
+                  >, the jet's armor takes {{ pct(m.x.mitigation) }} →
+                  {{ num(m.x.damage) }}</template
                 >; {{ pct(m.x.critChance) }} crits · every {{ m.x.weapon.firingTime }} s
               </li>
               <li>

@@ -99,6 +99,9 @@ test('mods kept in the app by 0.2 move into the library folder once', async () =
   const work = mkdtempSync(join(tmpdir(), 'lwtree-lib-'))
   const library = join(work, 'Long War Tech Tree')
   const page = await launch(work, library)
+  // The first start done (the game read, after the library): a start still
+  // moving mods over would take what is put below half-way and clear the rest.
+  await expect(page.locator('.facts')).toBeVisible()
   // As 0.2 kept them: IndexedDB "lwtree", stores "mods" and "state".
   await page.evaluate(
     async ([one, two]) => {

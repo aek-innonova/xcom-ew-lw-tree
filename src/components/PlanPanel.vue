@@ -138,7 +138,7 @@ const removeGoal = (g: { id: number; foundry: boolean }) =>
           <dt>Time</dt>
           <dd>
             <template v-if="estimatedDays !== undefined"
-              >≈ {{ estimatedDays }} days at your research speed</template
+              >≈ {{ estimatedDays }} days at the campaign's research speed</template
             >
             <template v-else>{{ baseDays(totals.baseDays) }} base days</template>
           </dd>

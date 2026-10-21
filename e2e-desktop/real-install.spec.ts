@@ -119,7 +119,7 @@ test.describe('real Long War install', () => {
     }
 
     // Apply.
-    await page.getByRole('button', { name: 'Apply my setup…' }).click()
+    await page.getByRole('button', { name: 'Apply the setup…' }).click()
     const plan = page.getByRole('region', { name: 'What will change' })
     await expect(plan).toBeVisible({ timeout: 30_000 })
     const planText = (await plan.textContent()) ?? ''
@@ -215,7 +215,7 @@ test.describe('real Long War install', () => {
       await soldiers.fill('60')
       await soldiers.press('Enter')
     }
-    await p1.getByRole('button', { name: 'Apply my setup…' }).click()
+    await p1.getByRole('button', { name: 'Apply the setup…' }).click()
     const plan1 = p1.getByRole('region', { name: 'What will change' })
     await expect(plan1).toBeVisible({ timeout: 30_000 })
     // Watch the first game package on disk. The app writes the record and the
@@ -273,7 +273,7 @@ test.describe('real Long War install', () => {
       await plan2.getByRole('button', { name: 'Close' }).click()
       await expect(plan2).toBeHidden({ timeout: 60_000 })
     }
-    await step('Apply my setup…')
+    await step('Apply the setup…')
     await idle()
     await step('Put the originals back…')
     await two.close()

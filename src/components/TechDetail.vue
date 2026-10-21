@@ -167,7 +167,7 @@ const timeNote = computed(() => {
   // A base day: 720 points, the speed of this many scientists without labs.
   const baseCrew = game.value.research === 'lwr' ? 10 : 30
   if (!c)
-    return `A base day is 720 research points: what ${baseCrew} scientists without labs do in a day. Load a save to see it at your own speed.`
+    return `A base day is 720 research points: what ${baseCrew} scientists without labs do in a day. A save loaded shows it at the campaign's speed.`
   if (c.researched[t.id]) {
     const h = c.hoursSpent[t.id] ?? 0
     return h > 0
@@ -181,14 +181,14 @@ const timeNote = computed(() => {
   const labs = (c.labBonus ?? 0) + (c.adjacentLabBonus ?? 0)
   const speed =
     game.value.research === 'lwr'
-      ? `${c.scientists} scientists and your labs`
+      ? `${c.scientists} scientists and the labs`
       : `${c.scientists} scientists${labs > 0 ? `, labs +${Math.round(labs * 100)}%` : ''}`
   const why = [
     est.credited && 'research credit takes part of the work off',
     est.shortened && 'We Have Ways shortens it',
     (c.progress[t.id] ?? 0) > 0 && 'some of it is done already',
   ].filter(Boolean)
-  return `At your speed, ${perDay.toLocaleString('en-US')} points a day (${speed}): ${est.exact ? '' : 'about '}${days(est.days)}${why.length ? `; ${why.join(', ')}` : ''}. A base day is 720 points, ${baseCrew} scientists without labs.`
+  return `At the campaign's speed, ${perDay.toLocaleString('en-US')} points a day (${speed}): ${est.exact ? '' : 'about '}${days(est.days)}${why.length ? `; ${why.join(', ')}` : ''}. A base day is 720 points, ${baseCrew} scientists without labs.`
 })
 
 const isResearched = (id: number) => campaign.value?.researched[id] ?? false
@@ -228,8 +228,8 @@ const picture = computed(() =>
           >{{ status.est.days }} {{ status.est.days === 1 ? 'day' : 'days' }} left</span
         >
         <span v-else
-          >about {{ status.est.days }} {{ status.est.days === 1 ? 'day' : 'days' }} at your research
-          speed</span
+          >about {{ status.est.days }} {{ status.est.days === 1 ? 'day' : 'days' }} at the
+          campaign's research speed</span
         >
       </template>
     </p>
@@ -295,7 +295,7 @@ const picture = computed(() =>
       </template>
     </dl>
     <p v-if="waysText" class="note">{{ waysText }}, included above.</p>
-    <p v-if="changedByIni.has(tech.id)" class="note">Cost from your DefaultGameCore.ini.</p>
+    <p v-if="changedByIni.has(tech.id)" class="note">Cost from the loaded DefaultGameCore.ini.</p>
 
     <section v-if="tech.prerequisites.length || gates.length">
       <h3>Requires all of</h3>

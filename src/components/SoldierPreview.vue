@@ -52,8 +52,7 @@ const weapons = computed(() => kitWeapons(looks.value, armor.value))
 const weapon = ref('')
 /** What a class carries by default: a sniper rifle, an LMG, else a rifle. */
 function weaponFor(id: string): string {
-  const w =
-    /\.sniper\./.test(id) ? 'eItem_SniperRifle' : /\.gunner\./.test(id) ? 'eItem_LMG' : ''
+  const w = /\.sniper\./.test(id) ? 'eItem_SniperRifle' : /\.gunner\./.test(id) ? 'eItem_LMG' : ''
   return weapons.value.includes(w) ? w : (weapons.value[0] ?? '')
 }
 // Another class, or another armor's kits: that class's weapon again.
@@ -101,12 +100,12 @@ const srgbCss = (c: number[]) =>
     .join(',')})`
 const soldier = shallowRef<Soldier | null>(null)
 const palette = shallowRef<PaletteEntry[]>([])
-const status = ref('Reading the soldier from your install…')
+const status = ref('Reading the soldier from the install…')
 
 let run = 0
 async function load() {
   const mine = ++run
-  status.value = 'Reading the soldier from your install…'
+  status.value = 'Reading the soldier from the install…'
   try {
     const [s, p] = await Promise.all([
       loadSoldier({
@@ -225,8 +224,8 @@ const tint = computed(() => {
         }}: the class's headgear setting.
       </p>
       <p class="muted">
-        Drawn from your install; drag to turn it. Our own shading: close to the game’s look, not the
-        same.
+        Drawn from the install; drag to turn it. The shading is the tool’s own: close to the game’s
+        look, not the same.
       </p>
     </div>
   </div>

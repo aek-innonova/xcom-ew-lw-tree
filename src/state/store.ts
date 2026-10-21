@@ -257,7 +257,7 @@ export function setGame(id: GameId) {
     state.ini = null
     state.message = {
       kind: 'info',
-      text: `Now ${GAMES[id].name}. ${ini} was set aside: load the INI of a ${GAMES[id].name} install if yours differs from the built-in numbers.`,
+      text: `Now ${GAMES[id].name}. ${ini} was set aside: the INI of a ${GAMES[id].name} install can be loaded where it differs from the built-in numbers.`,
     }
   }
 }

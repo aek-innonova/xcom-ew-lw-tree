@@ -74,7 +74,7 @@ watch(
 
 const STATUS_TEXT: Record<CheckStatus, string> = {
   installed: 'installed',
-  'other-values': 'installed, with other option values than yours',
+  'other-values': 'installed, with other option values than those set here',
   'not-installed': 'not installed',
   partly: 'partly installed',
   'does-not-fit': 'does not fit this install',
@@ -110,26 +110,26 @@ function targetStatus(f: ModFile): { text: string; kind: 'ok' | 'bad' | 'unknown
   if (!tools.install) return { text: `patches ${count}`, kind: 'unknown' }
   const missingPkg = upks.filter((u) => tools.packages[u.toLowerCase()] === null)
   if (missingPkg.length)
-    return { text: `${missingPkg.join(', ')} is not in your install`, kind: 'bad' }
+    return { text: `${missingPkg.join(', ')} is not in the install`, kind: 'bad' }
   if (
     upks.some(
       (u) => tools.packages[u.toLowerCase()] === 'reading' || !(u.toLowerCase() in tools.packages),
     )
   )
-    return { text: `patches ${count}; reading your install…`, kind: 'unknown' }
+    return { text: `patches ${count}; reading the install…`, kind: 'unknown' }
   const compressed = upks.filter((u) => {
     const p = tools.packages[u.toLowerCase()]
     return p && p !== 'reading' && p.compressed
   })
   if (compressed.length)
-    return { text: `${compressed.join(', ')} is compressed in your install`, kind: 'bad' }
+    return { text: `${compressed.join(', ')} is compressed in the install`, kind: 'bad' }
   const missing = targets.filter((t) => !found(t))
   if (missing.length)
     return {
-      text: `patches ${count}; not in your install: ${missing.map((t) => t.object).join(', ')}`,
+      text: `patches ${count}; not in the install: ${missing.map((t) => t.object).join(', ')}`,
       kind: 'bad',
     }
-  return { text: `patches ${count}; all of them are in your install`, kind: 'ok' }
+  return { text: `patches ${count}; all of them are in the install`, kind: 'ok' }
 }
 function found(t: ModTarget): boolean {
   const p = tools.packages[t.upk.toLowerCase()]
@@ -223,7 +223,6 @@ function shownValue(d: FoundSetting, v: string): string {
   return name ? `${v}, ${name}` : describe(d.format ?? PLAIN, v)
 }
 
-
 const iniNote = computed(() =>
   tools.install?.ini && state.ini
     ? `${tools.install.ini} loaded: the site's costs are this install's.`
@@ -240,9 +239,9 @@ const iniNote = computed(() =>
     <header class="top">
       <h2>Tools</h2>
       <p class="lead">
-        Your game install, your mods and settings. This works on the game's own files rather than on
-        a campaign; nothing is uploaded, and nothing in the game changes until you apply your setup
-        and confirm what it will write.
+        The game install, its mods and settings. This works on the game's own files rather than on a
+        campaign. Nothing is uploaded, and nothing in the game changes until a setup is applied and
+        its plan confirmed.
       </p>
     </header>
     <SetupBar v-if="tools.library" />
@@ -296,9 +295,9 @@ const iniNote = computed(() =>
     <section v-if="tools.install && desktop?.bases" class="block" aria-labelledby="base-h">
       <h3 id="base-h">Long War and LWR downloads</h3>
       <p class="muted small">
-        The app puts Long War or LWR into the game itself, from their own downloads in your library
-        folder, and takes them out again. Choose the version at the top: it goes in, under its own
-        setup, when you apply.
+        The app puts Long War or LWR into the game itself, from their own downloads in the library
+        folder, and takes them out again. The version chosen at the top goes in, under its own
+        setup, when applied.
       </p>
       <ul v-if="tools.bases.length" class="files small">
         <li v-for="b in tools.bases" :key="b.id">
@@ -306,10 +305,10 @@ const iniNote = computed(() =>
         </li>
       </ul>
       <p v-else class="small">
-        No Long War or LWR download in your library folder yet. Put the Long War installer (<code
+        No Long War or LWR download in the library folder yet. The Long War installer (<code
           >Long War EW 1.0 for PC-88-1-0.exe</code
-        >) and the LWR download (its zip, or the folder unpacked) in
-        <code>{{ tools.library ?? 'your library folder' }}</code
+        >) and the LWR download (its zip, or the folder unpacked) go in
+        <code>{{ tools.library ?? 'the library folder' }}</code
         >, the folder that holds <code>Mods</code> (in <code>Mods</code> works too, but not for an
         unpacked LWR folder, which there would count as a mod); the app finds them when it is back
         in front.
@@ -322,11 +321,11 @@ const iniNote = computed(() =>
     <section class="block" aria-labelledby="mods-h">
       <h3 id="mods-h">Mods</h3>
       <p v-if="tools.library" class="muted small">
-        Your mods are in your library folder, <code>{{ tools.library }}</code
+        Mods live in the library folder, <code>{{ tools.library }}</code
         >: each folder in its <code>Mods</code> is one mod, and so is a PatcherGUI script on its own
-        there. Copy mods in by hand or add them here; your choices, each version its own, are kept
-        beside them in <code>settings.json</code>. Tick what you want in the game, set the options, then apply your
-        setup below.
+        there. They are copied in by hand or added here; the choices, each version its own, are kept
+        beside them in <code>settings.json</code>. A ticked script goes into the game, with its
+        options, when the setup is applied.
       </p>
       <p v-else class="error small">
         This version of the app keeps no library folder: update the app (Help, This app).
@@ -429,7 +428,7 @@ const iniNote = computed(() =>
         <ul v-if="others(m).length" class="files small">
           <li v-for="f in others(m)" :key="f.path">
             <code>{{ f.path }}</code> <span class="muted">{{ size(f.size) }}</span>
-            <span v-if="inCooked(f)" class="present"> · already in your CookedPCConsole</span>
+            <span v-if="inCooked(f)" class="present"> · already in the game's CookedPCConsole</span>
             <span v-else-if="FILE_ROLE[f.kind]" class="muted"> · {{ FILE_ROLE[f.kind] }}</span>
           </li>
         </ul>
@@ -440,8 +439,8 @@ const iniNote = computed(() =>
       <h3 id="game-h">Game settings</h3>
       <p class="muted small">
         Soldiers, rookies, the arc thrower, class colors and more, from the game's
-        DefaultGameCore.ini. Each shows its value now; the ones you change are marked, with
-        {{ tools.gameSettingsFrom }} beside them. Yours are written when you apply your setup, and
+        DefaultGameCore.ini. Each shows its value now; changed ones are marked, with
+        {{ tools.gameSettingsFrom }} beside them. Changes are written when the setup is applied, and
         kept for the next install of this version.
       </p>
       <div v-if="tools.handEdits.length" class="hand" role="region" aria-label="Edits by hand">
@@ -462,11 +461,9 @@ const iniNote = computed(() =>
         </ul>
         <p>
           <button type="button" class="primary" @click="adoptHandEdits">
-            Keep them as my settings
+            Keep them as settings
           </button>
-          <span class="muted small">
-            so they come back after a reinstall or with another version</span
-          >
+          <span class="muted small"> so they come back after a reinstall</span>
         </p>
       </div>
       <details
@@ -479,7 +476,7 @@ const iniNote = computed(() =>
         <summary>
           {{ g.name }}
           <span class="muted small"
-            >{{ g.count }}<template v-if="g.mine"> · {{ g.mine }} yours</template></span
+            >{{ g.count }}<template v-if="g.mine"> · {{ g.mine }} changed</template></span
           >
         </summary>
         <p v-if="g.help" class="group-help small">{{ g.help }}</p>
@@ -496,7 +493,7 @@ const iniNote = computed(() =>
       <h3 id="settings-h">Any line of DefaultGameCore.ini</h3>
       <p class="muted small">
         For everything else: values in the game's DefaultGameCore.ini, found by searching, with the
-        file's own comment on each; yours are set when you apply your setup.
+        file's own comment on each; values set here are written when the setup is applied.
       </p>
       <ul v-if="tools.settings.length" class="settings">
         <li v-for="s in tools.settings" :key="`${s.section}/${s.key}/${s.occurrence}`">
@@ -505,7 +502,7 @@ const iniNote = computed(() =>
           <input
             class="num wide"
             :value="s.value"
-            :aria-label="`Your value for ${s.key}`"
+            :aria-label="`Value for ${s.key}`"
             @change="onSetting(s, ($event.target as HTMLInputElement).value)"
           />
           <span class="muted small">
@@ -516,7 +513,7 @@ const iniNote = computed(() =>
           <button
             type="button"
             class="remove"
-            :aria-label="`Drop your value for ${s.key}`"
+            :aria-label="`Drop the value for ${s.key}`"
             @click="setSetting(s, null)"
           >
             ×
@@ -555,7 +552,6 @@ const iniNote = computed(() =>
         </tbody>
       </table>
     </section>
-
   </section>
 </template>
 

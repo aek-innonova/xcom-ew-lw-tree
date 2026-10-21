@@ -87,7 +87,7 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
   await page.getByLabel('Find a setting').fill('starting soldiers')
   await page.getByLabel('Set NUM_STARTING_SOLDIERS').fill('60')
   await page.getByLabel('Set NUM_STARTING_SOLDIERS').press('Enter')
-  await page.getByRole('button', { name: 'Apply my setup…' }).click()
+  await page.getByRole('button', { name: 'Apply the setup…' }).click()
   const plan = page.getByRole('region', { name: 'What will change' })
   await expect(plan).toContainText('Config/DefaultGameCore.ini changed')
   await plan.getByRole('button', { name: 'Write these changes' }).click()
@@ -109,7 +109,7 @@ test('the app: Tools finds the game, writes an INI setting, follows the save fol
   // Back to the original.
   await page.getByRole('button', { name: 'Tools' }).click()
   await page
-    .getByRole('combobox', { name: 'Your setup' })
+    .getByRole('combobox', { name: 'Setup' })
     .selectOption({ label: 'Long War Rebalanced alone, without mods or settings…' })
   await plan.getByRole('button', { name: 'Write these changes' }).click()
   await expect(page.getByRole('region', { name: 'What will change' })).toContainText(

@@ -371,3 +371,28 @@ The person pointed the page at their install, and it showed three faults:
 The person's call: a web page will never give Tools the access it needs,
 so Tools exists only in the desktop app (features/desktop-app.md), and the
 helper program and the web route are retired.
+
+## Report (2026-10-21, notes 012fc and afcd5)
+
+- **012fc, "Into the game" at the end of Tools:** the section is gone.
+  - "Close the game first" and where the originals are kept are now said
+    in the apply console, just before "Write these changes".
+  - Its one action, the version without mods or settings, is in the setup
+    list: "Long War 1.0 alone, without mods or settings…".
+- **afcd5, less "you", more descriptive:** a pass over the app's wording.
+  - Tools: "the install", "the library folder", "changed" for settings
+    changed from the version's own, and "Apply the setup…".
+  - Setup bar: the bar and its list are "Setup".
+  - The apply console, the soldier preview, the research times ("at the
+    campaign's research speed"), the Foundry and grey market notes, and
+    the loading messages.
+  - The air war fight names the jet by its callsign instead of "You".
+
+  Help and the desktop app page still address the reader; they are written
+  to.
+
+Found on the way: the 0.2-migration desktop test was racy. It filled
+IndexedDB while the app's first start could still be reading it, and a
+start-up reading half-way through moved one mod and cleared the other.
+That cannot happen to a real 0.2 install. The test now waits for the first
+start to finish. The suite passed five times in a row after the fix.

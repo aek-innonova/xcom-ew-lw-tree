@@ -120,8 +120,8 @@ const picture = computed(() =>
       </template>
     </p>
     <p v-if="status?.building" class="note">
-      Spare engineers make Foundry work faster (up to about 1.6× in your saves); the days above are
-      at base speed.
+      Spare engineers make Foundry work faster (up to about 1.6× in the saves looked at); the days
+      above are at base speed.
     </p>
 
     <div v-if="status?.state !== 'done'" class="plan-actions">
@@ -199,7 +199,7 @@ const picture = computed(() =>
       included above.
     </p>
     <p v-if="changedFoundryByIni.has(project.id)" class="note">
-      Cost from your DefaultGameCore.ini.
+      Cost from the loaded DefaultGameCore.ini.
     </p>
 
     <section v-if="project.requires_tech">

@@ -331,7 +331,7 @@ export async function restoreTools(): Promise<void> {
       if (read?.moved) await saveChoices()
       await moveOldLibrary()
     } catch (e) {
-      tools.error = `Could not read your library folder: ${(e as Error).message}`
+      tools.error = `Could not read the library folder: ${(e as Error).message}`
     }
     await loadMods()
     await loadBases()
@@ -466,7 +466,7 @@ function saveChoices(): Promise<void> {
   writing = writing
     .then(() => writeSettings(lib, snapshot))
     .catch((e) => {
-      tools.error = `Could not write settings.json in your library: ${(e as Error).message}`
+      tools.error = `Could not write settings.json in the library: ${(e as Error).message}`
     })
   return writing
 }
@@ -553,7 +553,7 @@ async function loadBases(): Promise<void> {
   try {
     tools.bases = await desktop.bases.list()
   } catch (e) {
-    tools.error = `Could not look through your library: ${(e as Error).message}`
+    tools.error = `Could not look through the library: ${(e as Error).message}`
   }
 }
 
@@ -625,7 +625,7 @@ async function baseSetup(choice: GameKind): Promise<BaseSetup> {
   const known: BaseLayer[] = []
   // Every version in the library, to know their files when another is chosen.
   for (const [i, b] of tools.bases.entries()) {
-    const of = tools.bases.length > 1 ? `, ${i + 1} of ${tools.bases.length} in your library` : ''
+    const of = tools.bases.length > 1 ? `, ${i + 1} of ${tools.bases.length} in the library` : ''
     tools.busy = b.unpacked
       ? `Reading ${b.name}${of}…`
       : b.kind === 'lw'
@@ -1182,13 +1182,13 @@ export async function makePlan(everything = true): Promise<void> {
       tools.plan = markRaw(await planBase(files, await wantedSetup(everything), managed, base))
     } else if (kind === tools.install?.kind)
       tools.plan = markRaw(await planSetup(files, await wantedSetup(everything), managed))
-    else throw new Error(`Your library has nothing to put ${baseName(kind)} into the game from.`)
+    else throw new Error(`The library has nothing to put ${baseName(kind)} into the game from.`)
     if (everything) {
       const found = new Set(tools.gameSettings.map((d) => d.id))
       for (const id of Object.keys(tools.gameValues))
         if (!found.has(id))
           tools.plan.problems.push(
-            `Your setting “${settingName(id)}” is not in ${baseName(kind)}'s DefaultGameCore.ini; it is left out.`,
+            `The setting “${settingName(id)}” is not in ${baseName(kind)}'s DefaultGameCore.ini; it is left out.`,
           )
     }
   } catch (e) {
@@ -1214,7 +1214,7 @@ export async function applyPlanNow(): Promise<void> {
     managed = plan.managed
     tools.plan = null
   } catch (e) {
-    tools.error = `Stopped: ${(e as Error).message}. Your originals are in lwtree-backup/.`
+    tools.error = `Stopped: ${(e as Error).message}. The originals are in lwtree-backup/.`
   } finally {
     tools.busy = null
   }
