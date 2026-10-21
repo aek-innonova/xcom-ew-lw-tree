@@ -161,6 +161,20 @@ export class Writer {
     this.v.setUint16(at, x, true)
     return this
   }
+  /** Overwrites bytes at an earlier position. */
+  patchBytes(at: number, b: Uint8Array): this {
+    if (at + b.length > this.o) throw new RangeError('patch past the end')
+    this.buf.set(b, at)
+    return this
+  }
+  /** Zeros up to a position (a gap the layout keeps). */
+  padTo(at: number): this {
+    if (at < this.o) throw new RangeError(`already at ${this.o}, past ${at}`)
+    this.room(at - this.o)
+    this.buf.fill(0, this.o, at)
+    this.o = at
+    return this
+  }
   done(): Uint8Array {
     return this.buf.slice(0, this.o)
   }
