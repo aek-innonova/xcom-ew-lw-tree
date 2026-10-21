@@ -521,6 +521,7 @@ export class Parser {
         let cls: string | null = null
         if (this.eat('(')) {
           cls = this.id()
+          while (this.eat('.')) cls += '.' + this.id()
           this.want(')')
         }
         this.want('.')

@@ -46,7 +46,7 @@ const CAST: Record<string, number> = {
   'object>bool': 0x47, 'object>string': 0x56, 'object>interface': 0x46,
   'name>bool': 0x48, 'name>string': 0x57,
   'string>byte': 0x49, 'string>int': 0x4a, 'string>bool': 0x4b, 'string>float': 0x4c,
-  'string>vector': 0x4d, 'string>rotator': 0x4e, 'string>name': 0x5b,
+  'string>vector': 0x4d, 'string>rotator': 0x4e, 'string>name': 0x60,
   'vector>bool': 0x4f, 'vector>rotator': 0x50, 'vector>string': 0x58,
   'rotator>bool': 0x51, 'rotator>string': 0x59, 'rotator>vector': 0x39,
   'delegate>string': 0x5a, 'interface>bool': 0x36, 'interface>object': 0x37,
@@ -319,6 +319,9 @@ export class FunctionCompiler {
       case 'id': {
         const v = this.variable(e.name)
         if (v) return v
+        // A function's name as a value: a delegate to it.
+        const f = this.findFunction(e.name)
+        if (f) return { node: N(0x4b, this.nameRef(e.name)), ty: { k: 'delegate', fn: f } }
         throw new CompileError(`unknown name ${e.name}`)
       }
       case 'default': {
@@ -506,7 +509,11 @@ export class FunctionCompiler {
       throw new CompileError(`no function ${fn.name}`)
     }
     if (fn.k === 'super') {
-      const owner = fn.cls ? this.findType(fn.cls) : this.superClass()
+      const owner = fn.cls
+        ? fn.cls.includes('.')
+          ? this.linker.resolve(this.pkg, this.findPath(fn.cls))
+          : this.findType(fn.cls)
+        : this.superClass()
       const f = owner && this.findFunction(fn.name, owner)
       if (!f) throw new CompileError(`no super.${fn.name}`)
       return this.callNode(f, args, true)
@@ -676,6 +683,7 @@ export class FunctionCompiler {
   // --- Statements ------------------------------------------------------------------------
 
   private out: (Node | Label)[] = []
+  private noEpilogue = false
   private emit(n: Node | Label) {
     this.out.push(n)
   }
@@ -695,6 +703,16 @@ export class FunctionCompiler {
       case 'block':
         return this.stmts(s.body)
       case 'expr': {
+        // upkit's dialect for tokens a source does not say: iterator steps, no closing return.
+        if (s.e.k === 'id' && /^__/.test(s.e.name)) {
+          const raw = s.e.name.toLowerCase()
+          if (raw === '__iteratornext') return this.emit(N(0x31))
+          if (raw === '__iteratorpop') return this.emit(N(0x30))
+          if (raw === '__noepilogue') {
+            this.noEpilogue = true
+            return
+          }
+        }
         const g = this.gen(s.e)
         const k = g.ty.k
         // A value dropped that needs cleaning up: a string or struct from a call.
@@ -705,7 +723,8 @@ export class FunctionCompiler {
         return this.emit(g.node)
       }
       case 'return': {
-        if (!s.e) return this.emit(N(0x04, N(0x0b)))
+        // return; in a function with a value returns what is in its return value.
+        if (!s.e) return this.emit(N(0x04, this.retRef ? N(0x3a, this.retRef) : N(0x0b)))
         return this.emit(N(0x04, this.gen(s.e, this.retTy ?? undefined).node))
       }
       case 'if': {
@@ -817,7 +836,7 @@ export class FunctionCompiler {
       case 'ifgoto':
         return this.emit(N(0x07, this.labelFor(s.label) as unknown as Value, this.gen(s.c, { k: 'bool' }).node))
       case 'label':
-        return this.emit(this.labelFor(s.label))
+        return this.emit(this.labelFor(s.name))
       case 'assert':
         return this.emit(N(0x09, 0, 0, this.gen(s.e, { k: 'bool' }).node))
       case 'stop':
@@ -864,8 +883,8 @@ export class FunctionCompiler {
       } else this.emit(N(0x0b))
     }
     if (f.body) this.stmts(f.body)
-    // The epilogue: a return with the return value, and the end.
-    this.emit(N(0x04, this.retRef ? N(0x3a, this.retRef) : N(0x0b)))
+    // The epilogue: a return with the return value (none in a hand patch that left it out), and the end.
+    if (!this.noEpilogue) this.emit(N(0x04, this.retRef ? N(0x3a, this.retRef) : N(0x0b)))
     this.emit(N(0x53))
     return this.layout()
   }

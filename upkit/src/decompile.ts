@@ -51,7 +51,7 @@ export const CASTS: Record<number, string> = {
   0x58: 'string', // VectorToString
   0x59: 'string', // RotatorToString
   0x5a: 'string', // DelegateToString
-  0x5b: 'name', // StringToName
+  0x60: 'name', // StringToName
 }
 
 /** A float as the shortest text that reads back to the same 32-bit value, with a point. */
@@ -105,6 +105,8 @@ export class FunctionDecompiler {
   private byMem = new Map<number, number>()
   private memEnd = 0
   private gotos = new Set<number>()
+  /** Jump targets that need a label: known after a first pass. */
+  private labelled = new Set<number>()
   private noneName: number
 
   constructor(linker: Linker, pkg: Package, ref: number) {
@@ -310,7 +312,9 @@ export class FunctionDecompiler {
     if (!f) return name
     // A final call to a function that is not final is a super call.
     if (!(f.fn.flags & FUNC.Final) && !(f.fn.flags & FUNC.Static)) {
-      const owner = f.pkg.objectName(f.pkg.outerOf(f.ref))
+      const outer = f.pkg.outerOf(f.ref)
+      // A state's function: its path (Class.State), upkit's dialect; a class's: its name.
+      const owner = f.pkg.className(outer) === 'State' ? f.pkg.path(outer) : f.pkg.objectName(outer)
       return `super(${owner}).${name}`
     }
     return name
@@ -352,6 +356,7 @@ export class FunctionDecompiler {
     const hiMem = hi < S.length ? S[hi]!.mem : this.memEnd
     for (let i = lo; i < hi; ) {
       const s = S[i]!
+      if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
       // A loop that starts here and ends with a jump back (do … until).
       const back = this.backJump(i, hi)
       if (back >= 0 && S[back]!.op === 0x07 && s.op !== 0x07) {
@@ -494,12 +499,9 @@ export class FunctionDecompiler {
     const pad = '    '.repeat(depth)
     for (const s of stmts) {
       switch (s.k) {
-        case 'expr': {
-          const n = s.node
-          if (this.gotos.has(n.mem)) out.push(`${'    '.repeat(Math.max(0, depth - 1))}L${n.mem}:`)
-          out.push(pad + this.stmtText(n))
+        case 'expr':
+          out.push(pad + this.stmtText(s.node))
           break
-        }
         case 'if': {
           out.push(`${pad}if (${this.ex(s.cond).text})`, `${pad}{`)
           this.lines(s.then, depth + 1, out)
@@ -547,7 +549,7 @@ export class FunctionDecompiler {
           out.push(`${pad}if (!(${this.ex(s.cond).text})) goto L${s.target};`)
           break
         case 'label':
-          out.push(`L${s.mem}:`)
+          out.push(`${'    '.repeat(Math.max(0, depth - 1))}L${s.mem}:`)
           break
       }
     }
@@ -557,7 +559,7 @@ export class FunctionDecompiler {
     switch (n.op) {
       case 0x04: {
         const v = n.args[0] as Node
-        return v.op === 0x0b ? 'return;' : `return ${this.ex(v).text};`
+        return v.op === 0x0b || v.op === 0x3a ? 'return;' : `return ${this.ex(v).text};`
       }
       case 0x0b:
         return ';'
@@ -621,10 +623,19 @@ export class FunctionDecompiler {
     let n = S.length
     if (n && S[n - 1]!.op === 0x53) n--
     // (A function with a value: return with ReturnNothing; without: return nothing.)
-    if (n && S[n - 1]!.op === 0x04 && [0x3a, 0x0b].includes((S[n - 1]!.args[0] as Node).op)) n--
+    let epilogue = false
+    if (n && S[n - 1]!.op === 0x04 && [0x3a, 0x0b].includes((S[n - 1]!.args[0] as Node).op)) {
+      n--
+      epilogue = true
+    }
     this.statements = S.slice(0, n)
     this.memEnd = n < S.length ? S[n]!.mem : script.memSize
     this.byMem = new Map(this.statements.map((s, i) => [s.mem, i]))
+    // Structured twice: the first pass finds the jumps that stay gotos, the second labels their targets.
+    this.gotos = new Set()
+    this.labelled = new Set()
+    this.block(0, this.statements.length, {})
+    this.labelled = new Set(this.gotos)
     this.gotos = new Set()
     const body = this.block(0, this.statements.length, {})
 
@@ -637,7 +648,9 @@ export class FunctionDecompiler {
     if (locals.length) lines.push('')
     this.lines(body, 1, lines)
     // A jump to the very end (past the last statement).
-    if (this.gotos.has(this.memEnd)) lines.push(`L${this.memEnd}:`)
+    if (this.labelled.has(this.memEnd) || this.gotos.has(this.memEnd)) lines.push(`L${this.memEnd}:`)
+    // A script without the compiler's closing return (a hand patch): said, so it compiles back the same.
+    if (!epilogue && head.size) lines.push('    __NoEpilogue;')
     lines.push('}')
     void retRef
     return lines.join('\n') + '\n'
