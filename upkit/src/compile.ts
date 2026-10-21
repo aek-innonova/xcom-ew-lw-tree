@@ -542,6 +542,9 @@ export class FunctionCompiler {
         }
         const w = this.throughOuter(e.name, 'property', () => ({ k: 'member', obj: { k: 'id', name: 'Outer' }, name: e.name }), lvalue)
         if (w) return w
+        // A constant: its value, as the compiler puts it where it is named.
+        const c = this.constant(e.name)
+        if (c) return this.gen(c, want)
         throw new CompileError(`unknown name ${e.name}`)
       }
       case 'default': {
@@ -649,7 +652,13 @@ export class FunctionCompiler {
     try {
       return this.findPath(path)
     } catch (e) {
-      if (this.allow !== 'all' || cls.toLowerCase() === 'class' || !path.includes('.')) throw e
+      // class'Pawn': the class by name (a whole package imports it).
+      if (cls.toLowerCase() === 'class') {
+        const k = this.findClass(path.split('.').pop()!)
+        if (k && (k.pkg === this.pkg || this.allow === 'all')) return this.refOf(k)
+        throw e
+      }
+      if (this.allow !== 'all' || !path.includes('.')) throw e
       const k = this.findClass(cls)
       if (!k) throw e
       const parts = path.split('.')
@@ -898,6 +907,24 @@ export class FunctionCompiler {
     const core = this.linker.package('Core')
     const ref = core?.find('Object')
     return core && ref ? { pkg: core, ref } : null
+  }
+  /** A constant of the class (or its parents, or the state's), by name: its value parsed. */
+  private constant(name: string): Expr | null {
+    const want = name.toLowerCase()
+    for (const scope of [this.state, this.cls]) {
+      if (!scope) continue
+      for (const f of this.fields(scope)) {
+        if (f.pkg.objectName(f.ref).toLowerCase() !== want) continue
+        const o = this.obj(f)
+        if (o?.kind !== 'const') continue
+        try {
+          return new Parser(`${o.value};`).expr()
+        } catch {
+          return null
+        }
+      }
+    }
+    return null
   }
   /** Whether a class (or a parent of it) declares it implements the interface (or one extending it). */
   private implementsInterface(cls: Located, iface: Located): boolean {

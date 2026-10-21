@@ -197,7 +197,8 @@ export class ClassDecompiler {
     const out = [`${[...mods, 'state'].join(' ')} ${this.pkg.objectName(ref)}${sup}`, '{']
     for (const m of this.inside(ref)) if (this.pkg.className(m) === 'Function') out.push(this.functionText(m, '    '))
     const code = new FunctionDecompiler(this.linker, this.pkg, ref).decompileStateCode()
-    if (code) out.push('', code.trimEnd())
+    // (A blank line before the code, one: the functions above end with one.)
+    if (code) out.push(...(out.at(-1)?.trim() === '' || out.at(-1)?.endsWith('\n') ? [] : ['']), code.trimEnd())
     out.push('}')
     return out
   }
