@@ -396,8 +396,8 @@ export class FunctionCompiler {
     const from = this.kindOf(g.ty)
     const to = this.kindOf(want)
     if (from === to || this.same(g.ty, want)) return g
-    // An object (none, self) where an interface is wanted: InterfaceCast, the compiler's own.
-    if (to === 'interface' && from !== 'interface' && want.k === 'interface' && want.cls)
+    // An object (self …) where an interface is wanted: InterfaceCast, the compiler's own; none as it is.
+    if (to === 'interface' && from !== 'interface' && from !== 'none' && want.k === 'interface' && want.cls)
       return { node: N(0x52, this.refOf(want.cls), g.node), ty: want }
     if (from === 'none') return g
     if (from === 'interface' && to === 'object') return { node: N(0x38, 0x36, g.node), ty: want }
@@ -649,6 +649,8 @@ export class FunctionCompiler {
    * into its maps (SoundCue'SoundUI.MenuCancelCue').
    */
   private objectLiteral(cls: string, path: string): number {
+    // Object'None': an object constant of nothing (as a cook leaves a stripped one).
+    if (path.toLowerCase() === 'none') return 0
     try {
       return this.findPath(path)
     } catch (e) {
@@ -1142,7 +1144,10 @@ export class FunctionCompiler {
         // A value dropped that needs cleaning up: a string or struct from a call.
         const isCall = g.node.native !== undefined || [0x1b, 0x1c, 0x19, 0x12, 0x37].includes(g.node.op)
         const retProp = (g.node as Node & { retProp?: number }).retProp ?? 0
-        if (isCall && retProp && (k === 'string' || k === 'struct' || k === 'array') && g.node.op !== 0x0f)
+        // (Eaten only when the value is destroyed: a string, an array, a struct holding them.)
+        const rp = retProp ? this.obj(this.located(retProp)) : null
+        const destroyed = rp?.kind === 'property' ? !!(rp.flags & 0x400000n) : k === 'string' || k === 'array'
+        if (isCall && retProp && destroyed && (k === 'string' || k === 'struct' || k === 'array') && g.node.op !== 0x0f)
           return this.emit(N(0x0e, retProp, g.node))
         // A sort of elements that are constructed (structs holding strings, arrays): its
         // result eaten, as the array's element (so the compiler writes it).
@@ -1275,7 +1280,7 @@ export class FunctionCompiler {
       case 'gotolabel':
         return this.emit(N(0x0d, this.gen(s.e, { k: 'name' }).node))
       case 'assert':
-        return this.emit(N(0x09, 0, 0, this.gen(s.e, { k: 'bool' }).node))
+        return this.emit(N(0x09, s.line ?? 0, 0, this.gen(s.e, { k: 'bool' }).node))
       case 'stop':
         return this.emit(N(0x08))
     }

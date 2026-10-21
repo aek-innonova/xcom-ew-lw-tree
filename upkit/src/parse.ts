@@ -143,7 +143,7 @@ export type Stmt =
   | { k: 'label'; name: string }
   /** goto 'Label' in a state's code: to a label of the state's, by name. */
   | { k: 'gotolabel'; e: Expr }
-  | { k: 'assert'; e: Expr }
+  | { k: 'assert'; e: Expr; line?: number }
   | { k: 'stop' }
   | { k: 'local'; type: string; names: { name: string; dim: number }[] }
 
@@ -444,9 +444,11 @@ export class Parser {
           this.i++
           this.want('(')
           const e = this.expr()
+          // upkit's dialect: assert(x, 123): the source line the assert says it is on.
+          const line = this.eat(',') ? Number(this.toks[this.i++]!.v) : undefined
           this.want(')')
           this.want(';')
-          return { k: 'assert', e }
+          return { k: 'assert', e, line }
         }
         case 'stop':
           this.i++

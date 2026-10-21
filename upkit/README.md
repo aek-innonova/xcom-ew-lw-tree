@@ -62,11 +62,11 @@ compile it, compare the bytes):
 | Package | Functions | Identical |
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 99.7% |
-| XComGame (vanilla) | 11,756 | 99.4% |
-| XComStrategyGame (vanilla) | 5,349 | 99.5% |
-| XComGame (Long War 1.0) | 11,756 | 97.9% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 95.0% |
+| Engine (vanilla) | 4,341 | 99.8% |
+| XComGame (vanilla) | 11,756 | 99.9% |
+| XComStrategyGame (vanilla) | 5,349 | 99.8% |
+| XComGame (Long War 1.0) | 11,756 | 98.4% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 95.3% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.1% |
 
 Long War's and LWR's packages carry many functions patched by hand, some of
@@ -185,6 +185,9 @@ writes it in a form the compiler reads back the same:
 - `-5` is a negative constant; `-(5)` the minus operator on 5.
 - `super(Class.State).Function()`: a parent state's function.
 - `obj.(5)`: a constant read through an object (a patch's).
+- `Object'None'`: an object constant of nothing (content the cook stripped
+  leaves one; it is not `none`'s bytes).
+- `assert(x, 2257)`: an assert with the source line it says it is on.
 - `;` alone: an empty statement (`Nothing`, which patches pad with).
 - `"\n"`, `"\t"`: a line break and a tab in a string (UnrealScript has no
   way to write them; a string stays on its line).

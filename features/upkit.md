@@ -82,11 +82,11 @@ How far it is, measured:
 | Compiled back in place, byte for byte | Functions | Identical |
 |---|---|---|
 | Core | 311 | 100% |
-| Engine | 4,341 | 99.7% |
-| XComGame (vanilla) | 11,756 | 99.4% |
-| XComStrategyGame (vanilla) | 5,349 | 99.5% |
-| XComGame (Long War 1.0) | 11,756 | 97.9% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 95.0% |
+| Engine | 4,341 | 99.8% |
+| XComGame (vanilla) | 11,756 | 99.9% |
+| XComStrategyGame (vanilla) | 5,349 | 99.8% |
+| XComGame (Long War 1.0) | 11,756 | 98.4% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 95.3% |
 | LWRebalance.u | 1,484 | 97.1% |
 
 Long War's own packages carry hand patches (bytecode no source compiles
@@ -98,7 +98,7 @@ Rebuilt from scratch: every class of LWR's `LWRebalance.u` decompiled and
 built anew as a package with `new` has 97.1% of its 1,493 functions and
 states token for token as the original, and 99.7% of its 9,235 objects
 the same declarations. Twelve more mod packages in LWR's install rebuild the
-same way (96.4% of their code); the table is in the README. What differs is
+same way (96.5% of their code); the table is in the README. What differs is
 mostly where a mod was built against its own stubs of the game's classes,
 and quirks of the UDK compiler those mods were built with.
 

@@ -452,7 +452,8 @@ export class FunctionDecompiler {
         return atom(`'${this.nm(a[0] as NameValue)}'`)
       case 0x20: {
         const ref = a[0] as number
-        if (!ref) return atom('none')
+        // An object constant of nothing (content the cook stripped): not none's bytes; upkit's dialect.
+        if (!ref) return atom("Object'None'")
         const cls = this.pkg.className(ref)
         const path = this.pkg.path(ref)
         return atom(cls === 'Class' ? `class'${path}'` : `${cls}'${path}'`)
@@ -826,8 +827,11 @@ export class FunctionDecompiler {
         return ';'
       case 0x08:
         return 'stop;'
-      case 0x09:
-        return `assert(${this.ex(n.args[2] as Node).text});`
+      case 0x09: {
+        // (The line it says it is on, when it says one: upkit's dialect, assert(x, line).)
+        const line = n.args[0] as number
+        return `assert(${this.ex(n.args[2] as Node).text}${line ? `, ${line}` : ''});`
+      }
       case 0x0d:
         return `goto ${this.ex(n.args[0] as Node).text};`
       case 0x31:
