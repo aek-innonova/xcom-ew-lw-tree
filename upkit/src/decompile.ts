@@ -726,10 +726,10 @@ export class FunctionDecompiler {
           out.push(`${pad}continue;`)
           break
         case 'goto':
-          out.push(`${pad}goto L${s.target};`)
+          out.push(`${pad}goto ${this.target(s.target)};`)
           break
         case 'ifgoto':
-          out.push(`${pad}if (!(${this.ex(s.cond).text})) goto L${s.target};`)
+          out.push(`${pad}if (!(${this.ex(s.cond).text})) goto ${this.target(s.target)};`)
           break
         case 'label':
           out.push(`${'    '.repeat(Math.max(0, depth - 1))}${s.name ?? `L${s.mem}`}:`)
@@ -884,6 +884,11 @@ export class FunctionDecompiler {
     lines.push('}')
     void retRef
     return lines.join('\n') + '\n'
+  }
+
+  /** A jump's target: its label, or @offset where no statement starts there (a hand patch's jump). */
+  private target(t: number): string {
+    return this.byMem.has(t) || t === this.memEnd ? `L${t}` : `@${t}`
   }
 
   private typeOf(x: { p: PropertyObj; ref: number }): string {

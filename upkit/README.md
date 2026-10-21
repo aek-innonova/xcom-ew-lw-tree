@@ -52,10 +52,10 @@ compile it, compare the bytes):
 | Package | Functions | Identical |
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 99.1% |
-| XComGame (Long War 1.0) | 11,756 | 95.8% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 90.1% |
-| LWRebalance.u (LWR 2.06) | 1,484 | 91.4% |
+| Engine (vanilla) | 4,341 | 99.4% |
+| XComGame (Long War 1.0) | 11,756 | 97.1% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 92.3% |
+| LWRebalance.u (LWR 2.06) | 1,484 | 95.1% |
 
 Long War's and LWR's packages carry many functions patched by hand, some of
 them in forms Epic's compiler never wrote (a constant where a member was,
@@ -83,7 +83,8 @@ Where the bytecode holds something UnrealScript cannot say, the decompiler
 writes it in a form the compiler reads back the same:
 
 - `goto L123;` and `L123:` for jumps that fit no if/while/for/switch;
-  `if (!(x)) goto L123;` for a conditional jump.
+  `if (!(x)) goto L123;` for a conditional jump. `goto @123;` jumps to a
+  place where no statement starts (a hand patch's stale jump).
 - `0x00`, `0x00000005`: an integer constant in the width it was stored in
   (decimal literals compile as Epic's compiler stores them: 0 and 1 as their
   own tokens, up to 255 in a byte).

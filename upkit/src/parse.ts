@@ -217,6 +217,14 @@ export class Parser {
   private want(v: string) {
     if (!this.eat(v)) throw new Error(`expected '${v}' at ${this.t.pos}, found '${this.t.v}'`)
   }
+  /** A label, or (upkit's dialect) @offset: a jump into the middle of a statement, as hand patches leave. */
+  private jumpTarget(): string {
+    if (this.is('@')) {
+      this.i++
+      return `@${this.toks[this.i++]!.v}`
+    }
+    return this.id()
+  }
   private id(): string {
     if (this.t.t !== 'id') throw new Error(`expected a name at ${this.t.pos}, found '${this.t.v}'`)
     return this.toks[this.i++]!.v
@@ -331,7 +339,7 @@ export class Parser {
           // upkit's dialect: "if (!(c)) goto L;" is a conditional jump on c.
           if (this.is('goto') && c.k === 'pre' && c.op === '!' ) {
             this.i++
-            const label = this.id()
+            const label = this.jumpTarget()
             this.want(';')
             return { k: 'ifgoto', c: c.e, label }
           }
@@ -409,7 +417,7 @@ export class Parser {
         }
         case 'goto': {
           this.i++
-          const label = this.t.t === 'name' ? this.toks[this.i++]!.v : this.id()
+          const label = this.t.t === 'name' ? this.toks[this.i++]!.v : this.jumpTarget()
           this.want(';')
           return { k: 'goto', label }
         }

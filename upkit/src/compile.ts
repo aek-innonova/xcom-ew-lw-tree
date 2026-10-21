@@ -445,12 +445,14 @@ export class FunctionCompiler {
       }
       case 'defmember': {
         const o = this.gen(e.obj)
-        const cls = o.ty.k === 'class' ? o.ty.meta : null
+        // Class.default.X through the class; obj.default.X through the object.
+        const isObj = o.ty.k === 'object' || o.ty.k === 'component'
+        const cls = o.ty.k === 'class' ? o.ty.meta : isObj ? (o.ty as { cls: Located | null }).cls : null
         const f = cls && this.member(cls, e.name, 'property')
         if (!f) throw new CompileError(`no default.${e.name}`)
         const { ty } = this.propTy(f)
         const inner = this.boolWrap(N(0x02, this.refOf(f)), ty)
-        return { node: N(0x12, o.node, memSizeOf(inner), this.refOf(f), 0, inner), ty }
+        return { node: N(isObj ? 0x19 : 0x12, this.unwrapBool(o.node), memSizeOf(inner), this.refOf(f), 0, inner), ty }
       }
       case 'index': {
         const a = this.gen(e.arr, undefined, lvalue)
@@ -702,7 +704,11 @@ export class FunctionCompiler {
       // Called on: read, unless an array method changes the array.
       const changes = ['additem', 'removeitem', 'insertitem', 'add', 'insert', 'remove', 'sort'].includes(m)
       let o = this.gen(fn.obj)
-      if (o.ty.k === 'array' && changes) o = this.gen(fn.obj, undefined, true)
+      if (o.ty.k === 'array' && changes) {
+        // Written to, but the compiler does not mark the struct member it is (as it does on assignment).
+        o = this.gen(fn.obj, undefined, true)
+        if (o.node.op === 0x35 && o.node.args[3] === 1) o = { ...o, node: { ...o.node, args: o.node.args.map((x, i) => (i === 3 ? 0 : x)) } }
+      }
       if (o.ty.k === 'array') return this.arrayMethod(o, m, args)
       const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.objectClass() : null
       const f = cls && this.findFunction(fn.name, cls)
@@ -880,6 +886,8 @@ export class FunctionCompiler {
     this.out.push(n)
   }
   private labelFor(name: string): Label {
+    // @offset: a fixed place, not a label in the code.
+    if (name.startsWith('@')) return { label: true, mem: Number(name.slice(1)) }
     if (!this.labels.has(name)) this.labels.set(name, label())
     return this.labels.get(name)!
   }
@@ -1040,11 +1048,13 @@ export class FunctionCompiler {
   private iterator(e: Expr, pop: Label): Node {
     if (e.k === 'call') {
       // Array(Item[, Index]): the array is a variable, not a function.
-      const arr = e.fn.k === 'id' ? this.variable(e.fn.name) : e.fn.k === 'member' ? this.tryGen(e.fn, false) : null
+      const arr = e.fn.k === 'id' ? this.variable(e.fn.name) : e.fn.k === 'member' || e.fn.k === 'defmember' || e.fn.k === 'default' ? this.tryGen(e.fn, false) : null
       if (arr && arr.ty.k === 'array') {
         const item = this.gen(e.args[0]!, undefined, true)
         const idx = e.args[1] ? this.gen(e.args[1], undefined, true).node : N(0x4a)
-        return N(0x58, this.unwrapBool(arr.node), this.unwrapBool(item.node), e.args[1] ? 1 : 0, idx, pop as unknown as Value)
+        const it = N(0x58, this.unwrapBool(arr.node), this.unwrapBool(item.node), e.args[1] ? 1 : 0, idx, pop as unknown as Value)
+        if (arr.node.op === 0x19 && !(arr.node as Ctx).implicit) (arr.node as Ctx).loopEnd = pop
+        return it
       }
       const call = this.gen(e).node
       // Through a context, the compiler stores as its skip the distance to the loop's
@@ -1236,7 +1246,7 @@ export class FunctionCompiler {
       }
     }
     nodes.forEach((n, i) => {
-      const c = n.op === 0x2f ? (n.args[0] as Ctx) : null
+      const c = n.op === 0x2f || n.op === 0x58 ? (n.args[0] as Ctx) : null
       // Iterator, Context, base, skip (2), property (8), size (1), then the call.
       if (c?.loopEnd) c.args[1] = c.loopEnd.mem - (at[i]! + 2 + memSizeOf(c.args[0] as Node) + 11) + 1
     })
