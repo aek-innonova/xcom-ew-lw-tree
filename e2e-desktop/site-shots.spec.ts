@@ -44,6 +44,8 @@ test('screenshots for the website', async () => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.evaluate(() => localStorage.setItem('lwtree.helpSeen.v1', '1'))
   await page.reload()
+  // Notices come and go; not in the pictures.
+  await page.addStyleTag({ content: '.toast { display: none !important }' })
 
   // The research tree with the game's own pictures, a campaign loaded.
   await page
