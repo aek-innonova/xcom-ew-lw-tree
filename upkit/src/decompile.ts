@@ -1057,6 +1057,22 @@ export class FunctionDecompiler {
     return `${[...mods, kind].join(' ')} ${retText}${name}(${ps.join(', ')})${cst}`
   }
 
+  /** A condition as best read: readable where it compiles (in the class's scope) to its very bytes. */
+  private conditionText(c: Node): string {
+    const exact = this.ex(c).text
+    if (!this.check) return exact
+    this.readable = true
+    let pretty: string
+    try {
+      pretty = this.ex(c).text
+    } finally {
+      this.readable = false
+    }
+    return pretty !== exact && this.check(pretty, c) ? pretty : exact
+  }
+  /** How a condition is checked to compile to the same bytes (set by who can compile: fidelity.ts). */
+  check: ((text: string, node: Node) => boolean) | null = null
+
   /**
    * A class's replication: its script is the conditions, one after the other;
    * each replicated variable (and function) keeps the offset of its own. Written
@@ -1082,7 +1098,7 @@ export class FunctionDecompiler {
     for (const c of conditions) {
       const names = by.get(c.mem)
       if (!names) continue
-      lines.push(`    if (${this.ex(c).text})`, `        ${names.join(', ')};`)
+      lines.push(`    if (${this.conditionText(c)})`, `        ${names.join(', ')};`)
     }
     lines.push('}')
     return lines.join('\n') + '\n'

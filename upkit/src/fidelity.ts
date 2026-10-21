@@ -5,7 +5,7 @@
 // what Epic's compiler would write, and it differs from the patch in those
 // places. Said where it happens, so nobody takes the source for the bytes.
 
-import { decodeScript, tokenName, type Node } from './bytecode.ts'
+import { decodeScript, encodeScript, tokenName, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler } from './compile.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import type { Linker } from './linker.ts'
@@ -85,5 +85,20 @@ export function readableSource(linker: Linker, pkg: Package, ref: number): strin
     // the exact one, then
   }
   return exact
+}
+
+/** A class's replication as best read (its conditions readable where they compile to the same bytes). */
+export function readableReplication(linker: Linker, pkg: Package, classRef: number): string {
+  const d = new FunctionDecompiler(linker, pkg, classRef)
+  d.check = (text, node) => {
+    try {
+      const a = encodeScript([new FunctionCompiler(linker, pkg, classRef).compileExpression(text, { k: 'bool' })]).code
+      const b = encodeScript([node]).code
+      return a.length === b.length && a.every((x, i) => x === b[i])
+    } catch {
+      return false
+    }
+  }
+  return d.decompileReplication()
 }
 

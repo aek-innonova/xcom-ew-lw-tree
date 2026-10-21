@@ -6,7 +6,7 @@
 import { Reader } from './bytes.ts'
 import { floatText, FunctionDecompiler, stringText } from './decompile.ts'
 import type { Linker, Located } from './linker.ts'
-import { fidelity, fidelityNote, readableSource } from './fidelity.ts'
+import { fidelity, fidelityNote, readableReplication, readableSource } from './fidelity.ts'
 import { readStructHead, readTags, tagsStart, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, typeOf, typeText, type Ty } from './types.ts'
@@ -139,7 +139,7 @@ export class ClassDecompiler {
     if (vars.length) lines.push('')
     // What is replicated, and when.
     try {
-      const rep = new FunctionDecompiler(this.linker, pkg, this.ref).decompileReplication()
+      const rep = readableReplication(this.linker, pkg, this.ref)
       if (rep) lines.push(rep)
     } catch (e) {
       lines.push(`// replication: not decompiled (${(e as Error).message})`, '')

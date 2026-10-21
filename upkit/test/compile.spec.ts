@@ -540,7 +540,7 @@ describe.skipIf(!haveCorpus)('replication', () => {
     const linker = new Linker([dirname(CORPUS[0]!)])
     const text = decompileClass(linker, load(CORPUS[1]!), 'Actor')
     expect(text).toContain('replication\n{')
-    expect(text).toMatch(/if \(\(!bSkipActorPropertyReplication \|\| bNetInitial\) && int\(Role\) == int\(ROLE_Authority\)\)\n {8}bNetOwner, bTearOff, Role, RemoteRole;/)
+    expect(text).toMatch(/if \(\(!bSkipActorPropertyReplication \|\| bNetInitial\) && Role == ROLE_Authority\)\n {8}bNetOwner, bTearOff, Role, RemoteRole;/)
   })
   it("a new class's replication compiled: its conditions the class's script, its variables marked", async () => {
     const { readFileSync: read } = await import('node:fs')

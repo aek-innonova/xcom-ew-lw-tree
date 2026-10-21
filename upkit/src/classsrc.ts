@@ -5,7 +5,7 @@
 
 import type { Change } from './changes.ts'
 import { FunctionDecompiler } from './decompile.ts'
-import { readableSource } from './fidelity.ts'
+import { readableReplication, readableSource } from './fidelity.ts'
 import { ClassDecompiler } from './classdecomp.ts'
 import { typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
@@ -290,7 +290,7 @@ export function classEdits(
     if (p.kind === 'replication') {
       // A class just declared takes it; one the package had keeps its own.
       if (always.has(className.toLowerCase())) out.replication = p.text
-      else if (own && !same(new FunctionDecompiler(linker, pkg, own).decompileReplication(), p.text))
+      else if (own && !same(readableReplication(linker, pkg, own), p.text))
         throw new Error(`${className}: its replication differs from the package's; a changed replication is not compiled`)
       continue
     }
