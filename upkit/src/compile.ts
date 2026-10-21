@@ -434,6 +434,11 @@ export class FunctionCompiler {
     if (to === 'object' || to === 'interface' || to === 'delegate' || from === 'object' && to === 'none') return g
     const key = `${from}>${to}`
     const code = CAST[key]
+    // A number written where a byte is wanted: a byte constant (as the compiler makes it), not a conversion.
+    if (!explicit && key === 'int>byte') {
+      const v = g.node.op === 0x25 ? 0 : g.node.op === 0x26 ? 1 : g.node.op === 0x2c ? (g.node.args[0] as number) : -1
+      if (v >= 0 && v <= 255 && !(g as Gen & { hex?: boolean }).hex) return { node: N(0x24, v), ty: want }
+    }
     // Neither converted on its own nor asked for (int("5") is; a string where an int is wanted is not).
     if (!explicit && !AUTO.has(key) && STRICT.has(from) && STRICT.has(to) && !(from === 'byte' && to === 'byte'))
       throw new CompileError(`${an(typeWord(g.ty))} where ${an(typeWord(want))} is wanted (convert it: ${typeWord(want)}(…))`)
@@ -539,7 +544,8 @@ export class FunctionCompiler {
   private gen1(e: Expr, want: Ty | undefined, lvalue: boolean): Gen {
     switch (e.k) {
       case 'int':
-        return { node: this.literalInt(e.v, e.hex), ty: { k: 'int' } }
+        // (A hex literal keeps the width it was written in: 0x05 stays an int constant.)
+        return { node: this.literalInt(e.v, e.hex), ty: { k: 'int' }, ...(e.hex ? { hex: true } : {}) } as Gen
       case 'float':
         return { node: N(0x1e, e.v), ty: { k: 'float' } }
       case 'str':

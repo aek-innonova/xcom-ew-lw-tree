@@ -439,7 +439,8 @@ export class FunctionDecompiler {
         return atom(v <= 1 ? `0x${v.toString(16).padStart(2, '0')}` : String(v))
       }
       case 0x24:
-        return atom(`byte(${a[0]})`)
+        // (Readable: the number alone, which the compiler makes a byte where a byte is wanted.)
+        return atom(this.readable ? `${a[0]}` : `byte(${a[0]})`)
       case 0x25:
         return atom('0')
       case 0x26:

@@ -202,7 +202,8 @@ conversions the compiler makes on its own (`float(1) + x` reads `1 + x`,
 `int(eMode) == int(eOff)` reads `eMode == eOff`), wherever the function, so
 written, compiles to the very same bytes; elsewhere it keeps them
 (`float(I) / 2` without its `float` would divide ints). Narrowing ones
-(`int(f)`) it always writes. `for` loops, `continue`, `else if` and a switch's
+(`int(f)`) it always writes. A number where a byte is wanted reads as the
+number (the compiler makes it a byte constant, as Epic's does). `for` loops, `continue`, `else if` and a switch's
 `break` read as they were written.
 
 ## upkit's own syntax
@@ -216,7 +217,8 @@ writes it in a form the compiler reads back the same:
 - `0x00`, `0x00000005`: an integer constant in the width it was stored in
   (decimal literals compile as Epic's compiler stores them: 0 and 1 as their
   own tokens, up to 255 in a byte).
-- `byte(5)`: a byte constant (an enum value); `byte(int(5))`: a cast.
+- `byte(5)`: a byte constant where a plain `5` would not be one (an int is
+  wanted there); `byte(int(5))`: a cast.
 - `-5` is a negative constant; `-(5)` the minus operator on 5.
 - `super(Class.State).Function()`: a parent state's function.
 - `obj.(5)`: a constant read through an object (a patch's).
