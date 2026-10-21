@@ -229,6 +229,9 @@ export class FunctionCompiler {
     const from = this.kindOf(g.ty)
     const to = this.kindOf(want)
     if (from === to || this.same(g.ty, want)) return g
+    // An object (none, self) where an interface is wanted: InterfaceCast, the compiler's own.
+    if (to === 'interface' && from !== 'interface' && want.k === 'interface' && want.cls)
+      return { node: N(0x52, this.refOf(want.cls), g.node), ty: want }
     if (from === 'none') return g
     if (from === 'interface' && to === 'object') return { node: N(0x38, 0x36, g.node), ty: want }
     if (to === 'object' || to === 'interface' || to === 'delegate' || from === 'object' && to === 'none') return g
@@ -419,7 +422,12 @@ export class FunctionCompiler {
       case 'post':
       case 'bin':
         return this.operator(e)
-      case 'static':
+      case 'static': {
+        // A static function as a delegate: Class.static.Func.
+        const o = this.gen(e.obj)
+        const inner = N(0x43, this.nameRef(e.name), 0)
+        return { node: N(0x12, o.node, memSizeOf(inner), 0, 7, inner), ty: { k: 'delegate', fn: null } }
+      }
       case 'super':
       case 'global':
         throw new CompileError(`${e.k} without a call`)
@@ -463,7 +471,14 @@ export class FunctionCompiler {
     const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
     if (!cls) throw new CompileError(`${name} of something that is not an object`)
     const f = this.member(cls, name, 'property')
-    if (!f) throw new CompileError(`no ${name} in ${cls.pkg.objectName(cls.ref)}`)
+    if (!f) {
+      // An object's function as a delegate: obj.Func.
+      if (this.member(cls, name, 'function')) {
+        const inner = N(0x43, this.nameRef(name), 0)
+        return { node: N(0x19, o.node, memSizeOf(inner), 0, 7, inner), ty: { k: 'delegate', fn: null } }
+      }
+      throw new CompileError(`no ${name} in ${cls.pkg.objectName(cls.ref)}`)
+    }
     const { ty } = this.propTy(f)
     const ref = this.refOf(f)
     const inner = this.boolWrap(N(0x01, ref), ty)
@@ -534,7 +549,8 @@ export class FunctionCompiler {
         // interface to a class: made an object first.
         const fromIface = g.ty.k === 'interface'
         if (fromIface && !isIface) g = { node: N(0x38, 0x36, g.node), ty: { k: 'object', cls: null } }
-        const op = isIface && !fromIface ? 0x52 : 0x2e
+        // To an interface: none and self by InterfaceCast, any other object by DynamicCast.
+        const op = isIface && (g.node.op === 0x2a || g.node.op === 0x17) ? 0x52 : 0x2e
         return { node: N(op, this.refOf(t), g.node), ty: { k: isIface ? 'interface' : 'object', cls: t } as Ty }
       }
       // A delegate variable called: local (1) or the class's (0), with the delegate's signature.

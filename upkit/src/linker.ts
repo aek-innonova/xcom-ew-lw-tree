@@ -65,6 +65,7 @@ export class Linker {
 
   /** A script object, read once. */
   object(at: Located): ScriptObject | null {
+    if (at.ref <= 0) return null
     let m = this.objects.get(at.pkg)
     if (!m) this.objects.set(at.pkg, (m = new Map()))
     if (!m.has(at.ref)) m.set(at.ref, readObject(at.pkg, at.ref))

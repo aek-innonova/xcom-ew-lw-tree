@@ -189,6 +189,8 @@ export class FunctionDecompiler {
       case 0x13:
         return atom(`class<${this.obj(a[0] as number)}>(${this.ex(a[1] as Node).text})`)
       case 0x2e:
+        return atom(`${this.obj(a[0] as number)}(${this.ex(a[1] as Node).text})`)
+      // An interface from none or self: written as a cast (the compiler makes it an InterfaceCast).
       case 0x52:
         return atom(`${this.obj(a[0] as number)}(${this.ex(a[1] as Node).text})`)
       case 0x38: {
