@@ -14,29 +14,43 @@ part of upkit, and decompiled code stays where you put it.
 
 ## Use
 
-Node 24 or later runs it as it is (no build step):
+Node 24 or later runs it as it is (`node upkit/src/cli.ts …`, no build
+step), or as one file: `node upkit/build.mjs` writes `upkit/dist/upkit.mjs`,
+which is all a modder needs beside Node (`node upkit.mjs …`).
+
+The common case, a change to a function as a mod script:
 
 ```sh
-node upkit/src/cli.ts info      XComStrategyGame.upk
-node upkit/src/cli.ts list      XComStrategyGame.upk Labs
-node upkit/src/cli.ts decompile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour > labs.uc
-node upkit/src/cli.ts class     XComStrategyGame.upk XGFacility_Labs > XGFacility_Labs.uc
+cd "<the game>/XComGame/CookedPCConsole"
+node upkit.mjs class XComStrategyGame.upk XGFacility_Labs > XGFacility_Labs.uc
+# edit any function in XGFacility_Labs.uc (or a default in its defaultproperties), then
+node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
+# labs.txt is a PatchUPK mod script: apply it with PatcherGUI
+```
 
-# edit labs.uc, then either …
-node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --patch labs.txt
-# … a mod script any PatcherGUI install applies, or
-node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --out XComStrategyGame.new.upk
+All of it:
 
-# or edit any of a whole class's functions and states' code, and compile what was edited
-node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
+```sh
+node upkit.mjs info      XComStrategyGame.upk
+node upkit.mjs list      XComStrategyGame.upk Labs
+node upkit.mjs decompile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour > labs.uc
+node upkit.mjs class     XComStrategyGame.upk XGFacility_Labs > XGFacility_Labs.uc
+node upkit.mjs export    XComStrategyGame.upk XComStrategyGame-src/   # every class, a .uc each
+
+# one function edited: a mod script, or a whole package
+node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --patch labs.txt
+node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --out XComStrategyGame.new.upk
+
+# a whole class's source: what was edited is compiled (new variables and functions: --out)
+node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
 
 # a new class in a package (its source declares it: class UpkitHelper extends XGStrategyActor; …)
-node upkit/src/cli.ts compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --out XComStrategyGame.new.upk
+node upkit.mjs compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --out XComStrategyGame.new.upk
 
 # a new script package of your own classes
-node upkit/src/cli.ts new MyMod.u MyModInfo.uc MyModData.uc --game <the game's CookedPCConsole>
+node upkit.mjs new MyMod.u MyModInfo.uc MyModData.uc --game "<the game>/XComGame/CookedPCConsole"
 
-node upkit/src/cli.ts roundtrip XComGame.upk   # how much of a package compiles back byte for byte
+node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back byte for byte
 ```
 
 Run it on the packages in the game's `XComGame/CookedPCConsole` folder (other
@@ -215,7 +229,7 @@ writes it in a form the compiler reads back the same:
 | `src/declare.ts` | new member variables and functions declared in a class |
 | `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
 | `src/fidelity.ts` | whether a function's source says all its bytecode (the note on hand patches) |
-| `src/cli.ts` | the command line |
+| `src/cli.ts` | the command line (`build.mjs` bundles it into one file) |
 
 Tests (`npx vitest run` in `upkit/`) run on the game's packages in the
 repository's git-ignored `samples/` folder and skip without them: every

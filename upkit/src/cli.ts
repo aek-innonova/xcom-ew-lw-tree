@@ -1,28 +1,33 @@
 #!/usr/bin/env node
-// upkit's command line. Run with Node 24 or later (it runs TypeScript as it is):
-//
-//   node upkit/src/cli.ts <command> …
-//
-// Commands:
-//   info <package>                          the summary and what the package holds
-//   list <package> [filter]                 functions (and states) by path
-//   decompile <package> <Class.Function>    a function as UnrealScript (a state: its code)
-//   class <package> <Class>                 a whole class as UnrealScript
-//   compile <package> <Class.Function> <file.uc> (--out <new package> | --patch <mod.txt>)
-//                                           an edited function (or a state's code) back into
-//                                           the package: a whole new package, or a mod script
-//   compile <package> <Class> <Class.uc> (--out … | --patch …)
-//                                           the functions and states' code edited in a whole
-//                                           class's source (as `class` writes it)
-//   new <package.u> <Class.uc>…             a new script package with these classes in it
-//   roundtrip <package>                     decompile and compile every function; how many
-//                                           come back byte for byte
-//
-// Options: --game <folder>  where the game's other packages are (default: the
-// package's folder); packages are read compressed or not.
+// upkit's command line. Run with Node 24 or later (it runs TypeScript as it
+// is): node upkit/src/cli.ts <command> …, or the one-file build: node upkit.mjs.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { basename, dirname } from 'node:path'
+const USAGE = `upkit: decompile Enemy Within's UnrealScript, edit it, compile it back.
+
+  node upkit.mjs <command> …
+
+Commands:
+  info <package>                          the summary and what the package holds
+  list <package> [filter]                 functions (and states) by path
+  decompile <package> <Class.Function>    a function as UnrealScript (a state: its code)
+  class <package> <Class>                 a whole class as UnrealScript
+  export <package> <folder>               every class of the package, a Class.uc each
+  compile <package> <Class.Function> <file.uc> (--out <new package> | --patch <mod.txt>)
+                                          an edited function (or a state's code) back into
+                                          the package: a whole new package, or a mod script
+  compile <package> <Class> <Class.uc> (--out … | --patch …)
+                                          what was edited in a whole class's source (as
+                                          class writes it), new declarations too (--out)
+  new <package.u> <Class.uc>…             a new script package with these classes in it
+  roundtrip <package>                     decompile and compile every function; how many
+                                          come back byte for byte
+
+Options: --game <folder>  where the game's other packages are (default: the
+package's folder); packages are read compressed or not. --layout compact: a
+whole package laid out anew (default keep: objects stay where they were).`
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classesPackage, modScriptWith, packageWith } from './changes.ts'
 import { classEdits } from './classsrc.ts'
@@ -50,14 +55,7 @@ const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
 const [command, file, ...rest] = argv
 
 function usage(): never {
-  console.error(
-    readFileSync(new URL(import.meta.url), 'utf8')
-      .split('\n')
-      .filter((l) => l.startsWith('//'))
-      .slice(0, 22)
-      .map((l) => l.slice(3))
-      .join('\n'),
-  )
+  console.error(USAGE)
   process.exit(2)
 }
 
@@ -185,6 +183,21 @@ try {
           console.log(`wrote ${out} (${layout} layout): ${r.compiled.map((c) => `${pkg.path(c.ref)} → ${c.code.length} bytes`).join('; ')}`)
         }
       }
+      break
+    }
+    case 'export': {
+      // Every class as its own file, the package's source tree to read (or edit and compile back).
+      const dir = rest[0]
+      if (!dir) usage()
+      mkdirSync(dir, { recursive: true })
+      let n = 0
+      for (let i = 1; i <= pkg.exports.length; i++) {
+        if (pkg.className(i) !== 'Class') continue
+        const name = pkg.objectName(i)
+        writeFileSync(join(dir, `${name}.uc`), decompileClass(linker, pkg, name))
+        n++
+      }
+      console.log(`wrote ${n} classes of ${pkgName} to ${dir}`)
       break
     }
     case 'new': {
