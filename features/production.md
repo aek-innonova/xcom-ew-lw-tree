@@ -157,3 +157,35 @@ deploy.sh or publish-desktop.sh as before.
 Needed before the first run, as variables of the "production" environment
 (none secret): AZURE_CLIENT_ID, AZURE_TENANT_ID, optionally
 AZURE_SUBSCRIPTION_ID, SIGNING_ENDPOINT, SIGNING_ACCOUNT, SIGNING_PROFILE.
+
+## Report (2026-10-21, the first signed shell)
+
+The action signs: after the role on the signing account was in place, run
+39646782012 and then 39647405738 (shell 0.3.7) came out Valid, signed by
+CN=innonova GmbH (issuer Microsoft ID Verified CS EOC CA 03), timestamped by
+Microsoft Public RSA Time Stamping Authority.
+
+The workflow needed three fixes on the way:
+- log in without a subscription: the app registration sees none, and
+  signing needs none;
+- read the Azure ids from the environment's secrets;
+- pass the publisher name electron-builder's schema requires
+  (`SIGNING_PUBLISHER`, set to "innonova GmbH").
+
+Shell 0.3.7 is the first signed one. It has the build's update target and
+whole-URL file names (above). It is on staging, with our Ed25519 signature
+added here over the signed bytes.
+
+Bench (winbench, the person's install):
+- **The update:** 0.3.6 → 0.3.7 through the app in about 22 s, no
+  prompts.
+- **Signatures:** the installed exe, the uninstaller and the downloaded
+  installer are Valid. The website's installer is byte-identical to the
+  one the app downloaded.
+- **SmartScreen:** a download from the site, double-clicked, still gets
+  "Windows protected your PC". The certificate is new and has no
+  reputation yet, and "More info" names innonova GmbH. The desktop page
+  now says so instead of "not code-signed".
+- **The certificate:** valid to 24.10.2026, as Artifact Signing's
+  certificates are short-lived; the timestamp keeps the signatures valid
+  after that.

@@ -72,9 +72,10 @@ const FEATURES: { title: string; text: string; shot: string; alt: string }[] = [
           >
         </p>
         <p class="small muted">
-          Windows 10 or 11 and XCOM: Enemy Within (Steam). Not code-signed yet: Windows may warn
-          about it (“More info”, then “Run anyway”). It updates itself, and checks every update’s
-          signature first. Nothing is uploaded.
+          Windows 10 or 11 and XCOM: Enemy Within (Steam). Signed by innonova GmbH; while the app is
+          new to Windows, SmartScreen may still hold it back (“More info” shows the publisher, then
+          “Run anyway”). It updates itself, and checks every update’s signature first. Nothing is
+          uploaded.
         </p>
       </div>
       <img :src="shot('research')" alt="The research tree with the game’s own picture of a tech" />
