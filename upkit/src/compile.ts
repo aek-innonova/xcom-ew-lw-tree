@@ -338,7 +338,10 @@ export class FunctionCompiler {
     return null
   }
   private withinType(): Ty | null {
-    for (let s: Located | null = this.cls; s; ) {
+    return this.withinOf(this.cls)
+  }
+  private withinOf(cls: Located): Ty | null {
+    for (let s: Located | null = cls; s; ) {
       const o = this.obj(s)
       if (!o || o.kind !== 'class') return null
       if (o.within) {
@@ -404,8 +407,8 @@ export class FunctionCompiler {
         if (f) {
           const fo = this.obj(f) as FunctionObj
           const hidden = fo.flags & FUNC.Delegate ? this.member(this.cls, `__${e.name}__Delegate`, 'property') : null
-          if (hidden) return { node: N(0x43, this.nameRef(e.name), this.refOf(hidden)), ty: { k: 'delegate', fn: f } }
-          return { node: N(0x4b, this.nameRef(e.name)), ty: { k: 'delegate', fn: f } }
+          // (Any other function's name as a value: DelegateProperty without a property.)
+          return { node: N(0x43, this.nameRef(e.name), hidden ? this.refOf(hidden) : 0), ty: { k: 'delegate', fn: f } }
         }
         throw new CompileError(`unknown name ${e.name}`)
       }
@@ -513,6 +516,16 @@ export class FunctionCompiler {
 
   private memberAccess(objE: Expr, name: string, lvalue: boolean): Gen {
     const o = this.gen(objE, undefined, lvalue)
+    // obj.Outer: an object of a class declared "within X" has an X for its Outer.
+    if (name.toLowerCase() === 'outer' && (o.ty.k === 'object' || o.ty.k === 'component') && o.ty.cls) {
+      const w = this.withinOf(o.ty.cls)
+      const f = this.member(o.ty.cls, 'Outer', 'property')
+      if (w && f) {
+        const ref = this.refOf(f)
+        const inner = N(0x01, ref)
+        return { node: N(0x19, o.node, memSizeOf(inner), ref, 0, inner), ty: w }
+      }
+    }
     if (o.ty.k === 'array' && name.toLowerCase() === 'length') return { node: N(0x36, this.unwrapBool(o.node)), ty: { k: 'int' } }
     if (o.ty.k === 'struct' && o.ty.struct) {
       const f = this.member(o.ty.struct, name, 'property')
@@ -523,7 +536,8 @@ export class FunctionCompiler {
       const node = N(0x35, this.refOf(f), this.refOf(o.ty.struct), 0, lvalue && base.op !== 0x35 ? 1 : 0, base)
       return { node: this.boolWrap(node, ty), ty }
     }
-    const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
+    // A class value's members are Object's (Class itself is C++ only).
+    const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.objectClass() : null
     if (!cls) throw new CompileError(`${name} of something that is not an object`)
     const f = this.member(cls, name, 'property')
     if (!f) {
@@ -660,10 +674,13 @@ export class FunctionCompiler {
       return { node: N(0x12, o.node, memSizeOf(c.node), retProp, 0, c.node), ty: c.ty }
     }
     if (fn.k === 'member') {
-      const o = this.gen(fn.obj, undefined, true)
       const m = fn.name.toLowerCase()
+      // Called on: read, unless an array method changes the array.
+      const changes = ['additem', 'removeitem', 'insertitem', 'add', 'insert', 'remove', 'sort'].includes(m)
+      let o = this.gen(fn.obj)
+      if (o.ty.k === 'array' && changes) o = this.gen(fn.obj, undefined, true)
       if (o.ty.k === 'array') return this.arrayMethod(o, m, args)
-      const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.findType('Class') : null
+      const cls = o.ty.k === 'object' || o.ty.k === 'interface' || o.ty.k === 'component' ? o.ty.cls : o.ty.k === 'class' ? this.objectClass() : null
       const f = cls && this.findFunction(fn.name, cls)
       if (!f) throw new CompileError(`no function ${fn.name}`)
       const c = this.callNode(f, args)
@@ -676,6 +693,11 @@ export class FunctionCompiler {
     throw new CompileError('cannot call this')
   }
 
+  private objectClass(): Located | null {
+    const core = this.linker.package('Core')
+    const ref = core?.find('Object')
+    return core && ref ? { pkg: core, ref } : null
+  }
   private isInterface(t: Located): boolean {
     for (let s: Located | null = t; s; ) {
       if (s.pkg.objectName(s.ref) === 'Interface') return true
@@ -757,8 +779,14 @@ export class FunctionCompiler {
     const types = operands.map((x) => this.gen(x, undefined, true).ty)
     // Delegates compare with their own tokens: with a delegate (or none), or with a function.
     if (e.k === 'bin' && (e.op === '==' || e.op === '!=') && (types[0]!.k === 'delegate' || types[1]!.k === 'delegate')) {
-      const l = this.gen(operands[0]!, { k: 'delegate', fn: null })
-      const r = this.gen(operands[1]!, { k: 'delegate', fn: null })
+      // Compared with a function (not a variable): the function as InstanceDelegate.
+      const side = (x: Expr) => {
+        if (x.k === 'id' && !this.variable(x.name) && this.findFunction(x.name))
+          return { node: N(0x4b, this.nameRef(x.name)), ty: { k: 'delegate', fn: null } as Ty }
+        return this.gen(x, { k: 'delegate', fn: null })
+      }
+      const l = side(operands[0]!)
+      const r = side(operands[1]!)
       const withFn = r.node.op === 0x4b || l.node.op === 0x4b
       const op = e.op === '==' ? (withFn ? 0x3d : 0x3b) : withFn ? 0x3e : 0x3c
       return { node: N(op, [l.node, r.node]), ty: { k: 'bool' } }

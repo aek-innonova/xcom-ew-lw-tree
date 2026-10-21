@@ -52,10 +52,10 @@ compile it, compare the bytes):
 | Package | Functions | Identical |
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 94.4% |
-| XComGame (Long War 1.0) | 11,756 | 90.5% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 85.9% |
-| LWRebalance.u (LWR 2.06) | 1,484 | 87.5% |
+| Engine (vanilla) | 4,341 | 96.6% |
+| XComGame (Long War 1.0) | 11,756 | 93.2% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 89.8% |
+| LWRebalance.u (LWR 2.06) | 1,484 | 90.4% |
 
 Long War's and LWR's packages carry many functions patched by hand, some of
 them in forms Epic's compiler never wrote (a constant where a member was,

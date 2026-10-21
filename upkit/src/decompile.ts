@@ -328,7 +328,8 @@ export class FunctionDecompiler {
       }
       case 0x12: {
         const inner = a[4] as Node
-        const sep = inner.op === 0x02 ? '' : 'static.'
+        const isDefault = inner.op === 0x02 || (inner.op === 0x2d && (inner.args[0] as Node).op === 0x02)
+        const sep = isDefault ? '' : 'static.'
         return atom(`${this.paren(a[0] as Node, 0)}.${sep}${this.ex(inner).text}`)
       }
       case 0x19: {
