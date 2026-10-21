@@ -13,7 +13,7 @@
 # deploy/publish-desktop.sh <channel> as before. The order matters: that
 # signature is over the installer's final, Authenticode-signed bytes.
 #
-# The environment's variables (none of them secret):
+# The environment's variables (or secrets, for the Azure ids):
 #   AZURE_CLIENT_ID, AZURE_TENANT_ID   the app registration with the federated credential
 #   AZURE_SUBSCRIPTION_ID              optional
 #   SIGNING_ENDPOINT                   e.g. https://weu.codesigning.azure.net
@@ -63,10 +63,10 @@ jobs:
         working-directory: desktop
       - uses: azure/login@v3
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: ${{ vars.AZURE_SUBSCRIPTION_ID == '' }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: ${{ !(secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID) }}
       - name: build and sign
         working-directory: desktop
         shell: bash
