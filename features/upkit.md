@@ -72,14 +72,19 @@ syntax for what UnrealScript cannot say, and the files.
   conversions the compiler makes on its own left out (each function so
   written is compiled and kept only if its bytes are the same).
 - Compiles back what was edited in a function's or a whole class's source:
-  bodies, state code (labels, the label table), defaultproperties (a value
-  from its type; the rest kept byte for byte). Mistakes are refused with the
-  function and the line (a type where another is wanted, a missing cast,
-  too many arguments, an unknown name, a parse error).
+  bodies, state code (labels, the label table), defaultproperties and a
+  struct's structdefaultproperties (a value from its type; the rest kept
+  byte for byte). Mistakes are refused with the function and the line (a
+  type where another is wanted, a missing cast, too many arguments, an
+  unknown name, a parse error); so is a changed declaration of something the
+  package has (a function's parameters, a variable's type or modifiers, a
+  struct's members, a state's or class's declaration, a replication block),
+  which is not compiled: what the package has keeps its declarations.
 - Writes the change as a PatchUPK mod script (`--patch`; it can add names)
   or as a whole package (`--out`; also new imports, locals, and new
   declarations: member variables, functions, states, structs, enums,
-  constants, delegates, classes; `new` builds a new script package).
+  constants, delegates, interfaces, classes with their replication; `new`
+  builds a new script package, and a start for its .int and .ini).
 - `diff`: two versions of a package compared, each changed function as a
   diff of its source (Long War changed 651 of XComStrategyGame's).
 
@@ -114,8 +119,13 @@ packages came from the win VM's install into `samples/ew/`.
 - A whole package from upkit holds what PatchUPK makes of the same change:
   the same names, imports, export entries and every object's bytes (the app's
   PatchUPK implementation applying upkit's mod script; four kinds of edit).
-- On Windows (the VM's Node 24, its vanilla install) the one-file build
-  decompiles, writes a mod script and a whole package.
+- The rebuilt LWRebalance.u imports what the original does, as it does
+  (2,828 imports the same, none of another class).
+- On Windows (the VM's Node 24, its vanilla and its LW + LWR installs, paths
+  with spaces) the one-file build decompiles, exports, diffs, writes a mod
+  script and a whole package.
+- Lint-clean as the repository lints; the app's own unit tests leave
+  upkit's to upkit (they had been picking them up).
 
 ### Not verified, and not done
 
@@ -129,6 +139,9 @@ packages came from the win VM's install into `samples/ew/`.
 - Not compiled: native functions; a changed declaration of something the
   package has (refused, with that said). Replication is compiled for new
   classes only.
+- Mods people wrote by hand (the samples' PatcherGUI scripts): 7 of the 16
+  functions they change compile back byte for byte; the rest is hex no
+  compiler writes (a fixed skip of 10, a call short of an argument).
 - upkit lives in this repository; standing on its own needs a repository of
   its own (a person's decision: its name, its licence), with the test that
   uses the app's PatchUPK implementation moved or dropped.
