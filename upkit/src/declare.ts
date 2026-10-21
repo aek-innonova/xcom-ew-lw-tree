@@ -413,6 +413,8 @@ export interface ClassDecl {
   flags: number
   /** Flags the parent's that it drops (notplaceable). */
   clears: number
+  /** The interfaces it implements (its own: a subclass does not list its parent's). */
+  interfaces: string[]
 }
 
 const CLASS_MODIFIERS: Record<string, number> = {
@@ -430,17 +432,19 @@ const CLASS_MODIFIERS: Record<string, number> = {
 export function parseClassHeader(src: string): ClassDecl {
   const m = /^\s*class\s+(\w+)\s+extends\s+(\w+)([^;]*);/im.exec(src.replace(/\/\/.*$/gm, ''))
   if (!m) throw new DeclareError('no "class Name extends Parent …;" declaration')
-  const d: ClassDecl = { name: m[1]!, parent: m[2]!, within: null, config: null, flags: 0, clears: 0 }
+  const d: ClassDecl = { name: m[1]!, parent: m[2]!, within: null, config: null, flags: 0, clears: 0, interfaces: [] }
   const rest = m[3]!
   const within = /\bwithin\s+(\w+)/i.exec(rest)
   if (within) d.within = within[1]!
+  const implementsList = /\bimplements\s*\(([^)]*)\)/i.exec(rest)
+  if (implementsList) d.interfaces = implementsList[1]!.split(',').map((x) => x.trim()).filter(Boolean)
   const config = /\bconfig\s*\(\s*(\w+)\s*\)/i.exec(rest)
   if (config) {
     d.config = config[1]!
     d.flags |= 0x4
   }
   for (const w of rest.replace(/\([^)]*\)/g, ' ').split(/\s+/).map((x) => x.toLowerCase()).filter(Boolean)) {
-    if (w === 'native' || w === 'nativereplication' || w === 'implements') throw new DeclareError(`a new ${w} class is not declared (it needs C++, or interfaces upkit does not declare yet)`)
+    if (w === 'native' || w === 'nativereplication') throw new DeclareError(`a new ${w} class needs C++`)
     if (w === 'notplaceable') d.clears |= 0x200
     else if (w in CLASS_MODIFIERS) d.flags |= CLASS_MODIFIERS[w]!
   }
@@ -540,7 +544,12 @@ export function declareClass(linker: Linker, pkg: Package, d: ClassDecl, sh: Sha
     const n = fc.nameRef(c.name)
     w.i32(n.index).i32(n.number).i32(c.ref)
   }
-  w.i32(0) // interfaces
+  w.i32(d.interfaces.length)
+  for (const i of d.interfaces) {
+    const at = fc.findClass(i)
+    if (!at) throw new DeclareError(`${d.name} implements ${i}: no such interface`)
+    w.i32(fc.refOf(at)).i32(0) // (implemented in script: no property)
+  }
   w.i32(0) // don't sort
   w.i32(hide.length)
   for (const n of hide) w.i32(n.index).i32(n.number)
@@ -716,14 +725,25 @@ export function declareFields(
     exports.push({ entry: entry('Enum', e.name), data: w.done() })
     children = ref
   }
-  for (const s of d.states) {
+  // States: one extending another of these after it (declared here, so found here).
+  const here = new Map<string, number>()
+  const states = [...d.states]
+  const ordered: StateDecl[] = []
+  while (states.length) {
+    const i = states.findIndex((x) => !x.parent || !states.some((y) => y.name.toLowerCase() === x.parent!.toLowerCase()))
+    ordered.push(states.splice(i < 0 ? 0 : i, 1)[0]!)
+  }
+  for (const s of ordered) {
     ref++
-    // What it extends: the state named, or the parent class's state of its name.
-    const parent = s.parent
-      ? fieldOf(linker, { pkg, ref: classRef }, s.parent, 'State')
-      : parentClass
-        ? fieldOf(linker, parentClass, s.name, 'State')
-        : null
+    // What it extends: the state named (here or in the class), or the parent class's state of its name.
+    const inBatch = s.parent ? here.get(s.parent.toLowerCase()) : undefined
+    const parent: Located | null = inBatch
+      ? { pkg, ref: inBatch }
+      : s.parent
+        ? fieldOf(linker, { pkg, ref: classRef }, s.parent, 'State')
+        : parentClass
+          ? fieldOf(linker, parentClass, s.name, 'State')
+          : null
     if (s.parent && !parent) throw new DeclareError(`state ${s.name} extends ${s.parent}: no such state`)
     const superRef = parent ? fc.refOf(parent) : 0
     const w = new Writer(64)
@@ -733,6 +753,7 @@ export function declareFields(
     w.i32(2).i32(2).u8(0x08).u8(0x53) // no code yet: stop, and the end
     w.u32(0).u16(0xffff).u32(s.flags).i32(0) // probe mask, no label table, flags, no functions
     exports.push({ entry: entry('State', s.name, superRef), data: w.done() })
+    here.set(s.name.toLowerCase(), ref)
     children = ref
   }
   const data = new Map<number, Uint8Array>()
@@ -803,4 +824,93 @@ export function declareStruct(linker: Linker, pkg: Package, classRef: number, s:
   new DataView(cdata.buffer).setInt32(readStructHead(pkg, classRef).scriptAt - 24, structRef, true)
   const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
   return writePackage(pkg, { data: new Map([[classRef, cdata]]), names, imports: sh.imports, exports, layout: 'keep' })
+}
+
+/** The component subobjects a class's defaults declare (Begin Object Class=X Name=Y). */
+export function subobjectsOf(block: string): { cls: string; name: string }[] {
+  const out: { cls: string; name: string }[] = []
+  for (const m of block.matchAll(/^\s*Begin\s+Object\b([^\n]*)$/gim)) {
+    const cls = /\bClass=(\w+)/i.exec(m[1]!)?.[1]
+    const name = /\bName=(\w+)/i.exec(m[1]!)?.[1]
+    if (cls && name) out.push({ cls, name })
+  }
+  return out
+}
+
+/**
+ * The package with the subobjects a class's defaults declare and its default
+ * object does not have: each a template of its class, archetyped from the
+ * parent's of that name (else its class's default object), in the class's
+ * component map.
+ */
+export function declareSubobjects(linker: Linker, pkg: Package, classRef: number, subs: { cls: string; name: string }[], sh: Shared = shared()): Uint8Array {
+  const fc = new FunctionCompiler(linker, pkg, classRef, sh)
+  fc.allow = 'all'
+  const cls = readObject(pkg, classRef) as ClassObj
+  const dobj = cls.defaultObject
+  const dname = pkg.objectName(dobj)
+  const parent = cls.head.superStruct ? linker.resolve(pkg, cls.head.superStruct) : null
+  const pc = parent ? (linker.object(parent) as ClassObj) : null
+  const parentDefault = pc?.defaultObject ? linker.resolve(parent!.pkg, pc.defaultObject) : null
+  const none = fc.nameRef('None')
+  const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = []
+  const map = cls.componentMap.map((c) => ({ name: c.name, obj: c.obj }))
+  let ref = pkg.exports.length
+  for (const s of subs) {
+    if (pkg.find(`${dname}.${s.name}`)) continue
+    const k = fc.findClass(s.cls)
+    if (!k) throw new DeclareError(`Begin Object Class=${s.cls}: no such class`)
+    // Its archetype: the parent's template of that name, else the class's default object.
+    let arche: Located | null = null
+    if (parentDefault)
+      for (let i = 1; i <= parentDefault.pkg.exports.length && !arche; i++)
+        if (parentDefault.pkg.exports[i - 1]!.outer === parentDefault.ref && parentDefault.pkg.objectName(i).toLowerCase() === s.name.toLowerCase())
+          arche = { pkg: parentDefault.pkg, ref: i }
+    if (!arche) {
+      const ko = linker.object(k) as ClassObj | null
+      arche = ko?.defaultObject ? linker.resolve(k.pkg, ko.defaultObject) : null
+    }
+    ref++
+    const n = fc.nameRef(s.name)
+    const w = new Writer(32)
+    w.i32(0).i32(n.index).i32(n.number) // template owner class, template name
+    w.i32(ref - 1).i32(none.index).i32(none.number)
+    exports.push({
+      entry: {
+        classIndex: fc.refOf(k),
+        superIndex: 0,
+        outer: dobj,
+        objectName: n,
+        archetype: arche ? fc.refOf(arche) : 0,
+        objectFlags: 0x4000400000000n,
+        serialSize: 0,
+        serialOffset: 0,
+        exportFlags: 0,
+        netObjects: [],
+        packageGuid: new Uint8Array(16),
+        packageFlags: 0,
+      },
+      data: w.done(),
+    })
+    const at = map.findIndex((c) => c.name.toLowerCase() === s.name.toLowerCase())
+    if (at >= 0) map[at]!.obj = ref
+    else map.push({ name: s.name, obj: ref })
+  }
+  if (!exports.length) return pkg.bytes
+  // The class's component map, rewritten (it follows the function map, the flags, within and the config name).
+  const data = pkg.data(classRef)
+  const h = readStructHead(pkg, classRef)
+  const v = new DataView(data.buffer, data.byteOffset)
+  const funcs = v.getInt32(h.end + 10, true)
+  const mapAt = h.end + 14 + funcs * 12 + 16
+  const oldCount = v.getInt32(mapAt, true)
+  const w = new Writer(data.length + map.length * 12)
+  w.bytes(data.subarray(0, mapAt)).i32(map.length)
+  for (const c of map) {
+    const n = fc.nameRef(c.name)
+    w.i32(n.index).i32(n.number).i32(c.obj)
+  }
+  w.bytes(data.subarray(mapAt + 4 + oldCount * 12))
+  const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
+  return writePackage(pkg, { data: new Map([[classRef, w.done()]]), names, imports: sh.imports, exports, layout: 'keep' })
 }

@@ -324,3 +324,35 @@ describe.skipIf(!haveCorpus)('a mod package rebuilt from its decompiled source',
     expect(decl.same / decl.total).toBeGreaterThan(0.995)
   }, 180_000)
 })
+
+describe.skipIf(!haveCorpus)('the other mod packages beside LWR, rebuilt from their decompiled source', () => {
+  it('each built anew; together, their code as the originals', async () => {
+    const { readdirSync } = await import('node:fs')
+    const { classesPackage } = await import('../src/changes.ts')
+    const { ClassDecompiler } = await import('../src/classdecomp.ts')
+    const { emptyPackage } = await import('../src/writer.ts')
+    const { openPackage } = await import('../src/package.ts')
+    const { sameCode } = await import('./support/compare.ts')
+    const dir = dirname(CORPUS[4]!)
+    // (XComModShell names XComUIShell.UIFinalShell, in no package the samples have.)
+    const mods = readdirSync(dir).filter((f) => f.endsWith('.u') && !['LWRebalance.u', 'XComModShell.u'].includes(f))
+    let total = 0
+    let same = 0
+    for (const f of mods) {
+      const name = f.slice(0, -2)
+      const orig = load(`${dir}/${f}`)
+      const linker = new Linker([dir, dirname(CORPUS[0]!)])
+      linker.add(name, orig)
+      const sources: string[] = []
+      for (let ref = 1; ref <= orig.exports.length; ref++)
+        if (orig.className(ref) === 'Class') sources.push(new ClassDecompiler(linker, orig, ref, false).decompile())
+      const fresh = new Linker([dir, dirname(CORPUS[0]!)])
+      const built = openPackage(classesPackage(fresh, openPackage(emptyPackage(fresh.package('Core')!)), name, sources).bytes)
+      const r = sameCode(orig, built, name)
+      total += r.total
+      same += r.same
+    }
+    console.log(`${mods.length} mod packages rebuilt: code ${same}/${total} (${((100 * same) / total).toFixed(1)}%)`)
+    expect(same / total).toBeGreaterThan(0.95)
+  }, 300_000)
+})

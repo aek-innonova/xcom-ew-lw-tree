@@ -123,6 +123,32 @@ rest are where LWR was built against its own stubs of the game's classes),
 and 99.7% of its objects the same declarations (flags, links, members,
 defaults).
 
+The same for the other mod packages beside it in LWR's install (all built
+with Unreal's compiler):
+
+| Package | Functions and states | Same code | Same declarations |
+|---|---|---|---|
+| LWRebalance.u | 1,493 | 96.9% | 99.7% of 9,235 objects |
+| MiniModsCollection.u | 569 | 96.0% | 96.8% of 2,121 |
+| XComCampaignSummary.u | 100 | 89.0% | 96.6% of 441 |
+| XComLZMutator.u | 72 | 98.6% | 96.4% of 474 |
+| LWDebugger.u | 63 | 100% | 97.9% of 243 |
+| Sightlines.u | 32 | 100% | 98.0% of 147 |
+| CharacterColorizer.u | 24 | 100% | 96.7% of 92 |
+| LoadoutManager.u | 24 | 95.8% | 97.1% of 137 |
+| XComModsProfile.u | 23 | 100% | 97.9% of 146 |
+| XComModBridge.u | 22 | 100% | 92.5% of 107 |
+| XComMutator.u | 18 | 100% | 92.5% of 67 |
+| RevealMod.u | 14 | 85.7% | 94.9% of 59 |
+| XComSaveHelper.u | 8 | 100% | 98.0% of 49 |
+
+(XComModShell.u names a class of the game's, `XComUIShell.UIFinalShell`,
+that none of the game's package files the samples hold has, so it is not
+built.) What differs is mostly where a mod was built against its own stubs
+of the game's classes (a function not final there, a parameter an int), and
+details of the compiler those mods were built with (UDK's) that the game's
+own packages do not share (a class's probe mask, repeated hidden categories).
+
 None of what upkit writes has been loaded by the game yet: the packages are
 checked by reading them back (every object to its end, every class
 decompiled to its source, every function compiled back to the same bytes),

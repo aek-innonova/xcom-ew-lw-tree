@@ -182,7 +182,14 @@ export interface ClassEdits {
   states: StateDecl[]
 }
 
-export function classEdits(linker: Linker, pkg: Package, className: string, src: string): ClassEdits {
+export function classEdits(
+  linker: Linker,
+  pkg: Package,
+  className: string,
+  src: string,
+  /** Paths compiled whatever they decompile to now (just declared: their bodies are stubs). */
+  always: Set<string> = new Set(),
+): ClassEdits {
   const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [] }
   for (const p of splitClass(src)) {
     // Declarations the class may not have yet: known by name.
@@ -222,7 +229,7 @@ export function classEdits(linker: Linker, pkg: Package, className: string, src:
     } catch {
       original = ''
     }
-    if (!same(original, p.text)) out.changes.push({ ref, text: p.text, path })
+    if (always.has(path.toLowerCase()) || !same(original, p.text)) out.changes.push({ ref, text: p.text, path })
   }
   return out
 }

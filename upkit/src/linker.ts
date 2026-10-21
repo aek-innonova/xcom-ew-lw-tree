@@ -57,7 +57,7 @@ export class Linker {
   }
 
   /** The game's script packages: where a type that new code names may be, beyond what its package imports. */
-  static readonly SCRIPT_PACKAGES = ['Core', 'Engine', 'GameFramework', 'GFxUI', 'IpDrv', 'XComGame', 'XComStrategyGame', 'XComUIShell']
+  static readonly SCRIPT_PACKAGES = ['Core', 'Engine', 'GameFramework', 'GFxUI', 'IpDrv', 'OnlineSubsystemSteamworks', 'XComGame', 'XComStrategyGame', 'XComShell']
 
   /** A class, struct or enum by name: in the packages read so far, then the game's script packages. */
   findType(name: string): Located | null {

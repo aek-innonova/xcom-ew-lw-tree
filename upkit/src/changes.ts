@@ -5,7 +5,7 @@
 import { encodeScript, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classEdits } from './classsrc.ts'
-import { declare, declareClass, declareFields, declareStruct, parseClassHeader } from './declare.ts'
+import { declare, declareClass, declareFields, declareStruct, declareSubobjects, parseClassHeader, subobjectsOf } from './declare.ts'
 import { defaultsBlock, defaultsChanges, structDefaults } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
@@ -170,6 +170,14 @@ export function classesPackage(
     implicit.set(c.name, r.defaults)
     declared.push(c.name)
   }
+  // Components their defaults declare that their default objects do not have.
+  for (const c of classes) {
+    const block = defaultsBlock(c.src)
+    const subs = block ? subobjectsOf(block) : []
+    if (!subs.length) continue
+    const b = declareSubobjects(linker, target, target.find(c.name), subs)
+    if (b !== target.bytes) step(b)
+  }
   // Then, for all the classes (each step can name what the one before declared):
   // constants, enums and states; structs; delegates; variables and functions.
   for (const c of classes) {
@@ -178,13 +186,27 @@ export function classesPackage(
     step(declareFields(linker, target, target.find(c.name), e))
     declared.push(...[...e.consts, ...e.enums, ...e.states].map((x) => `${c.name}.${x.name}`))
   }
+  // Structs, each once the types its members name are there (a struct can use one declared later).
   const structDefaultsToDo: { cls: string; name: string; block: string }[] = []
-  for (const c of classes)
-    for (const s of classEdits(linker, target, c.name, c.src).structs) {
-      step(declareStruct(linker, target, target.find(c.name), s))
+  let structs = classes.flatMap((c) => classEdits(linker, target, c.name, c.src).structs.map((s) => ({ c, s })))
+  while (structs.length) {
+    const left: typeof structs = []
+    let lastError: unknown = null
+    for (const { c, s } of structs) {
+      try {
+        step(declareStruct(linker, target, target.find(c.name), s))
+      } catch (e) {
+        if (!/^no type /.test((e as Error).message)) throw e
+        left.push({ c, s })
+        lastError = e
+        continue
+      }
       declared.push(`${c.name}.${s.name}`)
       if (s.defaults?.trim()) structDefaultsToDo.push({ cls: c.name, name: s.name, block: s.defaults })
     }
+    if (left.length === structs.length) throw lastError
+    structs = left
+  }
   for (const c of classes) {
     const e = classEdits(linker, target, c.name, c.src)
     const delegates = e.functions.filter((f) => f.keyword === 'delegate')
@@ -208,8 +230,9 @@ export function classesPackage(
   const compiled: string[] = []
   const objects: string[] = []
   const added = { names: target.names.length - pkg.names.length, imports: target.imports.length - pkg.imports.length, exports: target.exports.length - pkg.exports.length }
+  const fresh = new Set(declared.map((d) => d.toLowerCase()))
   for (const c of classes) {
-    const e = classEdits(linker, target, c.name, c.src)
+    const e = classEdits(linker, target, c.name, c.src, fresh)
     const own = defaultsBlock(c.src)
     const extra = implicit.get(c.name) ?? []
     const block = extra.length || own !== null ? [...extra, own ?? ''].join('\n') : null

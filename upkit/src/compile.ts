@@ -184,6 +184,8 @@ export class FunctionCompiler {
   located(ref: number): Located {
     const added = this.addedAt.get(ref)
     if (added) return added.ref < 0 ? (this.linker.resolve(added.pkg, added.ref) ?? added) : added
+    // (An import added here of something not found, content the game cooks into its maps: itself.)
+    if (ref < 0 && -ref > this.pkg.imports.length) return { pkg: this.pkg, ref }
     return (ref > 0 ? { pkg: this.pkg, ref } : this.linker.resolve(this.pkg, ref)) ?? { pkg: this.pkg, ref }
   }
   /** Another package's import (an object only C++ defines): imported here too, the same way. */
@@ -493,7 +495,7 @@ export class FunctionCompiler {
       case 'self':
         return { node: N(0x17), ty: { k: 'object', cls: this.cls } }
       case 'objlit': {
-        const ref = this.findPath(e.path)
+        const ref = this.objectLiteral(e.cls, e.path)
         const at = this.located(ref)
         if (e.cls.toLowerCase() === 'class') return { node: N(0x20, ref), ty: { k: 'class', meta: at } }
         return { node: N(0x20, ref), ty: { k: 'object', cls: this.findType(e.cls) } }
@@ -613,6 +615,28 @@ export class FunctionCompiler {
     return { k: 'struct', struct: core && ref ? { pkg: core, ref } : null }
   }
 
+  /**
+   * Class'Path': the object, or (a whole package) an import of it by path and
+   * class without finding it, as the compiler imports content the game cooks
+   * into its maps (SoundCue'SoundUI.MenuCancelCue').
+   */
+  private objectLiteral(cls: string, path: string): number {
+    try {
+      return this.findPath(path)
+    } catch (e) {
+      if (this.allow !== 'all' || cls.toLowerCase() === 'class' || !path.includes('.')) throw e
+      const k = this.findClass(cls)
+      if (!k) throw e
+      const parts = path.split('.')
+      let outer = this.packageImport(parts[0]!)
+      for (let i = 1; i < parts.length - 1; i++) {
+        const key = parts.slice(0, i + 1).join('.').toLowerCase()
+        outer = this.imports.get(key) ?? this.addImport(key, 'Core', 'Package', outer, parts[i]!)
+      }
+      const kpkg = this.linker.nameOf(k.pkg) || k.pkg.path(k.ref).split('.')[0]!
+      return this.addImport(path.toLowerCase(), kpkg, k.pkg.objectName(k.ref), outer, parts.at(-1)!)
+    }
+  }
   private findPath(path: string): number {
     const r = this.pkg.find(path)
     if (r) return r
@@ -712,7 +736,16 @@ export class FunctionCompiler {
     // The return value's property, where this package imports it (a member call's context names it).
     const retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
     ;(node as Node & { retProp?: number }).retProp = retProp
-    return { node, ty: info.ret?.ty ?? { k: 'none' } }
+    // A coerced return (Spawn's): an object of the class passed in.
+    let ty: Ty = info.ret?.ty ?? { k: 'none' }
+    const rp = info.ret ? this.obj(info.ret.at) : null
+    if (rp?.kind === 'property' && rp.flags & CPF.CoerceParm) {
+      const k = info.params.findIndex((p) => p.ty.k === 'class')
+      const a = k >= 0 ? args[k] : null
+      const g = a ? this.gen(a) : null
+      if (g?.ty.k === 'class' && g.ty.meta) ty = { k: 'object', cls: g.ty.meta }
+    }
+    return { node, ty }
   }
 
   private call(e: Expr & { k: 'call' }, want: Ty | undefined): Gen {
@@ -1194,13 +1227,6 @@ export class FunctionCompiler {
         this.emit(N(0x49, memSizeOf(g.node) + 1, g.node, 0x15))
       } else this.emit(N(0x0b))
     }
-    // A function declared without a body (a delegate's, or one to override): the bare return.
-    if (!f.body && !(this.fn.flags & FUNC.Native)) {
-      this.out = []
-      this.emit(N(0x04, N(0x0b)))
-      this.emit(N(0x53))
-      return this.layout()
-    }
     // A native function without a body: the stub (each parameter as NativeParm, then nothing).
     if (!f.body && this.fn.flags & FUNC.Native) {
       for (const p of this.params) this.emit(N(0x29, p.ref))
@@ -1250,7 +1276,16 @@ export class FunctionCompiler {
     if (m) return { k: 'class', meta: this.findType(m[1]!) }
     m = /^delegate<(.+)>$/i.exec(t)
     if (m) {
-      const fn = this.findFunction(m[1]!)
+      // In the class's scope; Class.Name; else the package's delegate of that name (another class's).
+      const dot = m[1]!.indexOf('.')
+      const owner = dot > 0 ? this.findClass(m[1]!.slice(0, dot)) : null
+      const name = dot > 0 ? m[1]!.slice(dot + 1) : m[1]!
+      let fn = owner ? this.findFunction(name, owner) : this.findFunction(name)
+      for (let i = 1; !fn && i <= this.pkg.exports.length; i++)
+        if (this.pkg.className(i) === 'Function' && this.pkg.objectName(i).toLowerCase() === name.toLowerCase()) {
+          const o = this.obj({ pkg: this.pkg, ref: i })
+          if (o?.kind === 'function' && o.flags & FUNC.Delegate) fn = { pkg: this.pkg, ref: i }
+        }
       if (!fn) throw new CompileError(`no delegate ${m[1]}`)
       return { k: 'delegate', fn }
     }
