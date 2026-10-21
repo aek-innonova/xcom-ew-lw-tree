@@ -7,7 +7,7 @@ import type { Change } from './changes.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
-import { lex } from './parse.ts'
+import { lex, lineAt } from './parse.ts'
 import {
   parseConst,
   parseEnum,
@@ -28,6 +28,8 @@ export interface ClassPart {
   path: string
   kind: 'function' | 'state code' | 'var' | 'const' | 'enum' | 'struct' | 'state'
   text: string
+  /** Where it starts in the source (an offset). */
+  at?: number
 }
 
 const FUNCTION_WORDS = new Set(['function', 'event', 'delegate', 'operator', 'preoperator', 'postoperator'])
@@ -98,7 +100,7 @@ export function splitClass(src: string): ClassPart[] {
       const t = at(i)
       const f = functionAt(i)
       if (f) {
-        parts.push({ path: state ? `${state}.${f.name}` : f.name, kind: 'function', text: text(i, f.end) })
+        parts.push({ path: state ? `${state}.${f.name}` : f.name, kind: 'function', text: text(i, f.end), at: at(i).pos })
         i = f.end
         continue
       }
@@ -156,7 +158,7 @@ export function splitClass(src: string): ClassPart[] {
       codeStart = i
       break
     }
-    if (state && codeStart >= 0) parts.push({ path: state, kind: 'state code', text: text(codeStart, stop) })
+    if (state && codeStart >= 0) parts.push({ path: state, kind: 'state code', text: text(codeStart, stop), at: at(codeStart).pos })
   }
   members(0, toks.length - 1, null)
   return parts
@@ -242,7 +244,7 @@ export function classEdits(
     } catch {
       original = ''
     }
-    if (always.has(path.toLowerCase()) || !same(original, p.text)) out.changes.push({ ref, text: p.text, path })
+    if (always.has(path.toLowerCase()) || !same(original, p.text)) out.changes.push({ ref, text: p.text, path, line: p.at === undefined ? 1 : lineAt(src, p.at) })
   }
   return out
 }

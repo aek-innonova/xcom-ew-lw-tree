@@ -3,6 +3,18 @@
 // the UnrealScript a modder writes in a function: statements, expressions with
 // operators, calls, members, casts, literals.
 
+/** A source that does not parse, and where (an offset in it). */
+export class ParseError extends Error {
+  pos: number
+  constructor(message: string, pos: number) {
+    super(message)
+    this.pos = pos
+  }
+}
+
+/** The line (1-based) an offset in a source is on. */
+export const lineAt = (src: string, pos: number) => src.slice(0, Math.max(0, pos)).split('\n').length
+
 export type Tok = { t: 'id' | 'int' | 'float' | 'str' | 'name' | 'op' | 'eof'; v: string; pos: number; space: boolean }
 
 const OPS = [
@@ -81,12 +93,12 @@ export function lex(src: string): Tok[] {
       i = j + 1
     } else if (c === "'") {
       const j = src.indexOf("'", i + 1)
-      if (j < 0) throw new Error(`unclosed name at ${i}`)
+      if (j < 0) throw new ParseError('a name not closed', i)
       out.push({ t: 'name', v: src.slice(i + 1, j), pos, space })
       i = j + 1
     } else {
       const op = OPS.find((o) => src.startsWith(o, i))
-      if (!op) throw new Error(`unexpected '${c}' at ${i}`)
+      if (!op) throw new ParseError(`unexpected '${c}'`, i)
       out.push({ t: 'op', v: op, pos, space })
       i += op.length
     }
@@ -217,7 +229,7 @@ export class Parser {
     return false
   }
   private want(v: string) {
-    if (!this.eat(v)) throw new Error(`expected '${v}' at ${this.t.pos}, found '${this.t.v}'`)
+    if (!this.eat(v)) throw new ParseError(`expected '${v}', found '${this.t.v}'`, this.t.pos)
   }
   /** A label, or (upkit's dialect) @offset: a jump into the middle of a statement, as hand patches leave. */
   private jumpTarget(): string {
@@ -228,7 +240,7 @@ export class Parser {
     return this.id()
   }
   private id(): string {
-    if (this.t.t !== 'id') throw new Error(`expected a name at ${this.t.pos}, found '${this.t.v}'`)
+    if (this.t.t !== 'id') throw new ParseError(`expected a name, found '${this.t.v}'`, this.t.pos)
     return this.toks[this.i++]!.v
   }
 
@@ -303,7 +315,14 @@ export class Parser {
     return s ? [s] : []
   }
 
+  /** A statement, with where it starts in the source (for errors). */
   statement(): Stmt | null {
+    const pos = this.t.pos
+    const s = this.statement1()
+    if (s) (s as { pos?: number }).pos = pos
+    return s
+  }
+  private statement1(): Stmt | null {
     const t = this.t
     if (this.eat(';')) return { k: 'nothing' }
     if (this.is('{')) return { k: 'block', body: this.block() }
@@ -568,7 +587,7 @@ export class Parser {
       this.want(')')
       return e
     }
-    if (t.t !== 'id') throw new Error(`unexpected '${t.v}' at ${t.pos}`)
+    if (t.t !== 'id') throw new ParseError(`unexpected '${t.v}'`, t.pos)
     const w = t.v.toLowerCase()
     this.i++
     // Cls'Path' (no space between): an object literal.

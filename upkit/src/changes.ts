@@ -11,6 +11,7 @@ import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
+import { lineAt } from './parse.ts'
 import { modScript } from './patch.ts'
 import { writePackage } from './writer.ts'
 
@@ -19,6 +20,8 @@ export interface Change {
   ref: number
   /** Its new source: a function's declaration and body, or a state's code. */
   text: string
+  /** The line its source starts on in the file it came from (for errors; 1 if it is the file). */
+  line?: number
 }
 
 /** A class's defaultproperties, as its source has them. */
@@ -124,6 +127,17 @@ export function modScriptWith(
 }
 
 function compileOne(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<string, number>): Compiled {
+  try {
+    return compileOne1(fc, pkg, c, ops)
+  } catch (e) {
+    // Said with where: the function (or state) and the line in the file.
+    const pos = (e as { pos?: number }).pos
+    const line = pos === undefined ? null : (c.line ?? 1) + lineAt(c.text, pos) - 1
+    const err = new Error(`${pkg.path(c.ref)}${line ? `, line ${line}` : ''}: ${(e as Error).message}`)
+    throw err
+  }
+}
+function compileOne1(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<string, number>): Compiled {
   if (pkg.className(c.ref) === 'State') {
     const r = fc.compileStateCode(c.text, ops)
     const { code, memSize } = encodeScript(r.statements)

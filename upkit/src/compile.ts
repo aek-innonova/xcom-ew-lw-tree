@@ -11,7 +11,10 @@ import type { Package } from './package.ts'
 import { Parser, type Expr, type FunctionSource, type Stmt } from './parse.ts'
 import { CPF, FUNC, typeOf, type Ty } from './types.ts'
 
-export class CompileError extends Error {}
+export class CompileError extends Error {
+  /** Where in the source (an offset): the statement being compiled. */
+  pos?: number
+}
 
 const N = (op: number, ...args: Value[]): Node => ({ op, args, at: 0, mem: 0 })
 const NATIVE = (index: number, params: Node[]): Node => ({
@@ -1139,7 +1142,16 @@ export class FunctionCompiler {
   }
 
   private stmts(ss: Stmt[]) {
-    for (const s of ss) this.stmt(s)
+    for (const s of ss) {
+      try {
+        this.stmt(s)
+      } catch (e) {
+        // (The innermost statement says where.)
+        const pos = (s as { pos?: number }).pos
+        if (e instanceof Error && (e as CompileError).pos === undefined && pos !== undefined) (e as CompileError).pos = pos
+        throw e
+      }
+    }
   }
 
   private stmt(s: Stmt) {
