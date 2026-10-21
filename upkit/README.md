@@ -165,6 +165,14 @@ of the game's classes (a function not final there, a parameter an int), and
 details of the compiler those mods were built with (UDK's) that the game's
 own packages do not share (a class's probe mask, repeated hidden categories).
 
+A whole package (`--out`, keep layout) holds what PatchUPK makes of the same
+change: for an edited function (the same size, grown, shrunk, naming a name
+the package lacks), the package upkit writes and the original with upkit's
+mod script applied by the app's PatchUPK implementation have the same names,
+imports and export entries, and every object the same bytes. (PatchUPK also
+moves a shrunk object to the end and leaves an undo record after a moved one;
+the game reads neither.)
+
 None of what upkit writes has been loaded by the game yet: the packages are
 checked by reading them back (every object to its end, every class
 decompiled to its source, every function compiled back to the same bytes),
