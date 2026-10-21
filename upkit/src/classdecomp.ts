@@ -7,7 +7,7 @@ import { Reader } from './bytes.ts'
 import { floatText, FunctionDecompiler, stringText } from './decompile.ts'
 import type { Linker, Located } from './linker.ts'
 import { fidelity, fidelityNote } from './fidelity.ts'
-import { readStructHead, readTags, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
+import { readStructHead, readTags, tagsStart, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, typeOf, typeText, type Ty } from './types.ts'
 
@@ -189,7 +189,7 @@ export class ClassDecompiler {
   // --- defaultproperties ---------------------------------------------------------
 
   /** The property a tag sets, looked up in the class (or struct) and its parents. */
-  private propFor(scope: Located, name: string): Located | null {
+  propFor(scope: Located, name: string): Located | null {
     const want = name.toLowerCase()
     for (let s: Located | null = scope; s; ) {
       const o = this.linker.object(s)
@@ -245,7 +245,7 @@ export class ClassDecompiler {
     }
   }
 
-  private tagLine(t: Tag, scope: Located | null): string {
+  tagLine(t: Tag, scope: Located | null): string {
     const at = scope ? this.propFor(scope, t.name) : null
     const p = at ? (this.linker.object(at) as PropertyObj) : null
     let ty: Ty = p ? typeOf(this.linker, at!, p) : { k: 'unknown' }
@@ -295,7 +295,7 @@ export class ClassDecompiler {
     if (!ref || ref < 0) return []
     const pkg = this.pkg
     const r = new Reader(pkg.data(ref))
-    r.i32() // net index
+    r.o = tagsStart(this.linker, pkg, ref)
     let tags: Tag[]
     try {
       tags = readTags(r, pkg)
@@ -306,7 +306,7 @@ export class ClassDecompiler {
     // Subobjects (components) the defaults own.
     for (const sub of this.inside(ref)) {
       const sr = new Reader(pkg.data(sub))
-      sr.i32()
+      sr.o = tagsStart(this.linker, pkg, sub)
       let st: Tag[] = []
       try {
         st = readTags(sr, pkg)

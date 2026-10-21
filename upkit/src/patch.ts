@@ -127,6 +127,8 @@ export function modScript(
     /** Bytes to set in the object after its code is replaced (at an offset in it). */
     after?: { at: number; bytes: Uint8Array }
   }[],
+  /** Objects whose data changes otherwise (default properties). */
+  objects: { upk: string; pkg: Package; ref: number; data: Uint8Array; names?: string[] }[] = [],
 ): string {
   const added = new Set<string>()
   const lines = [`MOD_NAME=${info.name}`]
@@ -149,10 +151,65 @@ export function modScript(
         `OBJECT=${c.pkg.path(c.ref)}`,
         `REL_OFFSET=${c.after.at}`,
         '[MODDED_HEX]',
-        [...c.after.bytes].map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' '),
+        hexBytes(c.after.bytes),
       )
   }
+  for (const o of objects) {
+    if (o.upk !== upk) lines.push('', `UPK_FILE=${(upk = o.upk)}`)
+    for (const n of o.names ?? []) {
+      if (added.has(n)) continue
+      added.add(n)
+      lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
+    }
+    lines.push(...objectEditLines(o.pkg, o.ref, o.data))
+  }
   return lines.join('\n') + '\n'
+}
+
+const hexBytes = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0').toUpperCase()).join(' ')
+
+/**
+ * An object's data changed (default properties): the same size as hex at
+ * offsets in it; another size as the part that changed, found and replaced
+ * (BEFORE_HEX / AFTER_HEX), the object resized to fit (AUTO).
+ */
+export function objectEditLines(pkg: Package, ref: number, data: Uint8Array): string[] {
+  const path = pkg.path(ref)
+  if (pkg.find(path) !== ref) throw new Error(`${path}: another object has that path, so a mod script cannot name it (--out can)`)
+  const orig = pkg.data(ref)
+  const lines: string[] = []
+  if (data.length === orig.length) {
+    lines.push('', `OBJECT=${path}`)
+    // Runs of changed bytes (a few unchanged between them join the run).
+    for (let i = 0; i < data.length; ) {
+      if (data[i] === orig[i]) {
+        i++
+        continue
+      }
+      let j = i
+      let last = i
+      while (j < data.length && j - last < 8) {
+        if (data[j] !== orig[j]) last = j
+        j++
+      }
+      lines.push(`REL_OFFSET=${i}`, '[MODDED_HEX]', hexBytes(data.subarray(i, last + 1)))
+      i = last + 1
+    }
+    return lines
+  }
+  let p = 0
+  while (p < orig.length && p < data.length && orig[p] === data[p]) p++
+  let q = 0
+  while (q < orig.length - p && q < data.length - p && orig[orig.length - 1 - q] === data[data.length - 1 - q]) q++
+  // What is replaced must be found once in the object: widened backwards until it is.
+  const count = (b: Uint8Array) => {
+    let n = 0
+    for (let i = 0; i + b.length <= orig.length; i++) if (b.every((x, k) => orig[i + k] === x) && ++n > 1) break
+    return n
+  }
+  while (p > 0 && (p === orig.length - q || count(orig.subarray(p, orig.length - q)) !== 1)) p--
+  lines.push('', `OBJECT=${path}:AUTO`, '[BEFORE_HEX]', hexBytes(orig.subarray(p, orig.length - q)), '[AFTER_HEX]', hexBytes(data.subarray(p, data.length - q)))
+  return lines
 }
 
 /** A name table entry in pseudo-code: its length, its text, its flags (as the game's names have). */

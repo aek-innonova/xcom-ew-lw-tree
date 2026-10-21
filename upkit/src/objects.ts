@@ -15,7 +15,8 @@ export interface Tag {
   enumName?: string
   /** BoolProperty: the value (kept in the tag, size 0). */
   boolValue?: number
-  /** Where the value is in the object's data, and its bytes. */
+  /** Where the tag starts in the object's data; where its value is, and its bytes. */
+  at: number
   valueAt: number
   value: Uint8Array
 }
@@ -26,12 +27,13 @@ const nameRef = (r: Reader): NameRef => ({ index: r.i32(), number: r.i32() })
 export function readTags(r: Reader, pkg: Package): Tag[] {
   const out: Tag[] = []
   for (;;) {
+    const at = r.o
     const name = pkg.name(nameRef(r))
     if (name === 'None') return out
     const type = pkg.name(nameRef(r))
     const size = r.i32()
     const arrayIndex = r.i32()
-    const tag: Partial<Tag> = { name, type, size, arrayIndex }
+    const tag: Partial<Tag> = { name, type, size, arrayIndex, at }
     if (type === 'StructProperty') tag.structName = pkg.name(nameRef(r))
     else if (type === 'ByteProperty') tag.enumName = pkg.name(nameRef(r))
     else if (type === 'BoolProperty') tag.boolValue = r.u8()
@@ -269,3 +271,22 @@ export function readObject(pkg: Package, ref: number): ScriptObject | null {
     throw new Error(`${cls} ${pkg.path(ref)}: read ${r.o} of ${data.length} bytes`)
   return obj
 }
+
+/**
+ * Where an object's tagged properties start in its data: after its net index;
+ * a component's (but a class's default component) after its template owner
+ * class and template name, then its net index.
+ */
+export function tagsStart(linker: import('./linker.ts').Linker, pkg: Package, ref: number): number {
+  // A class's default object is no template of another's: just its net index.
+  if (pkg.exports[ref - 1]!.objectFlags & 0x200n) return 4
+  let cls = linker.resolve(pkg, pkg.exports[ref - 1]!.classIndex)
+  for (let n = 0; cls && n < 64; n++) {
+    if (cls.pkg.objectName(cls.ref) === 'Component' && cls.pkg.path(cls.ref) === 'Component') return 16
+    const o = linker.object(cls)
+    if (!o || !('head' in o) || !o.head.superStruct) break
+    cls = linker.resolve(cls.pkg, o.head.superStruct)
+  }
+  return 4
+}
+

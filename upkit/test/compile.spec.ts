@@ -154,11 +154,14 @@ describe.skipIf(!haveCorpus)('a whole class edited', () => {
     src
       .replace(/(state EarthViewTransition[\s\S]*?Begin:\n {4})Sleep\(0\.01\);/, '$1Sleep(0.5);\nDone:\n    Sleep(0.25);')
       .replace(/(function bool IsMoving\(\)\n\{\n[\s\S]*?)return /, '$1if (true) { return true; }\n    return ')
+      // A default changed, and one added (the default object grows).
+      .replace('DefaultFOV=30.0', 'DefaultFOV=45.0\n    fEarthTransitionInterp=2.5')
 
   it('compiles what was edited, into a package and as a mod script, which agree', async () => {
     const { decompileClass } = await import('../src/classdecomp.ts')
     const { classChanges } = await import('../src/classsrc.ts')
     const { packageWith, modScriptWith } = await import('../src/changes.ts')
+    const { defaultsBlock } = await import('../src/defaults.ts')
     const { Package } = await import('../src/package.ts')
     const { Package: AppPackage } = await import('../../src/model/upk.ts')
     const { runScript } = await import('../../src/model/modpatch.ts')
@@ -187,14 +190,24 @@ describe.skipIf(!haveCorpus)('a whole class edited', () => {
       expect(new FunctionDecompiler(back, out, out.find('XComHeadquartersCamera.IsMoving')).decompile()).toContain('if (true)')
       return code
     }
-    const whole = new Package(packageWith(linker, pkg, changes).bytes)
+    const defaults = { classRef: pkg.find('XComHeadquartersCamera'), block: defaultsBlock(edited)! }
+    const whole = new Package(packageWith(linker, pkg, changes, 'keep', defaults).bytes)
     const a = check(whole)
-    const mod = modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'test' })
+    const mod = modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'test' }, defaults)
     expect(mod.text).toContain('REL_OFFSET=')
+    expect(mod.text).toContain('OBJECT=Default__XComHeadquartersCamera:AUTO')
     const copy = new AppPackage(pkg.bytes.slice())
     const result = runScript(mod.text, { open: () => copy })
     expect(result.steps.filter((s) => s.status === 'error')).toEqual([])
-    const b = check(new Package(copy.bytes))
+    const patched = new Package(copy.bytes)
+    const b = check(patched)
     expect(b).toEqual(a)
+    // The default object, the same either way, and as edited.
+    const dobj = pkg.find('Default__XComHeadquartersCamera')
+    expect([...patched.data(dobj)]).toEqual([...whole.data(dobj)])
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('XComStrategyGame', whole)
+    const text = decompileClass(back, whole, 'XComHeadquartersCamera')
+    expect(text).toContain('DefaultFOV=45.0\n    fEarthTransitionInterp=2.5\n}')
   })
 })

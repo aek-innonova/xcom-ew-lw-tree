@@ -76,9 +76,17 @@ What an edited body needs that the package lacks is added:
 Given a whole class's source (as `class` writes it), `compile` finds the
 functions and states' code whose source differs from what the package
 decompiles to, and compiles those, together (what they add is added once).
+Its `defaultproperties` are compiled too: a value changed or added (in the
+class's default object, or a component it owns) is written from the
+variable's type; every entry left as it was keeps its bytes. Every class's
+defaults in the packages above, written out and compiled from the text
+alone, come back byte for byte. In a mod script, a change that keeps the
+object's size is hex at offsets in it; one that does not replaces the part
+that changed, and PatchUPK resizes the object.
 
 Not compiled yet: other declarations (new member variables, functions,
-states, classes, a function's signature), defaultproperties, replication.
+states, classes, a function's signature), new subobjects in the defaults,
+replication.
 
 Hand patches can hold bytecode no UnrealScript compiles to (a flag set
 otherwise, a skip size that is not what it skips). `decompile` says so above
@@ -124,6 +132,7 @@ writes it in a form the compiler reads back the same:
 | `src/patch.ts` | a change as a PatchUPK mod script |
 | `src/changes.ts` | a set of changes compiled together, into a package or a mod script |
 | `src/classsrc.ts` | a class's source split into its functions and states' code; what was edited |
+| `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
 | `src/fidelity.ts` | whether a function's source says all its bytecode (the note on hand patches) |
 | `src/cli.ts` | the command line |
 

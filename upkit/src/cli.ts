@@ -22,9 +22,10 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname } from 'node:path'
-import { binaryOperators, FunctionCompiler } from './compile.ts'
+import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { modScriptWith, packageWith } from './changes.ts'
 import { classChanges } from './classsrc.ts'
+import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import { fidelity, fidelityNote } from './fidelity.ts'
@@ -130,29 +131,34 @@ try {
       const text = readFileSync(source, 'utf8')
       // A class: the functions and states' code that were edited in its source. Else one function or state.
       const target = pkg.find(path)
-      const changes =
-        target && pkg.className(target) === 'Class'
-          ? classChanges(linker, pkg, path, text)
-          : [{ ref: functionRef(pkg, path), text, path }]
-      if (!changes.length) {
+      const isClass = !!target && pkg.className(target) === 'Class'
+      const changes = isClass ? classChanges(linker, pkg, path, text) : [{ ref: functionRef(pkg, path), text, path }]
+      const block = isClass ? defaultsBlock(text) : null
+      const defaults = block !== null ? { classRef: target, block } : undefined
+      // What the defaults change (nothing when they are as the package has them).
+      const objects = defaults ? defaultsChanges(linker, pkg, target, defaults.block, { shared: shared(), allow: 'all' }).map((e) => e.ref) : []
+      if (!changes.length && !objects.length) {
         console.log(`${path}: nothing edited (the source decompiles from the package as it is)`)
         break
       }
-      const what = changes.map((c) => c.path).join(', ')
+      const what = [...changes.map((c) => c.path), ...objects.map((r) => `${pkg.path(r)} (default properties)`)].join(', ')
       if (patch) {
-        const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` })
+        const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` }, defaults)
         writeFileSync(patch, r.text)
         console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}`)
       }
       if (out) {
-        const r = packageWith(linker, pkg, changes, layout)
+        const r = packageWith(linker, pkg, changes, layout, defaults)
         writeFileSync(out, r.bytes)
         const extras = [
           r.added.names && `${r.added.names} names`,
           r.added.imports && `${r.added.imports} imports`,
           r.added.exports && `${r.added.exports} new local properties`,
         ].filter(Boolean)
-        const sizes = r.compiled.map((c) => `${pkg.path(c.ref)} ${readStructHead(pkg, c.ref).size} → ${c.code.length} bytes`)
+        const sizes = [
+          ...r.compiled.map((c) => `${pkg.path(c.ref)} ${readStructHead(pkg, c.ref).size} → ${c.code.length} bytes`),
+          ...r.objects.map((o) => `${pkg.path(o)} (default properties)`),
+        ]
         console.log(`wrote ${out} (${layout} layout): ${sizes.join('; ')}${extras.length ? `; added ${extras.join(', ')}` : ''}`)
       }
       break

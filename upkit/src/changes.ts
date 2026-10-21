@@ -4,6 +4,7 @@
 
 import { encodeScript, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
+import { defaultsChanges } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
@@ -16,6 +17,12 @@ export interface Change {
   ref: number
   /** Its new source: a function's declaration and body, or a state's code. */
   text: string
+}
+
+/** A class's defaultproperties, as its source has them. */
+export interface DefaultsSource {
+  classRef: number
+  block: string
 }
 
 export interface Compiled {
@@ -33,7 +40,8 @@ export function packageWith(
   pkg: Package,
   changes: Change[],
   layout: 'keep' | 'compact' = 'keep',
-): { bytes: Uint8Array; compiled: Compiled[]; added: { names: number; imports: number; exports: number } } {
+  defaults?: DefaultsSource,
+): { bytes: Uint8Array; compiled: Compiled[]; objects: number[]; added: { names: number; imports: number; exports: number } } {
   const ops = binaryOperators(linker)
   const sh = shared()
   const data = new Map<number, Uint8Array>()
@@ -53,9 +61,15 @@ export function packageWith(
     exports.push(...add.exports)
     sh.exports += add.exports.length
   }
+  const objects: number[] = []
+  if (defaults)
+    for (const e of defaultsChanges(linker, pkg, defaults.classRef, defaults.block, { shared: sh, allow: 'all' })) {
+      data.set(e.ref, e.data)
+      objects.push(e.ref)
+    }
   const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
   const bytes = writePackage(pkg, { data, names, imports: sh.imports, exports, layout })
-  return { bytes, compiled, added: { names: names.length, imports: sh.imports.length, exports: exports.length } }
+  return { bytes, compiled, objects, added: { names: names.length, imports: sh.imports.length, exports: exports.length } }
 }
 
 /**
@@ -68,7 +82,8 @@ export function modScriptWith(
   upk: string,
   changes: Change[],
   info: { name: string; author?: string; description?: string },
-): { text: string; compiled: Compiled[]; names: string[] } {
+  defaults?: DefaultsSource,
+): { text: string; compiled: Compiled[]; objects: number[]; names: string[] } {
   const ops = binaryOperators(linker)
   const sh = shared()
   const compiled: Compiled[] = []
@@ -77,6 +92,7 @@ export function modScriptWith(
     fc.allow = 'names'
     compiled.push(compileOne(fc, pkg, c, ops))
   }
+  const edits = defaults ? defaultsChanges(linker, pkg, defaults.classRef, defaults.block, { shared: sh, allow: 'names' }) : []
   const text = modScript(
     info,
     compiled.map((c) => ({
@@ -91,8 +107,9 @@ export function modScriptWith(
           ? undefined
           : { at: readStructHead(pkg, c.ref).scriptAt + c.code.length + 4, bytes: u16(c.labelTableOffset) },
     })),
+    edits.map((e) => ({ upk, pkg, ref: e.ref, data: e.data, names: sh.names })),
   )
-  return { text, compiled, names: sh.names }
+  return { text, compiled, objects: edits.map((e) => e.ref), names: sh.names }
 }
 
 function compileOne(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<string, number>): Compiled {
