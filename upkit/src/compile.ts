@@ -181,6 +181,22 @@ export class FunctionCompiler {
   }
   /** What imports added here refer to (the package's table does not have them yet). */
   private addedAt = new Map<number, Located>()
+  /** Calls' return properties, imported only when used (a context names one, an eaten value). */
+  private retAts = new WeakMap<Node, Located>()
+  private retPropOf(n: Node): number {
+    const v = (n as Node & { retProp?: number }).retProp
+    if (v !== undefined) return v
+    const at = this.retAts.get(n)
+    const r = at ? this.refOfMaybe(at) : 0
+    ;(n as Node & { retProp?: number }).retProp = r
+    return r
+  }
+  private retAtOf(n: Node): Located | null {
+    const at = this.retAts.get(n)
+    if (at) return at
+    const v = (n as Node & { retProp?: number }).retProp
+    return v ? this.located(v) : null
+  }
   /** A reference here, followed to where it is defined (an import added here too). */
   located(ref: number): Located {
     const added = this.addedAt.get(ref)
@@ -434,7 +450,7 @@ export class FunctionCompiler {
       case 0x1a:
         return this.propOf(n.args[1] as Node)
     }
-    return (n as Node & { retProp?: number }).retProp ?? 0
+    return this.retPropOf(n)
   }
 
   private boolWrap(node: Node, ty: Ty): Node {
@@ -779,8 +795,8 @@ export class FunctionCompiler {
       node = N(0x1c, this.refOf(at), this.argsFor(info.params, args, false))
     else node = N(0x1b, this.nameRef(at.pkg.objectName(at.ref)), this.argsFor(info.params, args, false))
     // The return value's property, where this package imports it (a member call's context names it).
-    const retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
-    ;(node as Node & { retProp?: number }).retProp = retProp
+    // (Its return value's property, imported only where a context or an eaten value names it.)
+    if (info.ret) this.retAts.set(node, info.ret.at)
     // A coerced return (Spawn's): an object of the class passed in.
     let ty: Ty = info.ret?.ty ?? { k: 'none' }
     const rp = info.ret ? this.obj(info.ret.at) : null
@@ -830,7 +846,7 @@ export class FunctionCompiler {
       if (dv && dv.ty.k === 'delegate' && dv.ty.fn) {
         const info = this.fnInfo(dv.ty.fn)
         const node = N(0x42, local ? 1 : 0, dv.ref, this.nameRef(dv.ty.fn.pkg.objectName(dv.ty.fn.ref)), this.argsFor(info.params, args, false))
-        ;(node as Node & { retProp?: number }).retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
+        if (info.ret) this.retAts.set(node, info.ret.at)
         return { node, ty: info.ret?.ty ?? { k: 'none' } }
       }
       const f = this.findFunction(fn.name)
@@ -841,7 +857,7 @@ export class FunctionCompiler {
         if (hidden) {
           const info = this.fnInfo(f)
           const node = N(0x42, 0, this.refOf(hidden), this.nameRef(fn.name), this.argsFor(info.params, args, false))
-          ;(node as Node & { retProp?: number }).retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
+          if (info.ret) this.retAts.set(node, info.ret.at)
           return { node, ty: info.ret?.ty ?? { k: 'none' } }
         }
         return this.callNode(f, args)
@@ -864,7 +880,7 @@ export class FunctionCompiler {
       const f = this.findFunction(fn.name, this.cls)
       const info = f ? this.fnInfo(f) : null
       const node = N(0x37, this.nameRef(fn.name), info ? this.argsFor(info.params, args, false) : args.map((a) => (a ? this.gen(a).node : N(0x4a))))
-      ;(node as Node & { retProp?: number }).retProp = info?.ret ? this.refOfMaybe(info.ret.at) : 0
+      if (info?.ret) this.retAts.set(node, info.ret.at)
       return { node, ty: info?.ret?.ty ?? { k: 'none' } }
     }
     if (fn.k === 'static') {
@@ -873,7 +889,7 @@ export class FunctionCompiler {
       const f = cls && this.findFunction(fn.name, cls)
       if (!f) throw new CompileError(`no static ${fn.name}`)
       const c = this.callNode(f, args)
-      const retProp = (c.node as Node & { retProp?: number }).retProp ?? 0
+      const retProp = this.retPropOf(c.node)
       return { node: N(0x12, o.node, memSizeOf(c.node), retProp, 0, c.node), ty: c.ty }
     }
     if (fn.k === 'member') {
@@ -900,7 +916,7 @@ export class FunctionCompiler {
       }
       if (!f) throw new CompileError(`no function ${fn.name}`)
       const c = this.callNode(f, args)
-      const retProp = (c.node as Node & { retProp?: number }).retProp ?? 0
+      const retProp = this.retPropOf(c.node)
       const ctx = o.ty.k === 'interface' ? N(0x51, o.node) : this.unwrapBool(o.node)
       const node = N(0x19, ctx, memSizeOf(c.node), retProp, 0, c.node)
       ;(node as Node & { retProp?: number }).retProp = retProp
@@ -1097,7 +1113,7 @@ export class FunctionCompiler {
       return p.p.flags & CPF.SkipParm ? N(0x18, memSizeOf(g.node) + 1, g.node) : g.node
     })
     const node = NATIVE(info.fn.native, ps)
-    ;(node as Node & { retProp?: number }).retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
+    if (info.ret) this.retAts.set(node, info.ret.at)
     return { node, ty: info.ret?.ty ?? { k: 'none' } }
   }
   /** This package's reference to an object if it already has one (never adds an import), else 0. */
@@ -1147,12 +1163,14 @@ export class FunctionCompiler {
         const k = g.ty.k
         // A value dropped that needs cleaning up: a string or struct from a call.
         const isCall = g.node.native !== undefined || [0x1b, 0x1c, 0x19, 0x12, 0x37].includes(g.node.op)
-        const retProp = (g.node as Node & { retProp?: number }).retProp ?? 0
         // (Eaten only when the value is destroyed: a string, an array, a struct holding them.)
-        const rp = retProp ? this.obj(this.located(retProp)) : null
+        const retAt = isCall ? this.retAtOf(g.node) : null
+        const rp = retAt ? this.obj(retAt) : null
         const destroyed = rp?.kind === 'property' ? !!(rp.flags & 0x400000n) : k === 'string' || k === 'array'
-        if (isCall && retProp && destroyed && (k === 'string' || k === 'struct' || k === 'array') && g.node.op !== 0x0f)
-          return this.emit(N(0x0e, retProp, g.node))
+        if (isCall && retAt && destroyed && (k === 'string' || k === 'struct' || k === 'array') && g.node.op !== 0x0f) {
+          const retProp = this.retPropOf(g.node)
+          if (retProp) return this.emit(N(0x0e, retProp, g.node))
+        }
         // A sort of elements that are constructed (structs holding strings, arrays): its
         // result eaten, as the array's element (so the compiler writes it).
         if (g.node.op === 0x59) {
