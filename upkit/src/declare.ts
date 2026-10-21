@@ -428,10 +428,13 @@ const CLASS_MODIFIERS: Record<string, number> = {
 
 /** class Name extends Parent [within Outer] [modifiers]; */
 export function parseClassHeader(src: string): ClassDecl {
-  const m = /^\s*class\s+(\w+)\s+extends\s+(\w+)([^;]*);/im.exec(src.replace(/\/\/.*$/gm, ''))
+  // class Name extends Parent …; or interface Name [extends Other] … (an interface's parent: Interface).
+  const m = /^\s*(class|interface)\s+(\w+)(?:\s+extends\s+(\w+))?([^;]*);/im.exec(src.replace(/\/\/.*$/gm, ''))
   if (!m) throw new DeclareError('no "class Name extends Parent …;" declaration')
-  const d: ClassDecl = { name: m[1]!, parent: m[2]!, within: null, config: null, flags: 0, clears: 0, interfaces: [] }
-  const rest = m[3]!
+  const isInterface = m[1]!.toLowerCase() === 'interface'
+  if (!isInterface && !m[3]) throw new DeclareError(`class ${m[2]}: it extends what? (class ${m[2]} extends Object …;)`)
+  const d: ClassDecl = { name: m[2]!, parent: m[3] ?? 'Interface', within: null, config: null, flags: isInterface ? 0x1 : 0, clears: 0, interfaces: [] }
+  const rest = m[4]!
   const within = /\bwithin\s+(\w+)/i.exec(rest)
   if (within) d.within = within[1]!
   const implementsList = /\bimplements\s*\(([^)]*)\)/i.exec(rest)

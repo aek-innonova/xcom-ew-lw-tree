@@ -502,3 +502,24 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
       }
     })
 })
+
+describe.skipIf(!haveCorpus)('an interface and a class implementing it, built as a new package', () => {
+  it('declared as the game declares its interfaces; called through the interface', async () => {
+    const { readFileSync: read } = await import('node:fs')
+    const { classesPackage } = await import('../src/changes.ts')
+    const { decompileClass } = await import('../src/classdecomp.ts')
+    const { emptyPackage } = await import('../src/writer.ts')
+    const { readObject } = await import('../src/objects.ts')
+    const sources = ['IUpkitScorer', 'UpkitScorer'].map((n) => read(new URL(`./fixtures/${n}.uc`, import.meta.url), 'utf8'))
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const out = openPackage(classesPackage(linker, openPackage(emptyPackage(linker.package('Core')!)), 'UpkitScore', sources).bytes)
+    const iface = readObject(out, out.find('IUpkitScorer')) as { classFlags: number }
+    expect(iface.classFlags).toBe(0x4013) // interface, abstract, compiled, parsed: as the game's
+    const impl = readObject(out, out.find('UpkitScorer')) as { interfaces: { cls: number }[] }
+    expect(impl.interfaces.map((x) => out.path(x.cls))).toEqual(['IUpkitScorer'])
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('UpkitScore', out)
+    expect(decompileClass(back, out, 'IUpkitScorer')).toContain('function int Score(Actor kTarget);')
+    expect(decompileClass(back, out, 'UpkitScorer')).toContain('iTotal += S.Score(kTarget);')
+  })
+})

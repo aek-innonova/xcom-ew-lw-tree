@@ -185,7 +185,8 @@ load a new package (Long War's mutators are one way) is outside upkit.
 Declared too: constants, enums, structs (with their
 `structdefaultproperties`), states (`auto`, `simulated`, `extends`; their
 functions and code), delegates and delegate-typed variables, functions
-declared without a body.
+declared without a body, interfaces (`interface IFoo;`, as the game's are)
+and classes that implement them.
 
 What the source leaves out stays in the package (nothing is deleted), and a
 declaration the package has, changed in the source (a function's parameters,

@@ -148,7 +148,7 @@ try {
       // A class: what was edited (or declared anew) in its source. Else one function or state.
       const target = pkg.find(path)
       // (A class the package does not have, declared in the source: a new class.)
-      const isNew = !target && new RegExp(`^\\s*class\\s+${path}\\b`, 'im').test(text)
+      const isNew = !target && new RegExp(`^\\s*(class|interface)\\s+${path}\\b`, 'im').test(text)
       const isClass = isNew || (!!target && pkg.className(target) === 'Class')
       const edits = isClass && !isNew ? classEdits(linker, pkg, path, text) : null
       const declared = isNew
