@@ -75,6 +75,18 @@ export class FunctionCompiler {
   private retRef = 0
   private retTy: Ty | null = null
   private imports = new Map<string, number>()
+  /**
+   * What the compiled code may add to the package: nothing (it must all be
+   * there), names (a mod script can add those), or names, imports and new
+   * local variables (a whole package).
+   */
+  allow: 'none' | 'names' | 'all' = 'none'
+  /** Added by the compiled code (see additions()). */
+  readonly added = {
+    names: [] as string[],
+    imports: [] as import('./package.ts').Import[],
+    locals: [] as { name: string; dim: number; ty: Ty; ref: number; cls: string; refs: number[]; inner?: { ref: number; cls: string; refs: number[] } }[],
+  }
   private labels = new Map<string, Label>()
   private loops: { breakTo: Label; continueTo: Label | null }[] = []
 
@@ -114,8 +126,38 @@ export class FunctionCompiler {
     if (at.pkg === this.pkg) return at.ref
     const key = `${this.linker.nameOf(at.pkg)}.${at.pkg.path(at.ref)}`.toLowerCase()
     const r = this.imports.get(key)
-    if (r === undefined) throw new CompileError(`${at.pkg.path(at.ref)} is not imported by this package`)
-    return r
+    if (r !== undefined) return r
+    if (this.allow !== 'all')
+      throw new CompileError(`${at.pkg.path(at.ref)} is not imported by this package (a whole package, --out, can add it)`)
+    // Imported here from now on: its outers first (up to its package), then itself.
+    const outer = at.pkg.outerOf(at.ref)
+    const outerRef = outer ? this.refOf({ pkg: at.pkg, ref: outer }) : this.packageImport(this.linker.nameOf(at.pkg))
+    const e = at.pkg.exports[at.ref - 1]!
+    const clsPkg = e.classIndex < 0 ? at.pkg.path(e.classIndex).split('.')[0]! : e.classIndex > 0 ? this.linker.nameOf(at.pkg) : 'Core'
+    return this.addImport(key, clsPkg, at.pkg.className(at.ref), outerRef, at.pkg.objectName(at.ref))
+  }
+  private addImport(key: string, classPackage: string, className: string, outer: number, name: string): number {
+    const ref = -(this.pkg.imports.length + this.added.imports.length + 1)
+    this.added.imports.push({
+      classPackage: this.nameRef(classPackage),
+      className: this.nameRef(className),
+      outer,
+      objectName: this.nameRef(name),
+    })
+    this.imports.set(key, ref)
+    return ref
+  }
+  private packageImport(name: string): number {
+    const r = this.imports.get(name.toLowerCase())
+    if (r !== undefined) return r
+    return this.addImport(name.toLowerCase(), 'Core', 'Package', 0, name)
+  }
+  /** Core's class for a property kind ("IntProperty"): imported by every package with scripts, else added. */
+  private coreClass(name: string): number {
+    const r = this.imports.get(`core.${name}`.toLowerCase())
+    if (r !== undefined) return r
+    if (this.allow !== 'all') throw new CompileError(`Core.${name} is not imported by this package`)
+    return this.addImport(`core.${name}`.toLowerCase(), 'Core', 'Class', this.packageImport('Core'), name)
   }
   private obj(at: Located): ScriptObject | null {
     return this.linker.object(at)
@@ -128,8 +170,13 @@ export class FunctionCompiler {
       base = name.slice(0, us)
       number = Number(name.slice(us + 1)) + 1
     }
-    const index = this.pkg.findName(base)
-    if (index < 0) throw new CompileError(`the name '${name}' is not in this package`)
+    let index = this.pkg.findName(base)
+    if (index < 0) {
+      if (this.allow === 'none') throw new CompileError(`the name '${name}' is not in this package`)
+      let k = this.added.names.findIndex((n) => n.toLowerCase() === base.toLowerCase())
+      if (k < 0) k = this.added.names.push(base) - 1
+      index = this.pkg.names.length + k
+    }
     return { index, number }
   }
 
@@ -758,12 +805,10 @@ export class FunctionCompiler {
     ;(node as Node & { retProp?: number }).retProp = info.ret ? this.refOfMaybe(info.ret.at) : 0
     return { node, ty: info.ret?.ty ?? { k: 'none' } }
   }
+  /** This package's reference to an object if it already has one (never adds an import), else 0. */
   private refOfMaybe(at: Located): number {
-    try {
-      return this.refOf(at)
-    } catch {
-      return 0
-    }
+    if (at.pkg === this.pkg) return at.ref
+    return this.imports.get(`${this.linker.nameOf(at.pkg)}.${at.pkg.path(at.ref)}`.toLowerCase()) ?? 0
   }
 
   // --- Statements ------------------------------------------------------------------------
@@ -975,11 +1020,141 @@ export class FunctionCompiler {
       this.emit(N(0x53))
       return this.layout()
     }
+    if (f.body) this.declareLocals(f.body)
     if (f.body) this.stmts(f.body)
     // The epilogue: a return with the return value (none in a hand patch that left it out), and the end.
     if (!this.noEpilogue) this.emit(N(0x04, this.retRef ? N(0x3a, this.retRef) : N(0x0b)))
     this.emit(N(0x53))
     return this.layout()
+  }
+
+  /** Local variables the source declares that the function does not have yet: new properties. */
+  private declareLocals(body: Stmt[]) {
+    for (const st of body) {
+      if (st.k !== 'local') continue
+      for (const { name, dim } of st.names) {
+        if (this.locals.has(name.toLowerCase())) continue
+        if (this.allow !== 'all') throw new CompileError(`a new local variable ${name} (a whole package, --out, can add it)`)
+        const ty = this.typeFromText(st.type)
+        const ref = this.pkg.exports.length + this.added.locals.reduce((n, l) => n + (l.inner ? 2 : 1), 0) + 1
+        const { cls, refs } = this.propertyClass(ty)
+        const local: (typeof this.added.locals)[number] = { name, dim, ty, ref, cls, refs }
+        if (ty.k === 'array') {
+          const inner = this.propertyClass(ty.inner)
+          local.inner = { ref: ref + 1, cls: inner.cls, refs: inner.refs }
+          local.refs = [ref + 1]
+        }
+        this.added.locals.push(local)
+        const p = { kind: 'property', type: cls, flags: 0n, arrayDim: dim, refs: local.refs } as unknown as PropertyObj
+        this.locals.set(name.toLowerCase(), { ref, p, ty })
+        this.nameRef(name)
+      }
+    }
+  }
+  private typeFromText(text: string): Ty {
+    const t = text.trim()
+    const lower = t.toLowerCase()
+    if (lower in PRIMS) return PRIMS[lower]!
+    if (lower === 'vector' || lower === 'rotator') return this.coreStruct(lower === 'vector' ? 'Vector' : 'Rotator')
+    let m = /^array<(.+)>$/i.exec(t)
+    if (m) return { k: 'array', inner: this.typeFromText(m[1]!) }
+    m = /^class<(.+)>$/i.exec(t)
+    if (m) return { k: 'class', meta: this.findType(m[1]!) }
+    if (lower === 'class') return { k: 'class', meta: this.findType('Object') }
+    const found = this.findType(t)
+    if (!found) throw new CompileError(`no type ${t}`)
+    const kind = found.pkg.className(found.ref)
+    if (kind === 'Enum') return { k: 'byte', enumOf: found }
+    if (kind === 'ScriptStruct') return { k: 'struct', struct: found }
+    return this.isInterface(found) ? { k: 'interface', cls: found } : { k: 'object', cls: found }
+  }
+  private propertyClass(ty: Ty): { cls: string; refs: number[] } {
+    const r = (at: Located | null | undefined) => (at ? this.refOf(at) : 0)
+    switch (ty.k) {
+      case 'int':
+        return { cls: 'IntProperty', refs: [] }
+      case 'float':
+        return { cls: 'FloatProperty', refs: [] }
+      case 'bool':
+        return { cls: 'BoolProperty', refs: [] }
+      case 'string':
+        return { cls: 'StrProperty', refs: [] }
+      case 'name':
+        return { cls: 'NameProperty', refs: [] }
+      case 'byte':
+        return { cls: 'ByteProperty', refs: [r(ty.enumOf)] }
+      case 'object':
+        return { cls: 'ObjectProperty', refs: [r(ty.cls)] }
+      case 'interface':
+        return { cls: 'InterfaceProperty', refs: [r(ty.cls)] }
+      case 'class':
+        return { cls: 'ClassProperty', refs: [r(this.findType('Class')), r(ty.meta)] }
+      case 'struct':
+        return { cls: 'StructProperty', refs: [r(ty.struct)] }
+      case 'array':
+        return { cls: 'ArrayProperty', refs: [0] }
+    }
+    throw new CompileError(`a local of type ${ty.k} is not covered`)
+  }
+
+  /**
+   * What the package needs added for the compiled code: names, imports, the
+   * new locals as exports, and the function's data with them linked in (the
+   * script itself is put in by the caller, edit.ts).
+   */
+  additions(): { names: import('./package.ts').NameEntry[]; imports: import('./package.ts').Import[]; exports: { entry: import('./package.ts').Export; data: Uint8Array }[]; children: number } {
+    const exports: { entry: import('./package.ts').Export; data: Uint8Array }[] = []
+    const none = this.nameRef('None')
+    const fnHead = this.fn.head.children
+    const property = (ref: number, outer: number, name: string, cls: string, refs: number[], next: number, dim: number) => {
+      const w: number[] = []
+      const i32 = (x: number) => {
+        const b = new Uint8Array(4)
+        new DataView(b.buffer).setInt32(0, x, true)
+        w.push(...b)
+      }
+      i32(ref - 1) // the object's own index
+      i32(none.index)
+      i32(none.number)
+      i32(next)
+      i32(dim)
+      i32(0)
+      i32(0) // flags: a local's are none
+      i32(none.index)
+      i32(none.number) // category
+      i32(0) // array enum
+      for (const x of refs) i32(x)
+      const n = this.nameRef(name)
+      exports.push({
+        entry: {
+          classIndex: this.coreClass(cls),
+          superIndex: 0,
+          outer,
+          objectName: n,
+          archetype: 0,
+          objectFlags: 0x7000400000000n,
+          serialSize: 0,
+          serialOffset: 0,
+          exportFlags: 0,
+          netObjects: [],
+          packageGuid: new Uint8Array(16),
+          packageFlags: 0,
+        },
+        data: new Uint8Array(w),
+      })
+    }
+    const locals = this.added.locals
+    locals.forEach((l, k) => {
+      const next = k + 1 < locals.length ? locals[k + 1]!.ref : fnHead
+      property(l.ref, this.ref, l.name, l.cls, l.refs, next, l.dim)
+      if (l.inner) property(l.inner.ref, l.ref, l.name, l.inner.cls, l.inner.refs, 0, 1)
+    })
+    return {
+      names: this.added.names.map((name) => ({ name, flags: 0x7001000000000n })),
+      imports: this.added.imports,
+      exports,
+      children: locals.length ? locals[0]!.ref : fnHead,
+    }
   }
 
   /** Places the labels: each takes the memory offset of what follows it. */

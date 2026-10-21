@@ -3,8 +3,11 @@
 import { readStructHead } from './objects.ts'
 import type { Package } from './package.ts'
 
-/** The object's data with its script replaced (memory and file sizes updated). */
-export function withScript(pkg: Package, ref: number, code: Uint8Array, memSize: number): Uint8Array {
+/**
+ * The object's data with its script replaced (memory and file sizes updated),
+ * and with another first child (a new local linked in) when given.
+ */
+export function withScript(pkg: Package, ref: number, code: Uint8Array, memSize: number, children?: number): Uint8Array {
   const data = pkg.data(ref)
   const h = readStructHead(pkg, ref)
   const out = new Uint8Array(data.length - h.size + code.length)
@@ -14,5 +17,7 @@ export function withScript(pkg: Package, ref: number, code: Uint8Array, memSize:
   v.setInt32(h.scriptAt - 4, code.length, true)
   out.set(code, h.scriptAt)
   out.set(data.subarray(h.end), h.scriptAt + code.length)
+  // Children sits six fields before the script: children, cppText, line, textPos, memory size, size.
+  if (children !== undefined) v.setInt32(h.scriptAt - 24, children, true)
   return out
 }

@@ -20,8 +20,10 @@ const hex = (n: number, bytes: number) => {
 class Emitter {
   out: string[] = []
   pkg: Package
-  constructor(pkg: Package) {
+  added: string[]
+  constructor(pkg: Package, added: string[] = []) {
     this.pkg = pkg
+    this.added = added
   }
   obj(ref: number) {
     if (ref === 0) return this.out.push('<NullRef>')
@@ -31,7 +33,9 @@ class Emitter {
     this.out.push(path.includes('.') ? `<${path}>` : `<Class.${path}>`)
   }
   name(n: NameValue) {
-    this.out.push(`<${this.pkg.name(n)}>`)
+    const extra = n.index - this.pkg.names.length
+    const base = extra >= 0 ? this.added[extra]! : this.pkg.names[n.index]!.name
+    this.out.push(`<${n.number ? `${base}_${n.number - 1}` : base}>`)
   }
   expr(n: Node) {
     if (n.native !== undefined) {
@@ -94,11 +98,11 @@ class Emitter {
   }
 }
 
-/** A script as PatchUPK pseudo-code, a statement a line. */
-export function pseudoCode(pkg: Package, statements: Node[]): string {
+/** A script as PatchUPK pseudo-code, a statement a line (added: names the change adds, past the table's end). */
+export function pseudoCode(pkg: Package, statements: Node[], added: string[] = []): string {
   return statements
     .map((s) => {
-      const e = new Emitter(pkg)
+      const e = new Emitter(pkg, added)
       e.expr(s)
       return e.out.join(' ')
     })
@@ -114,7 +118,7 @@ export interface ModInfo {
 /** A mod script that replaces functions' (or states') code. */
 export function modScript(
   info: ModInfo,
-  changes: { upk: string; pkg: Package; ref: number; statements: Node[] }[],
+  changes: { upk: string; pkg: Package; ref: number; statements: Node[]; names?: string[] }[],
 ): string {
   const lines = [`MOD_NAME=${info.name}`]
   if (info.author) lines.push(`AUTHOR=${info.author}`)
@@ -122,7 +126,15 @@ export function modScript(
   let upk = ''
   for (const c of changes) {
     if (c.upk !== upk) lines.push('', `UPK_FILE=${(upk = c.upk)}`)
-    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements))
+    // Names the code needs that the package lacks: added first (PatchUPK's ADD_NAME_ENTRY),
+    // after which <Name> finds them.
+    for (const n of c.names ?? []) lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
+    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.names))
   }
   return lines.join('\n') + '\n'
+}
+
+/** A name table entry in pseudo-code: its length, its text, its flags (as the game's names have). */
+function nameEntry(name: string): string {
+  return `<%i ${name.length + 1}> <%t "${name}"> <%u 0x00000000> <%u 0x00070010>`
 }

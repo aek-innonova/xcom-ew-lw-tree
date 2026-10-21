@@ -77,3 +77,73 @@ describe.skipIf(!haveCorpus)('an edit, end to end', () => {
     expect(mod).toContain('2C 02')
   })
 })
+
+describe.skipIf(!haveCorpus)('edits that add to the package', () => {
+  const SOURCE = `function int GetResearchPerHour()
+{
+    local float fBonus;
+    local array<int> arrSeen;
+
+    fBonus = 1.0 + m_fLabBonus + m_fAdjLabBonus;
+    arrSeen.AddItem(GetAvailableScientists());
+    if (IsInState('UpkitBrandNewStateName'))
+    {
+        fBonus += 0.5;
+    }
+    return int(float(GetAvailableScientists()) * fBonus);
+}
+`
+  it('new locals and a new name, into a whole package that reads back and compiles the same against itself', async () => {
+    const { withScript } = await import('../src/edit.ts')
+    const { writePackage } = await import('../src/writer.ts')
+    const { Package } = await import('../src/package.ts')
+    const { readObject } = await import('../src/objects.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const ref = pkg.find('XGFacility_Labs.GetResearchPerHour')
+    const fc = new FunctionCompiler(linker, pkg, ref)
+    fc.allow = 'all'
+    const { code, memSize } = fc.compile(SOURCE, binaryOperators(linker))
+    const add = fc.additions()
+    expect(add.exports.length).toBe(3) // fBonus, arrSeen and its inner int
+    const out = new Package(
+      writePackage(pkg, { data: new Map([[ref, withScript(pkg, ref, code, memSize, add.children)]]), ...add }),
+    )
+    // Every new object reads to its end; the function lists its new locals.
+    for (let i = pkg.exports.length + 1; i <= out.exports.length; i++) expect(readObject(out, i)).not.toBeNull()
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('XComStrategyGame', out)
+    const text = new FunctionDecompiler(back, out, ref).decompile()
+    expect(text).toContain('local float fBonus;')
+    expect(text).toContain('local array<int> arrSeen;')
+    expect(text).toContain("IsInState('UpkitBrandNewStateName')")
+    // The new package's function, decompiled and compiled against itself: the same bytes.
+    const again = new FunctionCompiler(back, out, ref).compile(text, binaryOperators(back)).code
+    const h = (await import('../src/objects.ts')).readStructHead(out, ref)
+    expect([...again]).toEqual([...out.data(ref).subarray(h.scriptAt, h.end)])
+  })
+
+  it('a new name, as a mod script the app’s PatchUPK implementation applies', async () => {
+    const { modScript } = await import('../src/patch.ts')
+    const { Package: AppPackage } = await import('../../src/model/upk.ts')
+    const { runScript } = await import('../../src/model/modpatch.ts')
+    const { Package } = await import('../src/package.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const ref = pkg.find('XGFacility_Labs.GetResearchPerHour')
+    const src = SOURCE.replace(/ *local .*\n/g, '').replace(/fBonus/g, 'm_fLabBonus').replace(/.*arrSeen.*\n/, '')
+    const fc = new FunctionCompiler(linker, pkg, ref)
+    fc.allow = 'names'
+    const statements = fc.compileStatements(src, binaryOperators(linker))
+    const text = modScript({ name: 'test' }, [{ upk: 'XComStrategyGame.upk', pkg, ref, statements, names: fc.added.names }])
+    const copy = new AppPackage(pkg.bytes.slice())
+    const result = runScript(text, { open: () => copy })
+    expect(result.steps.filter((s) => s.status === 'error')).toEqual([])
+    const out = new Package(copy.bytes)
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('XComStrategyGame', out)
+    expect(new FunctionDecompiler(back, out, ref).decompile()).toContain("IsInState('UpkitBrandNewStateName')")
+  })
+})

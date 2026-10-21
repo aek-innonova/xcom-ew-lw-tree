@@ -45,7 +45,14 @@ const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
 const [command, file, ...rest] = argv
 
 function usage(): never {
-  console.error(readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter((l) => l.startsWith('//')).slice(0, 18).map((l) => l.slice(3)).join('\n'))
+  console.error(
+    readFileSync(new URL(import.meta.url), 'utf8')
+      .split('\n')
+      .filter((l) => l.startsWith('//'))
+      .slice(0, 18)
+      .map((l) => l.slice(3))
+      .join('\n'),
+  )
   process.exit(2)
 }
 
@@ -68,83 +75,129 @@ function functionRef(p: Package, path: string): number {
   return ref
 }
 
-switch (command) {
-  case 'info': {
-    const s = pkg.summary
-    const counts = new Map<string, number>()
-    for (let i = 1; i <= pkg.exports.length; i++) counts.set(pkg.className(i), (counts.get(pkg.className(i)) ?? 0) + 1)
-    console.log(`${pkgName}: version ${s.version}/${s.licensee}, ${pkg.names.length} names, ${pkg.imports.length} imports, ${pkg.exports.length} exports`)
-    for (const [k, v] of [...counts].sort((a, b) => b[1] - a[1]).slice(0, 20)) console.log(`  ${String(v).padStart(6)} ${k}`)
-    break
-  }
-  case 'list': {
-    const filter = rest[0]?.toLowerCase()
-    for (let i = 1; i <= pkg.exports.length; i++) {
-      const c = pkg.className(i)
-      if (c !== 'Function' && c !== 'State') continue
-      const path = pkg.path(i)
-      if (!filter || path.toLowerCase().includes(filter)) console.log(c === 'State' ? `${path} (state)` : path)
-    }
-    break
-  }
-  case 'decompile': {
-    if (!rest[0]) usage()
-    const ref = functionRef(pkg, rest[0])
-    const d = new FunctionDecompiler(linker, pkg, ref)
-    if (pkg.className(ref) === 'State') {
-      process.stdout.write(d.decompileStateCode())
+try {
+  switch (command) {
+    case 'info': {
+      const s = pkg.summary
+      const counts = new Map<string, number>()
+      for (let i = 1; i <= pkg.exports.length; i++)
+        counts.set(pkg.className(i), (counts.get(pkg.className(i)) ?? 0) + 1)
+      console.log(
+        `${pkgName}: version ${s.version}/${s.licensee}, ${pkg.names.length} names, ${pkg.imports.length} imports, ${pkg.exports.length} exports`,
+      )
+      for (const [k, v] of [...counts].sort((a, b) => b[1] - a[1]).slice(0, 20))
+        console.log(`  ${String(v).padStart(6)} ${k}`)
       break
     }
-    // Said first when the source does not compile back to the same bytes (a hand patch).
-    const text = d.decompile()
-    process.stdout.write(readStructHead(pkg, ref).size ? fidelityNote(fidelity(linker, pkg, ref, text)) + text : text)
-    break
-  }
-  case 'class': {
-    if (!rest[0]) usage()
-    process.stdout.write(decompileClass(linker, pkg, rest[0]))
-    break
-  }
-  case 'compile': {
-    const [path, source] = rest
-    if (!path || !source || (!out && !patch)) usage()
-    const ref = functionRef(pkg, path)
-    const fc = new FunctionCompiler(linker, pkg, ref)
-    const statements = fc.compileStatements(readFileSync(source, 'utf8'), binaryOperators(linker))
-    if (patch) {
-      writeFileSync(patch, modScript({ name: `${path} (upkit)` }, [{ upk: basename(file), pkg, ref, statements }]))
-      console.log(`wrote ${patch}: ${path} as a PatchUPK mod script`)
-    }
-    if (out) {
-      const { code, memSize } = fc.compile(readFileSync(source, 'utf8'), binaryOperators(linker))
-      const data = withScript(pkg, ref, code, memSize)
-      writeFileSync(out, writePackage(pkg, { data: new Map([[ref, data]]), layout }))
-      const h = readStructHead(pkg, ref)
-      console.log(`wrote ${out}: ${path}, ${h.size} → ${code.length} bytes of script (${layout} layout)`)
-    }
-    break
-  }
-  case 'roundtrip': {
-    const ops = binaryOperators(linker)
-    let total = 0
-    let same = 0
-    for (let i = 1; i <= pkg.exports.length; i++) {
-      if (pkg.className(i) !== 'Function') continue
-      const h = readStructHead(pkg, i)
-      if (!h.size) continue
-      total++
-      const orig = pkg.data(i).subarray(h.scriptAt, h.end)
-      try {
-        const text = new FunctionDecompiler(linker, pkg, i).decompile()
-        const c = new FunctionCompiler(linker, pkg, i).compile(text, ops).code
-        if (c.length === orig.length && c.every((b, k) => b === orig[k])) same++
-      } catch {
-        // counted as different
+    case 'list': {
+      const filter = rest[0]?.toLowerCase()
+      for (let i = 1; i <= pkg.exports.length; i++) {
+        const c = pkg.className(i)
+        if (c !== 'Function' && c !== 'State') continue
+        const path = pkg.path(i)
+        if (!filter || path.toLowerCase().includes(filter))
+          console.log(c === 'State' ? `${path} (state)` : path)
       }
+      break
     }
-    console.log(`${pkgName}: ${same} of ${total} functions compile back byte for byte (${((100 * same) / total).toFixed(1)}%)`)
-    break
+    case 'decompile': {
+      if (!rest[0]) usage()
+      const ref = functionRef(pkg, rest[0])
+      const d = new FunctionDecompiler(linker, pkg, ref)
+      if (pkg.className(ref) === 'State') {
+        process.stdout.write(d.decompileStateCode())
+        break
+      }
+      // Said first when the source does not compile back to the same bytes (a hand patch).
+      const text = d.decompile()
+      process.stdout.write(
+        readStructHead(pkg, ref).size
+          ? fidelityNote(fidelity(linker, pkg, ref, text)) + text
+          : text,
+      )
+      break
+    }
+    case 'class': {
+      if (!rest[0]) usage()
+      process.stdout.write(decompileClass(linker, pkg, rest[0]))
+      break
+    }
+    case 'compile': {
+      const [path, source] = rest
+      if (!path || !source || (!out && !patch)) usage()
+      const ref = functionRef(pkg, path)
+      const text = readFileSync(source, 'utf8')
+      if (patch) {
+        // A mod script can add names; imports and new locals need a whole package.
+        const fc = new FunctionCompiler(linker, pkg, ref)
+        fc.allow = 'names'
+        const statements = fc.compileStatements(text, binaryOperators(linker))
+        writeFileSync(
+          patch,
+          modScript({ name: `${path} (upkit)` }, [
+            { upk: basename(file), pkg, ref, statements, names: fc.added.names },
+          ]),
+        )
+        console.log(
+          `wrote ${patch}: ${path} as a PatchUPK mod script${fc.added.names.length ? `, adding the names ${fc.added.names.join(', ')}` : ''}`,
+        )
+      }
+      if (out) {
+        const fc = new FunctionCompiler(linker, pkg, ref)
+        fc.allow = 'all'
+        const { code, memSize } = fc.compile(text, binaryOperators(linker))
+        const add = fc.additions()
+        const data = withScript(pkg, ref, code, memSize, add.children)
+        writeFileSync(
+          out,
+          writePackage(pkg, {
+            data: new Map([[ref, data]]),
+            names: add.names,
+            imports: add.imports,
+            exports: add.exports,
+            layout,
+          }),
+        )
+        const h = readStructHead(pkg, ref)
+        const extras = [
+          add.names.length && `${add.names.length} names`,
+          add.imports.length && `${add.imports.length} imports`,
+          add.exports.length && `${add.exports.length} new local properties`,
+        ].filter(Boolean)
+        console.log(
+          `wrote ${out}: ${path}, ${h.size} → ${code.length} bytes of script (${layout} layout)${extras.length ? `; added ${extras.join(', ')}` : ''}`,
+        )
+      }
+      break
+    }
+    case 'roundtrip': {
+      const ops = binaryOperators(linker)
+      let total = 0
+      let same = 0
+      for (let i = 1; i <= pkg.exports.length; i++) {
+        if (pkg.className(i) !== 'Function') continue
+        const h = readStructHead(pkg, i)
+        if (!h.size) continue
+        total++
+        const orig = pkg.data(i).subarray(h.scriptAt, h.end)
+        try {
+          const text = new FunctionDecompiler(linker, pkg, i).decompile()
+          const c = new FunctionCompiler(linker, pkg, i).compile(text, ops).code
+          if (c.length === orig.length && c.every((b, k) => b === orig[k])) same++
+        } catch {
+          // counted as different
+        }
+      }
+      console.log(
+        `${pkgName}: ${same} of ${total} functions compile back byte for byte (${((100 * same) / total).toFixed(1)}%)`,
+      )
+      break
+    }
+    default:
+      usage()
   }
-  default:
-    usage()
+} catch (e) {
+  // A compile error or a bad package: said, without a stack.
+  console.error(`upkit: ${(e as Error).message}`)
+  process.exit(1)
 }

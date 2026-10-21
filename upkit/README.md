@@ -61,9 +61,21 @@ Long War's and LWR's packages carry many functions patched by hand, some of
 them in forms Epic's compiler never wrote (a constant where a member was,
 flags set differently); those are most of the difference.
 
-Not compiled yet: declarations (new variables, functions, classes, a
-function's signature), state code, replication. New names or imports a body
-needs must already be in the package.
+What an edited body needs that the package lacks is added:
+
+- with `--out` (a whole package): new names, new imports (a function or a
+  class of another package used for the first time), and new local variables
+  (`local float fBonus;`), linked into the function;
+- with `--patch` (a mod script): new names, by `[ADD_NAME_ENTRY]`. A mod
+  script cannot add imports or locals; upkit says so and points to `--out`.
+
+Not compiled yet: other declarations (new member variables, functions,
+classes, a function's signature), state code, replication.
+
+Hand patches can hold bytecode no UnrealScript compiles to (a flag set
+otherwise, a skip size that is not what it skips). `decompile` says so above
+such a function, naming where its source and its bytes part; the source
+compiles to what Epic's compiler would write.
 
 ## upkit's own syntax
 
