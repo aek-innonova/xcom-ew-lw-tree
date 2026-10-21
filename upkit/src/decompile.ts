@@ -320,8 +320,18 @@ export class FunctionDecompiler {
         // Only a name that reads back as this value: not another enum's, not a variable's.
         if (name && this.nameReadsBack(name, n.args[0] as number)) return atom(name)
       }
-      if (n.op === 0x38 && n.args[0] === 0x3a && (n.args[1] as Node).op === 0x24)
-        return atom(`int(${this.exHint(n.args[1] as Node, e).text})`)
+      if (n.op === 0x38 && n.args[0] === 0x3a && (n.args[1] as Node).op === 0x24) {
+        // (Readable: the enum's value name, its int() the compiler's; without a name, as it is.)
+        const inner = this.exHint(n.args[1] as Node, e).text
+        if (this.readable && /^[A-Za-z_]/.test(inner)) return atom(inner)
+        const was = this.readable
+        this.readable = false
+        try {
+          return atom(`int(${this.exHint(n.args[1] as Node, e).text})`)
+        } finally {
+          this.readable = was
+        }
+      }
     }
     return this.ex(n)
   }
@@ -398,7 +408,18 @@ export class FunctionDecompiler {
         if (a[0] === 0x36) return this.ex(a[1] as Node)
         // Readable: a widening conversion (byte to int, to float; int to float) left to the
         // compiler, which makes it where it is wanted (see readableSource: only where it does).
-        if (this.readable && [0x3a, 0x3c, 0x3f].includes(a[0] as number)) return this.ex(a[1] as Node)
+        // (Not one of a chain: float(int(b)) is two steps, where b alone would be one.)
+        const chained = (x: Node) => x.op === 0x38 && [0x3a, 0x3c, 0x3f].includes(x.args[0] as number)
+        if (this.readable && [0x3a, 0x3c, 0x3f].includes(a[0] as number)) {
+          if (!chained(a[1] as Node)) return this.ex(a[1] as Node)
+          // A chain written whole, as it is.
+          this.readable = false
+          try {
+            return this.ex(n)
+          } finally {
+            this.readable = true
+          }
+        }
         // A cast of a literal: byte(5) is a byte constant, so the cast is written byte(int(5)).
         const inner = a[1] as Node
         const lit = a[0] === 0x3d && [0x1d, 0x2c, 0x25, 0x26].includes(inner.op) ? `int(${this.ex(inner).text})` : this.ex(inner).text
