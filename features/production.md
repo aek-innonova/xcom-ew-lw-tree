@@ -132,3 +132,28 @@ Left open:
   themselves, so the staging channel keeps naming its installer relative
   to the server until those installs are gone. A production channel
   starts with the new shell and is free of this.
+
+## Report (2026-10-21, signing with Azure Artifact Signing)
+
+The person: Azure Artifact Signing is set up with federated credentials for
+a GitHub Action running in the "production" environment.
+
+`.github/workflows/desktop.yml`, run by hand with a channel and an update
+URL (staging and xcom.innonova.ch by default):
+- on a Windows runner, in the "production" environment (limited to main);
+  it writes the app's `update.json`, builds the site and the app as
+  `scripts/build-desktop-win.sh` does;
+- `azure/login` with the federated credential (OIDC, no secret);
+- electron-builder with `azureSignOptions` (Microsoft's TrustedSigning
+  module, authenticated through the logged-in Azure CLI) signs the app's
+  exe, the uninstaller and the installer, with an RFC 3161 timestamp;
+- a check that every exe's Authenticode signature is valid;
+- the installer as the run's artifact.
+
+Our Ed25519 signature stays on this machine and comes after: download the
+artifact into desktop/release/ (or desktop/release/<channel>/), then
+deploy.sh or publish-desktop.sh as before.
+
+Needed before the first run, as variables of the "production" environment
+(none secret): AZURE_CLIENT_ID, AZURE_TENANT_ID, optionally
+AZURE_SUBSCRIPTION_ID, SIGNING_ENDPOINT, SIGNING_ACCOUNT, SIGNING_PROFILE.
