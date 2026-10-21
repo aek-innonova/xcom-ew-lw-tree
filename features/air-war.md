@@ -270,3 +270,30 @@ are now laid out by the jets the reply was asked for.
 Verified: the site e2e asserts a Plasma Cannon's line (damage, penetration,
 "fires every 1 s", aim), and the LWR runs no longer log the error. Looked at
 in Long War (Avalanche Missiles 340 damage) and LWR (160).
+
+## Report (2026-10-21, note f6df1)
+
+The person's note: "might be nice if all the selectable upgrades in the air
+provided information about what they actually do".
+
+Each upgrade under "Anything" now says what it does, in two parts:
+- **The game's own words:** a Foundry project's first sentence, or the
+  air-war sentences of an LWR bonus. A bonus's interceptors given and
+  housing costs are left out.
+- **The numbers, from the version's air war data:** `upgradeEffects` in
+  `model/airwar.ts`. Examples: "+1,000 HP: the jets"; "−15 aim: the UFOs'
+  weapons"; "Laser Cannon: damage 300 (was 290), armor penetration 11
+  (was 5), fires every 0.75 s (was 1 s)"; "Interceptor and Firestorm also
+  carry Stingray Missiles". Friendly Skies gets its numbers the same way.
+
+The two parts sometimes differ, which is worth seeing:
+- Long War's text says "+15% dodge" where the script takes 15 off the
+  UFO's aim.
+- "+25% armor penetration" is +5 in the numbers.
+
+LWR's rule-based upgrades (Cooling Coils, Scanners, Tracking) and its
+bonuses are not in the data, so they show the game's text only.
+
+Verified: a unit test on Long War 1.0's data (Armored Fighters,
+Countermeasures, Supercapacitors, Sparrowhawks, Friendly Skies). Looked at
+in Long War and LWR.

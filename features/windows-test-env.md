@@ -266,3 +266,22 @@ the latter two, because the reopened app recognised the modded
 and left it in place. The restore took all three back to their originals,
 byte-for-byte, with the backups intact. The scenario fails on 0.1.1 and
 passes on 0.1.2. Baseline and the independent `restore-check` agree.
+
+## Report (2026-10-21, the tests' scratch folders)
+
+The disk on this machine filled up (100 %, ENOSPC in the desktop tests,
+and intermittent e2e failures before that). The cause was the tests'
+scratch folders: 4,848 `lwtree-*` folders in /tmp, 39 GB in all. The tests
+make them with `mkdtemp` and never remove them, and some hold an unpacked
+Long War of about 400 MB. The folders were removed.
+
+Every run now sweeps up after itself (`scripts/tmp-sweep.mjs`): it notes
+the `lwtree-*` folders present when it starts and removes the ones it
+added when it ends. That covers:
+- the Playwright desktop runs, through a global setup, including runs of
+  `npx playwright test -c playwright.desktop.config.ts` without the runner
+  and the site screenshots;
+- the app's Node tests, through `scripts/test-desktop.mjs`.
+
+Two runs at once would remove each other's folders, so runs here go one at
+a time.

@@ -141,6 +141,98 @@ export const AIR_FOUNDRY = {
   boosters: 26,
 } as const
 
+const STAT_WORD: Record<string, string> = {
+  battle_speed: 'battle speed',
+  hp: 'HP',
+  armor: 'armor',
+  ap: 'armor penetration',
+  to_hit: 'aim',
+  damage: 'damage',
+  firing_time: 's between shots',
+}
+const signedNum = (n: number) => `${n > 0 ? '+' : '−'}${Math.abs(n).toLocaleString('en-US')}`
+/** "Interceptor, Firestorm", or what they are when it is all of them. */
+function whoOf(names: string[], all: string[], allName: string): string {
+  return names.length === all.length && all.length > 1 ? allName : names.join(', ')
+}
+
+/**
+ * What a Foundry project or a second wave option does in the version's air
+ * war, in numbers, from its data (am note f6df1): "+1,000 HP: Interceptor,
+ * Firestorm"; "+10 aim: the jets' weapons"; a weapon rebuilt ("Phoenix
+ * Cannon: damage 230 (was 140)"); a second weapon carried. Rules the data
+ * does not hold (LWR's rate of fire and scanners) are not in it.
+ */
+export function upgradeEffects(data: AirData, by: 'foundry' | 'option', id: number): string[] {
+  const out: string[] = []
+  const key = String(id)
+  const jets = data.ships.filter((s) => s.id === INTERCEPTOR || s.id === FIRESTORM)
+  const ours = new Set(craftWeapons(data))
+  // Ship and weapon stats changed by it, grouped by the change.
+  const groups = new Map<string, string[]>()
+  const add = (what: string, name: string) => groups.set(what, [...(groups.get(what) ?? []), name])
+  for (const ship of data.ships)
+    for (const f of ['battle_speed', 'hp', 'armor', 'ap'] as const) {
+      const d = ship[f]?.[by]?.[key]
+      if (d) add(`${signedNum(d)} ${STAT_WORD[f]}`, ship.name)
+    }
+  for (const w of data.weapons)
+    for (const f of ['to_hit', 'damage', 'ap', 'firing_time'] as const) {
+      const d = w[f]?.[by]?.[key]
+      if (d) add(`${signedNum(d)} ${STAT_WORD[f]}`, `${ours.has(w.id) ? '' : 'ufo:'}${w.name}`)
+    }
+  for (const [what, names] of groups) {
+    const ufo = names.filter((n) => n.startsWith('ufo:')).map((n) => n.slice(4))
+    const mine = names.filter((n) => !n.startsWith('ufo:'))
+    const jetNames = mine.filter((n) => jets.some((j) => j.name === n))
+    const weaponNames = mine.filter((n) => !jetNames.includes(n))
+    if (jetNames.length)
+      out.push(
+        `${what}: ${whoOf(
+          jetNames,
+          jets.map((j) => j.name),
+          'the jets',
+        )}`,
+      )
+    if (weaponNames.length)
+      out.push(
+        `${what}: ${whoOf(
+          weaponNames,
+          [...ours].map((w) => weaponName(w, data)),
+          'the jets’ weapons',
+        )}`,
+      )
+    if (ufo.length) out.push(`${what}: ${ufo.length > 1 ? 'the UFOs’ weapons' : ufo[0]}`)
+  }
+  const carried = new Map<string, string[]>()
+  if (by === 'foundry')
+    for (const v of data.foundry_variants) {
+      if (v.foundry !== id) continue
+      if (v.weapon !== undefined && v.stats) {
+        const was = data.weapons.find((w) => w.id === v.weapon)
+        const changes = (['damage', 'ap', 'firing_time', 'to_hit'] as const).flatMap((f) => {
+          const now = v.stats![f]?.base
+          const before = was?.[f]?.base
+          if (now === undefined || now === before) return []
+          return f === 'firing_time'
+            ? [`fires every ${now} s (was ${before} s)`]
+            : [`${STAT_WORD[f]} ${now} (was ${before})`]
+        })
+        if (changes.length) out.push(`${weaponName(v.weapon, data)}: ${changes.join(', ')}`)
+      }
+      if (v.ship !== undefined && v.weapons) {
+        const extra = v.weapons
+          .filter((w) => w !== data.ships.find((s) => s.id === v.ship)?.weapons[0])
+          .map((w) => weaponName(w, data))
+          .join(', ')
+        if (extra) carried.set(extra, [...(carried.get(extra) ?? []), shipName(v.ship, data)])
+      }
+    }
+  for (const [extra, ships] of carried)
+    out.push(`${ships.join(' and ')} also ${ships.length > 1 ? 'carry' : 'carries'} ${extra}`)
+  return out
+}
+
 /** Second wave "Friendly Skies" (m_arrSecondWave index): XCOM aircraft aim. */
 export const FRIENDLY_SKIES = 24
 

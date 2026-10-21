@@ -6,12 +6,18 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { sweepLater } from './tmp-sweep.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const win = process.platform === 'win32'
 
 // shell:true so Windows can run npm.cmd / npx.cmd (Node refuses to spawn .cmd
 // files directly), and so xvfb-run is found on Linux.
+// The app's Node tests leave scratch folders too: removed when this ends,
+// whichever way (Playwright's own run sweeps after itself as well).
+const sweep = sweepLater()
+process.on('exit', sweep)
+
 function run(command, cwd) {
   const r = spawnSync(command, { cwd, stdio: 'inherit', shell: true })
   if (r.status !== 0) {

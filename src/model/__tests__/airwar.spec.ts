@@ -6,6 +6,8 @@ import { readCampaign } from '@/save/campaign'
 import {
   AIR_FOUNDRY,
   CRAFT_WEAPONS,
+  FRIENDLY_SKIES,
+  air,
   INTERCEPTOR,
   categoryFor,
   craftStats,
@@ -19,6 +21,7 @@ import {
   toHitFor,
   ufoStats,
   ufoUpgrades,
+  upgradeEffects,
   weaponStats,
   type AirSetting,
   type Engagement,
@@ -238,5 +241,23 @@ describe('the hangar from a save', () => {
     expect(c.interceptors).toHaveLength(4)
     const jet = c.interceptors.find((i) => i.callsign.includes('Mongoose'))!
     expect(jet).toMatchObject({ type: 1, weapons: [3], hp: 1486, maxHp: 2500, kills: 1, stance: 1 })
+  })
+})
+
+describe('what an upgrade does, from the air war data (am note f6df1)', () => {
+  it('says Long War 1.0’s Foundry projects and Friendly Skies in numbers', () => {
+    expect(upgradeEffects(air, 'foundry', AIR_FOUNDRY.armoredFighters)).toEqual([
+      '+1,000 HP: the jets',
+    ])
+    expect(upgradeEffects(air, 'foundry', AIR_FOUNDRY.countermeasures)).toEqual([
+      '−15 aim: the UFOs’ weapons',
+    ])
+    expect(upgradeEffects(air, 'foundry', AIR_FOUNDRY.supercapacitors)).toEqual([
+      'Laser Cannon: damage 300 (was 290), armor penetration 11 (was 5), fires every 0.75 s (was 1 s)',
+    ])
+    expect(upgradeEffects(air, 'foundry', AIR_FOUNDRY.sparrowhawks)).toEqual([
+      'Interceptor and Firestorm also carry Stingray Missiles',
+    ])
+    expect(upgradeEffects(air, 'option', FRIENDLY_SKIES)).toEqual(['+15 aim: the jets’ weapons'])
   })
 })

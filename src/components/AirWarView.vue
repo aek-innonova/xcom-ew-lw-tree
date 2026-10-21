@@ -28,7 +28,9 @@ import {
   exchanges,
   runJobs,
   shipName,
+  FRIENDLY_SKIES,
   ufoStats,
+  upgradeEffects,
   weaponName,
   type AirSetting,
   type Engagement,
@@ -541,6 +543,30 @@ const FOUNDRY_TOGGLES = computed<number[]>(() =>
         AIR_FOUNDRY.countermeasures,
       ],
 )
+/** The first sentence of a text: what the game says a project or bonus does. */
+const firstSentence = (t: string) => /^.*?[.!](?=\s|$)/.exec(t.trim())?.[0] ?? t.trim()
+/**
+ * What an upgrade does (am note f6df1): the game's own words, then what the
+ * version's air war data changes, in numbers.
+ */
+function foundryAbout(id: number): { said: string; numbers: string[] } {
+  return {
+    said: firstSentence(foundryById.value.get(id)?.effect ?? ''),
+    numbers: upgradeEffects(data.value, 'foundry', id),
+  }
+}
+const friendlySkiesAbout = computed(() => upgradeEffects(data.value, 'option', FRIENDLY_SKIES))
+/** A bonus's sentences about the air war (not its interceptors given or housing costs). */
+function bonusAbout(id: number): string {
+  const b = [...game.value.bonuses.starting_bonuses, ...game.value.bonuses.continent_bonuses].find(
+    (x) => x.bonus_id === id,
+  )
+  return (b?.description ?? '')
+    .split(/(?<=\.)\s+/)
+    .filter((x) => /aim|crit|fire|dodge|interception time|speed/i.test(x))
+    .join(' ')
+}
+
 /** LWR's air war bonuses, named as the version names them. */
 const bonusName = (id: number) =>
   [...game.value.bonuses.starting_bonuses, ...game.value.bonuses.continent_bonuses].find(
@@ -845,26 +871,36 @@ const DIFFICULTIES = computed(() => game.value.difficulties)
         <template v-if="!fromCampaign">
           <h3>Upgrades</h3>
           <div class="toggles">
-            <label v-for="id in FOUNDRY_TOGGLES" :key="id" class="field">
+            <label v-for="id in FOUNDRY_TOGGLES" :key="id" class="field upgrade-pick">
               <input
                 type="checkbox"
                 :checked="setup.foundry.includes(id)"
                 @change="toggleFoundry(id)"
               />
-              {{ foundryName(id) }}
+              <span>
+                {{ foundryName(id) }}
+                <span v-if="foundryAbout(id).said" class="about">{{ foundryAbout(id).said }}</span>
+                <span v-for="n in foundryAbout(id).numbers" :key="n" class="numbers">{{ n }}</span>
+              </span>
             </label>
-            <label class="field"
-              ><input v-model="setup.friendlySkies" type="checkbox" /> Friendly Skies (second
-              wave)</label
+            <label class="field upgrade-pick"
+              ><input v-model="setup.friendlySkies" type="checkbox" />
+              <span>
+                Friendly Skies (second wave)
+                <span v-for="n in friendlySkiesAbout" :key="n" class="numbers">{{ n }}</span>
+              </span></label
             >
             <template v-if="lwr">
-              <label v-for="id in AIR_BONUSES" :key="`b${id}`" class="field">
+              <label v-for="id in AIR_BONUSES" :key="`b${id}`" class="field upgrade-pick">
                 <input
                   type="checkbox"
                   :checked="setup.bonuses.includes(id)"
                   @change="toggleBonus(id)"
                 />
-                {{ bonusName(id) }} (bonus)
+                <span>
+                  {{ bonusName(id) }} (bonus)
+                  <span v-if="bonusAbout(id)" class="about">{{ bonusAbout(id) }}</span>
+                </span>
               </label>
             </template>
           </div>
@@ -1412,8 +1448,28 @@ input.num {
 }
 .toggles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 4px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px 16px;
+}
+.upgrade-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.upgrade-pick input {
+  margin-top: 3px;
+}
+.upgrade-pick .about,
+.upgrade-pick .numbers {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.upgrade-pick .about {
+  color: var(--muted);
+}
+.upgrade-pick .numbers {
+  color: var(--accent);
 }
 .headline {
   display: flex;
