@@ -8,6 +8,7 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import { EXE } from '@/state/baseplan'
+import { BACKUP } from '@/state/setup'
 import { applyPlanNow, baseName, cancelPlan, gameKind, tools } from '@/state/tools'
 
 const props = defineProps<{ open: boolean }>()
@@ -115,6 +116,11 @@ function close() {
       <ul v-if="tools.plan.problems.length" class="problems">
         <li v-for="p in tools.plan.problems" :key="p" class="error">{{ p }}</li>
       </ul>
+      <p v-if="tools.plan.changes.length" class="muted small before">
+        The game must be closed while these are written. Each file's original is kept in
+        <code>XComGame\{{ BACKUP }}</code> before it is first replaced, a file the app does not
+        recognise too, so the game can always go back.
+      </p>
     </template>
 
     <template v-if="written">
@@ -181,6 +187,9 @@ function close() {
 .result {
   margin-top: 6px !important;
   font-size: 13.5px;
+}
+.before {
+  margin-top: 6px !important;
 }
 .switch {
   color: var(--accent);

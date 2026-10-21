@@ -11,14 +11,10 @@ import { GAMES } from '@/model/game'
 import { optionProblem, scriptFor, type ModTarget } from '@/model/patchupk'
 import {
   addModFiles,
-  baseAvailable,
-  baseName,
   checkKey,
-  gameKind,
   chooseGameFolder,
   findGameFolder,
   forgetGameFolder,
-  makePlan,
   openLibrary,
   readPackage,
   removeMod,
@@ -32,7 +28,6 @@ import {
   type Mod,
   type ModFile,
 } from '@/state/tools'
-import { BACKUP } from '@/state/setup'
 import { desktop } from '@/state/desktop'
 import type { IniEntry } from '@/model/inifile'
 import { GROUPS, type FoundSetting } from '@/model/gamesettings'
@@ -228,9 +223,6 @@ function shownValue(d: FoundSetting, v: string): string {
   return name ? `${v}, ${name}` : describe(d.format ?? PLAIN, v)
 }
 
-/** The version chosen is put in from the library; else the setup goes on top of the game as it is. */
-const putIn = computed(() => !!desktop?.bases && baseAvailable(gameKind()))
-const chosenName = computed(() => baseName(gameKind()).replace(/^./, (c) => c.toUpperCase()))
 
 const iniNote = computed(() =>
   tools.install?.ini && state.ini
@@ -564,30 +556,6 @@ const iniNote = computed(() =>
       </table>
     </section>
 
-    <section v-if="tools.install" class="block" aria-labelledby="apply-h">
-      <h3 id="apply-h">Into the game</h3>
-      <p v-if="!putIn" class="muted small">
-        Close the game first. The first time a file changes, its original is copied to
-        <code>{{ BACKUP }}/</code> in the XComGame folder; your setup is always built from the
-        originals, so taking a mod out takes it out of the game. After a reinstall, apply again: the
-        new files become the originals.
-      </p>
-      <p v-else class="muted small">
-        Close the game first. Your setup is built on {{ baseName(gameKind()) }}: its own files, and
-        the game's own where it has none. A file of the game's own is copied to
-        <code>{{ BACKUP }}/</code> in the XComGame folder before it is first replaced, and a file
-        the app does not recognise is kept there too, so going back is always possible.
-      </p>
-      <p v-if="!tools.plan">
-        <span class="small"
-          >Your setup goes in with <strong>Apply my setup…</strong> at the top. Or:</span
-        >
-        <button type="button" :disabled="!!tools.busy" @click="makePlan(false)">
-          {{ chosenName }}, no mods…
-        </button>
-        <span v-if="tools.busy" class="muted small">{{ tools.busy }}</span>
-      </p>
-    </section>
   </section>
 </template>
 

@@ -54,6 +54,7 @@ const SAVE = '\u0000save'
 const DELETE = '\u0000delete'
 const UNDO = '\u0000undo'
 const GAME = '\u0000game'
+const ALONE = '\u0000alone'
 
 /** What the list shows as chosen: the setup in use, else the changed one it came from. */
 const current = computed(() => tools.setupInUse ?? (tools.setupFrom ? `${tools.setupFrom}*` : ''))
@@ -91,6 +92,11 @@ async function onPick(e: Event) {
     return
   }
   if (v === current.value || !v) return
+  // The version on its own: a plan without the mods and settings (the choices stay).
+  if (v === ALONE) {
+    consoleOpen.value = true
+    return makePlan(false)
+  }
   if (v === GAME) {
     if (unsaved.value && hasChoices.value) {
       switching.value = GAME
@@ -198,6 +204,9 @@ watch(
         <option v-if="changed" :value="SAVE">Save the changes to {{ tools.setupFrom }}</option>
         <option v-if="changed" :value="UNDO">Undo my changes to {{ tools.setupFrom }}</option>
         <option v-if="tools.install" :value="GAME">Back to what the game has now…</option>
+        <option v-if="tools.install" :value="ALONE">
+          {{ label(gameKind()) }} alone, without mods or settings…
+        </option>
         <option :value="NEW">Save as a new setup…</option>
         <option v-if="tools.setupInUse || tools.setupFrom" :value="DELETE">
           Delete {{ tools.setupInUse ?? tools.setupFrom }}…
