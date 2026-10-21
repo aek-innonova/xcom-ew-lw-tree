@@ -213,6 +213,19 @@ export function classEdits(
     const path = `${className}.${p.path}`
     const ref = pkg.find(path)
     const kind = ref ? pkg.className(ref) : ''
+    // An operator is named by its symbol in source and otherwise as an object (Not_PreBool):
+    // one the class has (by symbol) is kept as it is (operators are native, and not compiled).
+    if (!ref && p.kind === 'function' && /\b(pre|post)?operator\b/i.test(p.text)) {
+      const symbol = p.path.split('.').pop()!
+      const owner = pkg.find(className)
+      let has = false
+      for (let i = 1; i <= pkg.exports.length && !has; i++)
+        if (pkg.exports[i - 1]!.outer === owner && pkg.className(i) === 'Function') {
+          const o = linker.object({ pkg, ref: i })
+          has = o?.kind === 'function' && o.friendlyName === symbol
+        }
+      if (has) continue
+    }
     if (!ref && p.kind === 'function') {
       const dot = p.path.indexOf('.')
       out.functions.push({ ...parseSignature(p.text, dot > 0 ? p.path.slice(0, dot) : null), path, text: p.text })
