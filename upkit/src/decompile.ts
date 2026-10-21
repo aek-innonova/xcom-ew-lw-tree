@@ -184,8 +184,12 @@ export class FunctionDecompiler {
       case 0x2e:
       case 0x52:
         return atom(`${this.obj(a[0] as number)}(${this.ex(a[1] as Node).text})`)
-      case 0x38:
-        return atom(`${CASTS[a[0] as number] ?? `cast${a[0]}`}(${this.ex(a[1] as Node).text})`)
+      case 0x38: {
+        // A cast of a literal: byte(5) is a byte constant, so the cast is written byte(int(5)).
+        const inner = a[1] as Node
+        const lit = [0x1d, 0x2c, 0x25, 0x26].includes(inner.op) ? `int(${this.ex(inner).text})` : this.ex(inner).text
+        return atom(`${CASTS[a[0] as number] ?? `cast${a[0]}`}(${lit})`)
+      }
       case 0x17:
         return atom('self')
       case 0x1b:
@@ -203,11 +207,19 @@ export class FunctionDecompiler {
       case 0x3f:
       case 0x2a:
         return atom('none')
-      case 0x1d:
-        return atom(String(a[0]))
-      case 0x2c:
+      // Literals as the compiler writes them read back the same (0 IntZero, 1
+      // IntOne, 2–255 IntConstByte, else IntConst); another form is written
+      // in hex, which the compiler keeps (upkit's dialect).
+      case 0x1d: {
+        const v = a[0] as number
+        return atom(v >= 0 && v <= 255 ? `0x${(v >>> 0).toString(16).padStart(8, '0')}` : String(v))
+      }
+      case 0x2c: {
+        const v = a[0] as number
+        return atom(v <= 1 ? `0x${v.toString(16).padStart(2, '0')}` : String(v))
+      }
       case 0x24:
-        return atom(String(a[0]))
+        return atom(`byte(${a[0]})`)
       case 0x25:
         return atom('0')
       case 0x26:
@@ -312,7 +324,11 @@ export class FunctionDecompiler {
     const flags = f.fn.flags
     if (flags & FUNC.Operator) {
       const prec = f.fn.precedence
-      if (flags & FUNC.PreOperator) return { text: `${name}${this.paren(ps[0]!, 0)}`, prec: 1 }
+      if (flags & FUNC.PreOperator) {
+        // -5 is a negative literal; the operator on a literal is written -(5).
+        const lit = [0x1d, 0x1e, 0x2c, 0x25, 0x26].includes(ps[0]!.op)
+        return { text: lit ? `${name}(${this.ex(ps[0]!).text})` : `${name}${this.paren(ps[0]!, 0)}`, prec: 1 }
+      }
       if (ps.length === 1) return { text: `${this.paren(ps[0]!, 0)}${name}`, prec: 1 }
       const word = /^[A-Za-z]/.test(name)
       // Left-associative: the right side needs parentheses at the same binding.
@@ -590,23 +606,22 @@ export class FunctionDecompiler {
     // Optional parameters' defaults open the script, one per optional parameter.
     const defaults = new Map<number, Node | null>()
     const optional = params.filter((x) => x.p.flags & CPF.OptionalParm)
+    // A slot per optional parameter: DefaultParmValue, or Nothing without a default.
     let k = 0
-    if (fn.flags & FUNC.HasDefaults || optional.length)
-      for (const o of optional) {
-        const s = S[k]
-        if (s && s.op === 0x49) {
-          defaults.set(o.ref, s.args[1] as Node)
-          k++
-        } else if (s && s.op === 0x4a) {
-          defaults.set(o.ref, null)
-          k++
-        }
-      }
+    for (const o of optional) {
+      const s = S[k]
+      if (s && s.op === 0x49) {
+        defaults.set(o.ref, s.args[1] as Node)
+        k++
+      } else if (s && s.op === 0x0b) k++
+      else break
+    }
     S = S.slice(k)
     // The epilogue the compiler adds: return (with the return value) and the end.
     let n = S.length
     if (n && S[n - 1]!.op === 0x53) n--
-    if (n && S[n - 1]!.op === 0x04 && (S[n - 1]!.args[0] as Node).op === 0x3a) n--
+    // (A function with a value: return with ReturnNothing; without: return nothing.)
+    if (n && S[n - 1]!.op === 0x04 && [0x3a, 0x0b].includes((S[n - 1]!.args[0] as Node).op)) n--
     this.statements = S.slice(0, n)
     this.memEnd = n < S.length ? S[n]!.mem : script.memSize
     this.byMem = new Map(this.statements.map((s, i) => [s.mem, i]))

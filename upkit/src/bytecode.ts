@@ -360,3 +360,10 @@ export function* walk(n: Node): Generator<Node> {
     }
   }
 }
+
+/** A node's size in memory (its bytes, object references counted as 8). */
+export function memSizeOf(n: Node): number {
+  const e = new Encoder()
+  e.expr(n)
+  return e.mem
+}
