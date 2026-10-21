@@ -147,3 +147,54 @@ describe.skipIf(!haveCorpus)('edits that add to the package', () => {
     expect(new FunctionDecompiler(back, out, ref).decompile()).toContain("IsInState('UpkitBrandNewStateName')")
   })
 })
+
+describe.skipIf(!haveCorpus)('a whole class edited', () => {
+  // A function and a state's code (with a new label) changed in the class's source.
+  const edit = (src: string) =>
+    src
+      .replace(/(state EarthViewTransition[\s\S]*?Begin:\n {4})Sleep\(0\.01\);/, '$1Sleep(0.5);\nDone:\n    Sleep(0.25);')
+      .replace(/(function bool IsMoving\(\)\n\{\n[\s\S]*?)return /, '$1if (true) { return true; }\n    return ')
+
+  it('compiles what was edited, into a package and as a mod script, which agree', async () => {
+    const { decompileClass } = await import('../src/classdecomp.ts')
+    const { classChanges } = await import('../src/classsrc.ts')
+    const { packageWith, modScriptWith } = await import('../src/changes.ts')
+    const { Package } = await import('../src/package.ts')
+    const { Package: AppPackage } = await import('../../src/model/upk.ts')
+    const { runScript } = await import('../../src/model/modpatch.ts')
+    const { readObject, readStructHead } = await import('../src/objects.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const src = decompileClass(linker, pkg, 'XComHeadquartersCamera')
+    expect(classChanges(linker, pkg, 'XComHeadquartersCamera', src)).toEqual([])
+    const edited = edit(src)
+    const changes = classChanges(linker, pkg, 'XComHeadquartersCamera', edited)
+    expect(changes.map((c) => c.path).sort()).toEqual(['XComHeadquartersCamera.EarthViewTransition', 'XComHeadquartersCamera.IsMoving'])
+
+    const check = (out: InstanceType<typeof Package>) => {
+      const back = new Linker([dirname(CORPUS[0]!)])
+      back.add('XComStrategyGame', out)
+      const state = out.find('XComHeadquartersCamera.EarthViewTransition')
+      const code = new FunctionDecompiler(back, out, state).decompileStateCode()
+      expect(code).toContain('Sleep(0.5);\nDone:\n    Sleep(0.25);')
+      // The state keeps where its label table now starts.
+      const so = readObject(out, state) as { labelTableOffset: number }
+      const h = readStructHead(out, state)
+      const decoded = new FunctionCompiler(back, out, state).compileStateCode(code, binaryOperators(back))
+      expect(so.labelTableOffset).toBe(decoded.labelTableOffset)
+      expect(h.size).toBeGreaterThan(0)
+      expect(new FunctionDecompiler(back, out, out.find('XComHeadquartersCamera.IsMoving')).decompile()).toContain('if (true)')
+      return code
+    }
+    const whole = new Package(packageWith(linker, pkg, changes).bytes)
+    const a = check(whole)
+    const mod = modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'test' })
+    expect(mod.text).toContain('REL_OFFSET=')
+    const copy = new AppPackage(pkg.bytes.slice())
+    const result = runScript(mod.text, { open: () => copy })
+    expect(result.steps.filter((s) => s.status === 'error')).toEqual([])
+    const b = check(new Package(copy.bytes))
+    expect(b).toEqual(a)
+  })
+})

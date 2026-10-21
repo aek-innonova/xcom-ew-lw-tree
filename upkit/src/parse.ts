@@ -141,6 +141,8 @@ export type Stmt =
   | { k: 'goto'; label: string }
   | { k: 'ifgoto'; c: Expr; label: string }
   | { k: 'label'; name: string }
+  /** goto 'Label' in a state's code: to a label of the state's, by name. */
+  | { k: 'gotolabel'; e: Expr }
   | { k: 'assert'; e: Expr }
   | { k: 'stop' }
   | { k: 'local'; type: string; names: { name: string; dim: number }[] }
@@ -274,6 +276,16 @@ export class Parser {
     this.eat('const')
     if (this.eat(';')) return { name, defaults, body: null }
     return { name, defaults, body: this.block() }
+  }
+
+  /** Statements up to the end of the source (a state's code). */
+  statements(): Stmt[] {
+    const out: Stmt[] = []
+    while (this.t.t !== 'eof') {
+      const s = this.statement()
+      if (s) out.push(s)
+    }
+    return out
   }
 
   block(): Stmt[] {
@@ -417,7 +429,13 @@ export class Parser {
         }
         case 'goto': {
           this.i++
-          const label = this.t.t === 'name' ? this.toks[this.i++]!.v : this.jumpTarget()
+          // goto L12 (a label here); goto 'Begin' or goto (an expression): a state's label, by name.
+          if (!(this.t.t === 'id' && this.peek().v === ';') && !this.is('@')) {
+            const e = this.expr()
+            this.want(';')
+            return { k: 'gotolabel', e }
+          }
+          const label = this.jumpTarget()
           this.want(';')
           return { k: 'goto', label }
         }

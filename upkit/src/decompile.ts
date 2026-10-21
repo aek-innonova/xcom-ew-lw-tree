@@ -70,7 +70,9 @@ export function floatText(v: number): string {
   return s.includes('.') ? s : s + '.0'
 }
 
-export const stringText = (s: string) => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+// (A line break or tab as \n, \t: upkit's dialect, so a string stays on its line.)
+export const stringText = (s: string) =>
+  `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\t/g, '\\t')}"`
 
 interface Ex {
   text: string
@@ -97,6 +99,15 @@ interface Ctx {
   continueTo?: number
 }
 
+/**
+ * Jumps to a label the structured source does not show (a statement that is
+ * part of a loop's own code, as a hand patch's jump can target): by offset.
+ */
+function unplacedJumps(lines: string[]): string[] {
+  const placed = new Set(lines.map((l) => /^\s*(L\d+):$/.exec(l)?.[1]).filter(Boolean))
+  return lines.map((l) => l.replace(/\bgoto L(\d+);$/, (m, n) => (placed.has(`L${n}`) ? m : `goto @${n};`)))
+}
+
 export class FunctionDecompiler {
   readonly linker: Linker
   readonly pkg: Package
@@ -105,6 +116,7 @@ export class FunctionDecompiler {
   private byMem = new Map<number, number>()
   private memEnd = 0
   private gotos = new Set<number>()
+  private placed = new Set<number>()
   /** Jump targets that need a label: known after a first pass. */
   private labelled = new Set<number>()
   /** While a member is printed: the class of the object it is called on. */
@@ -537,8 +549,11 @@ export class FunctionDecompiler {
     const hiMem = hi < S.length ? S[hi]!.mem : this.memEnd
     for (let i = lo; i < hi; ) {
       const s = S[i]!
-      if (this.named.has(s.mem)) out.push({ k: 'label', mem: s.mem, name: this.named.get(s.mem) })
-      else if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
+      // (A named label once: a loop starting at it would place it again inside.)
+      if (this.named.has(s.mem)) {
+        if (!this.placed.has(s.mem)) out.push({ k: 'label', mem: s.mem, name: this.named.get(s.mem) })
+        this.placed.add(s.mem)
+      } else if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
       // A loop that starts here and ends with a jump back (do … until).
       const back = this.backJump(i, hi)
       if (back >= 0 && S[back]!.op === 0x07 && s.op !== 0x07) {
@@ -787,6 +802,11 @@ export class FunctionDecompiler {
       S = S.slice(0, table)
     } else if (S.at(-1)?.op === 0x53) S = S.slice(0, -1)
     let end = table >= 0 ? script.statements[table]!.mem : script.memSize
+    // Nothing before the table aligns it (the compiler's): dropped when it is just that.
+    let pads = 0
+    while (S.at(-1 - pads)?.op === 0x0b) pads++
+    const stop = S.at(-1 - pads)
+    if (table >= 0 && pads && stop?.op === 0x08 && pads < 4 && (stop.mem + 2) % 4 !== 0 && (end + 1) % 4 === 0) S = S.slice(0, -pads)
     if (S.at(-1)?.op === 0x08) {
       end = S.at(-1)!.mem
       S = S.slice(0, -1)
@@ -795,13 +815,18 @@ export class FunctionDecompiler {
     this.memEnd = end
     this.byMem = new Map(S.map((x, i) => [x.mem, i]))
     this.gotos = new Set()
+    this.placed = new Set()
     this.labelled = new Set()
     this.block(0, S.length, {})
     this.labelled = new Set(this.gotos)
     this.gotos = new Set()
+    this.placed = new Set()
     const lines: string[] = []
     this.lines(this.block(0, S.length, {}), 1, lines)
-    return lines.join('\n') + '\n'
+    // A label at the very end (the closing stop): Begin: of a state without code.
+    const last = this.named.get(this.memEnd) ?? (this.labelled.has(this.memEnd) ? `L${this.memEnd}` : null)
+    if (last) lines.push(`${last}:`)
+    return unplacedJumps(lines).join('\n') + '\n'
   }
 
   /** The function's UnrealScript: declaration and body. */
@@ -856,10 +881,12 @@ export class FunctionDecompiler {
     this.byMem = new Map(this.statements.map((s, i) => [s.mem, i]))
     // Structured twice: the first pass finds the jumps that stay gotos, the second labels their targets.
     this.gotos = new Set()
+    this.placed = new Set()
     this.labelled = new Set()
     this.block(0, this.statements.length, {})
     this.labelled = new Set(this.gotos)
     this.gotos = new Set()
+    this.placed = new Set()
     const body = this.block(0, this.statements.length, {})
 
     const lines: string[] = []
@@ -883,7 +910,7 @@ export class FunctionDecompiler {
     if (!epilogue && head.size) lines.push('    __NoEpilogue;')
     lines.push('}')
     void retRef
-    return lines.join('\n') + '\n'
+    return unplacedJumps(lines).join('\n') + '\n'
   }
 
   /** A jump's target: its label, or @offset where no statement starts there (a hand patch's jump). */

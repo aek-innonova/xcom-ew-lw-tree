@@ -7,10 +7,13 @@
 //   info <package>                          the summary and what the package holds
 //   list <package> [filter]                 functions (and states) by path
 //   decompile <package> <Class.Function>    a function as UnrealScript (a state: its code)
-//   class <package> <Class>                 a whole class as UnrealScript (for reading)
+//   class <package> <Class>                 a whole class as UnrealScript
 //   compile <package> <Class.Function> <file.uc> (--out <new package> | --patch <mod.txt>)
-//                                           an edited function back into the package:
-//                                           a whole new package, or a PatchUPK mod script
+//                                           an edited function (or a state's code) back into
+//                                           the package: a whole new package, or a mod script
+//   compile <package> <Class> <Class.uc> (--out … | --patch …)
+//                                           the functions and states' code edited in a whole
+//                                           class's source (as `class` writes it)
 //   roundtrip <package>                     decompile and compile every function; how many
 //                                           come back byte for byte
 //
@@ -20,15 +23,14 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname } from 'node:path'
 import { binaryOperators, FunctionCompiler } from './compile.ts'
+import { modScriptWith, packageWith } from './changes.ts'
+import { classChanges } from './classsrc.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
-import { withScript } from './edit.ts'
 import { fidelity, fidelityNote } from './fidelity.ts'
 import { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
-import { modScript } from './patch.ts'
-import { writePackage } from './writer.ts'
 
 const argv = process.argv.slice(2)
 const flag = (name: string): string | undefined => {
@@ -49,7 +51,7 @@ function usage(): never {
     readFileSync(new URL(import.meta.url), 'utf8')
       .split('\n')
       .filter((l) => l.startsWith('//'))
-      .slice(0, 18)
+      .slice(0, 21)
       .map((l) => l.slice(3))
       .join('\n'),
   )
@@ -125,48 +127,33 @@ try {
     case 'compile': {
       const [path, source] = rest
       if (!path || !source || (!out && !patch)) usage()
-      const ref = functionRef(pkg, path)
       const text = readFileSync(source, 'utf8')
+      // A class: the functions and states' code that were edited in its source. Else one function or state.
+      const target = pkg.find(path)
+      const changes =
+        target && pkg.className(target) === 'Class'
+          ? classChanges(linker, pkg, path, text)
+          : [{ ref: functionRef(pkg, path), text, path }]
+      if (!changes.length) {
+        console.log(`${path}: nothing edited (the source decompiles from the package as it is)`)
+        break
+      }
+      const what = changes.map((c) => c.path).join(', ')
       if (patch) {
-        // A mod script can add names; imports and new locals need a whole package.
-        const fc = new FunctionCompiler(linker, pkg, ref)
-        fc.allow = 'names'
-        const statements = fc.compileStatements(text, binaryOperators(linker))
-        writeFileSync(
-          patch,
-          modScript({ name: `${path} (upkit)` }, [
-            { upk: basename(file), pkg, ref, statements, names: fc.added.names },
-          ]),
-        )
-        console.log(
-          `wrote ${patch}: ${path} as a PatchUPK mod script${fc.added.names.length ? `, adding the names ${fc.added.names.join(', ')}` : ''}`,
-        )
+        const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` })
+        writeFileSync(patch, r.text)
+        console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}`)
       }
       if (out) {
-        const fc = new FunctionCompiler(linker, pkg, ref)
-        fc.allow = 'all'
-        const { code, memSize } = fc.compile(text, binaryOperators(linker))
-        const add = fc.additions()
-        const data = withScript(pkg, ref, code, memSize, add.children)
-        writeFileSync(
-          out,
-          writePackage(pkg, {
-            data: new Map([[ref, data]]),
-            names: add.names,
-            imports: add.imports,
-            exports: add.exports,
-            layout,
-          }),
-        )
-        const h = readStructHead(pkg, ref)
+        const r = packageWith(linker, pkg, changes, layout)
+        writeFileSync(out, r.bytes)
         const extras = [
-          add.names.length && `${add.names.length} names`,
-          add.imports.length && `${add.imports.length} imports`,
-          add.exports.length && `${add.exports.length} new local properties`,
+          r.added.names && `${r.added.names} names`,
+          r.added.imports && `${r.added.imports} imports`,
+          r.added.exports && `${r.added.exports} new local properties`,
         ].filter(Boolean)
-        console.log(
-          `wrote ${out}: ${path}, ${h.size} → ${code.length} bytes of script (${layout} layout)${extras.length ? `; added ${extras.join(', ')}` : ''}`,
-        )
+        const sizes = r.compiled.map((c) => `${pkg.path(c.ref)} ${readStructHead(pkg, c.ref).size} → ${c.code.length} bytes`)
+        console.log(`wrote ${out} (${layout} layout): ${sizes.join('; ')}${extras.length ? `; added ${extras.join(', ')}` : ''}`)
       }
       break
     }

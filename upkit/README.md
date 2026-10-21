@@ -27,6 +27,9 @@ node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs.GetResearchPe
 # … a mod script any PatcherGUI install applies, or
 node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --out XComStrategyGame.new.upk
 
+# or edit any of a whole class's functions and states' code, and compile what was edited
+node upkit/src/cli.ts compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
+
 node upkit/src/cli.ts roundtrip XComGame.upk   # how much of a package compiles back byte for byte
 ```
 
@@ -44,7 +47,8 @@ look). Compressed packages are read as they are.
 
 ## What compiles back
 
-A function's body and its parameters' defaults, against the package's own
+A function's body and its parameters' defaults, and a state's code (its
+labels, and the label table the state keeps), against the package's own
 declarations and the packages it imports (types, functions, properties,
 native operators). Measured on the game's own code (decompile every function,
 compile it, compare the bytes):
@@ -69,8 +73,12 @@ What an edited body needs that the package lacks is added:
 - with `--patch` (a mod script): new names, by `[ADD_NAME_ENTRY]`. A mod
   script cannot add imports or locals; upkit says so and points to `--out`.
 
+Given a whole class's source (as `class` writes it), `compile` finds the
+functions and states' code whose source differs from what the package
+decompiles to, and compiles those, together (what they add is added once).
+
 Not compiled yet: other declarations (new member variables, functions,
-classes, a function's signature), state code, replication.
+states, classes, a function's signature), defaultproperties, replication.
 
 Hand patches can hold bytecode no UnrealScript compiles to (a flag set
 otherwise, a skip size that is not what it skips). `decompile` says so above
@@ -93,6 +101,8 @@ writes it in a form the compiler reads back the same:
 - `super(Class.State).Function()`: a parent state's function.
 - `obj.(5)`: a constant read through an object (a patch's).
 - `;` alone: an empty statement (`Nothing`, which patches pad with).
+- `"\n"`, `"\t"`: a line break and a tab in a string (UnrealScript has no
+  way to write them; a string stays on its line).
 - `__NoEpilogue;`: a function without the return the compiler adds at the
   end (a patch that removed it).
 - `__IteratorNext;`, `__IteratorPop;`: iterator steps outside a foreach.
@@ -112,6 +122,9 @@ writes it in a form the compiler reads back the same:
 | `src/parse.ts` | UnrealScript to a syntax tree |
 | `src/compile.ts` | the syntax tree to bytecode, tokens chosen as Epic's compiler chose them |
 | `src/patch.ts` | a change as a PatchUPK mod script |
+| `src/changes.ts` | a set of changes compiled together, into a package or a mod script |
+| `src/classsrc.ts` | a class's source split into its functions and states' code; what was edited |
+| `src/fidelity.ts` | whether a function's source says all its bytecode (the note on hand patches) |
 | `src/cli.ts` | the command line |
 
 Tests (`npx vitest run` in `upkit/`) run on the game's packages in the

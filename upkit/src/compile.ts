@@ -62,7 +62,8 @@ interface Gen {
 }
 
 const TYPES = new WeakMap<Package, Map<string, number>>()
-const MEMBERS = new WeakMap<Package, Map<string, Located | null>>()
+// Members found, per linker (what they resolve to is that linker's packages) and package.
+const MEMBERS = new WeakMap<Linker, WeakMap<Package, Map<string, Located | null>>>()
 
 export class FunctionCompiler {
   readonly linker: Linker
@@ -77,6 +78,8 @@ export class FunctionCompiler {
   private retRef = 0
   private retTy: Ty | null = null
   private imports = new Map<string, number>()
+  /** Objects added by compilers of the same change set before this one. */
+  private exportsBefore = 0
   /**
    * What the compiled code may add to the package: nothing (it must all be
    * there), names (a mod script can add those), or names, imports and new
@@ -84,21 +87,41 @@ export class FunctionCompiler {
    */
   allow: 'none' | 'names' | 'all' = 'none'
   /** Added by the compiled code (see additions()). */
-  readonly added = {
+  added = {
     names: [] as string[],
     imports: [] as import('./package.ts').Import[],
     locals: [] as { name: string; dim: number; ty: Ty; ref: number; cls: string; refs: number[]; inner?: { ref: number; cls: string; refs: number[] } }[],
   }
   private labels = new Map<string, Label>()
+  /** Labels in the order the code declares them (a state's label table lists them). */
+  private declared: string[] = []
   private loops: { breakTo: Label; continueTo: Label | null }[] = []
 
-  constructor(linker: Linker, pkg: Package, ref: number) {
+  /**
+   * Compilers of one change set share what they add (shared): names, imports
+   * and new objects are numbered once, across them.
+   */
+  constructor(linker: Linker, pkg: Package, ref: number, shared?: Shared) {
     this.linker = linker
     this.pkg = pkg
     this.ref = ref
-    for (let i = 1; i <= pkg.imports.length; i++) {
-      const key = pkg.path(-i).toLowerCase()
-      if (!this.imports.has(key)) this.imports.set(key, -i)
+    if (shared) {
+      this.imports = shared.importMap
+      this.added.names = shared.names
+      this.added.imports = shared.imports
+      this.exportsBefore = shared.exports
+    }
+    if (!shared || !shared.importMap.size)
+      for (let i = 1; i <= pkg.imports.length; i++) {
+        const key = pkg.path(-i).toLowerCase()
+        if (!this.imports.has(key)) this.imports.set(key, -i)
+      }
+    // A state's code: the state's class, no locals.
+    if (pkg.className(ref) === 'State') {
+      this.fn = linker.object({ pkg, ref }) as unknown as FunctionObj
+      this.state = { pkg, ref }
+      this.cls = { pkg, ref: pkg.outerOf(ref) }
+      return
     }
     this.fn = linker.object({ pkg, ref }) as FunctionObj
     let outer = pkg.outerOf(ref)
@@ -198,8 +221,10 @@ export class FunctionCompiler {
     }
   }
   private member(at: Located, name: string, kind?: 'property' | 'function'): Located | null {
-    let cache = MEMBERS.get(at.pkg)
-    if (!cache) MEMBERS.set(at.pkg, (cache = new Map()))
+    let byPkg = MEMBERS.get(this.linker)
+    if (!byPkg) MEMBERS.set(this.linker, (byPkg = new WeakMap()))
+    let cache = byPkg.get(at.pkg)
+    if (!cache) byPkg.set(at.pkg, (cache = new Map()))
     const key = `${at.ref}|${name.toLowerCase()}|${kind ?? ''}`
     if (!cache.has(key)) cache.set(key, this.memberUncached(at, name, kind))
     return cache.get(key)!
@@ -1036,7 +1061,10 @@ export class FunctionCompiler {
       case 'ifgoto':
         return this.emit(N(0x07, this.labelFor(s.label) as unknown as Value, this.gen(s.c, { k: 'bool' }).node))
       case 'label':
+        this.declared.push(s.name)
         return this.emit(this.labelFor(s.name))
+      case 'gotolabel':
+        return this.emit(N(0x0d, this.gen(s.e, { k: 'name' }).node))
       case 'assert':
         return this.emit(N(0x09, 0, 0, this.gen(s.e, { k: 'bool' }).node))
       case 'stop':
@@ -1111,7 +1139,7 @@ export class FunctionCompiler {
         if (this.locals.has(name.toLowerCase())) continue
         if (this.allow !== 'all') throw new CompileError(`a new local variable ${name} (a whole package, --out, can add it)`)
         const ty = this.typeFromText(st.type)
-        const ref = this.pkg.exports.length + this.added.locals.reduce((n, l) => n + (l.inner ? 2 : 1), 0) + 1
+        const ref = this.pkg.exports.length + this.exportsBefore + this.added.locals.reduce((n, l) => n + (l.inner ? 2 : 1), 0) + 1
         const { cls, refs } = this.propertyClass(ty)
         const local: (typeof this.added.locals)[number] = { name, dim, ty, ref, cls, refs }
         if (ty.k === 'array') {
@@ -1263,11 +1291,45 @@ export class FunctionCompiler {
     return nodes
   }
 
+  /**
+   * Compiles a state's code: its statements, the closing stop, the label table
+   * (4-aligned by Nothing before it, as the compiler aligns it; its labels in
+   * reverse order) and the end. labelTableOffset is where the table's entries start.
+   */
+  compileStateCode(src: string, binary?: Record<string, number>): { statements: Node[]; labelTableOffset: number } {
+    const body = new Parser(src, binary).statements()
+    this.out = []
+    this.stmts(body)
+    this.emit(N(0x08))
+    const nodes = this.layout()
+    let mem = nodes.reduce((n, x) => n + memSizeOf(x), 0)
+    while ((mem + 1) % 4) {
+      nodes.push(N(0x0b))
+      mem++
+    }
+    const named = this.declared.filter((n) => !/^L\d+$/.test(n)).reverse()
+    const table = named.map((n) => ({ name: this.nameRef(n), offset: this.labels.get(n)!.mem }))
+    table.push({ name: this.nameRef('None'), offset: 0xffff })
+    nodes.push(N(0x0c, table as unknown as Value))
+    nodes.push(N(0x53))
+    return { statements: nodes, labelTableOffset: mem + 1 }
+  }
+
   /** Compiles to the script's bytes and memory size. */
   compile(src: string, binary?: Record<string, number>): { code: Uint8Array; memSize: number } {
     return encodeScript(this.compileStatements(src, binary))
   }
 }
+
+/** What the compilers of one change set add, shared between them. */
+export interface Shared {
+  names: string[]
+  imports: import('./package.ts').Import[]
+  importMap: Map<string, number>
+  /** Objects added so far (each compiler's additions() count, summed by the caller). */
+  exports: number
+}
+export const shared = (): Shared => ({ names: [], imports: [], importMap: new Map(), exports: 0 })
 
 /** Binary operators' bindings, from the natives that define them (what the decompiler parenthesizes by). */
 export function binaryOperators(linker: Linker): Record<string, number> {

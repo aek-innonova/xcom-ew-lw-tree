@@ -118,8 +118,17 @@ export interface ModInfo {
 /** A mod script that replaces functions' (or states') code. */
 export function modScript(
   info: ModInfo,
-  changes: { upk: string; pkg: Package; ref: number; statements: Node[]; names?: string[] }[],
+  changes: {
+    upk: string
+    pkg: Package
+    ref: number
+    statements: Node[]
+    names?: string[]
+    /** Bytes to set in the object after its code is replaced (at an offset in it). */
+    after?: { at: number; bytes: Uint8Array }
+  }[],
 ): string {
+  const added = new Set<string>()
   const lines = [`MOD_NAME=${info.name}`]
   if (info.author) lines.push(`AUTHOR=${info.author}`)
   if (info.description) lines.push(`DESCRIPTION=${info.description}`)
@@ -128,8 +137,20 @@ export function modScript(
     if (c.upk !== upk) lines.push('', `UPK_FILE=${(upk = c.upk)}`)
     // Names the code needs that the package lacks: added first (PatchUPK's ADD_NAME_ENTRY),
     // after which <Name> finds them.
-    for (const n of c.names ?? []) lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
+    for (const n of c.names ?? []) {
+      if (added.has(n)) continue
+      added.add(n)
+      lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
+    }
     lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.names))
+    if (c.after)
+      lines.push(
+        '',
+        `OBJECT=${c.pkg.path(c.ref)}`,
+        `REL_OFFSET=${c.after.at}`,
+        '[MODDED_HEX]',
+        [...c.after.bytes].map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' '),
+      )
   }
   return lines.join('\n') + '\n'
 }
