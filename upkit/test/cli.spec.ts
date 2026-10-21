@@ -74,8 +74,12 @@ describe.skipIf(!haveCorpus)('what is not compiled is said, not ignored', () => 
       writeFileSync(join(dir, 'f.uc'), fn.replace('(int iTech)', '(float iTech)'))
       expect(fails('compile', pkg, 'XGFacility_Labs.GetHoursToResearchProject', join(dir, 'f.uc'), '--patch', join(dir, 'x.txt'))).toContain('its declaration changed')
       const cls = run('class', pkg, 'XGFacility_Labs')
-      writeFileSync(join(dir, 'c.uc'), cls.replace('var int m_iExplosiveNags;', 'var float m_iExplosiveNags;'))
-      expect(fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('a changed type is not compiled')
+      writeFileSync(join(dir, 'c.uc'), cls.replace(/^var int m_iExplosiveNags;/m, 'var float m_iExplosiveNags;'))
+      const why = fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))
+      expect(why).toContain('a changed type is not compiled')
+      // A struct's member changed: said too.
+      writeFileSync(join(dir, 'c.uc'), cls.replace(/^( {4})var int m_iExplosiveNags;/m, '$1var float m_iExplosiveNags;'))
+      expect(fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('a changed struct is not compiled')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

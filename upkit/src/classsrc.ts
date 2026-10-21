@@ -166,6 +166,36 @@ export function splitClass(src: string): ClassPart[] {
   return parts
 }
 
+/** How a constant, enum or struct the package has is declared otherwise in source (null: as it is). */
+function declaredOtherwise(linker: Linker, pkg: Package, ref: number, kind: string, text: string): string | null {
+  const o = linker.object({ pkg, ref })
+  try {
+    if (kind === 'const' && o?.kind === 'const') {
+      const v = parseConst(text).value
+      return v.replace(/\s+/g, '') === o.value.replace(/\s+/g, '') ? null : `its value is ${o.value} in the package`
+    }
+    if (kind === 'enum' && o?.kind === 'enum') {
+      const want = parseEnum(text).values.map((x) => x.toLowerCase())
+      const has = o.names.filter((x, i, a) => !(i === a.length - 1 && /_MAX$/.test(x))).map((x) => x.toLowerCase())
+      return want.join(',') === has.join(',') ? null : 'its values differ from the package'
+    }
+    if (kind === 'struct' && o?.kind === 'struct') {
+      const want = parseStruct(text).vars.flatMap((v) => v.names.map((n) => `${n.name}:${v.type}`.toLowerCase().replace(/\s+/g, '')))
+      const has: string[] = []
+      for (let c = o.head.children; c; ) {
+        const f = linker.object({ pkg, ref: c })
+        if (!f || f.kind !== 'property') break
+        has.push(`${pkg.objectName(c)}:${typeText(typeOf(linker, { pkg, ref: c }, f))}`.toLowerCase().replace(/\s+/g, ''))
+        c = f.next
+      }
+      return want.join(',') === has.join(',') ? null : 'its members differ from the package'
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 /** A function's declaration, without its parameters' defaults (those compile with the body): to compare. */
 export function declaration(text: string): string {
   try {
@@ -214,7 +244,13 @@ export function classEdits(
   for (const p of splitClass(src)) {
     // Declarations the class may not have yet: known by name.
     if (p.kind === 'const' || p.kind === 'enum' || p.kind === 'struct' || p.kind === 'state') {
-      if (pkg.find(`${className}.${p.path}`)) continue
+      const has = pkg.find(`${className}.${p.path}`)
+      if (has) {
+        // One the class has, declared otherwise: not compiled (it stays as the package has it).
+        const differs = declaredOtherwise(linker, pkg, has, p.kind, p.text)
+        if (differs) throw new Error(`${className}.${p.path}: ${differs}; a changed ${p.kind} is not compiled`)
+        continue
+      }
       if (p.kind === 'const') out.consts.push(parseConst(p.text))
       else if (p.kind === 'enum') out.enums.push(parseEnum(p.text))
       else if (p.kind === 'struct') out.structs.push(parseStruct(p.text))
