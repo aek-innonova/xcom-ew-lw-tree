@@ -34,6 +34,7 @@ import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
 import { classesPackage, modScriptWith, packageWith } from './changes.ts'
 import { classEdits, declaration } from './classsrc.ts'
 import { diffPackages } from './diff.ts'
+import { stubs } from './stubs.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
@@ -231,6 +232,17 @@ try {
       const r = classesPackage(linker, openPackage(emptyPackage(template)), pkgName, sources, layout)
       writeFileSync(file, r.bytes)
       console.log(`wrote ${file}: ${report(r)}`)
+      // What the classes read from outside the package: a start for its .int and .ini (never over a file there).
+      const st = stubs(pkgName, sources)
+      const extra: [string, string][] = [...(st.int ? [[`${pkgName}.int`, st.int] as [string, string]] : []), ...[...st.ini].map(([k, v]) => [`Default${k}.ini`, v] as [string, string])]
+      for (const [name, text] of extra) {
+        const at = join(dirname(file), name)
+        if (existsSync(at)) console.log(`${at} is there already: not written (its localized or config values: ${name})`)
+        else {
+          writeFileSync(at, text + '\r\n')
+          console.log(`wrote ${at}: the values its classes' localized or config variables are given (for the game's ${name.endsWith('.int') ? 'Localization/INT' : 'Config'} folder)`)
+        }
+      }
       break
     }
     case 'roundtrip': {

@@ -150,7 +150,10 @@ bits of the events it defines (Tick, Touch, PostBeginPlay …), without which
 the engine does not send them. Its `replication` block is compiled (the
 conditions become the class's script; the variables named are marked
 replicated with their condition's offset). Classes compiled together can
-name each other.
+name each other. `new` also writes, beside the package, a start for what its
+classes read from outside it: `<Package>.int` with the values its
+`localized` variables are given in `defaultproperties`, and
+`Default<Config>.ini` with its `config` ones (never over a file there).
 
 ### What is not compiled
 
