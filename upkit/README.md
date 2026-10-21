@@ -120,7 +120,7 @@ by class and built anew from that source with `new`. Compared with the
 original object by object: 96.9% of its functions and states have the same
 code token for token (as compiling each function back in place does: the
 rest are where LWR was built against its own stubs of the game's classes),
-and 99.9% of its objects the same declarations (flags, links, members,
+and 99.7% of its objects the same declarations (flags, links, members,
 defaults).
 
 None of what upkit writes has been loaded by the game yet: the packages are
