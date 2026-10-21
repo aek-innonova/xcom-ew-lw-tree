@@ -60,6 +60,10 @@ const CAST: Record<string, number> = {
 /** Conversions UnrealScript makes by itself. */
 const AUTO = new Set(['byte>int', 'int>byte', 'byte>float', 'int>float', 'float>int', 'float>byte', 'interface>object'])
 const NARROWING = new Set(['int>byte', 'float>int', 'float>byte'])
+/** Types whose values do not pass for one another unconverted. */
+const STRICT = new Set(['int', 'float', 'byte', 'bool', 'string', 'name'])
+const typeWord = (t: Ty) => (t.k === 'byte' && t.enumOf ? t.enumOf.pkg.objectName(t.enumOf.ref) : t.k)
+const an = (w: string) => `${/^[aeio]/i.test(w) ? 'an' : 'a'} ${w}`
 
 interface Gen {
   node: Node
@@ -427,6 +431,9 @@ export class FunctionCompiler {
     if (to === 'object' || to === 'interface' || to === 'delegate' || from === 'object' && to === 'none') return g
     const key = `${from}>${to}`
     const code = CAST[key]
+    // Neither converted on its own nor asked for (int("5") is; a string where an int is wanted is not).
+    if (!explicit && !AUTO.has(key) && STRICT.has(from) && STRICT.has(to) && !(from === 'byte' && to === 'byte'))
+      throw new CompileError(`${an(typeWord(g.ty))} where ${an(typeWord(want))} is wanted (convert it: ${typeWord(want)}(…))`)
     if (code === undefined || (!explicit && !AUTO.has(key))) return g
     return { node: N(0x38, code, g.node), ty: want }
   }
@@ -777,8 +784,10 @@ export class FunctionCompiler {
         continue
       }
       const out_ = !!(p.p.flags & CPF.OutParm)
-      let g = out_ ? this.gen(a, undefined, true) : this.gen(a, p.ty)
-      if (!out_ && p.p.flags & CPF.CoerceParm) g = this.convert(g, p.ty, true)
+      // (A coerced parameter takes what converts to it, converted as if asked.)
+      const coerce = !out_ && !!(p.p.flags & CPF.CoerceParm)
+      let g = out_ ? this.gen(a, undefined, true) : this.gen(a, coerce ? undefined : p.ty)
+      if (coerce) g = this.convert(g, p.ty, true)
       let node = g.node
       if (native && p.p.flags & CPF.SkipParm) node = N(0x18, memSizeOf(node) + 1, node)
       out.push(node)
@@ -1111,8 +1120,9 @@ export class FunctionCompiler {
     const info = this.fnInfo(best)
     const ps = info.params.map((p, i) => {
       const out = !!(p.p.flags & CPF.OutParm)
-      let g = out ? this.gen(operands[i]!, undefined, true) : this.gen(operands[i]!, p.ty)
-      if (!out && p.p.flags & CPF.CoerceParm) g = this.convert(g, p.ty, true)
+      const coerce = !out && !!(p.p.flags & CPF.CoerceParm)
+      let g = out ? this.gen(operands[i]!, undefined, true) : this.gen(operands[i]!, coerce ? undefined : p.ty)
+      if (coerce) g = this.convert(g, p.ty, true)
       return p.p.flags & CPF.SkipParm ? N(0x18, memSizeOf(g.node) + 1, g.node) : g.node
     })
     const node = NATIVE(info.fn.native, ps)
