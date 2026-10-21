@@ -1707,6 +1707,11 @@ export class FunctionCompiler {
     return { statements: nodes, labelTableOffset: mem + 1 }
   }
 
+  /** One expression alone (a replication condition, in the class's scope), as the type wanted. */
+  compileExpression(src: string, want?: Ty): Node {
+    return this.gen(new Parser(src).expr(), want).node
+  }
+
   /** Compiles to the script's bytes and memory size. */
   compile(src: string, binary?: Record<string, number>): { code: Uint8Array; memSize: number } {
     return encodeScript(this.compileStatements(src, binary))

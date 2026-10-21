@@ -29,7 +29,7 @@ import {
 export interface ClassPart {
   /** "Function" in the class, "State.Function" in a state, or "State" for a state's code. */
   path: string
-  kind: 'function' | 'state code' | 'var' | 'const' | 'enum' | 'struct' | 'state'
+  kind: 'function' | 'state code' | 'var' | 'const' | 'enum' | 'struct' | 'state' | 'replication'
   text: string
   /** Where it starts in the source (an offset). */
   at?: number
@@ -144,7 +144,14 @@ export function splitClass(src: string): ClassPart[] {
           parts.push({ path: name, kind: isWord(from, 'enum') ? 'enum' : 'struct', text: text(from, i) })
           continue
         }
-        // Anything else with a block (replication, cpptext): skipped whole.
+        // The replication block: what is replicated, and when.
+        if (isWord(i, 'replication') && at(i + 1).v === '{') {
+          const end = skipBlock(i + 1)
+          parts.push({ path: '', kind: 'replication', text: text(i, end) })
+          i = end
+          continue
+        }
+        // Anything else with a block (cpptext): skipped whole.
         if (t.v === '{' && t.t === 'op') {
           i = skipBlock(i)
           continue
@@ -231,6 +238,8 @@ export interface ClassEdits {
   enums: EnumDecl[]
   structs: StructDecl[]
   states: StateDecl[]
+  /** A new class's replication block (an existing class's must be as the package has it). */
+  replication: string | null
 }
 
 export function classEdits(
@@ -241,7 +250,7 @@ export function classEdits(
   /** Paths compiled whatever they decompile to now (just declared: their bodies are stubs). */
   always: Set<string> = new Set(),
 ): ClassEdits {
-  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [] }
+  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null }
   // The class's own declaration: what it extends and is within stay as the package has them.
   const own = pkg.find(className)
   const co = own ? linker.object({ pkg, ref: own }) : null
@@ -260,6 +269,13 @@ export function classEdits(
       throw new Error(`${className} is within ${within} in the package, not ${head.within}; a changed class declaration is not compiled`)
   }
   for (const p of splitClass(src)) {
+    if (p.kind === 'replication') {
+      // A class just declared takes it; one the package had keeps its own.
+      if (always.has(className.toLowerCase())) out.replication = p.text
+      else if (own && !same(new FunctionDecompiler(linker, pkg, own).decompileReplication(), p.text))
+        throw new Error(`${className}: its replication differs from the package's; a changed replication is not compiled`)
+      continue
+    }
     // Declarations the class may not have yet: known by name.
     if (p.kind === 'const' || p.kind === 'enum' || p.kind === 'struct' || p.kind === 'state') {
       const has = pkg.find(`${className}.${p.path}`)

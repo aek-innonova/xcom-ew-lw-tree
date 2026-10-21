@@ -126,8 +126,9 @@ packages came from the win VM's install into `samples/ew/`.
 - A mod script cannot add imports: the app's PatchUPK implementation does
   not take `[ADD_IMPORT_ENTRY]`, so there is nothing to check one against;
   an edit that needs an import says to use `--out`.
-- Not compiled: native functions, replication, a changed declaration of
-  something the package has (refused, with that said).
+- Not compiled: native functions; a changed declaration of something the
+  package has (refused, with that said). Replication is compiled for new
+  classes only.
 - upkit lives in this repository; standing on its own needs a repository of
   its own (a person's decision: its name, its licence), with the test that
   uses the app's PatchUPK implementation moved or dropped.

@@ -523,3 +523,33 @@ describe.skipIf(!haveCorpus)('an interface and a class implementing it, built as
     expect(decompileClass(back, out, 'UpkitScorer')).toContain('iTotal += S.Score(kTarget);')
   })
 })
+
+describe.skipIf(!haveCorpus)('replication', () => {
+  it("an Actor's replication decompiled as Epic wrote it", async () => {
+    const { decompileClass } = await import('../src/classdecomp.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const text = decompileClass(linker, load(CORPUS[1]!), 'Actor')
+    expect(text).toContain('replication\n{')
+    expect(text).toMatch(/if \(\(!bSkipActorPropertyReplication \|\| bNetInitial\) && int\(Role\) == int\(ROLE_Authority\)\)\n {8}bNetOwner, bTearOff, Role, RemoteRole;/)
+  })
+  it("a new class's replication compiled: its conditions the class's script, its variables marked", async () => {
+    const { readFileSync: read } = await import('node:fs')
+    const { classesPackage } = await import('../src/changes.ts')
+    const { emptyPackage } = await import('../src/writer.ts')
+    const { readObject } = await import('../src/objects.ts')
+    const { FunctionDecompiler: D } = await import('../src/decompile.ts')
+    const src = read(new URL('./fixtures/UpkitNetActor.uc', import.meta.url), 'utf8')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const out = openPackage(classesPackage(linker, openPackage(emptyPackage(linker.package('Core')!)), 'UpkitNet', [src]).bytes)
+    const score = readObject(out, out.find('UpkitNetActor.m_iScore')) as { flags: bigint; repOffset?: number }
+    const active = readObject(out, out.find('UpkitNetActor.m_bActive')) as { flags: bigint; repOffset?: number }
+    expect(score.flags & 0x20n).toBe(0x20n)
+    expect(score.repOffset).toBe(0)
+    expect(active.repOffset).toBeGreaterThan(0)
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('UpkitNet', out)
+    const rep = new D(back, out, out.find('UpkitNetActor')).decompileReplication()
+    expect(rep).toContain('m_iScore, m_strLabel;')
+    expect(rep).toContain('if (bNetInitial)\n        m_bActive;')
+  })
+})

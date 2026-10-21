@@ -202,7 +202,12 @@ a variable's or a struct member's type, an enum's values, what a class
 extends), is refused with that said: only bodies and defaults change what is
 there.
 
-Not compiled yet: native functions (their code is C++); replication.
+A class's replication is decompiled (`replication { if (condition) A, B; }`)
+and, for a new class, compiled (the conditions become the class's script, the
+variables named are marked replicated with their condition's offset); an
+existing class's replication changed in the source is refused.
+
+Not compiled: native functions (their code is C++).
 
 Hand patches can hold bytecode no UnrealScript compiles to (a flag set
 otherwise, a skip size that is not what it skips). `decompile` says so above

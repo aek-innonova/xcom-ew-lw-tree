@@ -8,6 +8,8 @@
 // package like any edited function (the function exists by then).
 
 import { Reader, Writer } from './bytes.ts'
+import { encodeScript, memSizeOf } from './bytecode.ts'
+import { withScript } from './edit.ts'
 import { ClassDecompiler } from './classdecomp.ts'
 import { FunctionCompiler, shared, type Shared } from './compile.ts'
 import type { Linker, Located } from './linker.ts'
@@ -916,4 +918,90 @@ export function declareSubobjects(linker: Linker, pkg: Package, classRef: number
   w.bytes(data.subarray(mapAt + 4 + oldCount * 12))
   const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
   return writePackage(pkg, { data: new Map([[classRef, w.done()]]), names, imports: sh.imports, exports, layout: 'keep' })
+}
+
+/** replication { if (condition) A, B; … }: each condition and the members it replicates. */
+export function parseReplication(text: string): { condition: string; names: string[] }[] {
+  const body = text.slice(text.indexOf('{') + 1, text.lastIndexOf('}'))
+  const out: { condition: string; names: string[] }[] = []
+  let i = 0
+  while (i < body.length) {
+    const m = /\bif\s*\(/g
+    m.lastIndex = i
+    const found = m.exec(body)
+    if (!found) break
+    // The condition: to its parenthesis' match.
+    let depth = 1
+    let j = found.index + found[0].length
+    const start = j
+    for (; j < body.length && depth; j++) {
+      if (body[j] === '(') depth++
+      if (body[j] === ')') depth--
+    }
+    const condition = body.slice(start, j - 1)
+    const semi = body.indexOf(';', j)
+    if (semi < 0) throw new DeclareError('replication: a list without its ;')
+    out.push({ condition, names: body.slice(j, semi).split(',').map((x) => x.trim()).filter(Boolean) })
+    i = semi + 1
+  }
+  return out
+}
+
+/**
+ * The package with a new class's replication compiled: its conditions as the
+ * class's script (one after the other, then the end), each member it names
+ * marked replicated with its condition's offset.
+ */
+export function declareReplication(linker: Linker, pkg: Package, classRef: number, text: string, sh: Shared = shared()): Uint8Array {
+  const fc = new FunctionCompiler(linker, pkg, classRef, sh)
+  fc.allow = 'all'
+  const entries = parseReplication(text)
+  const nodes: import('./bytecode.ts').Node[] = []
+  const offsets: number[] = []
+  let mem = 0
+  for (const e of entries) {
+    const node = fc.compileExpression(e.condition, { k: 'bool' })
+    offsets.push(mem)
+    mem += memSizeOf(node)
+    nodes.push(node)
+  }
+  nodes.push({ op: 0x53, args: [], at: 0, mem: 0 })
+  const { code, memSize } = encodeScript(nodes)
+  const data = new Map<number, Uint8Array>()
+  data.set(classRef, withScript(pkg, classRef, code, memSize))
+  const className = pkg.objectName(classRef)
+  entries.forEach((e, k) => {
+    for (const name of e.names) {
+      const ref = pkg.find(`${className}.${name}`)
+      const o = ref ? readObject(pkg, ref) : null
+      if (!o || o.kind !== 'property') throw new DeclareError(`replication: ${className} has no variable ${name}`)
+      data.set(ref, withRepOffset(pkg, ref, offsets[k]!))
+    }
+  })
+  const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
+  return writePackage(pkg, { data, names, imports: sh.imports, layout: 'keep' })
+}
+
+/** A property's data marked replicated (CPF_Net), with the offset of its condition after its array enum. */
+function withRepOffset(pkg: Package, ref: number, offset: number): Uint8Array {
+  const data = pkg.data(ref)
+  const r = new Reader(data)
+  r.i32()
+  readTags(r, pkg)
+  r.i32() // next
+  r.i32() // array dimension
+  const flagsAt = r.o
+  const flags = new DataView(data.buffer, data.byteOffset).getBigUint64(flagsAt, true)
+  const afterEnum = flagsAt + 8 + 8 + 4 // flags, category, array enum
+  const w = new Writer(data.length + 2)
+  if (flags & CPF.Net) {
+    w.bytes(data)
+    const out = w.done()
+    new DataView(out.buffer, out.byteOffset).setUint16(afterEnum, offset, true)
+    return out
+  }
+  w.bytes(data.subarray(0, afterEnum)).u16(offset).bytes(data.subarray(afterEnum))
+  const out = w.done()
+  new DataView(out.buffer, out.byteOffset).setBigUint64(flagsAt, flags | CPF.Net, true)
+  return out
 }
