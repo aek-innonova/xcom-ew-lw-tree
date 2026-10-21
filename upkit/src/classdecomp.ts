@@ -87,6 +87,18 @@ export class ClassDecompiler {
   private obj(ref: number): string {
     return ref ? this.pkg.objectName(ref) : 'None'
   }
+  /** A struct's (class's, state's) fields as they are linked, from its first child. */
+  private chain(ref: number): number[] {
+    const out: number[] = []
+    const o = this.linker.object({ pkg: this.pkg, ref })
+    const first = o && 'head' in o ? o.head.children : 0
+    for (let c = first; c && out.length < 100000; ) {
+      out.push(c)
+      const f = this.linker.object({ pkg: this.pkg, ref: c })
+      c = f ? ('head' in f ? f.head.next : f.next) : 0
+    }
+    return out
+  }
   /** Exports directly inside an object, in export (declaration) order. */
   private inside(outer: number): number[] {
     const out: number[] = []
@@ -119,7 +131,10 @@ export class ClassDecompiler {
     if (kinds('Const').length) lines.push('')
     for (const m of kinds('Enum')) lines.push(...this.enumText(m), '')
     for (const m of kinds('ScriptStruct')) lines.push(...this.structText(m), '')
-    const vars = members.filter((m) => pkg.className(m).endsWith('Property') && !/^__.*__Delegate$/.test(pkg.objectName(m)))
+    // Variables in declaration order: a class's fields chain from the last declared.
+    const vars = this.chain(this.ref)
+      .reverse()
+      .filter((m) => pkg.className(m).endsWith('Property') && !/^__.*__Delegate$/.test(pkg.objectName(m)))
     for (const m of vars) lines.push(this.varText(m))
     if (vars.length) lines.push('')
     for (const m of kinds('Function')) lines.push(this.functionText(m))
@@ -151,7 +166,8 @@ export class ClassDecompiler {
     const s = this.object<StructObj>(ref)
     const sup = s.head.superStruct ? ` extends ${this.obj(s.head.superStruct)}` : ''
     const out = [`struct ${s.structFlags & 0x1 ? 'native ' : ''}${this.pkg.objectName(ref)}${sup}`, '{']
-    for (const m of this.inside(ref)) if (this.pkg.className(m).endsWith('Property')) out.push(this.varText(m, '    '))
+    // Members in declaration order: a struct's fields chain from the first (its layout).
+    for (const m of this.chain(ref)) if (this.pkg.className(m).endsWith('Property')) out.push(this.varText(m, '    '))
     if (s.defaults.length) {
       out.push('', '    structdefaultproperties', '    {')
       for (const t of s.defaults) out.push(`        ${this.tagLine(t, { pkg: this.pkg, ref })}`)

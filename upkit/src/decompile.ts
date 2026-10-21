@@ -921,7 +921,10 @@ export class FunctionDecompiler {
       S[params.length]?.op === 0x0b &&
       S[params.length + 1]?.op === 0x53
     const nativeBody = !!(fn.flags & FUNC.Native) && (!head.size || stub)
-    if (nativeBody) return lines[0] + ';\n'
+    // Declared without a body (not "defined"; a delegate is never): the bare return the compiler writes for it.
+    const bare = S.length === 2 && S[0]!.op === 0x04 && (S[0]!.args[0] as Node).op === 0x0b && S[1]!.op === 0x53
+    const declaredOnly = !(fn.flags & FUNC.Defined) && (bare || !head.size)
+    if (nativeBody || declaredOnly) return lines[0] + ';\n'
     lines.push('{')
     for (const l of locals) lines.push(`    local ${this.typeOf(l)} ${pkg.objectName(l.ref)}${this.dims(l.p)};`)
     if (locals.length) lines.push('')

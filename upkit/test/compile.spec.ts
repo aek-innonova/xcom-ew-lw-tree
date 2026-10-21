@@ -299,3 +299,28 @@ describe.skipIf(!haveCorpus)('a new script package', () => {
     expect(info).toContain('extends Info')
   })
 })
+
+describe.skipIf(!haveCorpus)('a mod package rebuilt from its decompiled source', () => {
+  it('LWRebalance.u: every class decompiled, built anew as a package, compared with the original', async () => {
+    const { classesPackage } = await import('../src/changes.ts')
+    const { ClassDecompiler } = await import('../src/classdecomp.ts')
+    const { emptyPackage } = await import('../src/writer.ts')
+    const { openPackage } = await import('../src/package.ts')
+    const { sameCode, sameDeclarations } = await import('./support/compare.ts')
+    const path = CORPUS[4]!
+    const orig = load(path)
+    const linker = new Linker([dirname(path), dirname(CORPUS[0]!)])
+    linker.add('LWRebalance', orig)
+    const sources: string[] = []
+    for (let ref = 1; ref <= orig.exports.length; ref++)
+      if (orig.className(ref) === 'Class') sources.push(new ClassDecompiler(linker, orig, ref, false).decompile())
+    const fresh = new Linker([dirname(path), dirname(CORPUS[0]!)])
+    const built = openPackage(classesPackage(fresh, openPackage(emptyPackage(fresh.package('Core')!)), 'LWRebalance', sources).bytes)
+    const code = sameCode(orig, built, 'LWRebalance')
+    const decl = sameDeclarations(orig, built, 'LWRebalance')
+    console.log(`LWRebalance.u rebuilt: code ${code.same}/${code.total} (${((100 * code.same) / code.total).toFixed(1)}%), declarations ${decl.same}/${decl.total} (${((100 * decl.same) / decl.total).toFixed(1)}%)`)
+    // As compiling each function back in place (the rest: LWR built against its own stubs of the game).
+    expect(code.same / code.total).toBeGreaterThan(0.96)
+    expect(decl.same / decl.total).toBeGreaterThan(0.995)
+  }, 180_000)
+})

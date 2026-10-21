@@ -1194,6 +1194,13 @@ export class FunctionCompiler {
         this.emit(N(0x49, memSizeOf(g.node) + 1, g.node, 0x15))
       } else this.emit(N(0x0b))
     }
+    // A function declared without a body (a delegate's, or one to override): the bare return.
+    if (!f.body && !(this.fn.flags & FUNC.Native)) {
+      this.out = []
+      this.emit(N(0x04, N(0x0b)))
+      this.emit(N(0x53))
+      return this.layout()
+    }
     // A native function without a body: the stub (each parameter as NativeParm, then nothing).
     if (!f.body && this.fn.flags & FUNC.Native) {
       for (const p of this.params) this.emit(N(0x29, p.ref))
@@ -1271,7 +1278,9 @@ export class FunctionCompiler {
       case 'byte':
         return { cls: 'ByteProperty', refs: [r(ty.enumOf)] }
       case 'object':
-        return { cls: 'ObjectProperty', refs: [r(ty.cls)] }
+      case 'component':
+        // A component's class (Core.Component's kin): a component property.
+        return { cls: ty.k === 'component' || (ty.cls && this.isComponent(ty.cls)) ? 'ComponentProperty' : 'ObjectProperty', refs: [r(ty.cls)] }
       case 'interface':
         return { cls: 'InterfaceProperty', refs: [r(ty.cls)] }
       case 'class':
@@ -1313,9 +1322,12 @@ export class FunctionCompiler {
     }
     locals.forEach((l, k) => {
       const next = k + 1 < locals.length ? locals[k + 1]!.ref : 0
-      const flags = this.needsCtor(l.ty) ? CPF_NeedCtorLink : 0n
+      const flags = (this.needsCtor(l.ty) ? CPF_NeedCtorLink : 0n) | this.typeFlags(l.ty)
       exports.push(this.propertyObject({ ref: l.ref, outer: this.ref, name: l.name, cls: l.cls, refs: l.refs, next, dim: l.dim, flags }))
-      if (l.inner) exports.push(this.propertyObject({ ref: l.inner.ref, outer: l.ref, name: l.name, cls: l.inner.cls, refs: l.inner.refs, next: 0, dim: 1, flags: 0n }))
+      if (l.inner && l.ty.k === 'array') {
+        const inner = (this.needsCtor(l.ty.inner) ? CPF_NeedCtorLink : 0n) | this.typeFlags(l.ty.inner)
+        exports.push(this.propertyObject({ ref: l.inner.ref, outer: l.ref, name: l.name, cls: l.inner.cls, refs: l.inner.refs, next: 0, dim: 1, flags: inner }))
+      }
     })
     if (locals.length && last) edits.set(last, withNext(this.pkg, last, locals[0]!.ref))
     return {
@@ -1368,6 +1380,33 @@ export class FunctionCompiler {
     }
   }
 
+  /**
+   * Whether the function's locals need their structs' defaults copied in when it
+   * is called (FUNC_HasDefaults): a local struct whose struct has defaults (so the
+   * game's packages have it, 99 functions in 100).
+   */
+  localsNeedDefaults(): boolean {
+    const structHasDefaults = (ty: Ty) => {
+      if (ty.k !== 'struct' || !ty.struct) return false
+      const o = this.obj(ty.struct)
+      return o?.kind === 'struct' && o.defaults.length > 0
+    }
+    for (const l of this.locals.values()) if (!(l.p.flags & CPF.Parm) && structHasDefaults(l.ty)) return true
+    return false
+  }
+  /** Flags a variable of the type has for its type alone (a component's: edited inline). */
+  typeFlags(ty: Ty): bigint {
+    return (ty.k === 'object' || ty.k === 'component') && ty.cls && this.isComponent(ty.cls) ? CPF.EditInline : 0n
+  }
+  private isComponent(cls: Located): boolean {
+    for (let s: Located | null = cls, n = 0; s && n < 64; n++) {
+      if (s.pkg.objectName(s.ref) === 'Component' && s.pkg.path(s.ref) === 'Component') return true
+      const o = this.obj(s)
+      if (!o || !('head' in o) || !o.head.superStruct) return false
+      s = this.linker.resolve(s.pkg, o.head.superStruct)
+    }
+    return false
+  }
   /** Whether a variable of the type is constructed and destroyed (strings, arrays, delegates, structs holding them). */
   needsCtor(ty: Ty, depth = 0): boolean {
     if (ty.k === 'string' || ty.k === 'array' || ty.k === 'delegate' || ty.k === 'map') return true

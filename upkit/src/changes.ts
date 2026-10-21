@@ -59,7 +59,15 @@ export function packageWith(
       continue
     }
     const add = fc.additions()
-    data.set(c.ref, withScript(pkg, c.ref, one.code, one.memSize, add.children))
+    const fdata = withScript(pkg, c.ref, one.code, one.memSize, add.children)
+    // New locals: whether the function now copies struct defaults into them (its flag after the script).
+    if (add.exports.length) {
+      const at = readStructHead(pkg, c.ref).scriptAt + one.code.length + 3
+      const v = new DataView(fdata.buffer, fdata.byteOffset)
+      const flags = v.getUint32(at, true)
+      v.setUint32(at, (fc.localsNeedDefaults() ? flags | 0x800000 : flags & ~0x800000) >>> 0, true)
+    }
+    data.set(c.ref, fdata)
     for (const [ref, d] of add.edits) data.set(ref, d)
     exports.push(...add.exports)
     sh.exports += add.exports.length

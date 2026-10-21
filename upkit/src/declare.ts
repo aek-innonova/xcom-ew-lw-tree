@@ -45,9 +45,18 @@ export interface FunctionDecl {
   returnType: string | null
   params: ParamDecl[]
   isConst: boolean
+  /** Whether it has a body ({ … }) or is only declared (;). */
+  hasBody: boolean
 }
 
 const CPF_NeedCtorLink = 0x400000n
+
+/** What an array's flags pass to its element's property (as the compiler passes them), and its own. */
+const PROPAGATE_TO_INNER =
+  CPF.ExportObject | CPF.EditInline | CPF.EditInlineUse | CPF.Localized | CPF.Component | CPF.Config | CPF.AlwaysInit | CPF.EditConst | CPF.Deprecated | CPF.CrossLevelPassive | CPF.CrossLevelActive
+function innerFlags(fc: FunctionCompiler, outer: bigint, inner: import('./types.ts').Ty): bigint {
+  return (outer & PROPAGATE_TO_INNER) | (fc.needsCtor(inner) ? CPF_NeedCtorLink : 0n) | fc.typeFlags(inner)
+}
 
 const VAR_MODIFIERS: Record<string, bigint> = {
   const: CPF.Const,
@@ -221,7 +230,8 @@ export function parseSignature(text: string, state: string | null): FunctionDecl
   }
   i++
   const isConst = t[i]?.v.toLowerCase() === 'const'
-  return { name, state, modifiers, keyword, returnType, params, isConst }
+  const hasBody = t.slice(i).some((x) => x.v === '{')
+  return { name, state, modifiers, keyword, returnType, params, isConst, hasBody }
 }
 
 /** The data of a class or state with another first field, and more functions in its map. */
@@ -279,9 +289,10 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
     let { cls: pcls, refs } = fc.propertyClass(ty)
     const inner = ty.k === 'array' ? { ref: nextRef++, ...fc.propertyClass(ty.inner) } : null
     if (inner) refs = [inner.ref]
-    const all = flags | (fc.needsCtor(ty) ? CPF_NeedCtorLink : 0n)
+    const all = flags | (fc.needsCtor(ty) ? CPF_NeedCtorLink : 0n) | fc.typeFlags(ty)
     exports.push(fc.propertyObject({ ref, outer, name, cls: pcls, refs, next, dim, flags: all, category: category ?? undefined }))
-    if (inner) exports.push(fc.propertyObject({ ref: inner.ref, outer: ref, name, cls: inner.cls, refs: inner.refs, next: 0, dim: 1, flags: 0n }))
+    if (inner && ty.k === 'array')
+      exports.push(fc.propertyObject({ ref: inner.ref, outer: ref, name, cls: inner.cls, refs: inner.refs, next: 0, dim: 1, flags: innerFlags(fc, all, ty.inner) }))
     return ref
   }
 
@@ -292,13 +303,19 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
       o.children = property(classRef, n.name, v.type, n.dim, v.flags, o.children, v.category)
     }
 
-  for (const f of functions) {
+  // The class's own functions first: a state's function overrides one of them (declared here too, perhaps).
+  const ownFunctions = new Map<string, Located>()
+  for (const f of [...functions].sort((x, y) => (x.state ? 1 : 0) - (y.state ? 1 : 0))) {
     if (f.modifiers.has('native')) throw new DeclareError(`${f.name}: a native function needs C++`)
     const outer = f.state ? pkg.find(`${pkg.objectName(classRef)}.${f.state}`) : classRef
     if (!outer) throw new DeclareError(`${f.name}: no state ${f.state} in the class (new states are not declared yet)`)
     // What it overrides: the parent class's function (a state's: the class's own).
+    const stateObj = f.state ? (readObject(pkg, outer) as StateObj) : null
+    const parentState = stateObj?.head.superStruct ? linker.resolve(pkg, stateObj.head.superStruct) : null
     const superOf: Located | null = f.state
-      ? fc.findFunction(f.name, { pkg, ref: classRef })
+      ? ((parentState && fc.findFunction(f.name, parentState)) ??
+        ownFunctions.get(f.name.toLowerCase()) ??
+        fc.findFunction(f.name, { pkg, ref: classRef }))
       : cls.head.superStruct
         ? fc.findFunction(f.name, linker.resolve(pkg, cls.head.superStruct)!)
         : null
@@ -310,7 +327,7 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
     exports.push(null as never)
     const parms: number[] = []
     // A delegate has no body of its own (the bare return it is written with).
-    let flags = f.keyword === 'delegate' ? FUNC.Delegate : FUNC.Defined
+    let flags = f.keyword === 'delegate' ? FUNC.Delegate : f.hasBody ? FUNC.Defined : 0
     for (const p of f.params) {
       let pf = CPF.Parm
       if (p.out) pf |= CPF.OutParm
@@ -371,6 +388,7 @@ export function declare(linker: Linker, pkg: Package, classRef: number, vars: Va
     }
     o.children = ref
     o.functions.push({ name, ref, text: f.name })
+    if (!f.state) ownFunctions.set(f.name.toLowerCase(), { pkg, ref })
     // A delegate's hidden variable (__Name__Delegate): what is assigned to it is called.
     if (f.keyword === 'delegate') {
       const hidden = nextRef++
@@ -748,9 +766,10 @@ export function declareStruct(linker: Linker, pkg: Package, classRef: number, s:
       let { cls: pcls, refs } = fc.propertyClass(ty)
       const inner = ty.k === 'array' ? { ref: nextRef++, ...fc.propertyClass(ty.inner) } : null
       if (inner) refs = [inner.ref]
-      const flags = v.flags | (fc.needsCtor(ty) ? 0x400000n : 0n)
+      const flags = v.flags | (fc.needsCtor(ty) ? 0x400000n : 0n) | fc.typeFlags(ty)
       exports[ref - structRef] = fc.propertyObject({ ref, outer: structRef, name: n.name, cls: pcls, refs, next: 0, dim: n.dim, flags, category: v.category ?? undefined })
-      if (inner) exports[inner.ref - structRef] = fc.propertyObject({ ref: inner.ref, outer: ref, name: n.name, cls: inner.cls, refs: inner.refs, next: 0, dim: 1, flags: 0n })
+      if (inner && ty.k === 'array')
+        exports[inner.ref - structRef] = fc.propertyObject({ ref: inner.ref, outer: ref, name: n.name, cls: inner.cls, refs: inner.refs, next: 0, dim: 1, flags: innerFlags(fc, flags, ty.inner) })
       members.push(ref)
     }
   for (let k = 0; k + 1 < members.length; k++) {

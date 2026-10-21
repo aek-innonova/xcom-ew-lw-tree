@@ -113,15 +113,29 @@ own; the probe-mask bits of the events it defines (Tick, Touch,
 PostBeginPlay …), without which the engine does not send them. Classes
 compiled together can name each other.
 
+The whole of it is measured on a real mod package: LWR's `LWRebalance.u`
+(13 classes, 1,484 functions, 192 constants, 10 structs, 9 states,
+delegates; built by its authors with Unreal's own compiler) decompiled class
+by class and built anew from that source with `new`. Compared with the
+original object by object: 96.9% of its functions and states have the same
+code token for token (as compiling each function back in place does: the
+rest are where LWR was built against its own stubs of the game's classes),
+and 99.9% of its objects the same declarations (flags, links, members,
+defaults).
+
 None of what upkit writes has been loaded by the game yet: the packages are
 checked by reading them back (every object to its end, every class
 decompiled to its source, every function compiled back to the same bytes),
 and mod scripts by the app's own PatchUPK implementation. Getting the game to
 load a new package (Long War's mutators are one way) is outside upkit.
 
-Not compiled yet: new states, delegates, native functions and interfaces; a
-changed signature or variable type; new subobjects in the defaults;
-replication.
+Declared too: constants, enums, structs (with their
+`structdefaultproperties`), states (`auto`, `simulated`, `extends`; their
+functions and code), delegates and delegate-typed variables, functions
+declared without a body.
+
+Not compiled yet: native functions and interfaces; a changed signature or
+variable type; new subobjects in the defaults; replication.
 
 Hand patches can hold bytecode no UnrealScript compiles to (a flag set
 otherwise, a skip size that is not what it skips). `decompile` says so above
