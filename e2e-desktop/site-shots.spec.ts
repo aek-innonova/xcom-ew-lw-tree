@@ -93,6 +93,10 @@ test('screenshots for the website', async () => {
   await colors.scrollIntoViewIfNeeded()
   await page.waitForTimeout(6000)
   await shot(colors.locator('.looks'), 'class-colors')
+  // Not for the site: Long War's rookie, in the kit of the rifle carried.
+  await colors.getByRole('button', { name: 'Show Rookie on the soldier' }).click()
+  await page.waitForTimeout(4000)
+  await colors.locator('.soldier-side').screenshot({ path: '/tmp/lwtree-check/lw-rookie.png' })
 
   // An item's card.
   const items = page.locator('details[aria-label="Items"]')
@@ -128,6 +132,9 @@ test('screenshots for the website', async () => {
   await lwrColors.scrollIntoViewIfNeeded()
   await page.waitForTimeout(4000)
   await lwrColors.locator('.looks').screenshot({ path: '/tmp/lwtree-check/lwr-colors.png' })
+  await lwrColors.getByRole('button', { name: 'Show Rookie on the soldier' }).click()
+  await page.waitForTimeout(4000)
+  await lwrColors.locator('.soldier-side').screenshot({ path: '/tmp/lwtree-check/lwr-rookie.png' })
   await bar.getByRole('button', { name: /^Long War 1\.0/ }).click()
 
   await app.close()

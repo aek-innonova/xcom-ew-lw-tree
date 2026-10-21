@@ -24,6 +24,8 @@ for p in Startup XComGame XComShell LongWar Anim_Barracks gfxInterception_SF UIC
   Helmet_Kevlar{0,9}_SF Head_{CaucMale_A,CaucFem_A,AfrMale_B}_SF Hair_{MaleHair_A,MaleHair_C,FemHair_A}_SF; do
   ln "$s/CookedPCConsole/$p.upk" "$game/XEW/XComGame/CookedPCConsole/"
 done
+# The Kevlar kits a soldier wears for the weapon carried (no deco set).
+for k in "$s"/CookedPCConsole/Kit_*_I_Medium_SF.upk; do ln "$k" "$game/XEW/XComGame/CookedPCConsole/"; done
 ln "$s/CookedPCConsole/"{CharTextures,Textures}.tfc "$game/XEW/XComGame/CookedPCConsole/"
 ln "$lw/Long_War_EW_Armor_Kit_Codes.txt" "$game/XEW/"
 cp "$lw/XComGame/Config/"{DefaultGameCore,DefaultContent}.ini "$game/XEW/XComGame/Config/"

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // A soldier in a class's colors, beside the class color settings
 // (features/game-soldiers.md, features/game-settings-ux.md): the class is the
-// row picked in the table beside it; here the armor, gender, face and hair.
-// The soldier follows the setting's value, yours or the version's own.
+// row picked in the table beside it; here the armor, the weapon carried (its
+// kit, unless a deco is set), gender, face and hair. The soldier follows the
+// setting's value, yours or the version's own, and the version's own kits.
 
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { FoundSetting } from '@/model/gamesettings'
@@ -12,14 +13,16 @@ import {
   armorPalette,
   gameLooks,
   gamePalette,
+  kitWeapons,
   loadSoldier,
+  weaponLabel,
   type Looks,
   tintFor,
   type Armor,
   type Gender,
   type Soldier,
 } from '@/state/soldier'
-import { tools } from '@/state/tools'
+import { contentKey, tools } from '@/state/tools'
 import SoldierView from './SoldierView.vue'
 
 const props = defineProps<{
@@ -39,8 +42,22 @@ const whose = computed(() =>
 )
 const head = ref(0)
 const hair = ref(0)
-const looks = shallowRef<Looks>({ heads: [], hair: [], kits: {}, decos: {} })
-void gameLooks().then((l) => (looks.value = l))
+const looks = shallowRef<Looks>({ heads: [], hair: [], kits: {}, decos: {}, armorKits: [] })
+// The chosen version's own file: read again when another version is chosen.
+const content = computed(() => contentKey())
+watch(content, () => void gameLooks().then((l) => (looks.value = l)), { immediate: true })
+
+/** The weapon carried: its kit is the one worn when no deco is set. */
+const weapons = computed(() => kitWeapons(looks.value, armor.value))
+const weapon = ref('')
+/** What a class carries by default: a sniper rifle, an LMG, else a rifle. */
+function weaponFor(id: string): string {
+  const w =
+    /\.sniper\./.test(id) ? 'eItem_SniperRifle' : /\.gunner\./.test(id) ? 'eItem_LMG' : ''
+  return weapons.value.includes(w) ? w : (weapons.value[0] ?? '')
+}
+// Another class, or another armor's kits: that class's weapon again.
+watch([whose, weapons], () => (weapon.value = weaponFor(whose.value)), { immediate: true })
 const heads = computed(() => looks.value.heads.filter((h) => h.gender === gender.value))
 const hairs = computed(() => looks.value.hair.filter((h) => !h.helmet && h.gender === gender.value))
 const RACES: Record<string, string> = {
@@ -65,9 +82,11 @@ const headgear = computed(() => {
   const v = Number(tools.gameValues[id] ?? d?.value ?? -1)
   return v >= 0 ? v : null
 })
-/** The rookie's armor deco setting, for the rookie (classes keep their armor's own). */
+/**
+ * The rookie's armor deco setting. A promotion keeps it, so every class wears
+ * it; at −1 (none) the soldier wears the kit of the weapon carried.
+ */
 const deco = computed(() => {
-  if (whose.value !== 'look.rookie-color') return undefined
   const d = props.headgear.find((x) => x.id === 'look.rookie-deco')
   const v = Number(tools.gameValues['look.rookie-deco'] ?? d?.value ?? -1)
   return v >= 0 ? v : undefined
@@ -96,6 +115,7 @@ async function load() {
         head: head.value || undefined,
         hair: headgear.value ?? (hair.value || undefined),
         deco: deco.value,
+        weapon: weapon.value || undefined,
       }),
       armorPalette(),
     ])
@@ -107,7 +127,7 @@ async function load() {
     if (mine === run) status.value = `Could not read the soldier: ${(e as Error).message}`
   }
 }
-watch([armor, gender, head, hair, headgear, deco], load, { immediate: true })
+watch([armor, gender, head, hair, headgear, deco, weapon, content], load, { immediate: true })
 
 const setting = computed(() => props.colors.find((c) => c.id === whose.value))
 const code = computed(
@@ -148,6 +168,17 @@ const tint = computed(() => {
         Armor
         <select v-model="armor" aria-label="The soldier's armor">
           <option v-for="a in ARMORS" :key="a" :value="a">{{ a }}</option>
+        </select>
+      </label>
+      <label>
+        Weapon
+        <select
+          v-model="weapon"
+          :disabled="deco !== undefined || !weapons.length"
+          aria-label="The soldier's weapon"
+          :title="deco !== undefined ? 'A deco is set: it is worn whatever the weapon' : undefined"
+        >
+          <option v-for="w in weapons" :key="w" :value="w">{{ weaponLabel(w) }}</option>
         </select>
       </label>
       <label>

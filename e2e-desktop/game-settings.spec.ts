@@ -253,7 +253,7 @@ test('in LWR the class colours are LWR’s own: shown, not edited; headgear stay
 
   const looks = page.locator('details[aria-label="Class colors"]')
   await expect(looks.getByRole('button', { name: 'Show Sniper on the soldier' })).toBeVisible()
-  await expect(looks).toContainText('LWR colours each class itself')
+  await expect(looks).toContainText('LWR sets each class’s colour itself')
   // LWR's Sniper colour (6), not the INI's, and nothing to edit it with.
   await expect(looks.getByText('LWR’s own')).toBeVisible()
   await expect(looks.getByLabel('Sniper color', { exact: true })).toHaveCount(0)

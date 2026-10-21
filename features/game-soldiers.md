@@ -195,3 +195,59 @@ models seemed different when i tried it"
 - LWR's DefaultContent.ini (heads, hair, armor kits, decos) is the same as
   Long War's but for one light armor's deco (Kestrel: Skeleton's, not
   Ghost's).
+
+## Report (2026-10-21, notes 987c7 and aad7d)
+
+The person's note: "does LWR use a different armor model, because i feel
+like the rookies in the first mission had a different look from LW? and we
+don't have it in our tool".
+
+**Yes.** LWR's DefaultContent.ini swaps the kits soldiers wear by armour
+and weapon (`ArmorKits`). Long War gives a Kevlar soldier the kit of the
+weapon carried: an assault rifle's light vest, an LMG's heavy plates and so
+on. LWR gives Kevlar the LMG kit with any rifle, shotgun or sniper rifle,
+and the heavy laser or heavy plasma kit with laser or plasma weapons. So
+LWR's rookies look bulkier.
+
+**Why the tool missed it.** The game puts exactly one kit on a soldier
+(`XComHumanPawn.AddKitRequests`, read from XComGame.upk):
+- the deco, when one is set;
+- otherwise, at −1 (Long War's own setting for rookies), the kit for the
+  armour and the primary weapon.
+
+A promotion keeps the deco, so every class wears the rookie's. The tool
+called −1 "the armor's own" and drew the armour's `ArmorDeco` kit, which
+the game never uses in that case.
+
+What changed:
+- **`state/soldier.ts`:** reads the `ArmorKits` lines. With no deco, it
+  draws the kit for the armour and weapon, picking the kit's mesh by
+  gender (the names carry "Male" or "Fem" anywhere: `SM_Lv1FemHeavyKit`).
+- **The preview's file:** it reads the chosen version's own
+  DefaultContent.ini (`versionContent`, `contentKey` in `tools.ts`): the
+  library's unpacked copy for another version than the one in the game,
+  or the kept original for plain Enemy Within. Choosing a version now
+  unpacks its download at once, so its own settings and soldiers are at
+  hand without a plan first.
+- **The preview's controls:** a Weapon picker, listing the version's kits
+  for the armour. It defaults by class: sniper rifle for snipers, LMG for
+  gunners, assault rifle otherwise. It is disabled while a deco is set,
+  since a deco is worn whatever the weapon.
+- **Every class wears the rookie's deco.** The class table's deco column
+  says "the weapon's kit", or "the rookie's, Kevlar n"; the rookie's −1
+  reads "the weapon's kit".
+- **Note aad7d:** the LWR card's sentence is no longer addressed to the
+  reader. It now ends "The rookie's colour and the class headgear remain
+  settings."
+
+Verified:
+- Unit tests for reading the kits: LWR's rifle → LMG kit, the player's
+  weapons for an armour (not Exalt's, not the numbered ones), weapon names.
+- Gate green: 238 unit, 26 site e2e, 13 desktop.
+- `scripts/site-shots.sh` on the real packages (it now links the Kevlar
+  kit packages too), looked at: Long War's rookie wears the assault rifle's
+  light vest; with LWR chosen, the same rifle gives the heavy LMG kit, as
+  in the person's first LWR mission.
+
+Open: the colours on LWR's heavy kit (an olive-brown under "cyan with
+brown") have not been compared with the game.

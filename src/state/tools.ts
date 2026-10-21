@@ -596,6 +596,18 @@ export async function setBase(choice: GameKind): Promise<void> {
   const current = files ? await files.read(GAME_INI) : null
   await loadGameSettings(current ? iniText(current) : null)
   void checkMods()
+  // Its own files (settings, soldiers) come from its download: unpacked now, once.
+  if (desktop?.bases && baseAvailable(choice) && tools.bases.some((b) => !b.unpacked)) {
+    try {
+      await baseSetup(choice)
+      const now = files ? await files.read(GAME_INI) : null
+      await loadGameSettings(now ? iniText(now) : null)
+    } catch (e) {
+      tools.error = (e as Error).message
+    } finally {
+      tools.busy = null
+    }
+  }
 }
 
 const layerOf = (m: BaseManifest): BaseLayer => ({
@@ -869,6 +881,42 @@ async function loadGameSettings(current: string | null): Promise<void> {
   tools.codes = markRaw(
     codes ? armorKitCodes(iniText(codes)) : { colors: new Map(), headgear: new Map() },
   )
+}
+
+/**
+ * Which DefaultContent.ini the soldier is drawn from (features/game-soldiers.md),
+ * as a key that changes when it does: the chosen version's own once the
+ * library has it unpacked, else the game's.
+ */
+export function contentKey(): string {
+  const kind = gameKind()
+  if (kind === tools.install?.kind) return `game:${kind}`
+  const { lw, lwr } = basesFor(kind)
+  const top = kind === 'lwr' ? lwr : kind === 'lw' ? lw : undefined
+  return top?.unpacked ? `base:${top.id}` : kind === 'ew' ? 'backup' : `game:${kind}`
+}
+
+/**
+ * The chosen version's DefaultContent.ini: the soldiers' heads, hair and
+ * armor kits. LWR dresses its soldiers otherwise than Long War (its Kevlar
+ * wears the LMG kit with any rifle), so another version than the one in the
+ * game is drawn from its own file: from the library, or for plain Enemy
+ * Within the original the app kept.
+ */
+export async function versionContent(): Promise<Uint8Array | null> {
+  const key = contentKey()
+  const path = 'Config/DefaultContent.ini'
+  if (key.startsWith('base:') && desktop?.bases)
+    try {
+      return await desktop.bases.read(key.slice(5), path)
+    } catch {
+      // not in that version's files: the game's below
+    }
+  if (key === 'backup' && files) {
+    const kept = await files.read(`lwtree-backup/${path}`)
+    if (kept) return kept
+  }
+  return (await desktop?.game.read(path)) ?? null
 }
 
 /** A game setting's name by its id, where the catalogue knows it. */

@@ -76,7 +76,7 @@ const headgearChoices = computed<[string, string][] | null>(() =>
 const decos = shallowRef<[string, string][]>([])
 void kevlarDecos().then((d) => (decos.value = d))
 const decoChoices = computed<[string, string][] | null>(() =>
-  decos.value.length ? [['-1', 'the armor’s own'], ...decos.value] : null,
+  decos.value.length ? [['-1', 'the weapon’s kit'], ...decos.value] : null,
 )
 
 /**
@@ -126,6 +126,15 @@ const css = (c: number[]) =>
     .join(',')})`
 const mine = (d?: FoundSetting) => !!d && d.id in tools.gameValues
 
+/** A class's deco: the rookie's, which a promotion keeps; none: the weapon's kit. */
+const rookieDeco = computed(() => {
+  const d = props.items.find((x) => x.id === 'look.rookie-deco')
+  const v = d ? (tools.gameValues[d.id] ?? d.value) : '-1'
+  return Number(v) < 0
+    ? 'the weapon’s kit'
+    : `the rookie’s, ${decoChoices.value?.find(([k]) => k === String(v))?.[1] ?? v}`
+})
+
 const colors = computed(() => looks.value.flatMap((l) => l.color ?? []))
 const headgear = computed(() =>
   looks.value.flatMap((l) => [l.headgear, l.deco]).flatMap((d) => d ?? []),
@@ -137,9 +146,9 @@ const headgear = computed(() =>
     <div class="layout">
       <div class="table-side">
         <p v-if="lwrOwn" class="lwr-note small">
-          LWR colours each class itself: at the promotion to Lance Corporal, and again for some
-          perks chosen later. Shown here as LWR sets them; pick a perk to see its colour on the
-          soldier. The rookie’s colour and each class’s headgear are yours to set.
+          LWR sets each class’s colour itself, at the promotion to Lance Corporal and again for some
+          perks chosen later; shown here as LWR sets them, and a perk shows its colour on the
+          soldier. The rookie’s colour and the class headgear remain settings.
         </p>
         <table class="classes">
           <thead>
@@ -239,7 +248,7 @@ const headgear = computed(() =>
                     @set="(v) => setGameValue(l.deco!.id, v)"
                   />
                 </span>
-                <span v-else class="muted small">the armor’s own</span>
+                <span v-else class="muted small">{{ rookieDeco }}</span>
               </td>
             </tr>
           </tbody>

@@ -26,6 +26,7 @@ import {
 import { decodeImage, readTexture, unchunk } from '@/model/texture'
 import { Package, decompressPackage, readEnum } from '@/model/upk'
 import { desktop } from './desktop'
+import { contentKey, versionContent } from './tools'
 
 export const ARMORS = [
   'Kevlar',
@@ -46,8 +47,14 @@ export interface SoldierSpec {
   head?: number
   /** The game's hair id; a helmet's id puts the helmet on instead (Long War's headgear numbers). */
   hair?: number
-  /** An armor deco by its EArmorKit value (Long War's deco numbers); none: the armor's own. */
+  /**
+   * An armor deco by its EArmorKit value (Long War's deco numbers). None (the
+   * game's −1): the kit for the armor and the weapon carried, as the game
+   * dresses a soldier whose deco was never set (XComHumanPawn.AddKitRequests).
+   */
   deco?: number
+  /** The primary weapon, as DefaultContent.ini's ArmorKits name it ("eItem_AssaultRifle"). */
+  weapon?: string
 }
 
 /** The barracks idle the soldier stands in: at ease, arms at the sides, a 3 s loop. */
@@ -136,16 +143,21 @@ export interface Looks {
   kits: Record<string, string>
   /** Each armor's own deco: eItem_ArmorKevlar → eKit_Deco_Kevlar0. */
   decos: Record<string, string>
+  /** The kit a soldier wears by armor and weapon, with no deco set: ArmorKits lines. */
+  armorKits: { armor: string; weapon: string; kit: string }[]
 }
 
 /** Reads the head and hair lists from the game's DefaultContent.ini. */
 export function looksIn(ini: string): Looks {
-  const out: Looks = { heads: [], hair: [], kits: {}, decos: {} }
+  const out: Looks = { heads: [], hair: [], kits: {}, decos: {}, armorKits: [] }
   for (const line of ini.split(/\r?\n/)) {
     const kit = /^\s*ArmorKitPackageInfo=\(KitType=(\w+),\s*ArchetypeName="([^".]+)\./.exec(line)
     if (kit) out.kits[kit[1]!] = kit[2]!
     const deco = /^\s*ArmorDeco=\(Armor=(\w+),\s*ArmorKit=(\w+)\)/.exec(line)
     if (deco && !(deco[1]! in out.decos)) out.decos[deco[1]!] = deco[2]!
+    const byWeapon = /^\s*ArmorKits=\(Armor=(\w+),\s*Weapon=(\w+),\s*ArmorKit=(\w+)\)/.exec(line)
+    if (byWeapon)
+      out.armorKits.push({ armor: byWeapon[1]!, weapon: byWeapon[2]!, kit: byWeapon[3]! })
     const kind = /^\s*(HeadPackageInfo|HairPackageInfo)\s*=/.exec(line)?.[1]
     if (!kind) continue
     const id = Number(/\bId=(\d+)/.exec(line)?.[1])
@@ -190,14 +202,37 @@ export async function kevlarDecos(): Promise<[string, string][]> {
   })
 }
 
-let looks: Promise<Looks> | null = null
-/** The install's heads and hair. */
+let looks: { key: string; looks: Promise<Looks> } | null = null
+/** The chosen version's heads, hair and kits (tools.versionContent), read again when it changes. */
 export function gameLooks(): Promise<Looks> {
-  looks ??= desktop!.game
-    .read('Config/DefaultContent.ini')
-    .then((b) => looksIn(b ? new TextDecoder('latin1').decode(b) : ''))
-  return looks
+  const key = contentKey()
+  if (looks?.key !== key)
+    looks = {
+      key,
+      looks: versionContent().then((b) => looksIn(b ? new TextDecoder('latin1').decode(b) : '')),
+    }
+  return looks.looks
 }
+
+/**
+ * The weapons the version gives a kit for on an armor, as ArmorKits names
+ * them, the enemy's (Exalt's) and the numbered ones left out: "eItem_LMG".
+ */
+export function kitWeapons(l: Looks, armor: Armor): string[] {
+  return [
+    ...new Set(
+      l.armorKits
+        .filter((k) => k.armor === `eItem_Armor${armor}` && /^eItem_(?!Exalt)/.test(k.weapon))
+        .map((k) => k.weapon),
+    ),
+  ]
+}
+/** "eItem_LaserAssaultRifle" → "Laser Assault Rifle". */
+export const weaponLabel = (w: string) =>
+  w
+    .replace(/^eItem_/, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
 
 /** How a material paints: the soldier's armor (tinted), skin, hair, or as it is. */
 /** "lashes": the eye shade layer, not drawn. */
@@ -399,13 +434,18 @@ export async function loadSoldier(spec: SoldierSpec): Promise<Soldier> {
   // A helmet has a mesh for each gender (and "FB" ones, left alone).
   const helmetFor = new RegExp(`_${spec.gender === 'Male' ? 'male' : 'fem'}$`, 'i')
   const hair = await part(`${hairPkg}_SF.upk`, (n) => !chosen?.helmet || helmetFor.test(n))
-  // The armor's deco, over the body: the one chosen (by its kit number), else the armor's own.
+  // The kit over the body, one as in the game: the deco chosen (by its kit
+  // number), else the armor and weapon's (ArmorKits). Its meshes are named
+  // for the gender somewhere in the name ("SM_Lv1FemHeavyKit", "SM_Deco_Kevlar0_Male").
   const kitName =
-    (spec.deco !== undefined && spec.deco >= 0 ? (await armorKits())[spec.deco] : undefined) ??
-    l.decos[`eItem_Armor${spec.armor}`]
+    spec.deco !== undefined && spec.deco >= 0
+      ? (await armorKits())[spec.deco]
+      : l.armorKits.find((k) => k.armor === `eItem_Armor${spec.armor}` && k.weapon === spec.weapon)
+          ?.kit
   const decoPkg = kitName ? l.kits[kitName] : undefined
+  const female = spec.gender === 'Female'
   const deco = decoPkg
-    ? await part(`${decoPkg}_SF.upk`, (n) => helmetFor.test(n)).catch(() => null)
+    ? await part(`${decoPkg}_SF.upk`, (n) => /fem/i.test(n) === female).catch(() => null)
     : null
   // Standing in the barracks' idle, each mesh posed by bone name (the rest pose without it).
   const [clip, made] = await Promise.all([idleClip(), animBones()])
