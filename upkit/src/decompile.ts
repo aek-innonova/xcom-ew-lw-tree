@@ -165,6 +165,8 @@ export class FunctionDecompiler {
   }
   /** The class this function's code runs in. */
   private ownClass(): Located {
+    // (A class itself: its replication conditions are its own script.)
+    if (this.pkg.className(this.ref) === 'Class') return { pkg: this.pkg, ref: this.ref }
     let outer = this.pkg.outerOf(this.ref)
     if (this.pkg.className(outer) === 'State') outer = this.pkg.outerOf(outer)
     return { pkg: this.pkg, ref: outer }
@@ -1051,6 +1053,37 @@ export class FunctionDecompiler {
     const retText = ret ? `${typeText(typeOf(this.linker, { pkg: this.pkg, ref: 0 } as Located, ret))} ` : ''
     const cst = f & FUNC.Const ? ' const' : ''
     return `${[...mods, kind].join(' ')} ${retText}${name}(${ps.join(', ')})${cst}`
+  }
+
+  /**
+   * A class's replication: its script is the conditions, one after the other;
+   * each replicated variable (and function) keeps the offset of its own. Written
+   * as UnrealScript says it: if (condition) A, B;
+   */
+  decompileReplication(): string {
+    const head = (this.linker.object({ pkg: this.pkg, ref: this.ref }) as { head: { size: number; scriptAt: number; end: number } }).head
+    if (!head.size) return ''
+    const code = this.pkg.data(this.ref).subarray(head.scriptAt, head.end)
+    const conditions = decodeScript(code, (n) => n.index === this.noneName).statements.filter((s) => s.op !== 0x53)
+    const by = new Map<number, string[]>()
+    for (let i = 1; i <= this.pkg.exports.length; i++) {
+      if (this.pkg.exports[i - 1]!.outer !== this.ref) continue
+      const o = this.linker.object({ pkg: this.pkg, ref: i })
+      const at = o?.kind === 'property' && o.flags & CPF.Net ? o.repOffset : o?.kind === 'function' && o.flags & FUNC.Net ? o.repOffset : undefined
+      if (at === undefined) continue
+      const list = by.get(at) ?? []
+      list.push(this.pkg.objectName(i))
+      by.set(at, list)
+    }
+    if (!by.size) return ''
+    const lines = ['replication', '{']
+    for (const c of conditions) {
+      const names = by.get(c.mem)
+      if (!names) continue
+      lines.push(`    if (${this.ex(c).text})`, `        ${names.join(', ')};`)
+    }
+    lines.push('}')
+    return lines.join('\n') + '\n'
   }
 }
 

@@ -137,6 +137,13 @@ export class ClassDecompiler {
       .filter((m) => pkg.className(m).endsWith('Property') && !/^__.*__Delegate$/.test(pkg.objectName(m)))
     for (const m of vars) lines.push(this.varText(m))
     if (vars.length) lines.push('')
+    // What is replicated, and when.
+    try {
+      const rep = new FunctionDecompiler(this.linker, pkg, this.ref).decompileReplication()
+      if (rep) lines.push(rep)
+    } catch (e) {
+      lines.push(`// replication: not decompiled (${(e as Error).message})`, '')
+    }
     for (const m of kinds('Function')) lines.push(this.functionText(m))
     for (const m of kinds('State')) lines.push(...this.stateText(m), '')
     lines.push(...this.defaults(c.defaultObject))
