@@ -176,6 +176,14 @@ imports and export entries, and every object the same bytes. (PatchUPK also
 moves a shrunk object to the end and leaves an undo record after a moved one;
 the game reads neither.)
 
+Mods people wrote by hand (the PatcherGUI scripts in the samples: EXALT
+Reminder, Soldier Gender, Sightlines, Lightning Reflexes, the Mutator
+Enabler), applied and decompiled: 7 of the 16 functions they change compile
+back byte for byte. The rest hold what their authors wrote in hex that no
+compiler would (a context's skip written as a fixed 10, a call short of an
+argument it needs, a switch put together by hand); upkit compiles their
+source to what it means instead.
+
 None of what upkit writes has been loaded by the game yet: the packages are
 checked by reading them back (every object to its end, every class
 decompiled to its source, every function compiled back to the same bytes),
