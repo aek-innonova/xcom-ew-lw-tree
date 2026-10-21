@@ -15,7 +15,7 @@
 #
 # The environment's variables (or secrets, for the Azure ids):
 #   AZURE_CLIENT_ID, AZURE_TENANT_ID   the app registration with the federated credential
-#   AZURE_SUBSCRIPTION_ID              optional
+#   (AZURE_SUBSCRIPTION_ID is not used: the login needs no subscription)
 #   SIGNING_ENDPOINT                   e.g. https://weu.codesigning.azure.net
 #   SIGNING_ACCOUNT                    the Artifact Signing account
 #   SIGNING_PROFILE                    its certificate profile
@@ -65,8 +65,9 @@ jobs:
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: ${{ !(secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID) }}
+          # Signing needs a token for the signing service, not a subscription: the
+          # app registration's role is on the signing account, so it sees none.
+          allow-no-subscriptions: true
       - name: build and sign
         working-directory: desktop
         shell: bash
