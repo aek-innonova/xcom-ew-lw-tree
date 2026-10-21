@@ -43,10 +43,10 @@ export function roundTrip(path: string, linker: Linker, limit = Infinity) {
 }
 
 describe.skipIf(!haveCorpus)('compiler: decompiled, compiled back, byte for byte', () => {
-  const linker = new Linker([dirname(CORPUS[0]!)])
+  // Each package against the ones it is installed with (LWR's own XComGame for LWRebalance), then the game's.
   for (const path of [CORPUS[3]!, CORPUS[2]!, CORPUS[4]!, CORPUS[0]!, CORPUS[1]!])
     it(short(path), () => {
-      const r = roundTrip(path, linker)
+      const r = roundTrip(path, new Linker([...new Set([dirname(path), dirname(CORPUS[0]!)])]))
       console.log(`${short(path)}: ${r.same} of ${r.total} functions identical (${((100 * r.same) / r.total).toFixed(1)}%)`)
       for (const [k, v] of [...r.why].sort((a, b) => b[1].n - a[1].n).slice(0, 25)) console.log(`  ${String(v.n).padStart(5)} ${k}   e.g. ${v.eg}`)
       expect(r.same).toBeGreaterThan(0)

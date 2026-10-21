@@ -578,7 +578,10 @@ export class FunctionCompiler {
       const { ty } = this.propTy(f)
       // Written: the link applied to the variable itself is marked (a.c = …; in a.b.c = … it is b).
       const base = this.unwrapBool(o.node)
-      const node = N(0x35, this.refOf(f), this.refOf(o.ty.struct), 0, lvalue && base.op !== 0x35 ? 1 : 0, base)
+      // Of a call's result (directly or through a context): a copy.
+      const isCall = (n: Node): boolean =>
+        n.native !== undefined || [0x1b, 0x1c, 0x42].includes(n.op) || ((n.op === 0x19 || n.op === 0x12) && isCall(n.args[4] as Node))
+      const node = N(0x35, this.refOf(f), this.refOf(o.ty.struct), isCall(base) ? 1 : 0, lvalue && base.op !== 0x35 ? 1 : 0, base)
       return { node: this.boolWrap(node, ty), ty }
     }
     // A class value's members are Object's (Class itself is C++ only).
