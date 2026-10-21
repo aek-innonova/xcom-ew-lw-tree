@@ -231,7 +231,7 @@ describe.skipIf(!haveCorpus)('new declarations in a class', () => {
     let src = decompileClass(linker, pkg, 'XGFacility_Labs')
     const v = src.indexOf('\nvar')
     src = src.slice(0, v) + '\nvar config float m_fUpkitBonus;\nvar array<string> m_arrUpkitLog;' + src.slice(v)
-    src = src.replace('float(1) + m_fLabBonus', 'float(1) + UpkitBonus(2) + m_fLabBonus')
+    src = src.replace('(1 + m_fLabBonus', '(1 + UpkitBonus(2) + m_fLabBonus')
     const d = src.indexOf('\ndefaultproperties')
     src =
       src.slice(0, d) +
@@ -462,10 +462,10 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
   // implementation applying upkit's mod script to the original. PatchUPK's packages load
   // in the game; upkit's are to come out the same, byte for byte.
   const cases: [string, (s: string) => string][] = [
-    ['the same size', (s) => s.replace('float(1) + m_fLabBonus', 'float(2) + m_fLabBonus')],
-    ['grown', (s) => s.replace('float(1) + m_fLabBonus', 'float(GetAvailableScientists() + 1) + m_fLabBonus')],
-    ['shrunk', (s) => s.replace(/return int\(float\(GetAvailableScientists\(\)\) \* \(float\(1\) \+ m_fLabBonus \+ m_fAdjLabBonus\)\);/, 'return GetAvailableScientists();')],
-    ['naming a name the package lacks', (s) => s.replace('float(1) + m_fLabBonus', "float(int(IsInState('UpkitBrandNewState'))) + m_fLabBonus")],
+    ['the same size', (s) => s.replace('(1 + m_fLabBonus', '(2 + m_fLabBonus')],
+    ['grown', (s) => s.replace('(1 + m_fLabBonus', '(GetAvailableScientists() + 1 + m_fLabBonus')],
+    ['shrunk', (s) => s.replace('return int(GetAvailableScientists() * (1 + m_fLabBonus + m_fAdjLabBonus));', 'return GetAvailableScientists();')],
+    ['naming a name the package lacks', (s) => s.replace('(1 + m_fLabBonus', "(int(IsInState('UpkitBrandNewState')) + m_fLabBonus")],
   ]
   for (const [name, edit] of cases)
     it(`a function's code ${name}`, async () => {

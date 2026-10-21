@@ -7,6 +7,7 @@
 
 import { decodeScript, tokenName, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler } from './compile.ts'
+import { FunctionDecompiler } from './decompile.ts'
 import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import type { Package } from './package.ts'
@@ -62,3 +63,27 @@ export function fidelityNote(f: Fidelity): string {
     `// Compiled, this source differs from it from statement ${f.statement! + 1}: ${f.original} in the package, ${f.compiled} compiled.\n`
   )
 }
+
+/**
+ * A function's source as it is best read: the widening conversions the compiler
+ * makes on its own left out (float(1) + x reads 1 + x; int(eMode) == int(eOff)
+ * reads eMode == eOff), where that compiles to the very bytes the exact source
+ * does; else the exact source. (float(I) / 2 without its float would divide ints.)
+ */
+export function readableSource(linker: Linker, pkg: Package, ref: number): string {
+  const exact = new FunctionDecompiler(linker, pkg, ref).decompile()
+  const d = new FunctionDecompiler(linker, pkg, ref)
+  d.readable = true
+  const pretty = d.decompile()
+  if (pretty === exact) return exact
+  try {
+    const ops = binaryOperators(linker)
+    const a = new FunctionCompiler(linker, pkg, ref).compile(exact, ops).code
+    const b = new FunctionCompiler(linker, pkg, ref).compile(pretty, ops).code
+    if (a.length === b.length && a.every((x, i) => x === b[i])) return pretty
+  } catch {
+    // the exact one, then
+  }
+  return exact
+}
+

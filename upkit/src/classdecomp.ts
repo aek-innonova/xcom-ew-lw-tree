@@ -6,7 +6,7 @@
 import { Reader } from './bytes.ts'
 import { floatText, FunctionDecompiler, stringText } from './decompile.ts'
 import type { Linker, Located } from './linker.ts'
-import { fidelity, fidelityNote } from './fidelity.ts'
+import { fidelity, fidelityNote, readableSource } from './fidelity.ts'
 import { readStructHead, readTags, tagsStart, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, typeOf, typeText, type Ty } from './types.ts'
@@ -179,7 +179,7 @@ export class ClassDecompiler {
 
   private functionText(ref: number, indent = ''): string {
     try {
-      const text = new FunctionDecompiler(this.linker, this.pkg, ref).decompile()
+      const text = readableSource(this.linker, this.pkg, ref)
       const note = this.checked && readStructHead(this.pkg, ref).size ? fidelityNote(fidelity(this.linker, this.pkg, ref, text)) : ''
       return (note + text)
         .split('\n')

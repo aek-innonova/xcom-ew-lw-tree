@@ -37,7 +37,7 @@ import { diffPackages } from './diff.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
-import { fidelity, fidelityNote } from './fidelity.ts'
+import { fidelity, fidelityNote, readableSource } from './fidelity.ts'
 import { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
@@ -128,7 +128,7 @@ try {
         break
       }
       // Said first when the source does not compile back to the same bytes (a hand patch).
-      const text = d.decompile()
+      const text = readableSource(linker, pkg, ref)
       process.stdout.write(
         readStructHead(pkg, ref).size
           ? fidelityNote(fidelity(linker, pkg, ref, text)) + text

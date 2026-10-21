@@ -195,6 +195,16 @@ otherwise, a skip size that is not what it skips). `decompile` says so above
 such a function, naming where its source and its bytes part; the source
 compiles to what Epic's compiler would write.
 
+## How it reads
+
+The decompiler writes what the bytecode says, but leaves out the widening
+conversions the compiler makes on its own (`float(1) + x` reads `1 + x`,
+`int(eMode) == int(eOff)` reads `eMode == eOff`), wherever the function, so
+written, compiles to the very same bytes; elsewhere it keeps them
+(`float(I) / 2` without its `float` would divide ints). Narrowing ones
+(`int(f)`) it always writes. `for` loops, `continue`, `else if` and a switch's
+`break` read as they were written.
+
 ## upkit's own syntax
 
 Where the bytecode holds something UnrealScript cannot say, the decompiler

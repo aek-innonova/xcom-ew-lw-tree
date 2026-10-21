@@ -4,6 +4,7 @@
 // UnrealScript.
 
 import { FunctionDecompiler } from './decompile.ts'
+import { readableSource } from './fidelity.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex } from './parse.ts'
@@ -18,8 +19,8 @@ export interface DiffResult {
 
 const source = (linker: Linker, pkg: Package, ref: number): string => {
   try {
-    const d = new FunctionDecompiler(linker, pkg, ref)
-    return pkg.className(ref) === 'State' ? d.decompileStateCode() : d.decompile()
+    if (pkg.className(ref) === 'State') return new FunctionDecompiler(linker, pkg, ref).decompileStateCode()
+    return readableSource(linker, pkg, ref)
   } catch (e) {
     return `// not decompiled: ${(e as Error).message}\n`
   }

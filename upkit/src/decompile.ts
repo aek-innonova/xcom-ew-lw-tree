@@ -110,6 +110,8 @@ function unplacedJumps(lines: string[]): string[] {
 }
 
 export class FunctionDecompiler {
+  /** Leave out the widening conversions the compiler makes on its own (readableSource checks it may). */
+  readable = false
   readonly linker: Linker
   readonly pkg: Package
   readonly ref: number
@@ -394,6 +396,9 @@ export class FunctionDecompiler {
       case 0x38: {
         // An interface made an object: the compiler's own step, not written.
         if (a[0] === 0x36) return this.ex(a[1] as Node)
+        // Readable: a widening conversion (byte to int, to float; int to float) left to the
+        // compiler, which makes it where it is wanted (see readableSource: only where it does).
+        if (this.readable && [0x3a, 0x3c, 0x3f].includes(a[0] as number)) return this.ex(a[1] as Node)
         // A cast of a literal: byte(5) is a byte constant, so the cast is written byte(int(5)).
         const inner = a[1] as Node
         const lit = a[0] === 0x3d && [0x1d, 0x2c, 0x25, 0x26].includes(inner.op) ? `int(${this.ex(inner).text})` : this.ex(inner).text

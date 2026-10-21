@@ -1735,8 +1735,12 @@ export interface Shared {
 export const shared = (): Shared => ({ names: [], imports: [], importMap: new Map(), exports: 0, importAt: new Map() })
 
 /** Binary operators' bindings, from the natives that define them (what the decompiler parenthesizes by). */
+const BINARY_OPS = new WeakMap<Linker, Record<string, number>>()
 export function binaryOperators(linker: Linker): Record<string, number> {
+  const known = BINARY_OPS.get(linker)
+  if (known) return known
   const out: Record<string, number> = {}
+  BINARY_OPS.set(linker, out)
   for (const name of ['Core', 'Engine']) {
     const pkg = linker.package(name)
     if (!pkg) continue

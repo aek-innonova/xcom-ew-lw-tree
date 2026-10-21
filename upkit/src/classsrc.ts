@@ -5,6 +5,7 @@
 
 import type { Change } from './changes.ts'
 import { FunctionDecompiler } from './decompile.ts'
+import { readableSource } from './fidelity.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex, lineAt } from './parse.ts'
@@ -240,7 +241,7 @@ export function classEdits(
     const d = new FunctionDecompiler(linker, pkg, ref)
     let original: string
     try {
-      original = p.kind === 'function' ? d.decompile() : d.decompileStateCode()
+      original = p.kind === 'function' ? readableSource(linker, pkg, ref) : d.decompileStateCode()
     } catch {
       original = ''
     }
