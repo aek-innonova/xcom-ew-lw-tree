@@ -128,7 +128,9 @@ packages came from the win VM's install into `samples/ew/`.
   XComStrategyGame and LWRebalance.u (22,930), written back as a mod script and
   applied by PatchUPK, comes out byte for byte with the engine's memory size
   (which found that PatchUPK cannot read a name with a space in it as
-  `<Name>`; such a name now goes in as its bytes).
+  `<Name>`; such a name now goes in as its bytes). On the win VM, the
+  PatchUPK.exe that Long War's Mod Manager ships, applying the three mod
+  scripts that add imports and locals, made the same packages as `--out`.
 - The rebuilt LWRebalance.u imports what the original does, as it does
   (2,828 imports the same, none of another class).
 - On Windows (the VM's Node 24, its vanilla and its LW + LWR installs, paths
