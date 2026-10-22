@@ -38,7 +38,7 @@ import { stubs } from './stubs.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
-import { fidelity, fidelityNote, readableSource } from './fidelity.ts'
+import { fidelity, fidelityNote, readableSource, readableStateCode } from './fidelity.ts'
 import { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
@@ -123,9 +123,8 @@ try {
     case 'decompile': {
       if (!rest[0]) usage()
       const ref = functionRef(pkg, rest[0])
-      const d = new FunctionDecompiler(linker, pkg, ref)
       if (pkg.className(ref) === 'State') {
-        process.stdout.write(d.decompileStateCode())
+        process.stdout.write(readableStateCode(linker, pkg, ref))
         break
       }
       // Said first when the source does not compile back to the same bytes (a hand patch).

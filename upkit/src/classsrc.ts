@@ -4,8 +4,7 @@
 // the change set.
 
 import type { Change } from './changes.ts'
-import { FunctionDecompiler } from './decompile.ts'
-import { readableReplication, readableSource } from './fidelity.ts'
+import { readableReplication, readableSource, readableStateCode } from './fidelity.ts'
 import { ClassDecompiler } from './classdecomp.ts'
 import { typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
@@ -378,10 +377,9 @@ export function classEdits(
     if (!ref && p.kind === 'state code') continue
     if (!ref || (p.kind === 'function' ? kind !== 'Function' : kind !== 'State'))
       throw new Error(`${path} is not in the package (new states are not compiled yet)`)
-    const d = new FunctionDecompiler(linker, pkg, ref)
     let original: string
     try {
-      original = p.kind === 'function' ? readableSource(linker, pkg, ref) : d.decompileStateCode()
+      original = p.kind === 'function' ? readableSource(linker, pkg, ref) : readableStateCode(linker, pkg, ref)
     } catch {
       original = ''
     }

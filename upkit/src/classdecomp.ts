@@ -4,9 +4,9 @@
 // back is the functions (compile.ts).
 
 import { Reader } from './bytes.ts'
-import { floatText, FunctionDecompiler, stringText } from './decompile.ts'
+import { floatText, stringText } from './decompile.ts'
 import type { Linker, Located } from './linker.ts'
-import { fidelity, fidelityNote, readableReplication, readableSource } from './fidelity.ts'
+import { fidelity, fidelityNote, readableReplication, readableSource, readableStateCode } from './fidelity.ts'
 import { readStructHead, readTags, tagsStart, type ClassObj, type ConstObj, type EnumObj, type PropertyObj, type StateObj, type StructObj, type Tag } from './objects.ts'
 import type { Package } from './package.ts'
 import { CPF, typeOf, typeText, type Ty } from './types.ts'
@@ -203,7 +203,7 @@ export class ClassDecompiler {
     const mods = [s.stateFlags & 0x2 ? 'auto' : '', s.stateFlags & 0x4 ? 'simulated' : ''].filter(Boolean)
     const out = [`${[...mods, 'state'].join(' ')} ${this.pkg.objectName(ref)}${sup}`, '{']
     for (const m of this.inside(ref)) if (this.pkg.className(m) === 'Function') out.push(this.functionText(m, '    '))
-    const code = new FunctionDecompiler(this.linker, this.pkg, ref).decompileStateCode()
+    const code = readableStateCode(this.linker, this.pkg, ref)
     // (A blank line before the code, one: the functions above end with one.)
     if (code) out.push(...(out.at(-1)?.trim() === '' || out.at(-1)?.endsWith('\n') ? [] : ['']), code.trimEnd())
     out.push('}')

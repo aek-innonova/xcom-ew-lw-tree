@@ -3,8 +3,7 @@
 // unified diff of its decompiled source. What a mod did to the game, in
 // UnrealScript.
 
-import { FunctionDecompiler } from './decompile.ts'
-import { readableSource } from './fidelity.ts'
+import { readableSource, readableStateCode } from './fidelity.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex } from './parse.ts'
@@ -19,7 +18,7 @@ export interface DiffResult {
 
 const source = (linker: Linker, pkg: Package, ref: number): string => {
   try {
-    if (pkg.className(ref) === 'State') return new FunctionDecompiler(linker, pkg, ref).decompileStateCode()
+    if (pkg.className(ref) === 'State') return readableStateCode(linker, pkg, ref)
     return readableSource(linker, pkg, ref)
   } catch (e) {
     return `// not decompiled: ${(e as Error).message}\n`

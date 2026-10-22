@@ -102,3 +102,21 @@ export function readableReplication(linker: Linker, pkg: Package, classRef: numb
   return d.decompileReplication()
 }
 
+/** A state's code as best read (as readableSource does for a function: only where it compiles the same). */
+export function readableStateCode(linker: Linker, pkg: Package, ref: number): string {
+  const exact = new FunctionDecompiler(linker, pkg, ref).decompileStateCode()
+  const d = new FunctionDecompiler(linker, pkg, ref)
+  d.readable = true
+  const pretty = d.decompileStateCode()
+  if (pretty === exact) return exact
+  try {
+    const ops = binaryOperators(linker)
+    const a = encodeScript(new FunctionCompiler(linker, pkg, ref).compileStateCode(exact, ops).statements).code
+    const b = encodeScript(new FunctionCompiler(linker, pkg, ref).compileStateCode(pretty, ops).statements).code
+    if (a.length === b.length && a.every((x, i) => x === b[i])) return pretty
+  } catch {
+    // the exact one, then
+  }
+  return exact
+}
+
