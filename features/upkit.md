@@ -56,7 +56,7 @@ went to the mod-script side, checked against PatchUPK itself (imports,
 locals and every kind of declaration as mod scripts; a bug of PatchUPK's
 that every such script now works around), to closing the last gaps with
 Epic's compiler on the vanilla packages, and to sweeps of edits over
-hundreds of classes, which found two bugs of upkit's (fixed below).
+hundreds of classes, which found bugs of upkit's (listed below, fixed).
 
 upkit is in `upkit/` (TypeScript, run by Node 24 directly, or as one file:
 `node upkit/build.mjs` writes `upkit/dist/upkit.mjs`). `npx vitest run` in
@@ -176,6 +176,19 @@ install into `samples/ew/`.
 - Lint-clean as the repository lints; the app's own unit tests leave
   upkit's to upkit (they had been picking them up). 129 tests in `upkit/`
   (21 of them need `PATCHUPK`).
+
+### Found by the checks, and fixed
+
+- Any edit of a native class's source with `--out` (or with new
+  declarations) failed as "a new native class needs C++" (a sweep of
+  declarations over 20 classes).
+- A class source that only declared constants, enums, structs or states read
+  as nothing edited (found while adding enum values).
+- A name with a space in it broke PatchUPK's pseudo-code (every function of
+  XComGame through PatchUPK).
+- `diff` against a version kept outside the game's folder showed 50 of a
+  class's functions changed for one (the final smoke run of the one-file
+  build).
 
 ### Not verified, and not done
 
