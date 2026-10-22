@@ -75,6 +75,9 @@ const pkgName = basename(file).replace(/\.(upk|u)$/i, '')
 const linker = new Linker([...(game ? [game] : []), dirname(file)])
 const pkg = command === 'new' ? (null as unknown as Package) : openPackage(new Uint8Array(readFileSync(file)))
 if (pkg) linker.add(pkgName, pkg)
+// Without the game's packages a mod's code reads as calls to nothing: said once, up front.
+if (pkgName.toLowerCase() !== 'core' && !linker.package('Core'))
+  console.error(`upkit: no Core.upk in ${game ?? dirname(file)}: the game's classes are not found (--game <the game's CookedPCConsole>)`)
 
 /** What a package build did, in a line. */
 function report(r: { compiled: string[]; objects: string[]; declared: string[]; added: { names: number; imports: number; exports: number } }): string {
