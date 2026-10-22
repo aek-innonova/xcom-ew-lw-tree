@@ -321,9 +321,9 @@ writes it in a form the compiler reads back the same:
 | `src/classdecomp.ts` | a whole class to UnrealScript |
 | `src/parse.ts` | UnrealScript to a syntax tree |
 | `src/compile.ts` | the syntax tree to bytecode, tokens chosen as Epic's compiler chose them |
-| `src/patch.ts` | a change as a PatchUPK mod script |
+| `src/patch.ts` | PatchUPK mod scripts: code as pseudo-code; the script that makes a package into another upkit wrote from it |
 | `src/changes.ts` | a set of changes compiled together, into a package or a mod script |
-| `src/classsrc.ts` | a class's source split into its functions and states' code; what was edited |
+| `src/classsrc.ts` | a class's source split into its parts; what was edited, declared anew, or given other modifiers |
 | `src/declare.ts` | new declarations: variables, functions, states, structs, enums, constants, delegates, classes, replication |
 | `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
 | `src/diff.ts` | two versions of a package compared, function by function and class by class, as diffs of their source |
@@ -341,7 +341,8 @@ replication), the mistakes refused, and the command line end to end.
 
 With `PATCHUPK` set to a PatchUPK binary, the tests also apply upkit's mod
 scripts with PatchUPK itself and compare: every function of four packages,
-and each kind of edit against `--out`. It builds on Linux from
+each kind of edit against `--out`, and a sweep of edits on ten classes of
+every sort. It builds on Linux from
 [wghost/UPKUtils](https://github.com/wghost/UPKUtils) as it is
 (`cmake <src> -DCMAKE_BUILD_TYPE=Release && make PatchUPK`; checked with
 9b2fd07); it opens a package by its name in lower case, as on Windows.
