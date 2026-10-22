@@ -63,6 +63,12 @@ describe.skipIf(!haveCorpus || !existsSync(join(dirname(CORPUS[0]!), '../ew/Cook
     expect(defaults).toContain('--- a/XGStrategyActorNativeBase (declarations)')
     expect(defaults).toContain('+    eObjective_Infiltrate_0,')
   })
+  it('roundtrip --list: the functions that do not come back, and why (vanilla: two cheats calling what the cook dropped)', () => {
+    const vanilla = join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComStrategyGame.upk')
+    const out = run('roundtrip', vanilla, '--list')
+    expect(out).toContain('XComHeadquartersCheatManager.DoPostInterrogation\n  this source does not compile back yet (unknown name __EmptyParmValue).')
+    expect(out).toContain('XComStrategyGame: 5347 of 5349 functions compile back byte for byte (99.9%)')
+  }, 120_000)
 })
 
 describe.skipIf(!haveCorpus)('what is not compiled is said, not ignored', () => {
