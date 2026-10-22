@@ -14,10 +14,19 @@
 
 import { iniBytes, iniText, mergeIni, setIniValues } from '@/model/inifile'
 import { parseCommands, runScript } from '@/model/modpatch'
-import { Package } from '@/model/upk'
+import { scriptPackage, type Package } from '@/model/upk'
 import { applySettings } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
-import { BACKUP, GAME_INI, type Change, type Managed, type Plan, type Wanted } from './setup'
+import {
+  BACKUP,
+  GAME_INI,
+  scriptFiles,
+  sizeFileOf,
+  type Change,
+  type Managed,
+  type Plan,
+  type Wanted,
+} from './setup'
 
 /** The game's exe, under XEW: the one file outside XComGame the app writes. */
 export const EXE = 'xew:Binaries/Win32/XComEW.exe'
@@ -227,14 +236,17 @@ export async function planBase(
   const pkgPath = (n: string) =>
     scope.get(`cookedpcconsole/${n}`) ??
     `CookedPCConsole/${cooked.find((f) => lower(f) === n) ?? n}`
-  const pkgs = new Map<string, { path: string; base: Uint8Array; why: string; pkg: Package }>()
+  const pkgs = new Map<
+    string,
+    { path: string; base: Uint8Array; why: string; pkg: Package; plain: Uint8Array; compressed: boolean }
+  >()
   for (const n of upks) {
     const path = pkgPath(n)
     add(path)
     const b = await baseOf(path, true)
     if ('missing' in b) problems.push(missingText(path))
-    if ('bytes' in b && b.bytes)
-      pkgs.set(n, { path, base: b.bytes, why: b.why, pkg: new Package(b.bytes) })
+    // A package shipped compressed is worked on decompressed (and written so if a mod changes it).
+    if ('bytes' in b && b.bytes) pkgs.set(n, { path, base: b.bytes, why: b.why, ...scriptPackage(b.bytes) })
   }
   const results = new Map<string, Package>()
   const scriptWhy = new Map<string, string[]>()
@@ -242,6 +254,7 @@ export async function planBase(
     const r = runScript(s.text, {
       open: (n) => (results.get(lower(n)) ?? pkgs.get(lower(n))?.pkg)?.clone(),
       values: s.values,
+      readFile: scriptFiles(s),
     })
     const err = r.steps.find((x) => x.status === 'error')
     if (err) {
@@ -257,10 +270,20 @@ export async function planBase(
     }
   }
   const done = new Set<string>()
+  // Size files of packages compressed whole that are written decompressed: not there meanwhile.
+  const sizeGone = new Map<string, string>()
   for (const [n, p] of pkgs) {
-    const data = results.get(n)?.bytes ?? p.base
+    // Unchanged by the scripts (a compressed one only read): the base's as it is.
+    const changed = results.get(n)?.bytes
+    const plainEqual = !!changed && changed.length === p.plain.length && changed.every((x, i) => x === p.plain[i])
+    const data = changed && !plainEqual ? changed : p.base
     await settle(p.path, { data, sha256: await sha256(data) }, [p.why, ...(scriptWhy.get(n) ?? [])])
     done.add(lower(p.path))
+    if (p.compressed && data !== p.base) {
+      const sizePath = scope.get(lower(sizeFileOf(p.path))) ?? sizeFileOf(p.path)
+      add(sizePath)
+      sizeGone.set(lower(sizePath), `${p.path.split('/').pop()} is written decompressed`)
+    }
   }
 
   // --- Config files: the base's, with the settings and mods' INI lines -------------
@@ -340,6 +363,10 @@ export async function planBase(
   // --- Every other file a base touches: the base's, the game's own, or none -------
   for (const [lp, path] of [...scope].sort(([a], [b]) => a.localeCompare(b))) {
     if (done.has(lp) || keepCreated.has(path) || managed.created.includes(path)) continue
+    if (sizeGone.has(lp)) {
+      await settle(path, null, [sizeGone.get(lp)!])
+      continue
+    }
     const b = await baseOf(path, false)
     if ('missing' in b) {
       // Only a problem if the file is not the game's own already.

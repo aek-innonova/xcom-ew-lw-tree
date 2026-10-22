@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { EXE, EXE_BACKUP, planBase, type BaseLayer, type BaseSetup } from '../baseplan'
 import type { CopySource, GameFiles } from '../gamefiles'
 import { BACKUP, applyPlan, emptyManaged, type Managed, type Wanted } from '../setup'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { Package, scriptPackage } from '@/model/upk'
 
 const utf8 = (s: string) => new TextEncoder().encode(s)
 const str = (b: Uint8Array | undefined) => (b ? new TextDecoder().decode(b) : undefined)
@@ -244,5 +247,46 @@ describe('a base under the setup (state/baseplan.ts)', () => {
     const plan = await planBase(g.files, nothing, emptyManaged(), setup('lw'))
     expect(plan.problems.join(' ')).toMatch(/XComEW\.exe is not one the Long War patch knows/)
     expect(plan.changes.some((c) => c.path === EXE)).toBe(false)
+  })
+})
+
+// Plain Enemy Within as the base, its XComGame.upk compressed whole (features/tools-mods-complete.md).
+const ewGame = resolve(import.meta.dirname, '../../../samples/ew/CookedPCConsole/XComGame.upk')
+describe.skipIf(!existsSync(ewGame))('a mod on plain Enemy Within’s compressed XComGame.upk, as a base', () => {
+  it('written decompressed with its size file gone (the game’s own kept), and back when the mod is out', async () => {
+    const upk = new Uint8Array(readFileSync(ewGame))
+    const size = utf8('12518488')
+    const files = { 'CookedPCConsole/XComGame.upk': upk, 'CookedPCConsole/XComGame.upk.uncompressed_size': size }
+    const base: BaseSetup = {
+      name: 'plain Enemy Within',
+      layers: [],
+      known: [],
+      game: new Map(Object.entries(files).map(([p, b]) => [p.toLowerCase(), { size: b.length, sha256: sha(b).slice(0, 32) }])),
+      read: async () => new Uint8Array(),
+    }
+    const g = memoryGame({ ...files })
+    const plain = scriptPackage(upk).pkg
+    const data = plain.exportData(plain.findObject('XGUnit.RecordKill', true)).slice()
+    data[data.length - 1] = data[data.length - 1]! ^ 1
+    const w: Wanted = {
+      scripts: [{ label: 'Data file mod', text: 'UPK_FILE=XComGame.upk\nMODDED_FILE=XGUnit.RecordKill.Function\n', values: {}, files: { 'xgunit.recordkill.function': data } }],
+      files: [],
+      settings: [],
+    }
+    const plan = await planBase(g.files, w, emptyManaged(), base)
+    expect(plan.problems).toEqual([])
+    await applyPlan(g.files, plan)
+    const written = new Package(g.map.get('CookedPCConsole/XComGame.upk')!)
+    expect(written.compressed).toBe(false)
+    expect(written.exportData(written.findObject('XGUnit.RecordKill', true))).toEqual(data)
+    expect(g.map.has('CookedPCConsole/XComGame.upk.uncompressed_size')).toBe(false)
+    expect(sha(g.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk`)!)).toBe(sha(upk))
+    expect(g.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk.uncompressed_size`)).toEqual(size)
+
+    const back = await planBase(g.files, { ...w, scripts: [] }, plan.managed, base)
+    expect(back.problems).toEqual([])
+    await applyPlan(g.files, back)
+    expect(sha(g.map.get('CookedPCConsole/XComGame.upk')!)).toBe(sha(upk))
+    expect(g.map.get('CookedPCConsole/XComGame.upk.uncompressed_size')).toEqual(size)
   })
 })

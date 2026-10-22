@@ -14,7 +14,7 @@
 import { runScript } from '@/model/modpatch'
 import { parseCommands } from '@/model/modpatch'
 import { iniBytes, iniText, mergeIni, setIniValues, type IniChange } from '@/model/inifile'
-import { Package } from '@/model/upk'
+import { scriptPackage, type Package } from '@/model/upk'
 import { applySettings, type SettingDef } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
 
@@ -66,7 +66,16 @@ export interface WantedScript {
   label: string
   text: string
   values: Record<string, string>
+  /** The files beside it in its mod (MODDED_FILE, BULK_FILE), by lower-case path from the script's folder. */
+  files?: Record<string, Uint8Array>
 }
+
+/** The engine's file reader for a script: its mod's files beside it, in any case, with \ or /. */
+export const scriptFiles = (s: { files?: Record<string, Uint8Array> }) => (name: string) =>
+  s.files?.[name.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase()]
+
+/** The size file beside a package compressed whole: gone while the package is written decompressed. */
+export const sizeFileOf = (path: string) => `${path}.uncompressed_size`
 export interface WantedFiles {
   label: string
   files: { path: string; kind: 'package' | 'config'; data: Uint8Array }[]
@@ -174,25 +183,29 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
 
   const bases = new Map<
     string,
-    { path: string; base: Uint8Array; current: Uint8Array; fresh: boolean; pkg: Package }
+    {
+      path: string
+      base: Uint8Array
+      current: Uint8Array
+      fresh: boolean
+      pkg: Package
+      plain: Uint8Array
+      compressed: boolean
+    }
   >()
   for (const name of upks) {
     const path = `CookedPCConsole/${(await files.list('CookedPCConsole')).find((f) => lower(f) === name) ?? name}`
     const o = await original(files, path, managed)
     if (!o.current || !o.base) continue
-    bases.set(name, {
-      path,
-      base: o.base,
-      current: o.current,
-      fresh: o.fresh,
-      pkg: new Package(o.base),
-    })
+    // A package the game ships compressed is worked on decompressed (and written so if a mod changes it).
+    bases.set(name, { path, base: o.base, current: o.current, fresh: o.fresh, ...scriptPackage(o.base) })
   }
   const results = new Map<string, Package>()
   for (const s of wanted.scripts) {
     const r = runScript(s.text, {
       open: (n) => (results.get(lower(n)) ?? bases.get(lower(n))?.pkg)?.clone(),
       values: s.values,
+      readFile: scriptFiles(s),
     })
     const err = r.steps.find((x) => x.status === 'error')
     if (err) {
@@ -207,8 +220,33 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
         reason(bases.get(n)!.path, s.label)
     }
   }
-  for (const [n, b] of bases)
-    await settle(b.path, b.base, b.current, b.fresh, results.get(n)?.bytes ?? b.base)
+  const cooked = await files.list('CookedPCConsole')
+  for (const [n, b] of bases) {
+    // Unchanged by the scripts (a compressed one only read): its original as it is.
+    const changed = results.get(n)?.bytes
+    const data = changed && !same(changed, b.plain) ? changed : b.base
+    await settle(b.path, b.base, b.current, b.fresh, data)
+    // A package compressed whole, written decompressed: its size file goes (kept first), and
+    // comes back with the original.
+    if (!b.compressed) continue
+    const name = cooked.find((f) => lower(f) === lower(sizeFileOf(b.path.split('/')[1]!)))
+    const sizePath = `CookedPCConsole/${name ?? sizeFileOf(b.path.split('/')[1]!)}`
+    const now = await files.read(sizePath)
+    const kept = await files.read(`${BACKUP}/${sizePath}`)
+    if (data !== b.base) {
+      if (now) {
+        if (!kept || !next.originals[sizePath]) next.originals[sizePath] = await sha256(now)
+        changes.push({
+          path: sizePath,
+          action: 'remove',
+          why: [`${b.path.split('/')[1]} is written decompressed`],
+          backup: kept ? undefined : now,
+        })
+      }
+    } else if (!now && kept && next.originals[sizePath]) {
+      changes.push({ path: sizePath, action: 'write', why: ['back to its original'], data: kept })
+    }
+  }
 
   // --- Config files: settings and mods' INI lines on the originals ------------
   const configEdits = new Map<string, ((text: string) => string)[]>()
@@ -242,7 +280,6 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
     )
   const keep = new Set<string>()
   const config = await files.list('Config')
-  const cooked = await files.list('CookedPCConsole')
   for (const m of wanted.files)
     for (const f of m.files) {
       const name = f.path.split('/').pop()!

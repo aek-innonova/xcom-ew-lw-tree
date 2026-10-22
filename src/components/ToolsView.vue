@@ -117,12 +117,6 @@ function targetStatus(f: ModFile): { text: string; kind: 'ok' | 'bad' | 'unknown
     )
   )
     return { text: `patches ${count}; reading the install…`, kind: 'unknown' }
-  const compressed = upks.filter((u) => {
-    const p = tools.packages[u.toLowerCase()]
-    return p && p !== 'reading' && p.compressed
-  })
-  if (compressed.length)
-    return { text: `${compressed.join(', ')} is compressed in the install`, kind: 'bad' }
   const missing = targets.filter((t) => !found(t))
   if (missing.length)
     return {

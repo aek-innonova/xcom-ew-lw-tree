@@ -593,6 +593,7 @@ export function decompressPackage(b: Uint8Array): Uint8Array {
   r.i16()
   r.i32() // header size
   r.fstr()
+  const packageFlagsAt = r.o
   r.u32()
   r.o += 4 * 7 // names, exports, imports: counts and offsets; depends offset
   if (version >= 623) r.o += 16
@@ -632,10 +633,26 @@ export function decompressPackage(b: Uint8Array): Uint8Array {
       o += bl.u
     }
   }
-  // Not compressed any more.
-  new DataView(out.buffer).setInt32(flagsAt, 0, true)
-  new DataView(out.buffer).setInt32(flagsAt + 4, 0, true)
+  // Not compressed any more: no chunks, and not flagged as stored compressed
+  // (the game fails to load a package written so with the flag still on).
+  const ov = new DataView(out.buffer)
+  ov.setInt32(flagsAt, 0, true)
+  ov.setInt32(flagsAt + 4, 0, true)
+  ov.setUint32(packageFlagsAt, ov.getUint32(packageFlagsAt, true) & ~PKG_STORE_COMPRESSED, true)
   return out
+}
+
+/** A package's flag: stored in compressed chunks. */
+export const PKG_STORE_COMPRESSED = 0x02000000
+
+/**
+ * A package as mod scripts work on it: decompressed if the game ships it
+ * compressed (whole, or in chunks), since that is how it is written back.
+ * `plain` is the bytes worked on; `compressed` whether they differ from the file's.
+ */
+export function scriptPackage(bytes: Uint8Array): { pkg: Package; plain: Uint8Array; compressed: boolean } {
+  const plain = decompressPackage(bytes)
+  return { pkg: new Package(plain === bytes ? bytes : plain.slice()), plain, compressed: plain !== bytes }
 }
 
 /** An enum's names, in value order (an Enum export: no properties, then its names). */

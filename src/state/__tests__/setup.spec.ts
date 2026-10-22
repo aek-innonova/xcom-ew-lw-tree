@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { GameFiles } from '../gamefiles'
+import { PKG_STORE_COMPRESSED, Package, scriptPackage } from '@/model/upk'
 import {
   BACKUP,
   MANIFEST,
@@ -266,3 +267,73 @@ describe.skipIf(!existsSync(lwr) || !existsSync(mods))(
     })
   },
 )
+
+// Plain Enemy Within ships XComGame.upk compressed whole, with its size beside it
+// (features/tools-mods-complete.md).
+const ewGame = resolve(root, 'samples/ew/CookedPCConsole/XComGame.upk')
+describe.skipIf(!existsSync(ewGame))('a mod on a package the game ships compressed, from its data file', () => {
+  const compressed = read(ewGame)
+  const SIZE = 'CookedPCConsole/XComGame.upk.uncompressed_size'
+  const start = () =>
+    memoryFiles({ 'CookedPCConsole/XComGame.upk': compressed, [SIZE]: utf8('12518488\r\n') })
+  // A function's data, one byte changed, in a file beside the script (MODDED_FILE).
+  const plain = scriptPackage(compressed).pkg
+  const data = plain.exportData(plain.findObject('XGUnit.RecordKill', true)).slice()
+  data[data.length - 1] = data[data.length - 1]! ^ 1
+  const mod: Wanted['scripts'][number] = {
+    label: 'Data file mod',
+    text: 'UPK_FILE=XComGame.upk\nMODDED_FILE=XGUnit.RecordKill.Function\n',
+    values: {},
+    files: { 'xgunit.recordkill.function': data },
+  }
+  const flagsOf = (b: Uint8Array) => {
+    const v = new DataView(b.buffer, b.byteOffset)
+    return v.getUint32(16 + v.getInt32(12, true), true)
+  }
+
+  it('applied: written decompressed (not flagged compressed), its size file gone; both kept; taken out: both back', async () => {
+    const g = start()
+    const plan = await planSetup(g, { scripts: [mod], files: [], settings: [] }, emptyManaged())
+    expect(plan.problems).toEqual([])
+    expect(plan.changes.map((c) => [c.path, c.action])).toEqual([
+      ['CookedPCConsole/XComGame.upk', 'write'],
+      [SIZE, 'remove'],
+    ])
+    await applyPlan(g, plan)
+    const written = g.map.get('CookedPCConsole/XComGame.upk')!
+    expect(new Package(written).compressed).toBe(false)
+    expect(flagsOf(written) & PKG_STORE_COMPRESSED).toBe(0)
+    const pkg = new Package(written)
+    expect(pkg.exportData(pkg.findObject('XGUnit.RecordKill', true))).toEqual(data)
+    expect(g.map.has(SIZE)).toBe(false)
+    expect(sha(g.map.get(`${BACKUP}/CookedPCConsole/XComGame.upk`)!)).toBe(sha(compressed))
+    expect(str(g.map.get(`${BACKUP}/${SIZE}`))).toBe('12518488\r\n')
+
+    // Applied again: nothing to do.
+    const managed = await loadManaged(g)
+    expect((await planSetup(g, { scripts: [mod], files: [], settings: [] }, managed)).changes).toEqual([])
+
+    // Taken out: the compressed original and its size file back.
+    const back = await planSetup(g, { scripts: [], files: [], settings: [] }, managed)
+    expect(back.changes.map((c) => [c.path, c.action])).toEqual([
+      ['CookedPCConsole/XComGame.upk', 'write'],
+      [SIZE, 'write'],
+    ])
+    await applyPlan(g, back)
+    expect(sha(g.map.get('CookedPCConsole/XComGame.upk')!)).toBe(sha(compressed))
+    expect(str(g.map.get(SIZE))).toBe('12518488\r\n')
+  })
+
+  it('a mod that is there already (it changes nothing) leaves the compressed package as it is', async () => {
+    const g = start()
+    const same = { ...mod, files: { 'xgunit.recordkill.function': plain.exportData(plain.findObject('XGUnit.RecordKill', true)).slice() } }
+    const plan = await planSetup(g, { scripts: [same], files: [], settings: [] }, emptyManaged())
+    expect(plan.problems).toEqual([])
+    expect(plan.changes).toEqual([])
+  })
+
+  it('without its data file: does not fit, and says which file', async () => {
+    const plan = await planSetup(start(), { scripts: [{ ...mod, files: {} }], files: [], settings: [] }, emptyManaged())
+    expect(plan.problems[0]).toMatch(/^Data file mod does not fit this install .*XGUnit\.RecordKill\.Function is not there/)
+  })
+})

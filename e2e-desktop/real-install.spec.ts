@@ -12,7 +12,8 @@
 //   LWTREE_REAL_MODS   = a folder of PatcherGUI .txt mod scripts to apply
 //   LWTREE_REAL_MODFOLDER = a mod folder to add whole, with "Put its files…" on
 // Optional:
-//   LWTREE_REAL_KIND   = 'lw' (default) or 'lwr', the version to expect
+//   LWTREE_REAL_KIND   = 'lw' (default), 'lwr' or 'ew', the version to expect
+//   LWTREE_REAL_SHOT   = a .png to save the page to once the setup is in
 //   LWTREE_REAL_UNFIT  = comma-separated script file names expected not to fit
 import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -66,6 +67,7 @@ test.describe('real Long War install', () => {
   test.afterEach(async () => app?.close())
 
   test('setup applies and reads as expected; originals restore byte-for-byte', async () => {
+    test.setTimeout(300_000)
     const gameXComGame = join(GAME!, 'XEW', 'XComGame')
     const before = hashTree(gameXComGame)
 
@@ -147,14 +149,18 @@ test.describe('real Long War install', () => {
       status[name] = (await loc.textContent())?.trim() ?? ''
       console.log(`STATUS ${name}: ${status[name]}`)
     }
+    // LWTREE_REAL_SHOT: the page as it reads now, to look at.
+    if (process.env.LWTREE_REAL_SHOT) await page.screenshot({ path: process.env.LWTREE_REAL_SHOT, fullPage: true })
 
-    // Put the originals back.
-    await page.getByRole('button', { name: 'Put the originals back…' }).click()
+    // Put the originals back: the version alone, from the setup menu.
+    const alone = page.locator('option', { hasText: 'alone, without mods or settings' })
+    await page.locator('select', { has: alone }).selectOption((await alone.getAttribute('value'))!)
     await expect(plan).toBeVisible({ timeout: 30_000 })
     await plan.getByRole('button', { name: 'Write these changes' }).click()
-    // Wait for the write to finish (plan clears) before closing, or the last
-    // files of the restore would be cut off.
-    await expect(plan).toBeHidden({ timeout: 60_000 })
+    // Wait for the write to finish before closing, or the last files of the
+    // restore would be cut off.
+    await expect(plan.getByText('✓ Done.')).toBeVisible({ timeout: 60_000 })
+    await plan.getByRole('button', { name: 'Close' }).click()
 
     await app.close()
     app = undefined

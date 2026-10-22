@@ -28,6 +28,8 @@ import {
   headerSizeOf,
   readEnum,
   readUpk,
+  scriptPackage,
+  type Upk,
 } from '@/model/upk'
 import { planBase, type BaseLayer, type BaseSetup } from './baseplan'
 import { loadGameImages } from './gameimages'
@@ -56,6 +58,7 @@ import {
   emptyManaged,
   loadManaged,
   planSetup,
+  scriptFiles,
   type Managed,
   type Plan,
   type Wanted,
@@ -256,13 +259,21 @@ export async function readPackage(name: string): Promise<void> {
   tools.packages[key] = 'reading'
   try {
     const path = `CookedPCConsole/${real}`
-    const head = (await desktop.game.read(path, 0, 64))!
-    const size = headerSizeOf(head)
-    const pk = readUpk((await desktop.game.read(path, 0, size))!)
+    // The tables from the header alone; a package the game ships compressed (whole, or in
+    // chunks) read whole and decompressed, as mods are applied to it.
+    let pk: Upk | null = null
+    try {
+      const head = (await desktop.game.read(path, 0, 64))!
+      pk = readUpk((await desktop.game.read(path, 0, headerSizeOf(head)))!)
+    } catch {
+      pk = null
+    }
+    const compressed = !pk || pk.compressed
+    if (compressed) pk = scriptPackage((await desktop.game.read(path))!).pkg
     tools.packages[key] = {
       size: 0,
-      compressed: pk.compressed,
-      exports: markRaw(new Set(exportsByPath(pk).keys())),
+      compressed,
+      exports: markRaw(new Set(exportsByPath(pk!).keys())),
     }
   } catch {
     tools.packages[key] = null
@@ -357,7 +368,8 @@ async function currentPackage(name: string): Promise<Package | null> {
   if (files && real) {
     const bytes = await files.read(`CookedPCConsole/${real}`)
     try {
-      pkg = bytes ? markRaw(new Package(bytes)) : null
+      // Decompressed if the game ships it compressed, as a mod is applied to it.
+      pkg = bytes ? markRaw(scriptPackage(bytes).pkg) : null
     } catch {
       pkg = null
     }
@@ -393,10 +405,11 @@ export async function checkMods(): Promise<void> {
     if (run !== checkRun) return
     const open = (n: string) => current.get(lower(n))?.clone()
     const values = m.values[f.path] ?? {}
-    const r = runScript(text, { open, values })
+    const readFile = scriptFiles({ files: await filesBeside(m, f) })
+    const r = runScript(text, { open, values, readFile })
     let status: CheckStatus = r.status
     if (status !== 'installed' && Object.keys(values).length) {
-      if (runScript(text, { open }).status === 'installed') status = 'other-values'
+      if (runScript(text, { open, readFile }).status === 'installed') status = 'other-values'
     }
     tools.checks[checkKey(m, f)] = { status, steps: markRaw(r.steps) }
     // A mod first seen in the game counts as wanted there, in the setup of
@@ -1137,6 +1150,7 @@ async function wantedSetup(everything: boolean): Promise<Wanted> {
           label: `${m.name}${scriptsOf(m) > 1 ? ` (${f.path})` : ''}`,
           text: await f.data.text(),
           values: { ...m.values[f.path] },
+          files: await filesBeside(m, f),
         })
     if (m.wantFiles) {
       const own = m.files.filter((f) => f.kind === 'package' || f.kind === 'config')
@@ -1155,6 +1169,20 @@ async function wantedSetup(everything: boolean): Promise<Wanted> {
   return wanted
 }
 const scriptsOf = (m: Mod) => m.files.filter((f) => f.kind === 'script').length
+
+/**
+ * The data files beside a script in its mod (what MODDED_FILE and BULK_FILE
+ * name: object data, a table entry, bulk data), by lower-case path from the
+ * script's folder. Not its packages, configs or documents.
+ */
+async function filesBeside(m: Mod, script: ModFile): Promise<Record<string, Uint8Array>> {
+  const dir = script.path.includes('/') ? script.path.slice(0, script.path.lastIndexOf('/') + 1) : ''
+  const out: Record<string, Uint8Array> = {}
+  for (const f of m.files)
+    if (f.kind === 'other' && f.path.startsWith(dir))
+      out[f.path.slice(dir.length).toLowerCase()] = new Uint8Array(await f.data.arrayBuffer())
+  return out
+}
 
 /**
  * Works out what putting the setup into the game would change (or, with
