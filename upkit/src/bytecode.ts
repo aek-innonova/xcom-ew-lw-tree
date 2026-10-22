@@ -367,3 +367,31 @@ export function memSizeOf(n: Node): number {
   e.expr(n)
   return e.mem
 }
+
+/**
+ * The skip a token's 16-bit operand holds when it is what the compiler computes
+ * (the size of what follows it), else undefined: written _ in __asm then.
+ */
+export function naturalSkip(n: Node, i: number): number | undefined {
+  const a = n.args
+  const m = (k: number) => memSizeOf(a[k] as Node)
+  switch (n.op) {
+    case 0x19:
+    case 0x12:
+      return i === 1 ? m(4) : undefined
+    case 0x45:
+      return i === 1 ? m(2) : i === 3 ? m(4) : undefined
+    case 0x18:
+    case 0x49:
+      return i === 0 ? m(1) + 1 : undefined
+    case 0x46:
+    case 0x55:
+    case 0x56:
+    case 0x59:
+      return i === 1 ? m(2) + 1 : undefined
+    case 0x47:
+    case 0x57:
+      return i === 1 ? m(2) + m(3) + 1 : undefined
+  }
+  return undefined
+}

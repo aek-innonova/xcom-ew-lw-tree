@@ -200,7 +200,7 @@ export class ClassDecompiler {
   private functionText(ref: number, indent = ''): string {
     try {
       const text = readableSource(this.linker, this.pkg, ref)
-      const note = this.checked && readStructHead(this.pkg, ref).size ? fidelityNote(fidelity(this.linker, this.pkg, ref, text)) : ''
+      const note = this.checked && readStructHead(this.pkg, ref).size ? fidelityNote(fidelity(this.linker, this.pkg, ref, text), text) : ''
       return (note + text)
         .split('\n')
         .map((l) => (l ? indent + l : l))

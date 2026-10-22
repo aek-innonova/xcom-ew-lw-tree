@@ -3,7 +3,7 @@
 // the packages it imports, the tokens chosen as Epic's compiler chose them
 // (as measured on the game's code: test/compile.spec.ts).
 
-import { encodeScript, memSizeOf, type NameValue, type Node, type Value } from './bytecode.ts'
+import { encodeScript, memSizeOf, naturalSkip, TOKENS, type NameValue, type Node, type Value } from './bytecode.ts'
 import { Linker, type Located } from './linker.ts'
 import { readTags, type FunctionObj, type PropertyObj, type ScriptObject } from './objects.ts'
 import { isLatin1, Reader, Writer } from './bytes.ts'
@@ -17,6 +17,10 @@ export class CompileError extends Error {
 }
 
 const N = (op: number, ...args: Value[]): Node => ({ op, args, at: 0, mem: 0 })
+/** A node written as __asm in source: kept as it is (no wrapper taken off, nothing eaten). */
+type AsmNode = Node & { asm?: true }
+/** Tokens by name (lower case), for __asm. */
+const TOKEN_BY_NAME = new Map<string, number>(Object.entries(TOKENS).map(([op, t]) => [t!.name.toLowerCase(), Number(op)]))
 const NATIVE = (index: number, params: Node[]): Node => ({
   op: index < 0x100 ? index : 0x60 + (index >> 8),
   native: index,
@@ -424,6 +428,8 @@ export class FunctionCompiler {
   }
   private convert(g: Gen, want: Ty | undefined, explicit = false): Gen {
     if (!want || want.k === 'unknown' || g.ty.k === 'unknown') return g
+    // (Written as __asm: as the bytes have it, whatever is wanted there; no conversion added.)
+    if ((g.node as AsmNode).asm && !explicit) return { ...g, ty: want }
     const from = this.kindOf(g.ty)
     const to = this.kindOf(want)
     // An object of a class not the one wanted, nor one of its subclasses: a cast is wanted.
@@ -628,6 +634,7 @@ export class FunctionCompiler {
         return { node: N(0x1a, i.node, this.unwrapBool(a.node)), ty: a.ty }
       }
       case 'call':
+        if (e.fn.k === 'id' && e.fn.name.toLowerCase() === '__asm') return this.asm(e.args)
         return this.call(e, want)
       case 'assign': {
         const l = this.gen(e.l, undefined, true)
@@ -679,7 +686,222 @@ export class FunctionCompiler {
   }
 
   private unwrapBool(n: Node): Node {
-    return n.op === 0x2d ? (n.args[0] as Node) : n
+    return n.op === 0x2d && !(n as AsmNode).asm ? (n.args[0] as Node) : n
+  }
+
+  // --- __asm(Token, operands…): a node as the bytes have it (upkit's dialect) ------
+
+  /**
+   * A node built from its token and operands, as the decompiler writes it where
+   * the bytes say what source cannot (a hand patch's): objects by path (or their
+   * reference), names as 'names', numbers, children as source, _ for a skip the
+   * compiler computes.
+   */
+  private asm(args: (Expr | null)[]): Gen {
+    const [head, ...ops] = args
+    // (Self, True and False read as themselves: the tokens of those names.)
+    const token = head?.k === 'id' ? head.name : head?.k === 'bool' ? (head.v ? 'True' : 'False') : head?.k === 'self' ? 'Self' : ''
+    let i = 0
+    const next = (): Expr | null => {
+      if (i >= ops.length) throw new CompileError(`__asm(${token}): too few operands`)
+      return ops[i++]!
+    }
+    const isBlank = (e: Expr | null) => e?.k === 'id' && e.name === '_'
+    const num = (e: Expr | null): number => {
+      if (e?.k === 'int' || e?.k === 'float') return e.v
+      if (e?.k === 'pre' && e.op === '-' && (e.e.k === 'int' || e.e.k === 'float')) return -e.e.v
+      throw new CompileError(`__asm(${token}): a number wanted`)
+    }
+    const child = (e: Expr | null): Gen => {
+      if (!e) throw new CompileError(`__asm(${token}): an expression wanted`)
+      return this.gen(e)
+    }
+    const native = /^native(\d+)$/i.exec(token)
+    if (native) {
+      const params: Node[] = []
+      while (i < ops.length) params.push(child(next()).node)
+      const node = NATIVE(Number(native[1]), params) as AsmNode
+      node.asm = true
+      const f = this.linker.native(Number(native[1]))
+      return { node, ty: f ? (this.fnInfo(f).ret?.ty ?? { k: 'none' }) : { k: 'unknown' } }
+    }
+    const op = TOKEN_BY_NAME.get(token.toLowerCase())
+    if (op === undefined) throw new CompileError(`__asm: no token ${token}`)
+    const vals: Value[] = []
+    const kids: Ty[] = []
+    const blanks: number[] = []
+    TOKENS[op]!.args.forEach((kind, k) => {
+      switch (kind) {
+        case 'expr': {
+          // A context's member: what it names is the object's (Obj.Name, Obj.Fn(…); a class's static or default).
+          if ((op === 0x19 || op === 0x12) && k === 4) {
+            const g = this.asmMember(ops[0] ?? null, next(), op)
+            vals.push(g.node)
+            kids.push(g.ty)
+            return
+          }
+          const g = child(next())
+          vals.push(g.node)
+          kids.push(g.ty)
+          return
+        }
+        case 'optexpr': {
+          const e = next()
+          if (isBlank(e)) vals.push(null as unknown as Value)
+          else vals.push(child(e).node)
+          return
+        }
+        case 'obj':
+          vals.push(this.asmObj(next(), token))
+          return
+        case 'name': {
+          const e = next()
+          if (e?.k !== 'name') throw new CompileError(`__asm(${token}): a 'name' wanted`)
+          vals.push(this.nameRef(e.v))
+          return
+        }
+        case 'u16': {
+          const e = next()
+          if (isBlank(e)) {
+            blanks.push(k)
+            vals.push(0)
+          } else vals.push(num(e))
+          return
+        }
+        case 'u8':
+        case 'i32':
+        case 'f32':
+          vals.push(num(next()))
+          return
+        case 'astr':
+        case 'ustr': {
+          const e = next()
+          if (e?.k !== 'str') throw new CompileError(`__asm(${token}): a string wanted`)
+          vals.push(e.v)
+          return
+        }
+        case 'params': {
+          const ps: Node[] = []
+          while (i < ops.length) ps.push(child(next()).node)
+          vals.push(ps as unknown as Value)
+          return
+        }
+        case 'case': {
+          const nextAt = num(next())
+          const e = i < ops.length ? child(next()).node : null
+          vals.push([nextAt, e] as unknown as Value)
+          return
+        }
+        case 'end':
+          vals.push(op === 0x49 ? 0x15 : 0x16)
+          return
+        default:
+          throw new CompileError(`__asm(${token}): not written this way`)
+      }
+    })
+    if (i < ops.length) throw new CompileError(`__asm(${token}): too many operands`)
+    const node = N(op, ...vals) as AsmNode
+    for (const k of blanks) node.args[k] = naturalSkip(node, k) ?? 0
+    node.asm = true
+    return { node, ty: this.asmType(node, kids) }
+  }
+  /** A context's inner part, compiled as a member of its object (as obj.member compiles), else as it is. */
+  private asmMember(objE: Expr | null, e: Expr | null, op: number): Gen {
+    if (!e) throw new CompileError('__asm(Context): its member wanted')
+    let as: Expr | null = null
+    if (objE && e.k === 'id') as = op === 0x19 ? { k: 'member', obj: objE, name: e.name } : { k: 'defmember', obj: objE, name: e.name }
+    if (objE && e.k === 'call' && e.fn.k === 'id' && e.fn.name.toLowerCase() !== '__asm')
+      as = { k: 'call', fn: op === 0x19 ? { k: 'member', obj: objE, name: e.fn.name } : { k: 'static', obj: objE, name: e.fn.name }, args: e.args }
+    if (as) {
+      try {
+        const g = this.gen(as)
+        const n = this.unwrapBool(g.node)
+        if (n.op === op) return { node: n.args[4] as Node, ty: g.ty }
+      } catch {
+        // as it is, then
+      }
+    }
+    return this.gen(e)
+  }
+  /** An object operand: None, a reference as a number, or a path (in this package, or imported). */
+  private asmObj(e: Expr | null, token: string): number {
+    if (!e || e.k === 'none') return 0
+    if (e.k === 'int') return e.v
+    if (e.k === 'pre' && e.op === '-' && e.e.k === 'int') return -e.e.v
+    const parts: string[] = []
+    let x: Expr = e
+    while (x.k === 'member') {
+      parts.unshift(x.name)
+      x = x.obj
+    }
+    if (x.k !== 'id') throw new CompileError(`__asm(${token}): an object's path wanted`)
+    parts.unshift(x.name)
+    return this.findPath(parts.join('.'))
+  }
+  /** What an __asm node's value is, where its operands say: a variable's type, a call's return, a cast's, a constant's. */
+  private asmType(n: Node, kids: Ty[]): Ty {
+    const prop = (ref: number): Ty => {
+      const at = this.located(ref)
+      const o = this.obj(at)
+      return o?.kind === 'property' ? this.propTy(at).ty : { k: 'unknown' }
+    }
+    const a = n.args
+    switch (n.op) {
+      case 0x00:
+      case 0x01:
+      case 0x02:
+      case 0x48:
+      case 0x35:
+        return prop(a[0] as number)
+      case 0x2d:
+      case 0x27:
+      case 0x28:
+        return { k: 'bool' }
+      case 0x19:
+      case 0x12:
+        return kids[1] ?? { k: 'unknown' }
+      case 0x10: {
+        const arr = kids[1]
+        return arr?.k === 'array' ? arr.inner : { k: 'unknown' }
+      }
+      case 0x1a:
+        return kids[1] ?? { k: 'unknown' }
+      case 0x1c: {
+        const at = this.located(a[0] as number)
+        return this.obj(at)?.kind === 'function' ? (this.fnInfo(at).ret?.ty ?? { k: 'none' }) : { k: 'unknown' }
+      }
+      case 0x1b: {
+        const f = this.findFunction(this.pkg.name(a[0] as NameValue))
+        return f ? (this.fnInfo(f).ret?.ty ?? { k: 'none' }) : { k: 'unknown' }
+      }
+      case 0x1d:
+      case 0x25:
+      case 0x26:
+      case 0x2c:
+        return { k: 'int' }
+      case 0x1e:
+        return { k: 'float' }
+      case 0x1f:
+        return { k: 'string' }
+      case 0x24:
+        return { k: 'byte', enumOf: null }
+      case 0x21:
+        return { k: 'name' }
+      case 0x2a:
+        return { k: 'none' }
+      case 0x2e:
+        return { k: 'object', cls: this.located(a[0] as number) }
+      case 0x13:
+        return { k: 'class', meta: this.located(a[0] as number) }
+      case 0x38: {
+        const to = Object.entries(CAST).find(([, c]) => c === a[0])?.[0].split('>')[1]
+        if (to === 'int' || to === 'float' || to === 'bool' || to === 'string' || to === 'name') return { k: to }
+        if (to === 'byte') return { k: 'byte', enumOf: null }
+        if (to === 'vector' || to === 'rotator') return this.coreStruct(to === 'vector' ? 'Vector' : 'Rotator')
+        return { k: 'unknown' }
+      }
+    }
+    return { k: 'unknown' }
   }
 
   private constNum(x: Expr): number {
@@ -1232,6 +1454,8 @@ export class FunctionCompiler {
           }
         }
         const g = this.gen(s.e)
+        // (Written as __asm: emitted as it is.)
+        if ((g.node as AsmNode).asm) return this.emit(g.node)
         const k = g.ty.k
         // A value dropped that needs cleaning up: a string or struct from a call.
         const isCall = g.node.native !== undefined || [0x1b, 0x1c, 0x19, 0x12, 0x37].includes(g.node.op)

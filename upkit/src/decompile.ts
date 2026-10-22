@@ -7,7 +7,7 @@
 // says explicitly what the original compiler did implicitly: casts are
 // written out, a skipped optional argument is an empty place.
 
-import { decodeScript, memSizeOf, TOKENS, type Label, type NameValue, type Node } from './bytecode.ts'
+import { decodeScript, memSizeOf, naturalSkip, TOKENS, type Label, type NameValue, type Node } from './bytecode.ts'
 import type { Linker, Located } from './linker.ts'
 import type { FunctionObj, PropertyObj, StateObj } from './objects.ts'
 import type { Package } from './package.ts'
@@ -70,6 +70,9 @@ export function floatText(v: number): string {
   return s.includes('.') ? s : s + '.0'
 }
 
+/** Words that cannot be a part of an object's path in source. */
+const RESERVED = new Set(['none', 'self', 'true', 'false', 'default', 'static', 'super', 'global', 'class', 'new', 'if', 'else', 'for', 'while', 'do', 'until', 'switch', 'case', 'return', 'break', 'continue', 'goto', 'stop', 'foreach', 'local', 'var', 'function', 'event', 'state', 'struct', 'enum', 'const', 'vect', 'rot'])
+
 // (A line break or tab as \n, \t: upkit's dialect, so a string stays on its line.)
 export const stringText = (s: string) =>
   `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\t/g, '\\t')}"`
@@ -112,6 +115,10 @@ function unplacedJumps(lines: string[]): string[] {
 export class FunctionDecompiler {
   /** Leave out the widening conversions the compiler makes on its own (readableSource checks it may). */
   readable = false
+  /** Nodes (by their offset in the script) written as __asm(…): where the bytes say what source cannot. */
+  asm: Set<number> | null = null
+  /** The statements (or conditions) each line of the last output writes, by line. */
+  lineNodes = new Map<number, Node[]>()
   readonly linker: Linker
   readonly pkg: Package
   readonly ref: number
@@ -315,6 +322,7 @@ export class FunctionDecompiler {
 
   /** An expression where a value of an enum is expected: a byte constant as the enum's value name. */
   private exHint(n: Node, e: Located | null): Ex {
+    if (this.asm?.has(n.at)) return atom(this.asmText(n))
     if (e) {
       if (n.op === 0x24) {
         const o = this.linker.object(e)
@@ -340,6 +348,7 @@ export class FunctionDecompiler {
 
   /** An expression, with its binding for parentheses. */
   ex(n: Node): Ex {
+    if (this.asm?.has(n.at)) return atom(this.asmText(n))
     const a = n.args
     if (n.native !== undefined) return this.nativeCall(n)
     switch (n.op) {
@@ -544,6 +553,81 @@ export class FunctionDecompiler {
     return atom(`__${TOKENS[n.op]?.name ?? n.op}`)
   }
 
+  // --- __asm: a node as its token and operands (upkit's dialect) -------------------
+
+  /** A node as __asm(Token, operands…): objects by path, names as names, children as source. */
+  private asmText(n: Node): string {
+    const ops: string[] = []
+    if (n.native !== undefined) {
+      for (const p of n.args[0] as Node[]) ops.push(this.asmChild(p))
+      return `__asm(${[`Native${n.native}`, ...ops].join(', ')})`
+    }
+    const kinds = TOKENS[n.op]!.args
+    kinds.forEach((kind, i) => {
+      const v = n.args[i]
+      switch (kind) {
+        case 'expr':
+          ops.push(this.asmChild(v as Node))
+          break
+        case 'optexpr':
+          ops.push(v ? this.asmChild(v as Node) : '_')
+          break
+        case 'obj':
+          ops.push(this.asmObj(v as number))
+          break
+        case 'name':
+          ops.push(`'${this.nm(v as NameValue)}'`)
+          break
+        case 'u16':
+          ops.push(naturalSkip(n, i) === v ? '_' : String(v))
+          break
+        case 'u8':
+        case 'i32':
+          ops.push(String(v))
+          break
+        case 'f32':
+          ops.push(floatText(v as number))
+          break
+        case 'astr':
+        case 'ustr':
+          ops.push(stringText(v as string))
+          break
+        case 'params':
+          for (const p of v as Node[]) ops.push(this.asmChild(p))
+          break
+        case 'case': {
+          const [next, e] = v as unknown as [number, Node | null]
+          ops.push(String(next))
+          if (e) ops.push(this.asmChild(e))
+          break
+        }
+      }
+    })
+    return `__asm(${[TOKENS[n.op]!.name, ...ops].join(', ')})`
+  }
+  /** A child of an __asm: as source (in parentheses where it binds loosely); an argument left out as its token. */
+  private asmChild(n: Node): string {
+    if (n.op === 0x4a && n.native === undefined) return '__asm(EmptyParmValue)'
+    return this.ex(n).text
+  }
+  /** An object operand: its path where that names it alone (and reads as one), else its reference. */
+  private asmObj(ref: number): string {
+    if (!ref) return 'None'
+    const path = this.pkg.path(ref)
+    const parts = path.split('.')
+    const plain = parts.every((p) => /^[A-Za-z_]\w*$/.test(p) && !RESERVED.has(p.toLowerCase()))
+    let unique = false
+    if (ref > 0) unique = this.pkg.find(path) === ref
+    else {
+      const lower = path.toLowerCase()
+      unique = true
+      for (let i = 1; i <= this.pkg.imports.length && unique; i++) if (-i !== ref && this.pkg.path(-i).toLowerCase() === lower) unique = false
+      // (An import is found by its path only if no export has that path too.)
+      if (this.pkg.find(path)) unique = false
+    }
+    return plain && unique ? path : String(ref)
+  }
+
   private parenHint(n: Node, max: number, e: Located | null): string {
     const x = this.exHint(n, e)
     return x.prec > max || (max === 0 && x.prec > 0) ? `(${x.text})` : x.text
@@ -614,6 +698,12 @@ export class FunctionDecompiler {
         if (!this.placed.has(s.mem)) out.push({ k: 'label', mem: s.mem, names: this.named.get(s.mem) })
         this.placed.add(s.mem)
       } else if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
+      // Written as __asm: a statement of its own, whatever its token would otherwise structure.
+      if (this.asm?.has(s.at)) {
+        out.push({ k: 'expr', node: s })
+        i++
+        continue
+      }
       // A loop that starts here and ends with a jump back (do … until).
       const back = this.backJump(i, hi)
       if (back >= 0 && S[back]!.op === 0x07 && s.op !== 0x07) {
@@ -787,9 +877,11 @@ export class FunctionDecompiler {
     for (const s of stmts) {
       switch (s.k) {
         case 'expr':
+          this.lineNodes.set(out.length, [s.node])
           out.push(pad + this.stmtText(s.node))
           break
         case 'if': {
+          this.lineNodes.set(out.length, [s.cond])
           out.push(`${pad}if (${this.ex(s.cond).text})`, `${pad}{`)
           this.lines(s.body, depth + 1, out)
           out.push(`${pad}}`)
@@ -797,6 +889,7 @@ export class FunctionDecompiler {
           let rest = s.else
           while (rest && rest.length === 1 && rest[0]!.k === 'if') {
             const next = rest[0] as Stmt & { k: 'if' }
+            this.lineNodes.set(out.length, [next.cond])
             out.push(`${pad}else if (${this.ex(next.cond).text})`, `${pad}{`)
             this.lines(next.body, depth + 1, out)
             out.push(`${pad}}`)
@@ -810,11 +903,13 @@ export class FunctionDecompiler {
           break
         }
         case 'for':
+          this.lineNodes.set(out.length, [s.init, s.cond, s.step])
           out.push(`${pad}for (${this.stmtText(s.init).replace(/;$/, '')}; ${this.ex(s.cond).text}; ${this.stmtText(s.step).replace(/;$/, '')})`, `${pad}{`)
           this.lines(s.body, depth + 1, out)
           out.push(`${pad}}`)
           break
         case 'while':
+          this.lineNodes.set(out.length, [s.cond])
           out.push(`${pad}while (${this.ex(s.cond).text})`, `${pad}{`)
           this.lines(s.body, depth + 1, out)
           out.push(`${pad}}`)
@@ -822,14 +917,17 @@ export class FunctionDecompiler {
         case 'do':
           out.push(`${pad}do`, `${pad}{`)
           this.lines(s.body, depth + 1, out)
+          this.lineNodes.set(out.length, [s.cond])
           out.push(`${pad}} until (${this.ex(s.cond).text});`)
           break
         case 'foreach':
+          this.lineNodes.set(out.length, [s.iter])
           out.push(`${pad}foreach ${this.ex(s.iter).text}`, `${pad}{`)
           this.lines(s.body, depth + 1, out)
           out.push(`${pad}}`)
           break
         case 'switch':
+          this.lineNodes.set(out.length, [s.node])
           out.push(`${pad}switch (${this.ex(s.node.args[2] as Node).text})`, `${pad}{`)
           const swEnum = this.enumOf(s.node.args[2] as Node)
           for (const c of s.cases) {
@@ -848,6 +946,7 @@ export class FunctionDecompiler {
           out.push(`${pad}goto ${this.target(s.target)};`)
           break
         case 'ifgoto':
+          this.lineNodes.set(out.length, [s.cond])
           out.push(`${pad}if (!(${this.ex(s.cond).text})) goto ${this.target(s.target)};`)
           break
         case 'label':
@@ -863,6 +962,7 @@ export class FunctionDecompiler {
   }
 
   private stmtText(n: Node): string {
+    if (this.asm?.has(n.at)) return `${this.asmText(n)};`
     switch (n.op) {
       case 0x04: {
         const v = n.args[0] as Node
@@ -939,6 +1039,7 @@ export class FunctionDecompiler {
 
   /** The function's UnrealScript: declaration and body. */
   decompile(): string {
+    this.lineNodes = new Map()
     const pkg = this.pkg
     const at: Located = { pkg, ref: this.ref }
     const fn = this.linker.object(at) as FunctionObj

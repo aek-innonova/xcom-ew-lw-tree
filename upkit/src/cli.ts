@@ -141,7 +141,7 @@ try {
       const text = readableSource(linker, pkg, ref)
       process.stdout.write(
         readStructHead(pkg, ref).size
-          ? fidelityNote(fidelity(linker, pkg, ref, text)) + text
+          ? fidelityNote(fidelity(linker, pkg, ref, text), text) + text
           : text,
       )
       break
@@ -293,7 +293,7 @@ try {
         const orig = pkg.data(i).subarray(h.scriptAt, h.end)
         let text = ''
         try {
-          text = new FunctionDecompiler(linker, pkg, i).decompile()
+          text = readableSource(linker, pkg, i)
           const c = new FunctionCompiler(linker, pkg, i).compile(text, ops).code
           if (c.length === orig.length && c.every((b, k) => b === orig[k])) {
             same++
@@ -304,7 +304,7 @@ try {
         }
         // --list: each that does not, and where (the note decompile writes above it).
         if (listing) {
-          const note = text ? fidelityNote(fidelity(linker, pkg, i, text)) : '// upkit: not decompiled\n'
+          const note = text ? fidelityNote(fidelity(linker, pkg, i, text), text) : '// upkit: not decompiled\n'
           console.log(`${pkg.path(i)}\n  ${note.trim().split('\n').pop()!.replace(/^\/\/ (upkit: )?/, '')}`)
         }
       }
