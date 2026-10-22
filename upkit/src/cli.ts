@@ -270,7 +270,9 @@ try {
         }
       }
       console.log(
-        `${pkgName}: ${same} of ${total} functions compile back byte for byte (${((100 * same) / total).toFixed(1)}%)`,
+        total
+          ? `${pkgName}: ${same} of ${total} functions compile back byte for byte (${((100 * same) / total).toFixed(1)}%)`
+          : `${pkgName}: no functions with code`,
       )
       break
     }

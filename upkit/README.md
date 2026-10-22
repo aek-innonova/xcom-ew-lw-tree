@@ -91,6 +91,7 @@ functions, properties, native operators). Measured on the game's own code
 | Engine (vanilla) | 4,341 | 99.95% |
 | XComGame (vanilla) | 11,756 | 99.99% |
 | XComStrategyGame (vanilla) | 5,349 | 99.96% |
+| GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% |
 | XComGame (Long War 1.0) | 11,756 | 98.5% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.6% |
