@@ -163,7 +163,7 @@ source and its bytes part. The vanilla packages came from the win VM's install i
   mod script that Long War's PatchUPK.exe applied, and as a whole package;
   the two the same, byte for byte.
 - Lint-clean as the repository lints; the app's own unit tests leave
-  upkit's to upkit (they had been picking them up). 126 tests in `upkit/`
+  upkit's to upkit (they had been picking them up). 127 tests in `upkit/`
   (21 of them need `PATCHUPK`).
 
 ### Not verified, and not done

@@ -133,6 +133,14 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
           .replace('function int GetResearchPerHour()', 'function int UpkitBonus(int iBase)\n{\n    return iBase + m_iUpkitBonus;\n}\n\nfunction int GetResearchPerHour()')
           .replace('(1 + m_fLabBonus', '(UpkitBonus(1) + m_fLabBonus'),
     ],
+    [
+      'a constant, an enum, a struct and a state alone (no variable or function with them)',
+      'XGFacility_Labs',
+      (src) =>
+        src
+          .replace('const MELD_TECH_BONUS = 40;', 'const MELD_TECH_BONUS = 40;\nconst UPKIT_STEP = 3;\n\nenum EUpkitMode\n{\n    eUpkit_Off,\n    eUpkit_On\n};\n\nstruct TUpkitPair\n{\n    var int iA;\n};')
+          .replace(/^defaultproperties/m, 'state UpkitWaiting\n{\n}\n\ndefaultproperties'),
+    ],
     ['a new class', 'UpkitHelper', () => 'class UpkitHelper extends Object;\n\nvar int m_iCount;\n\nstatic function int Twice(int i)\n{\n    return i * 2;\n}\n\ndefaultproperties\n{\n    m_iCount=3\n}\n'],
   ]
   for (const [name, cls, edit] of cases)

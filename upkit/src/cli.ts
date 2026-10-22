@@ -164,7 +164,11 @@ try {
       const declared = isNew
         ? [path]
         : edits
-          ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)]
+          ? [
+              ...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)),
+              ...edits.functions.map((f) => f.path),
+              ...[...edits.consts, ...edits.enums, ...edits.structs, ...edits.states].map((x) => `${path}.${x.name}`),
+            ]
           : []
       // (Variables whose modifiers changed: their flags, written as declarations are.)
       const modified = [...(edits?.varFlags ?? []), ...(edits?.funcFlags ?? [])].map((x) => x.path)
