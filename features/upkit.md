@@ -144,4 +144,21 @@ packages came from the win VM's install into `samples/ew/`.
   compiler writes (a fixed skip of 10, a call short of an argument).
 - upkit lives in this repository; standing on its own needs a repository of
   its own (a person's decision: its name, its licence), with the test that
-  uses the app's PatchUPK implementation moved or dropped.
+  uses the app's PatchUPK implementation moved or dropped. `upkit/package.json`
+  is ready for that (private for now).
+
+### To check in the game (a machine with a GPU, the game installed)
+
+Smallest risk first; each step undone by restoring the package (keep a copy):
+
+1. A mod script: `class XComStrategyGame.upk XGFacility_Labs`, change
+   `GetResearchPerHour` to return a large number, `compile … --patch labs.txt`,
+   apply with PatcherGUI; research should finish within a day.
+2. The same change as a whole package (`--out`), copied over the game's
+   `XComStrategyGame.upk` (on an install whose exe has the hash check off, as
+   Long War's has): the same result, which tells that upkit's packages load.
+3. A new member variable and function in a class (`--out`), used from an
+   edited function: tells that new declarations load and run.
+4. A new script package (`new`, a class extending XComMutator) loaded the way
+   Long War's mutators are: tells that a package upkit made from nothing loads.
+   
