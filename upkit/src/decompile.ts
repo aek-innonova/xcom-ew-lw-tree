@@ -744,13 +744,27 @@ export class FunctionDecompiler {
     if (!cases.length) return null
     // The end: where the cases' breaks go, beyond the last case; else the range's end.
     const lastCase = cases[cases.length - 1]!
-    let endMem = -1
+    // (A foreach's break in a case jumps to the loop's end, not the switch's.)
+    const loopEnds = new Set<number>()
     for (let j = i + 1; j < hi; j++) {
       const s = S[j]!
-      // (A break jumps forward: a later loop's jump back is not one.)
-      const t = s.args[0] as number
-      if (s.op === 0x06 && t > s.mem && t > S[lastCase]!.mem && t !== ctx.breakTo && t !== ctx.continueTo) endMem = Math.max(endMem, t)
+      if (s.op === 0x58) loopEnds.add(s.args[4] as number)
+      if (s.op === 0x2f) loopEnds.add(s.args[1] as number)
     }
+    // A break jumps forward past the last case (a later loop's jump back is not one). Those of
+    // the cases before the last say where the switch ends; else any after it (what follows the
+    // switch can jump further).
+    const breaksIn = (from: number, to: number) => {
+      let m = -1
+      for (let j = from; j < to; j++) {
+        const s = S[j]!
+        const t = s.args[0] as number
+        if (s.op === 0x06 && t > s.mem && t > S[lastCase]!.mem && t !== ctx.breakTo && t !== ctx.continueTo && !loopEnds.has(t)) m = Math.max(m, t)
+      }
+      return m
+    }
+    let endMem = breaksIn(i + 1, lastCase)
+    if (endMem < 0) endMem = breaksIn(lastCase, hi)
     const [lastNext] = S[lastCase]!.args[0] as unknown as [number]
     if (lastNext !== 0xffff && endMem < 0) endMem = lastNext
     const end = endMem < 0 ? hi : endMem === (hi < S.length ? S[hi]!.mem : this.memEnd) ? hi : this.idx(endMem)

@@ -89,18 +89,21 @@ functions, properties, native operators). Measured on the game's own code
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
 | Engine (vanilla) | 4,341 | 99.8% |
-| XComGame (vanilla) | 11,756 | 99.9% |
-| XComStrategyGame (vanilla) | 5,349 | 99.8% |
+| XComGame (vanilla) | 11,756 | 99.97% |
+| XComStrategyGame (vanilla) | 5,349 | 99.96% |
 | XComGame (Long War 1.0) | 11,756 | 98.4% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 95.2% |
-| LWRebalance.u (LWR 2.06) | 1,484 | 97.1% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
+| LWRebalance.u (LWR 2.06) | 1,484 | 97.6% |
 
 Long War's packages carry many functions patched by hand, some in forms no
 compiler writes (a constant where a member was, flags set otherwise, stale
 jumps, arguments a function no longer takes); those are most of the
 difference there. `decompile` says so above such a function, naming where
 its source and its bytes part; the source compiles to what Epic's compiler
-would write.
+would write. Of the vanilla packages' functions, 12 do not come back: cheat
+and debug code calling what the cooked game no longer has (a function or a
+member its C++ dropped), and a few constants Epic's compiler wrote unlike the
+rest (a `default` read as a zero, a jump short by one).
 
 ### Edits
 
@@ -197,14 +200,14 @@ compile. Native functions are not compiled (their code is C++).
 
   | Package | Functions and states | Same code | Same declarations |
   |---|---|---|---|
-  | LWRebalance.u | 1,493 | 97.1% | 99.7% of 9,235 objects |
-  | MiniModsCollection.u | 569 | 96.0% | 96.8% of 2,121 |
+  | LWRebalance.u | 1,493 | 97.5% | 99.7% of 9,235 objects |
+  | MiniModsCollection.u | 569 | 97.4% | 96.8% of 2,121 |
   | XComCampaignSummary.u | 100 | 89.0% | 96.6% of 441 |
-  | XComLZMutator.u | 72 | 98.6% | 96.4% of 474 |
+  | XComLZMutator.u | 72 | 100% | 96.4% of 474 |
   | LWDebugger.u | 63 | 100% | 97.9% of 243 |
   | Sightlines.u | 32 | 100% | 98.0% of 147 |
   | CharacterColorizer.u | 24 | 100% | 96.7% of 92 |
-  | LoadoutManager.u | 24 | 95.8% | 97.1% of 137 |
+  | LoadoutManager.u | 24 | 100% | 97.1% of 137 |
   | XComModsProfile.u | 23 | 100% | 97.9% of 146 |
   | XComModBridge.u | 22 | 100% | 92.5% of 107 |
   | XComMutator.u | 18 | 100% | 92.5% of 67 |

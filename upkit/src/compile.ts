@@ -1325,7 +1325,9 @@ export class FunctionCompiler {
       case 'switch': {
         const g = this.gen(s.e)
         const prop = this.propOf(g.node)
-        const size = prop ? 0 : g.ty.k === 'byte' ? 1 : 4
+        // Its size when no property says it: a byte's 1, an int's 2 (so in every package of the
+        // game's and the mods' that has one: casts, operators, an array's length).
+        const size = prop ? 0 : g.ty.k === 'byte' ? 1 : g.ty.k === 'int' ? 2 : 4
         this.emit(N(0x05, prop, size, g.node))
         const end = label()
         this.loops.push({ breakTo: end, continueTo: this.loops.at(-1)?.continueTo ?? null })
@@ -1382,13 +1384,16 @@ export class FunctionCompiler {
         const item = this.gen(e.args[0]!, undefined, true)
         const idx = e.args[1] ? this.gen(e.args[1], undefined, true).node : N(0x4a)
         const it = N(0x58, this.unwrapBool(arr.node), this.unwrapBool(item.node), e.args[1] ? 1 : 0, idx, pop as unknown as Value)
-        if (arr.node.op === 0x19 && !(arr.node as Ctx).implicit) (arr.node as Ctx).loopEnd = pop
+        // (The array a context's member, or in a struct or an element of an array one is: the context's skip too.)
+        let ctx = this.unwrapBool(arr.node)
+        while (ctx.op === 0x35 || ctx.op === 0x10 || ctx.op === 0x1a) ctx = (ctx.op === 0x35 ? ctx.args[4] : ctx.args[1]) as Node
+        if ((ctx.op === 0x19 || ctx.op === 0x12) && !(ctx as Ctx).implicit) (ctx as Ctx).loopEnd = pop
         return it
       }
       const call = this.gen(e).node
-      // Through a context, the compiler stores as its skip the distance to the loop's
-      // end (+1), not the call's size; the implicit Outer's stays 9.
-      if (call.op === 0x19 && !(call as Ctx).implicit) (call as Ctx).loopEnd = pop
+      // Through a context (a class's too), the compiler stores as its skip the distance to
+      // the loop's end (+1), not the call's size; the implicit Outer's stays 9.
+      if ((call.op === 0x19 || call.op === 0x12) && !(call as Ctx).implicit) (call as Ctx).loopEnd = pop
       return N(0x2f, call, pop as unknown as Value)
     }
     throw new CompileError('foreach needs an iterator call')
@@ -1693,9 +1698,18 @@ export class FunctionCompiler {
       }
     }
     nodes.forEach((n, i) => {
-      const c = n.op === 0x2f || n.op === 0x58 ? (n.args[0] as Ctx) : null
-      // Iterator, Context, base, skip (2), property (8), size (1), then the call.
-      if (c?.loopEnd) c.args[1] = c.loopEnd.mem - (at[i]! + 2 + memSizeOf(c.args[0] as Node) + 11) + 1
+      if (n.op !== 0x2f && n.op !== 0x58) return
+      // Iterator, the struct members and array elements around the context (each its head
+      // before it: an element's index first), Context, base, skip (2), property (8), size (1),
+      // then the call.
+      let c = n.args[0] as Ctx
+      let at1 = at[i]! + 1
+      while (c.op === 0x35 || c.op === 0x10 || c.op === 0x1a) {
+        const inner = (c.op === 0x35 ? c.args[4] : c.args[1]) as Ctx
+        at1 += memSizeOf(c) - memSizeOf(inner)
+        c = inner
+      }
+      if (c.loopEnd) c.args[1] = c.loopEnd.mem - (at1 + 1 + memSizeOf(c.args[0] as Node) + 11) + 1
     })
     for (const [name, l] of this.labels) if (l.mem < 0) throw new CompileError(`no label ${name}`)
     const fix = (n: Node) => {

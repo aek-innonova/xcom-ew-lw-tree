@@ -98,11 +98,11 @@ Decompiled and compiled back in place, byte for byte:
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
 | Engine (vanilla) | 4,341 | 99.8% |
-| XComGame (vanilla) | 11,756 | 99.9% |
-| XComStrategyGame (vanilla) | 5,349 | 99.8% |
+| XComGame (vanilla) | 11,756 | 99.97% |
+| XComStrategyGame (vanilla) | 5,349 | 99.96% |
 | XComGame (Long War 1.0) | 11,756 | 98.4% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 95.2% |
-| LWRebalance.u | 1,484 | 97.1% |
+| XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
+| LWRebalance.u | 1,484 | 97.6% |
 
 Long War's packages carry hand patches (bytecode no source compiles to:
 flags set otherwise, stale jumps, nested contexts, arguments a function no
@@ -114,10 +114,10 @@ packages came from the win VM's install into `samples/ew/`.
 - Every class, decompiled, reads back as unchanged (nothing compiled when
   nothing was edited).
 - Built anew from source: LWR's `LWRebalance.u`, every class decompiled and
-  built as a new package with `new`, has 97.1% of its 1,493 functions and
+  built as a new package with `new`, has 97.5% of its 1,493 functions and
   states token for token as the original Unreal compiler made them, and
   99.7% of its 9,235 objects the same declarations. Twelve more mod packages
-  beside it rebuild with 96.5% of their code the same.
+  beside it rebuild with 97.1% of their code the same.
 - A whole package from upkit holds what PatchUPK makes of the same change:
   the same names, imports, export entries and every object's bytes. Checked
   with PatchUPK itself (built on Linux from wghost's UPKUtils source, run by

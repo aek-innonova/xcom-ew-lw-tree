@@ -361,6 +361,7 @@ describe.skipIf(!haveCorpus)('the other mod packages beside LWR, rebuilt from th
       const fresh = new Linker([dir, dirname(CORPUS[0]!)])
       const built = openPackage(classesPackage(fresh, openPackage(emptyPackage(fresh.package('Core')!)), name, sources).bytes)
       const r = sameCode(orig, built, name)
+      console.log(`  ${f}: code ${r.same}/${r.total}`)
       total += r.total
       same += r.same
     }
