@@ -199,7 +199,7 @@ they were.
 
 What the source leaves out stays in the package (nothing is deleted), and a
 declaration the package has, changed in the source (a function's parameters,
-return type or modifiers; a variable's type, category or array size; a struct's members;
+return type or other modifiers; a variable's type, category or array size; a struct's members;
 an enum's values; a constant's value; a state's or a class's declaration; a
 replication block), is
 refused with that said: for what the package has, only bodies and defaults
