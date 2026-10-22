@@ -144,7 +144,7 @@ describe.skipIf(!haveCorpus)('edits that add to the package', () => {
     const fc = new FunctionCompiler(linker, pkg, ref)
     fc.allow = 'names'
     const statements = fc.compileStatements(src, binaryOperators(linker))
-    const text = modScript({ name: 'test' }, [{ upk: 'XComStrategyGame.upk', pkg, ref, statements, names: fc.added.names }])
+    const text = modScript({ name: 'test' }, [{ upk: 'XComStrategyGame.upk', pkg, ref, statements, added: { names: fc.added.names } }])
     const copy = new AppPackage(pkg.bytes.slice())
     const result = runScript(text, { open: () => copy })
     expect(result.steps.filter((s) => s.status === 'error')).toEqual([])
@@ -478,12 +478,28 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
     ['shrunk', (s) => s.replace('return int(GetAvailableScientists() * (1 + m_fLabBonus + m_fAdjLabBonus));', 'return GetAvailableScientists();')],
     ['naming a name the package lacks', (s) => s.replace('(1 + m_fLabBonus', "(int(IsInState('UpkitBrandNewState')) + m_fLabBonus")],
   ]
-  // (The app's implementation does not take ADD_IMPORT_ENTRY; PatchUPK does.)
-  const importing: [string, (s: string) => string][] = [
+  // (The app's implementation takes neither ADD_IMPORT_ENTRY nor ADD_EXPORT_ENTRY; PatchUPK does.)
+  const beyond: [string, (s: string) => string][] = [
     ['naming a class the package does not import', (s) => s.replace('(1 + m_fLabBonus', "(int(class'XComGame.XGAIBehavior_Civilian' != none) + 1 + m_fLabBonus")],
     [
       "calling another package's function the package does not import",
       (s) => s.replace('(1 + m_fLabBonus', "(int(class'XGGameData'.static.IsAlienCharacterType(eChar_Sectoid)) + 1 + m_fLabBonus"),
+    ],
+    [
+      'with a new local (linked after the return value)',
+      (s) =>
+        s.replace(
+          '    return int(GetAvailableScientists() * (1 + m_fLabBonus',
+          '    local int iUpkitBonus;\n\n    iUpkitBonus = 1;\n    return int(GetAvailableScientists() * (iUpkitBonus + m_fLabBonus',
+        ),
+    ],
+    [
+      'with new locals where it had none (an array, a struct)',
+      (s) =>
+        s.replace(
+          '    m_iRequestCounter += 24 * 10;',
+          '    local array<int> arrUpkit;\n    local TResearchProject kUpkitProject;\n\n    arrUpkit.AddItem(24);\n    kUpkitProject.iTech = arrUpkit[0];\n    m_iRequestCounter += kUpkitProject.iTech * 10;',
+        ),
     ],
   ]
   const edited = async (edit: (s: string) => string) => {
@@ -508,7 +524,7 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
   const expectSame = (ours: Uint8Array, theirs: Uint8Array) => {
     const a = openPackage(ours)
     const b = openPackage(theirs)
-    expect(a.names.map((n) => n.name)).toEqual(b.names.map((n) => n.name))
+    expect(a.names).toEqual(b.names)
     expect(a.imports).toEqual(b.imports)
     expect(a.exports.length).toBe(b.exports.length)
     for (let i = 1; i <= a.exports.length; i++) {
@@ -531,7 +547,7 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
       expectSame(ours, copy.bytes)
     })
   const patchUPK = process.env.PATCHUPK
-  for (const [name, edit] of [...cases, ...importing])
+  for (const [name, edit] of [...cases, ...beyond])
     it.skipIf(!patchUPK)(`a function's code ${name} (PatchUPK)`, async () => {
       const { execFileSync } = await import('node:child_process')
       const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs')

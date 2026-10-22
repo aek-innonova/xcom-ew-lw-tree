@@ -12,7 +12,7 @@ import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
 import { lineAt } from './parse.ts'
-import { addedImportPaths, modScript } from './patch.ts'
+import { addedImportPaths, changedRuns, modScript } from './patch.ts'
 import { writePackage } from './writer.ts'
 
 export interface Change {
@@ -69,23 +69,11 @@ export function packageWith(
     fc.allow = 'all'
     const one = compileOne(fc, pkg, c, ops)
     compiled.push(one)
-    if (one.labelTableOffset !== undefined) {
-      data.set(c.ref, withScript(pkg, c.ref, one.code, one.memSize, undefined, one.labelTableOffset))
-      continue
-    }
-    const add = fc.additions()
-    const fdata = withScript(pkg, c.ref, one.code, one.memSize, add.children)
-    // New locals: whether the function now copies struct defaults into them (its flag after the script).
-    if (add.exports.length) {
-      const at = readStructHead(pkg, c.ref).scriptAt + one.code.length + 3
-      const v = new DataView(fdata.buffer, fdata.byteOffset)
-      const flags = v.getUint32(at, true)
-      v.setUint32(at, (fc.localsNeedDefaults() ? flags | 0x800000 : flags & ~0x800000) >>> 0, true)
-    }
-    data.set(c.ref, fdata)
-    for (const [ref, d] of add.edits) data.set(ref, d)
-    exports.push(...add.exports)
-    sh.exports += add.exports.length
+    const w = written(fc, pkg, one)
+    data.set(c.ref, w.data)
+    for (const [ref, d] of w.edits) data.set(ref, d)
+    exports.push(...w.exports)
+    sh.exports += w.exports.length
   }
   const objects: number[] = []
   if (defaults)
@@ -99,8 +87,9 @@ export function packageWith(
 }
 
 /**
- * The changes as a PatchUPK mod script. It can add names and imports; a change
- * that needs a new object (a local) fails with the compiler's word on it (a whole package can).
+ * The changes as a PatchUPK mod script: what the code needs added (names,
+ * imports, new locals) added the way PatchUPK adds it, to the same package
+ * a whole package (packageWith) is.
  */
 export function modScriptWith(
   linker: Linker,
@@ -113,30 +102,55 @@ export function modScriptWith(
   const ops = binaryOperators(linker)
   const sh = shared()
   const compiled: Compiled[] = []
+  const parts: { one: Compiled; w: ReturnType<typeof written>; exportsBefore: number }[] = []
   for (const c of changes) {
     const fc = new FunctionCompiler(linker, pkg, c.ref, sh)
-    fc.allow = 'imports'
-    compiled.push(compileOne(fc, pkg, c, ops))
+    fc.allow = 'all'
+    const one = compileOne(fc, pkg, c, ops)
+    compiled.push(one)
+    const w = written(fc, pkg, one)
+    parts.push({ one, w, exportsBefore: sh.exports })
+    sh.exports += w.exports.length
   }
   const edits = defaults ? defaultsEdits(linker, pkg, defaults, { shared: sh, allow: 'names' }) : []
+  const added = { names: sh.names, imports: sh.imports, exports: parts.flatMap((p) => p.w.exports.map((e) => e.entry)) }
   const text = modScript(
     info,
-    compiled.map((c) => ({
+    parts.map(({ one, w }) => ({
       upk,
       pkg,
-      ref: c.ref,
-      statements: c.statements,
-      names: sh.names,
-      imports: sh.imports,
-      // A state's label table moves with its code: the offset the state keeps of it, set after.
-      after:
-        c.labelTableOffset === undefined
-          ? undefined
-          : { at: readStructHead(pkg, c.ref).scriptAt + c.code.length + 4, bytes: u16(c.labelTableOffset) },
+      ref: one.ref,
+      statements: one.statements,
+      added,
+      exports: w.exports,
+      // The rest of the function's object that changes beside its code (a state's label
+      // table offset, the new locals' flag and first child), set after it is replaced.
+      after: changedRuns(withScript(pkg, one.ref, one.code, one.memSize), w.data),
+      objects: [...w.edits].map(([ref, data]) => ({ ref, data })),
     })),
     edits.map((e) => ({ upk, pkg, ref: e.ref, data: e.data, names: sh.names })),
   )
   return { text, compiled, objects: edits.map((e) => e.ref), names: sh.names, imports: addedImportPaths(pkg, sh.names, sh.imports) }
+}
+
+/**
+ * A compiled function's (or state's) object as it is to be, and what else the
+ * package gets for it: its new locals (objects), and the last child before them
+ * linked to the first.
+ */
+function written(fc: FunctionCompiler, pkg: Package, one: Compiled) {
+  if (one.labelTableOffset !== undefined)
+    return { data: withScript(pkg, one.ref, one.code, one.memSize, undefined, one.labelTableOffset), exports: [], edits: new Map<number, Uint8Array>() }
+  const add = fc.additions()
+  const data = withScript(pkg, one.ref, one.code, one.memSize, add.children)
+  // New locals: whether the function now copies struct defaults into them (its flag after the script).
+  if (add.exports.length) {
+    const at = readStructHead(pkg, one.ref).scriptAt + one.code.length + 3
+    const v = new DataView(data.buffer, data.byteOffset)
+    const flags = v.getUint32(at, true)
+    v.setUint32(at, (fc.localsNeedDefaults() ? flags | 0x800000 : flags & ~0x800000) >>> 0, true)
+  }
+  return { data, exports: add.exports, edits: add.edits }
 }
 
 function compileOne(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<string, number>): Compiled {
@@ -161,7 +175,6 @@ function compileOne1(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<
   return { ref: c.ref, statements, code, memSize }
 }
 
-const u16 = (v: number) => new Uint8Array([v & 0xff, (v >> 8) & 0xff])
 
 /**
  * Classes' sources into a whole package: classes it does not have declared

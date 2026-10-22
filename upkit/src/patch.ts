@@ -9,7 +9,7 @@
 // makes the memory size it stores the engine's.
 
 import { TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
-import type { Import, Package } from './package.ts'
+import type { Export, Import, Package } from './package.ts'
 
 const hex = (n: number, bytes: number) => {
   const out: string[] = []
@@ -17,15 +17,20 @@ const hex = (n: number, bytes: number) => {
   return out.join(' ')
 }
 
+/** What a change adds to the package's tables, past their ends, in order. */
+export interface Added {
+  names?: string[]
+  imports?: Import[]
+  exports?: Export[]
+}
+
 class Emitter {
   out: string[] = []
   pkg: Package
-  added: string[]
-  imports: Import[]
-  constructor(pkg: Package, added: string[] = [], imports: Import[] = []) {
+  added: Required<Added>
+  constructor(pkg: Package, added: Added = {}) {
     this.pkg = pkg
-    this.added = added
-    this.imports = imports
+    this.added = { names: added.names ?? [], imports: added.imports ?? [], exports: added.exports ?? [] }
   }
   obj(ref: number) {
     if (ref === 0) return this.out.push('<NullRef>')
@@ -34,17 +39,17 @@ class Emitter {
     const path = this.path(ref)
     this.out.push(path.includes('.') ? `<${path}>` : `<Class.${path}>`)
   }
-  /** An object's path, an import the change adds too (PatchUPK finds it by its path once added). */
+  /** An object's path, one the change adds too (PatchUPK finds it by its path once added). */
   path(ref: number): string {
-    const extra = -ref - this.pkg.imports.length - 1
+    const extra = ref < 0 ? -ref - this.pkg.imports.length - 1 : ref - this.pkg.exports.length - 1
     if (extra < 0) return this.pkg.path(ref)
-    const imp = this.imports[extra]!
-    const name = this.nameText(imp.objectName)
-    return imp.outer ? `${this.path(imp.outer)}.${name}` : name
+    const e = ref < 0 ? this.added.imports[extra]! : this.added.exports[extra]!
+    const name = this.nameText(e.objectName)
+    return e.outer ? `${this.path(e.outer)}.${name}` : name
   }
   private nameText(n: NameValue) {
     const extra = n.index - this.pkg.names.length
-    const base = extra >= 0 ? this.added[extra]! : this.pkg.names[n.index]!.name
+    const base = extra >= 0 ? this.added.names[extra]! : this.pkg.names[n.index]!.name
     return n.number ? `${base}_${n.number - 1}` : base
   }
   name(n: NameValue) {
@@ -56,6 +61,21 @@ class Emitter {
     this.name(imp.className)
     this.obj(imp.outer)
     this.name(imp.objectName)
+  }
+  /**
+   * An export table entry (PatchUPK's ADD_EXPORT_ENTRY: 68 bytes, without net
+   * objects). PatchUPK puts the object's data at the end of the file (as many
+   * bytes as its size says) and links it as its owner's last child.
+   */
+  exportEntry(e: Export, size: number) {
+    this.obj(e.classIndex)
+    this.obj(e.superIndex)
+    this.obj(e.outer)
+    this.name(e.objectName)
+    this.obj(e.archetype)
+    this.out.push(hex(Number(e.objectFlags & 0xffffffffn), 4), hex(Number(e.objectFlags >> 32n), 4))
+    this.out.push(hex(size, 4), hex(0, 4), hex(e.exportFlags, 4), hex(0, 4))
+    this.out.push(hexBytes(e.packageGuid), hex(e.packageFlags, 4))
   }
   expr(n: Node) {
     if (n.native !== undefined) {
@@ -119,10 +139,10 @@ class Emitter {
 }
 
 /** A script as PatchUPK pseudo-code, a statement a line (added: names the change adds, past the table's end). */
-export function pseudoCode(pkg: Package, statements: Node[], added: string[] = [], imports: Import[] = []): string {
+export function pseudoCode(pkg: Package, statements: Node[], added: Added = {}): string {
   return statements
     .map((s) => {
-      const e = new Emitter(pkg, added, imports)
+      const e = new Emitter(pkg, added)
       e.expr(s)
       return e.out.join(' ')
     })
@@ -131,7 +151,7 @@ export function pseudoCode(pkg: Package, statements: Node[], added: string[] = [
 
 /** The paths of the imports a change adds (as the mod script names them). */
 export function addedImportPaths(pkg: Package, names: string[], imports: Import[]): string[] {
-  const e = new Emitter(pkg, names, imports)
+  const e = new Emitter(pkg, { names, imports })
   return imports.map((_, i) => e.path(-(pkg.imports.length + i + 1)))
 }
 
@@ -149,11 +169,14 @@ export function modScript(
     pkg: Package
     ref: number
     statements: Node[]
-    names?: string[]
-    /** Imports the code needs that the package lacks (past the table's end, in order). */
-    imports?: Import[]
-    /** Bytes to set in the object after its code is replaced (at an offset in it). */
-    after?: { at: number; bytes: Uint8Array }
+    /** What the changes add to the package's tables (all of them, shared). */
+    added?: Added
+    /** The objects this change adds (its new locals: their entries are in added.exports, in order). */
+    exports?: { entry: Export; data: Uint8Array }[]
+    /** Bytes to set in the object after its code is replaced (at offsets in it). */
+    after?: { at: number; bytes: Uint8Array }[]
+    /** Other objects' data, changed with it (the last child before new locals). */
+    objects?: { ref: number; data: Uint8Array }[]
   }[],
   /** Objects whose data changes otherwise (default properties). */
   objects: { upk: string; pkg: Package; ref: number; data: Uint8Array; names?: string[] }[] = [],
@@ -168,29 +191,34 @@ export function modScript(
     if (c.upk !== upk) lines.push('', `UPK_FILE=${(upk = c.upk)}`)
     // Names the code needs that the package lacks: added first (PatchUPK's ADD_NAME_ENTRY),
     // after which <Name> finds them.
-    for (const n of c.names ?? []) {
+    for (const n of c.added?.names ?? []) {
       if (added.has(n)) continue
       added.add(n)
       lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
     }
     // Then imports (ADD_IMPORT_ENTRY appends each to the table, at the reference the code has for it).
     // PatchUPK skips one whose path the package has: never the case here, as the compiler looked first.
-    for (const [i, imp] of (c.imports ?? []).entries()) {
+    for (const [i, imp] of (c.added?.imports ?? []).entries()) {
       if (addedImports.has(i)) continue
       addedImports.add(i)
-      const e = new Emitter(c.pkg, c.names, c.imports)
+      const e = new Emitter(c.pkg, c.added)
       e.importEntry(imp)
       lines.push('', '[ADD_IMPORT_ENTRY]', e.out.join(' '))
     }
-    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.names, c.imports))
-    if (c.after)
-      lines.push(
-        '',
-        `OBJECT=${c.pkg.path(c.ref)}`,
-        `REL_OFFSET=${c.after.at}`,
-        '[MODDED_HEX]',
-        hexBytes(c.after.bytes),
-      )
+    // New locals: each appended and linked (ADD_EXPORT_ENTRY), then its data written over
+    // the empty object PatchUPK puts there.
+    for (const x of c.exports ?? []) {
+      const e = new Emitter(c.pkg, c.added)
+      e.exportEntry(x.entry, x.data.length)
+      const path = e.path(c.pkg.exports.length + 1 + c.added!.exports!.indexOf(x.entry))
+      lines.push('', '[ADD_EXPORT_ENTRY]', e.out.join(' '), '', `OBJECT=${path}`, 'REL_OFFSET=0', '[MODDED_HEX]', hexBytes(x.data))
+    }
+    for (const o of c.objects ?? []) lines.push(...objectEditLines(c.pkg, o.ref, o.data))
+    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.added))
+    if (c.after?.length) {
+      lines.push('', `OBJECT=${c.pkg.path(c.ref)}`)
+      for (const r of c.after) lines.push(`REL_OFFSET=${r.at}`, '[MODDED_HEX]', hexBytes(r.bytes))
+    }
   }
   for (const o of objects) {
     if (o.upk !== upk) lines.push('', `UPK_FILE=${(upk = o.upk)}`)
@@ -206,6 +234,26 @@ export function modScript(
 
 const hexBytes = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0').toUpperCase()).join(' ')
 
+/** Where two versions of an object's data (the same size) differ: runs of bytes (a few unchanged between them join the run). */
+export function changedRuns(orig: Uint8Array, data: Uint8Array): { at: number; bytes: Uint8Array }[] {
+  const runs: { at: number; bytes: Uint8Array }[] = []
+  for (let i = 0; i < data.length; ) {
+    if (data[i] === orig[i]) {
+      i++
+      continue
+    }
+    let j = i
+    let last = i
+    while (j < data.length && j - last < 8) {
+      if (data[j] !== orig[j]) last = j
+      j++
+    }
+    runs.push({ at: i, bytes: data.subarray(i, last + 1) })
+    i = last + 1
+  }
+  return runs
+}
+
 /**
  * An object's data changed (default properties): the same size as hex at
  * offsets in it; another size as the part that changed, found and replaced
@@ -217,22 +265,10 @@ export function objectEditLines(pkg: Package, ref: number, data: Uint8Array): st
   const orig = pkg.data(ref)
   const lines: string[] = []
   if (data.length === orig.length) {
+    const runs = changedRuns(orig, data)
+    if (!runs.length) return lines
     lines.push('', `OBJECT=${path}`)
-    // Runs of changed bytes (a few unchanged between them join the run).
-    for (let i = 0; i < data.length; ) {
-      if (data[i] === orig[i]) {
-        i++
-        continue
-      }
-      let j = i
-      let last = i
-      while (j < data.length && j - last < 8) {
-        if (data[j] !== orig[j]) last = j
-        j++
-      }
-      lines.push(`REL_OFFSET=${i}`, '[MODDED_HEX]', hexBytes(data.subarray(i, last + 1)))
-      i = last + 1
-    }
+    for (const r of runs) lines.push(`REL_OFFSET=${r.at}`, '[MODDED_HEX]', hexBytes(r.bytes))
     return lines
   }
   let p = 0

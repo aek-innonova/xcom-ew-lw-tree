@@ -113,10 +113,12 @@ What an edited body needs that the package lacks is added:
 - with `--out` (a whole package): new names, new imports (a function or a
   class of another package used for the first time), and new local variables
   (`local float fBonus;`), linked into the function;
-- with `--patch` (a mod script): new names, by `[ADD_NAME_ENTRY]`, and new
-  imports, by `[ADD_IMPORT_ENTRY]` (each appended to the table, its outer
-  first, before the code that names it). A mod script cannot add locals;
-  upkit says so and points to `--out`.
+- with `--patch` (a mod script): the same, the way PatchUPK adds them: new
+  names by `[ADD_NAME_ENTRY]`, new imports by `[ADD_IMPORT_ENTRY]` (each
+  appended to the table, its outer first), new locals by `[ADD_EXPORT_ENTRY]`
+  (PatchUPK appends the object and links it as the function's last child, as
+  `--out` does) with the local's data written over it, all before the code
+  that names them.
   A default changed in place is hex at offsets in its object; one that
   changes its size replaces the part that changed, and PatchUPK resizes the
   object.
@@ -169,7 +171,7 @@ an enum's values; a constant's value; a state's or a class's declaration; a
 replication block), is
 refused with that said: for what the package has, only bodies and defaults
 compile. Native functions are not compiled (their code is C++), and a mod
-script cannot add objects at all.
+script adds no declarations to a class (only a function's new locals).
 
 ## How it is checked
 
@@ -204,12 +206,13 @@ script cannot add objects at all.
 - A whole package (`--out`, keep layout) holds what PatchUPK makes of the
   same change: for an edited function (the same size, grown, shrunk, naming
   a name the package lacks, naming a class or calling a function the package
-  does not import), the package upkit writes and the original with upkit's
+  does not import, declaring new locals: an int after the return value, an
+  array and a struct in a function that had no children), the package upkit writes and the original with upkit's
   mod script applied by PatchUPK have the same names, imports and export
   entries, and every object the same bytes. PatchUPK here is the binary built
   from wghost's UPKUtils (the tests run it when `PATCHUPK` names it; it opens
   the package by its name in lower case) and the app's implementation, which
-  does not take `[ADD_IMPORT_ENTRY]`.
+  takes neither `[ADD_IMPORT_ENTRY]` nor `[ADD_EXPORT_ENTRY]`.
   (PatchUPK also moves a shrunk object to the end and leaves an undo record
   after a moved one; the game reads neither.)
 - Mods people wrote by hand (the PatcherGUI scripts in the samples: EXALT

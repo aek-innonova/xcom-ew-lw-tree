@@ -94,10 +94,10 @@ export class FunctionCompiler {
    * there), names (a mod script can add those), or names, imports and new
    * local variables (a whole package).
    */
-  allow: 'none' | 'names' | 'imports' | 'all' = 'none'
-  /** New imports may be added (a whole package, or a mod script: PatchUPK's ADD_IMPORT_ENTRY); new objects only in a whole package. */
+  allow: 'none' | 'names' | 'all' = 'none'
+  /** New imports may be added (a whole package, or a mod script: PatchUPK's ADD_IMPORT_ENTRY). */
   private get canImport() {
-    return this.allow === 'all' || this.allow === 'imports'
+    return this.allow === 'all'
   }
   /** Added by the compiled code (see additions()). */
   added = {
@@ -1439,7 +1439,7 @@ export class FunctionCompiler {
       if (st.k !== 'local') continue
       for (const { name, dim } of st.names) {
         if (this.locals.has(name.toLowerCase())) continue
-        if (this.allow !== 'all') throw new CompileError(`a new local variable ${name} (a whole package, --out, can add it)`)
+        if (this.allow !== 'all') throw new CompileError(`a new local variable ${name}`)
         const ty = this.typeFromText(st.type)
         const ref = this.pkg.exports.length + this.exportsBefore + this.added.locals.reduce((n, l) => n + (l.inner ? 2 : 1), 0) + 1
         const { cls, refs } = this.propertyClass(ty)

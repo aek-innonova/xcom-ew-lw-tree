@@ -177,7 +177,7 @@ try {
       }
       const what = [...changes.map((c) => c.path), ...objects.map((r) => `${pkg.path(r)} (default properties)`)].join(', ')
       if (patch) {
-        if (declared.length) throw new Error(`new declarations (${declared.join(', ')}) need a whole package (--out): a mod script cannot add objects`)
+        if (declared.length) throw new Error(`new declarations (${declared.join(', ')}) need a whole package (--out): a mod script adds a function's locals, no declarations`)
         const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` }, defaults)
         writeFileSync(patch, r.text)
         console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}${r.imports.length ? `, importing ${r.imports.join(', ')}` : ''}`)
