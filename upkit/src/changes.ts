@@ -12,7 +12,7 @@ import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
 import { lineAt } from './parse.ts'
-import { addedImportPaths, changedRuns, modScript } from './patch.ts'
+import { modScriptFrom } from './patch.ts'
 import { writePackage } from './writer.ts'
 
 export interface Change {
@@ -87,9 +87,9 @@ export function packageWith(
 }
 
 /**
- * The changes as a PatchUPK mod script: what the code needs added (names,
- * imports, new locals) added the way PatchUPK adds it, to the same package
- * a whole package (packageWith) is.
+ * The changes as a PatchUPK mod script: the one that makes the package into
+ * what packageWith makes of it (what the code needs added, names, imports,
+ * new locals, added the way PatchUPK adds it).
  */
 export function modScriptWith(
   linker: Linker,
@@ -99,38 +99,15 @@ export function modScriptWith(
   info: { name: string; author?: string; description?: string },
   defaults?: DefaultsSource,
 ): { text: string; compiled: Compiled[]; objects: number[]; names: string[]; imports: string[] } {
-  const ops = binaryOperators(linker)
-  const sh = shared()
-  const compiled: Compiled[] = []
-  const parts: { one: Compiled; w: ReturnType<typeof written>; exportsBefore: number }[] = []
-  for (const c of changes) {
-    const fc = new FunctionCompiler(linker, pkg, c.ref, sh)
-    fc.allow = 'all'
-    const one = compileOne(fc, pkg, c, ops)
-    compiled.push(one)
-    const w = written(fc, pkg, one)
-    parts.push({ one, w, exportsBefore: sh.exports })
-    sh.exports += w.exports.length
+  const r = packageWith(linker, pkg, changes, 'keep', defaults)
+  const out = openPackage(r.bytes)
+  return {
+    text: modScriptFrom(info, upk, pkg, out),
+    compiled: r.compiled,
+    objects: r.objects,
+    names: out.names.slice(pkg.names.length).map((n) => n.name),
+    imports: out.imports.slice(pkg.imports.length).map((_, i) => out.path(-(pkg.imports.length + i + 1))),
   }
-  const edits = defaults ? defaultsEdits(linker, pkg, defaults, { shared: sh, allow: 'names' }) : []
-  const added = { names: sh.names, imports: sh.imports, exports: parts.flatMap((p) => p.w.exports.map((e) => e.entry)) }
-  const text = modScript(
-    info,
-    parts.map(({ one, w }) => ({
-      upk,
-      pkg,
-      ref: one.ref,
-      statements: one.statements,
-      added,
-      exports: w.exports,
-      // The rest of the function's object that changes beside its code (a state's label
-      // table offset, the new locals' flag and first child), set after it is replaced.
-      after: changedRuns(withScript(pkg, one.ref, one.code, one.memSize), w.data),
-      objects: [...w.edits].map(([ref, data]) => ({ ref, data })),
-    })),
-    edits.map((e) => ({ upk, pkg, ref: e.ref, data: e.data, names: sh.names })),
-  )
-  return { text, compiled, objects: edits.map((e) => e.ref), names: sh.names, imports: addedImportPaths(pkg, sh.names, sh.imports) }
 }
 
 /**

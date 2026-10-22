@@ -192,19 +192,17 @@ function pseudoCodeOf(pkg: Package, statements: Node[], added: Added = {}): { te
   return { text, short }
 }
 
-/** The paths of the imports a change adds (as the mod script names them). */
-export function addedImportPaths(pkg: Package, names: string[], imports: Import[]): string[] {
-  const e = new Emitter(pkg, { names, imports })
-  return imports.map((_, i) => e.path(-(pkg.imports.length + i + 1)))
-}
-
 export interface ModInfo {
   name: string
   author?: string
   description?: string
 }
 
-/** A mod script that replaces functions' (or states') code. */
+/**
+ * A mod script that replaces functions' (or states') code with these statements:
+ * PatchUPK's own form for it (the names and imports the code needs added first).
+ * (A change compiled from source is written by modScriptFrom, from the whole package.)
+ */
 export function modScript(
   info: ModInfo,
   changes: {
@@ -212,17 +210,9 @@ export function modScript(
     pkg: Package
     ref: number
     statements: Node[]
-    /** What the changes add to the package's tables (all of them, shared). */
+    /** What the changes add to the package's tables (names, imports; all of them, shared). */
     added?: Added
-    /** The objects this change adds (its new locals: their entries are in added.exports, in order). */
-    exports?: { entry: Export; data: Uint8Array }[]
-    /** Bytes to set in the object after its code is replaced (at offsets in it). */
-    after?: { at: number; bytes: Uint8Array }[]
-    /** Other objects' data, changed with it (the last child before new locals). */
-    objects?: { ref: number; data: Uint8Array }[]
   }[],
-  /** Objects whose data changes otherwise (default properties). */
-  objects: { upk: string; pkg: Package; ref: number; data: Uint8Array; names?: string[] }[] = [],
 ): string {
   const added = new Set<string>()
   const addedImports = new Set<number>()
@@ -240,7 +230,6 @@ export function modScript(
       lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
     }
     // Then imports (ADD_IMPORT_ENTRY appends each to the table, at the reference the code has for it).
-    // PatchUPK skips one whose path the package has: never the case here, as the compiler looked first.
     for (const [i, imp] of (c.added?.imports ?? []).entries()) {
       if (addedImports.has(i)) continue
       addedImports.add(i)
@@ -248,33 +237,11 @@ export function modScript(
       e.importEntry(imp)
       lines.push('', '[ADD_IMPORT_ENTRY]', e.out.join(' '))
     }
-    // New locals: each appended and linked (ADD_EXPORT_ENTRY), then its data written over
-    // the empty object PatchUPK puts there.
-    for (const x of c.exports ?? []) {
-      const e = new Emitter(c.pkg, c.added)
-      e.exportEntry(x.entry, x.data.length)
-      const path = e.path(c.pkg.exports.length + 1 + c.added!.exports!.indexOf(x.entry))
-      lines.push('', '[ADD_EXPORT_ENTRY]', e.out.join(' '), '', `OBJECT=${path}`, 'REL_OFFSET=0', '[MODDED_HEX]', hexBytes(x.data))
-    }
-    for (const o of c.objects ?? []) lines.push(...objectEditLines(c.pkg, o.ref, o.data))
     const code = pseudoCodeOf(c.pkg, c.statements, c.added)
     lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', code.text)
-    const after = [...(c.after ?? [])]
     // References written as bytes: the memory size PatchUPK stored is short by four for each; set to the engine's.
-    if (code.short) after.unshift({ at: readStructHead(c.pkg, c.ref).scriptAt - 8, bytes: u32(encodeScript(c.statements).memSize) })
-    if (after.length) {
-      lines.push('', `OBJECT=${c.pkg.path(c.ref)}`)
-      for (const r of after) lines.push(`REL_OFFSET=${r.at}`, '[MODDED_HEX]', hexBytes(r.bytes))
-    }
-  }
-  for (const o of objects) {
-    if (o.upk !== upk) lines.push('', `UPK_FILE=${(upk = o.upk)}`)
-    for (const n of o.names ?? []) {
-      if (added.has(n)) continue
-      added.add(n)
-      lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
-    }
-    lines.push(...objectEditLines(o.pkg, o.ref, o.data))
+    if (code.short)
+      lines.push('', `OBJECT=${c.pkg.path(c.ref)}`, `REL_OFFSET=${readStructHead(c.pkg, c.ref).scriptAt - 8}`, '[MODDED_HEX]', hexBytes(u32(encodeScript(c.statements).memSize)))
   }
   return lines.join('\n') + '\n'
 }
@@ -283,7 +250,7 @@ const u32 = (v: number) => new Uint8Array([v & 0xff, (v >>> 8) & 0xff, (v >>> 16
 const hexBytes = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0').toUpperCase()).join(' ')
 
 /** Where two versions of an object's data (the same size) differ: runs of bytes (a few unchanged between them join the run). */
-export function changedRuns(orig: Uint8Array, data: Uint8Array): { at: number; bytes: Uint8Array }[] {
+function changedRuns(orig: Uint8Array, data: Uint8Array): { at: number; bytes: Uint8Array }[] {
   const runs: { at: number; bytes: Uint8Array }[] = []
   for (let i = 0; i < data.length; ) {
     if (data[i] === orig[i]) {
