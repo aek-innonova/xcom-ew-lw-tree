@@ -42,6 +42,7 @@ import { fidelity, fidelityNote, readableSource, readableStateCode } from './fid
 import { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
+import { modScriptFrom } from './patch.ts'
 import { emptyPackage } from './writer.ts'
 
 const argv = process.argv.slice(2)
@@ -176,17 +177,22 @@ try {
         break
       }
       const what = [...changes.map((c) => c.path), ...objects.map((r) => `${pkg.path(r)} (default properties)`)].join(', ')
-      if (patch) {
-        if (declared.length) throw new Error(`new declarations (${declared.join(', ')}) need a whole package (--out): a mod script adds a function's locals, no declarations`)
+      // A class's source: the whole package it makes (once; a mod script with declarations is made from it).
+      const whole = isClass && (out || declared.length) ? classesPackage(linker, pkg, pkgName, [text], patch ? 'keep' : layout) : null
+      if (patch && declared.length) {
+        // New declarations: the mod script that makes the original into the whole package.
+        if (layout !== 'keep') throw new Error('a mod script is made from the keep layout (--layout compact with --out alone)')
+        writeFileSync(patch, modScriptFrom({ name: `${path} (upkit)` }, basename(file), pkg, openPackage(whole!.bytes)))
+        console.log(`wrote ${patch} as a PatchUPK mod script: ${report(whole!)}`)
+      } else if (patch) {
         const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` }, defaults)
         writeFileSync(patch, r.text)
         console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}${r.imports.length ? `, importing ${r.imports.join(', ')}` : ''}`)
       }
       if (out) {
-        if (isClass) {
-          const r = classesPackage(linker, pkg, pkgName, [text], layout)
-          writeFileSync(out, r.bytes)
-          console.log(`wrote ${out} (${layout} layout): ${report(r)}`)
+        if (whole) {
+          writeFileSync(out, whole.bytes)
+          console.log(`wrote ${out} (${layout} layout): ${report(whole)}`)
         } else {
           const r = packageWith(linker, pkg, changes, layout, defaults)
           writeFileSync(out, r.bytes)

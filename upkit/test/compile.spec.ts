@@ -572,6 +572,70 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
     })
 })
 
+describe.skipIf(!haveCorpus || !process.env.PATCHUPK)('a mod script made from the whole package, through PatchUPK', () => {
+  // modScriptFrom: what --out wrote, as a mod script; PatchUPK applying it to the original
+  // is to make the same package (declarations too: PatchUPK links each object it adds
+  // last in its owner, where the compiler puts a new declaration first).
+  const declarations: [string, (s: string) => string][] = [
+    [
+      'a member variable and a function, used from an edited function',
+      (s) =>
+        s
+          .replace('var const localized string m_strCostAlloys;', 'var int m_iUpkitBonus;\nvar const localized string m_strCostAlloys;')
+          .replace('function int GetResearchPerHour()', 'function int UpkitBonus(int iBase)\n{\n    return iBase + m_iUpkitBonus;\n}\n\nfunction int GetResearchPerHour()')
+          .replace('(1 + m_fLabBonus', '(UpkitBonus(1) + m_fLabBonus'),
+    ],
+    [
+      'a constant, an enum, a struct and a state',
+      (s) =>
+        s
+          .replace('const MELD_TECH_BONUS = 40;', 'const MELD_TECH_BONUS = 40;\nconst UPKIT_STEP = 3;\n\nenum EUpkitMode\n{\n    eUpkit_Off,\n    eUpkit_On\n};\n\nstruct TUpkitPair\n{\n    var int iA;\n    var EUpkitMode eMode;\n};')
+          .replace('function int GetResearchPerHour()', 'state UpkitWaiting\n{\nBegin:\n    Sleep(1.0);\n}\n\nfunction int GetResearchPerHour()')
+          .replace('    return int(GetAvailableScientists() * (1 + m_fLabBonus', '    local TUpkitPair kPair;\n\n    kPair.iA = UPKIT_STEP;\n    kPair.eMode = eUpkit_On;\n    return int(GetAvailableScientists() * (kPair.iA + m_fLabBonus'),
+    ],
+    ['only code (the same as the function by function script)', (s) => s.replace('(1 + m_fLabBonus', '(GetAvailableScientists() + 1 + m_fLabBonus')],
+    ['defaults', (s) => s.replace('m_strProgress="Progress"', 'm_strProgress="Progress so far"').replace('m_nmRoomName=ScienceLab', 'm_nmRoomName=UpkitRoom')],
+  ]
+  for (const [name, edit] of declarations)
+    it(name, async () => {
+      const { execFileSync } = await import('node:child_process')
+      const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs')
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { decompileClass } = await import('../src/classdecomp.ts')
+      const { classesPackage } = await import('../src/changes.ts')
+      const { modScriptFrom } = await import('../src/patch.ts')
+      const linker = new Linker([dirname(CORPUS[0]!)])
+      const pkg = load(CORPUS[3]!)
+      linker.add('XComStrategyGame', pkg)
+      const src = edit(decompileClass(linker, pkg, 'XGFacility_Labs'))
+      const ours = classesPackage(linker, pkg, 'XComStrategyGame', [src], 'keep').bytes
+      const script = modScriptFrom({ name: 'x' }, 'XComStrategyGame.upk', pkg, openPackage(ours))
+      const dir = mkdtempSync(join(tmpdir(), 'lwtree-patchupk-'))
+      try {
+        writeFileSync(join(dir, 'xcomstrategygame.upk'), pkg.bytes)
+        writeFileSync(join(dir, 'mod.txt'), script)
+        const log = execFileSync(process.env.PATCHUPK!, [join(dir, 'mod.txt'), dir], { encoding: 'utf8' })
+        expect(log).not.toMatch(/Execution stopped|^Bad |^Error/m)
+        const a = openPackage(ours)
+        const b = openPackage(new Uint8Array(readFileSync(join(dir, 'xcomstrategygame.upk'))))
+        expect(a.names).toEqual(b.names)
+        expect(a.imports).toEqual(b.imports)
+        expect(a.exports.length).toBe(b.exports.length)
+        for (let i = 1; i <= a.exports.length; i++) {
+          const { serialOffset: _x, ...ea } = a.exports[i - 1]!
+          const { serialOffset: _y, ...eb } = b.exports[i - 1]!
+          expect(ea).toEqual(eb)
+          const da = a.data(i)
+          const db = b.data(i)
+          if (da.length !== db.length || da.some((x, k) => x !== db[k])) throw new Error(`${a.path(i)} differs`)
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+})
+
 describe.skipIf(!haveCorpus)('an interface and a class implementing it, built as a new package', () => {
   it('declared as the game declares its interfaces; called through the interface', async () => {
     const { readFileSync: read } = await import('node:fs')

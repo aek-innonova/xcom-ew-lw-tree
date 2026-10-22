@@ -122,9 +122,10 @@ What an edited body needs that the package lacks is added:
 - with `--patch` (a mod script): the same, the way PatchUPK adds them: new
   names by `[ADD_NAME_ENTRY]`, new imports by `[ADD_IMPORT_ENTRY]` (each
   appended to the table, its outer first), new locals by `[ADD_EXPORT_ENTRY]`
-  (PatchUPK appends the object and links it as the function's last child, as
-  `--out` does) with the local's data written over it, all before the code
-  that names them.
+  with the local's data written over the empty object PatchUPK appends, all
+  before the code that names them. (PatchUPK says it links each object it
+  adds as its owner's last child, but writes that link at the end of the file
+  instead, four stray bytes; upkit writes every link itself.)
   A default changed in place is hex at offsets in its object; one that
   changes its size replaces the part that changed, and PatchUPK resizes the
   object.
@@ -135,7 +136,7 @@ class is wanted without a cast, more arguments than a function takes, an
 assignment to what is not a variable, an unknown name, source that does not
 parse.
 
-### New declarations (a whole package)
+### New declarations
 
 With `--out`, a class's source can declare what the class does not have:
 member variables (`var config float m_fBonus;`, arrays, structs, objects,
@@ -168,6 +169,14 @@ classes read from outside it: `<Package>.int` with the values its
 `localized` variables are given in `defaultproperties`, and
 `Default<Config>.ini` with its `config` ones (never over a file there).
 
+With `--patch`, declarations (and a new class in the package) go into a mod
+script too: upkit builds the whole package as `--out` would, and writes the
+script that makes the original into it, every object it adds by
+`[ADD_EXPORT_ENTRY]` and its data, every object that changes by its code
+(pseudo-code) or its bytes. Applied by PatchUPK, it makes the same package
+as `--out` (checked for a member variable and a function, a constant, an
+enum, a struct and a state, and a new class).
+
 ### What is not compiled
 
 What the source leaves out stays in the package (nothing is deleted), and a
@@ -176,8 +185,7 @@ return type or modifiers; a variable's type or modifiers; a struct's members;
 an enum's values; a constant's value; a state's or a class's declaration; a
 replication block), is
 refused with that said: for what the package has, only bodies and defaults
-compile. Native functions are not compiled (their code is C++), and a mod
-script adds no declarations to a class (only a function's new locals).
+compile. Native functions are not compiled (their code is C++).
 
 ## How it is checked
 

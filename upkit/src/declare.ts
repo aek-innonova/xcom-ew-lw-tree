@@ -1,5 +1,5 @@
 // New declarations in a class: member variables and functions the package
-// does not have, added to it (a whole package; a mod script adds no declarations).
+// does not have, added to it (a whole package; a mod script is made from it).
 //
 // Declared first, as the compiler lays them out: a property or a function
 // object (with its parameters and return value) linked at the head of the

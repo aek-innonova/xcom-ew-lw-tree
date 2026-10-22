@@ -8,8 +8,9 @@
 // as eight. Writing references as <…> (not as their four hex bytes) is what
 // makes the memory size it stores the engine's.
 
-import { encodeScript, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
-import { readStructHead } from './objects.ts'
+import { decodeScript, encodeScript, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
+import { Reader } from './bytes.ts'
+import { readStructHead, readTags, STRUCT_CLASSES, type StructHead } from './objects.ts'
 import type { Export, Import, Package } from './package.ts'
 
 const hex = (n: number, bytes: number) => {
@@ -306,10 +307,9 @@ export function changedRuns(orig: Uint8Array, data: Uint8Array): { at: number; b
  * offsets in it; another size as the part that changed, found and replaced
  * (BEFORE_HEX / AFTER_HEX), the object resized to fit (AUTO).
  */
-export function objectEditLines(pkg: Package, ref: number, data: Uint8Array): string[] {
+export function objectEditLines(pkg: Package, ref: number, data: Uint8Array, orig = pkg.data(ref)): string[] {
   const path = pkg.path(ref)
   if (pkg.find(path) !== ref) throw new Error(`${path}: another object has that path, so a mod script cannot name it (--out can)`)
-  const orig = pkg.data(ref)
   const lines: string[] = []
   if (data.length === orig.length) {
     const runs = changedRuns(orig, data)
@@ -331,6 +331,142 @@ export function objectEditLines(pkg: Package, ref: number, data: Uint8Array): st
   while (p > 0 && (p === orig.length - q || count(orig.subarray(p, orig.length - q)) !== 1)) p--
   lines.push('', `OBJECT=${path}:AUTO`, '[BEFORE_HEX]', hexBytes(orig.subarray(p, orig.length - q)), '[AFTER_HEX]', hexBytes(data.subarray(p, data.length - q)))
   return lines
+}
+
+/**
+ * A mod script that makes the original package into another (a whole package
+ * upkit wrote from it with the keep layout: the original's tables a prefix of
+ * its own). What it adds, added the way PatchUPK adds it; each object that
+ * differs then written as the other has it: code as pseudo-code, the rest as
+ * hex. PatchUPK means to link each object it adds as its owner's last child,
+ * but writes the link at the end of the file instead (it seeks its stream's
+ * reading position and writes at the writing one; Long War's PatchUPK.exe
+ * too: four bytes more per object). So every link is written here, as the
+ * other package has it, and so is each place a PatchUPK that did link would
+ * have written to: the script holds with either.
+ */
+export function modScriptFrom(info: ModInfo, upk: string, orig: Package, out: Package): string {
+  const same = (a: unknown, b: unknown) => JSON.stringify(a, (_, v) => (typeof v === 'bigint' ? v.toString() : v)) === JSON.stringify(b, (_, v) => (typeof v === 'bigint' ? v.toString() : v))
+  orig.names.forEach((n, i) => {
+    if (out.names[i]?.name !== n.name) throw new Error(`name ${i} is ${out.names[i]?.name} there, ${n.name} here: not this package's names and more`)
+  })
+  orig.imports.forEach((imp, i) => {
+    if (!same(imp, out.imports[i])) throw new Error(`import ${orig.path(-(i + 1))} differs there: not this package's imports and more`)
+  })
+  orig.exports.forEach((e, i) => {
+    const { serialOffset: _a, serialSize: _b, ...x } = e
+    const { serialOffset: _c, serialSize: _d, ...y } = out.exports[i]!
+    if (!same(x, y)) throw new Error(`${orig.path(i + 1)}'s entry differs there: not this package's objects and more`)
+  })
+  const added: Required<Added> = {
+    names: out.names.slice(orig.names.length).map((n) => n.name),
+    imports: out.imports.slice(orig.imports.length),
+    exports: out.exports.slice(orig.exports.length),
+  }
+  const lines = [`MOD_NAME=${info.name}`]
+  if (info.author) lines.push(`AUTHOR=${info.author}`)
+  if (info.description) lines.push(`DESCRIPTION=${info.description}`)
+  lines.push('', `UPK_FILE=${upk}`)
+  for (const n of added.names) lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
+  for (const imp of added.imports) {
+    const e = new Emitter(orig, added)
+    e.importEntry(imp)
+    lines.push('', '[ADD_IMPORT_ENTRY]', e.out.join(' '))
+  }
+  // Where a PatchUPK that links would write: followed on the objects as they would then be.
+  const linked = new Map<number, Uint8Array>()
+  const dataOf = (ref: number) => linked.get(ref) ?? orig.data(ref)
+  const i32 = (d: Uint8Array, at: number) => new DataView(d.buffer, d.byteOffset).getInt32(at, true)
+  const forced: { ref: number; at: number }[] = []
+  const setI32 = (ref: number, at: number, v: number) => {
+    const d = linked.get(ref) ?? orig.data(ref).slice()
+    new DataView(d.buffer, d.byteOffset).setInt32(at, v, true)
+    linked.set(ref, d)
+    if (ref <= orig.exports.length) forced.push({ ref, at })
+  }
+  // Where a field's next is, and a struct's first child (a class object has no tagged properties).
+  const nextAt = (ref: number) => {
+    if (out.className(ref) === 'Class') return 4
+    const r = new Reader(dataOf(ref))
+    r.i32()
+    readTags(r, out)
+    return r.o
+  }
+  const link = (owner: number, child: number) => {
+    if (owner < 1 || !STRUCT_CLASSES.has(out.className(owner))) return
+    const firstAt = nextAt(owner) + 12
+    let c = i32(dataOf(owner), firstAt)
+    if (!c) return setI32(owner, firstAt, child)
+    const seen = new Set<number>()
+    let last = c
+    for (; c; c = i32(dataOf(c), nextAt(c))) {
+      if (seen.has(c)) throw new Error(`${out.path(owner)}: its children go round`)
+      seen.add(c)
+      last = c
+    }
+    setI32(last, nextAt(last), child)
+  }
+  const none = out.findName('None')
+  added.exports.forEach((x, k) => {
+    const ref = orig.exports.length + k + 1
+    const size = out.data(ref).length
+    if (x.netObjects.length || size < 16) throw new Error(`${out.path(ref)}: an object PatchUPK cannot add (net objects, or under 16 bytes)`)
+    const e = new Emitter(orig, added)
+    e.exportEntry(x, size)
+    lines.push('', '[ADD_EXPORT_ENTRY]', e.out.join(' '))
+    // What PatchUPK puts there: the index before it, None, zeros; then (it means to) link it.
+    const ph = new Uint8Array(size)
+    new DataView(ph.buffer).setInt32(0, ref - 1, true)
+    new DataView(ph.buffer).setInt32(4, none, true)
+    linked.set(ref, ph)
+    link(x.outer, ref)
+  })
+  // Each new object's data, over what PatchUPK put there.
+  added.exports.forEach((_, k) => {
+    const ref = orig.exports.length + k + 1
+    lines.push('', `OBJECT=${new Emitter(orig, added).path(ref)}`, 'REL_OFFSET=0', '[MODDED_HEX]', hexBytes(out.data(ref)))
+  })
+  const equal = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i])
+  for (let i = 1; i <= orig.exports.length; i++) {
+    const want = out.data(i)
+    let have = orig.data(i)
+    if (equal(want, have)) continue
+    const cls = orig.className(i)
+    if (cls === 'Function' || cls === 'State') {
+      const ho = readStructHead(orig, i)
+      const hw = readStructHead(out, i)
+      const code = want.subarray(hw.scriptAt, hw.end)
+      if (!equal(have.subarray(ho.scriptAt, ho.end), code)) {
+        const pc = pseudoCodeOf(orig, decodeScript(code, (n) => n.index === none).statements, added)
+        lines.push('', `OBJECT=${orig.path(i)}:AUTO`, '[REPLACEMENT_CODE]', pc.text)
+        // What PatchUPK makes of it: the code replaced, its memory size as PatchUPK counts it.
+        have = replacedScript(have, ho, code, hw.memSize - 4 * pc.short)
+      }
+    }
+    lines.push(...objectEditLines(orig, i, want, have))
+  }
+  // Where a linking PatchUPK would have written: as the other package has it. (Each place is
+  // in an object's head, before any code: where it is does not move as code is replaced.)
+  const done = new Set<string>()
+  for (const { ref, at } of forced) {
+    if (done.has(`${ref}:${at}`)) continue
+    done.add(`${ref}:${at}`)
+    if (orig.find(orig.path(ref)) !== ref) throw new Error(`${orig.path(ref)}: another object has that path, so a mod script cannot name it (--out can)`)
+    lines.push('', `OBJECT=${orig.path(ref)}`, `REL_OFFSET=${at}`, '[MODDED_HEX]', hexBytes(out.data(ref).subarray(at, at + 4)))
+  }
+  return lines.join('\n') + '\n'
+}
+
+/** An object's data with its script replaced (the sizes before it set). */
+function replacedScript(data: Uint8Array, h: StructHead, code: Uint8Array, memSize: number): Uint8Array {
+  const out = new Uint8Array(data.length - h.size + code.length)
+  out.set(data.subarray(0, h.scriptAt))
+  const v = new DataView(out.buffer)
+  v.setInt32(h.scriptAt - 8, memSize, true)
+  v.setInt32(h.scriptAt - 4, code.length, true)
+  out.set(code, h.scriptAt)
+  out.set(data.subarray(h.end), h.scriptAt + code.length)
+  return out
 }
 
 /** A name table entry in pseudo-code: its length, its text, its flags (as the game's names have). */

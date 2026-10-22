@@ -116,3 +116,46 @@ describe.skipIf(!haveCorpus)("a struct's defaults edited", () => {
     }
   }, 120_000)
 })
+
+describe.skipIf(!haveCorpus)('declarations as a mod script, from the command line', () => {
+  // What --out writes, as a mod script: with PatchUPK (PATCHUPK), applied to the original,
+  // the same package.
+  const cases: [string, string, (src: string) => string][] = [
+    [
+      'a member variable and a function in a class',
+      'XGFacility_Labs',
+      (src) =>
+        src
+          .replace('var const localized string m_strCostAlloys;', 'var int m_iUpkitBonus;\nvar const localized string m_strCostAlloys;')
+          .replace('function int GetResearchPerHour()', 'function int UpkitBonus(int iBase)\n{\n    return iBase + m_iUpkitBonus;\n}\n\nfunction int GetResearchPerHour()')
+          .replace('(1 + m_fLabBonus', '(UpkitBonus(1) + m_fLabBonus'),
+    ],
+    ['a new class', 'UpkitHelper', () => 'class UpkitHelper extends Object;\n\nvar int m_iCount;\n\nstatic function int Twice(int i)\n{\n    return i * 2;\n}\n\ndefaultproperties\n{\n    m_iCount=3\n}\n'],
+  ]
+  for (const [name, cls, edit] of cases)
+    it(name, async () => {
+      const { openPackage } = await import('../src/package.ts')
+      const pkg = CORPUS[3]!
+      const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+      try {
+        const src = cls === 'UpkitHelper' ? '' : run('class', pkg, cls)
+        writeFileSync(join(dir, 'c.uc'), edit(src))
+        expect(run('compile', pkg, cls, join(dir, 'c.uc'), '--patch', join(dir, 'mod.txt'))).toContain('as a PatchUPK mod script: declared')
+        expect(readFileSync(join(dir, 'mod.txt'), 'utf8')).toContain('[ADD_EXPORT_ENTRY]')
+        run('compile', pkg, cls, join(dir, 'c.uc'), '--out', join(dir, 'out.upk'))
+        if (!process.env.PATCHUPK) return
+        const target = join(dir, 'xcomstrategygame.upk')
+        writeFileSync(target, openPackage(new Uint8Array(readFileSync(pkg))).bytes)
+        const log = execFileSync(process.env.PATCHUPK, [join(dir, 'mod.txt'), dir], { encoding: 'utf8' })
+        expect(log).not.toMatch(/Execution stopped|^Bad |^Error/m)
+        const a = openPackage(new Uint8Array(readFileSync(join(dir, 'out.upk'))))
+        const b = openPackage(new Uint8Array(readFileSync(target)))
+        expect(a.names).toEqual(b.names)
+        expect(a.imports).toEqual(b.imports)
+        expect(a.exports.map(({ serialOffset: _, ...e }) => e)).toEqual(b.exports.map(({ serialOffset: _, ...e }) => e))
+        for (let i = 1; i <= a.exports.length; i++) if (Buffer.compare(a.data(i), b.data(i))) throw new Error(`${a.path(i)} differs`)
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+})
