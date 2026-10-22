@@ -88,8 +88,10 @@ syntax for what UnrealScript cannot say, and the files.
   variable made `config`, say, to be set from an ini; a function made
   `exec`); a mod script with any of these is made from the whole package. `new` builds a new script package,
   with a start for its .int and .ini.
-- `diff`: two versions of a package compared, each changed function as a
-  diff of its source (Long War changed 651 of XComStrategyGame's).
+- `diff`: two versions of a package compared, each changed function, and
+  each class's changed declarations and defaults, as a diff of its source
+  (Long War changed 653 of XComStrategyGame's functions and states, the
+  declarations of 10 of its classes and the defaults of 6).
 
 ### How far it is, measured
 

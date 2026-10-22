@@ -54,7 +54,7 @@ node upkit.mjs compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --patch h
 node upkit.mjs new MyMod.u MyModInfo.uc MyModData.uc --game "<the game>/XComGame/CookedPCConsole"
 
 # what another version changed (a mod against the game, say): each function, and each class's
-# defaults, as a diff of its source
+# declarations and defaults, as a diff of its source
 node upkit.mjs diff vanilla/XComStrategyGame.upk XComStrategyGame.upk XGFacility_Labs
 
 node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back byte for byte
@@ -325,7 +325,7 @@ writes it in a form the compiler reads back the same:
 | `src/classsrc.ts` | a class's source split into its functions and states' code; what was edited |
 | `src/declare.ts` | new declarations: variables, functions, states, structs, enums, constants, delegates, classes, replication |
 | `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
-| `src/diff.ts` | two versions of a package compared, function by function, as diffs of their source |
+| `src/diff.ts` | two versions of a package compared, function by function and class by class, as diffs of their source |
 | `src/fidelity.ts` | whether a function's source says all its bytecode (the note on hand patches) |
 | `src/cli.ts` | the command line (`build.mjs` bundles it into one file) |
 

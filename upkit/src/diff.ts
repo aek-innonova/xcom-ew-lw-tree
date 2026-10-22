@@ -1,7 +1,7 @@
 // Two versions of a package compared function by function (and state code by
-// state code): what was changed, added or taken away, each changed one as a
-// unified diff of its decompiled source. What a mod did to the game, in
-// UnrealScript.
+// state code, and each class's declarations and defaults): what was changed,
+// added or taken away, each changed one as a unified diff of its decompiled
+// source. What a mod did to the game, in UnrealScript.
 
 import { ClassDecompiler } from './classdecomp.ts'
 import { readableSource, readableStateCode } from './fidelity.ts'
@@ -110,24 +110,46 @@ export function diffPackages(la: Linker, a: Package, lb: Linker, b: Package, fil
       r.added.push(path)
       parts.push(unifiedDiff('', readable(source(lb, b, rb)), '/dev/null', `b/${path}`))
     }
-  // Classes' defaults: what the other version's default objects hold otherwise.
+  // Classes' declarations (header, constants, enums, structs, variables) and defaults:
+  // what the other version declares and its default objects hold otherwise.
+  const classPart = (l: Linker, p: Package, ref: number, part: 'declarations' | 'defaultproperties') => {
+    const cd = new ClassDecompiler(l, p, ref, false)
+    return part === 'declarations' ? cd.declarationsText() : cd.defaultsText()
+  }
+  const wanted = (name: string) => !filter || name.toLowerCase().includes(filter.toLowerCase().split('.')[0]!)
   for (let i = 1; i <= a.exports.length; i++) {
     if (a.className(i) !== 'Class') continue
     const name = a.objectName(i)
-    if (filter && !name.toLowerCase().includes(filter.toLowerCase().split('.')[0]!)) continue
+    if (!wanted(name)) continue
     const j = b.find(name)
     if (!j || b.className(j) !== 'Class') continue
-    let da = ''
+    for (const part of ['declarations', 'defaultproperties'] as const) {
+      let da = ''
+      let db = ''
+      try {
+        da = classPart(la, a, i, part)
+        db = classPart(lb, b, j, part)
+      } catch {
+        continue
+      }
+      if (da === db) continue
+      r.changed.push(`${name} (${part})`)
+      parts.push(unifiedDiff(da, db, `a/${name} (${part})`, `b/${name} (${part})`))
+    }
+  }
+  // Classes only the other version has: their declarations (their functions are above).
+  for (let j = 1; j <= b.exports.length; j++) {
+    if (b.className(j) !== 'Class' || b.outerOf(j) !== 0) continue
+    const name = b.objectName(j)
+    if (!wanted(name) || a.find(name)) continue
     let db = ''
     try {
-      da = new ClassDecompiler(la, a, i, false).defaultsText()
-      db = new ClassDecompiler(lb, b, j, false).defaultsText()
+      db = classPart(lb, b, j, 'declarations')
     } catch {
       continue
     }
-    if (da === db) continue
-    r.changed.push(`${name} (defaultproperties)`)
-    parts.push(unifiedDiff(da, db, `a/${name} (defaultproperties)`, `b/${name} (defaultproperties)`))
+    r.added.push(`${name} (class)`)
+    parts.push(unifiedDiff('', db, '/dev/null', `b/${name} (declarations)`))
   }
   r.text = parts.join('')
   return r

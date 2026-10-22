@@ -112,6 +112,29 @@ export class ClassDecompiler {
   decompile(): string {
     const pkg = this.pkg
     const c = this.object<ClassObj>(this.ref)
+    const lines = this.declarationLines()
+    // What is replicated, and when.
+    try {
+      const rep = readableReplication(this.linker, pkg, this.ref)
+      if (rep) lines.push(rep)
+    } catch (e) {
+      lines.push(`// replication: not decompiled (${(e as Error).message})`, '')
+    }
+    const members = this.inside(this.ref)
+    for (const m of members.filter((x) => pkg.className(x) === 'Function')) lines.push(this.functionText(m))
+    for (const m of members.filter((x) => pkg.className(x) === 'State')) lines.push(...this.stateText(m), '')
+    lines.push(...this.defaults(c.defaultObject))
+    return lines.join('\n') + '\n'
+  }
+
+  /** The class's declarations, as decompile writes them: its header, constants, enums, structs and variables. */
+  declarationsText(): string {
+    return this.declarationLines().join('\n') + '\n'
+  }
+
+  private declarationLines(): string[] {
+    const pkg = this.pkg
+    const c = this.object<ClassObj>(this.ref)
     const lines: string[] = []
     const name = pkg.objectName(this.ref)
     const isInterface = !!(c.classFlags & 0x4000)
@@ -137,17 +160,7 @@ export class ClassDecompiler {
       .filter((m) => pkg.className(m).endsWith('Property') && !/^__.*__Delegate$/.test(pkg.objectName(m)))
     for (const m of vars) lines.push(this.varText(m))
     if (vars.length) lines.push('')
-    // What is replicated, and when.
-    try {
-      const rep = readableReplication(this.linker, pkg, this.ref)
-      if (rep) lines.push(rep)
-    } catch (e) {
-      lines.push(`// replication: not decompiled (${(e as Error).message})`, '')
-    }
-    for (const m of kinds('Function')) lines.push(this.functionText(m))
-    for (const m of kinds('State')) lines.push(...this.stateText(m), '')
-    lines.push(...this.defaults(c.defaultObject))
-    return lines.join('\n') + '\n'
+    return lines
   }
 
   private enumText(ref: number): string[] {
