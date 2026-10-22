@@ -17,7 +17,8 @@ Commands:
                                           the package: a whole new package, or a mod script
   compile <package> <Class> <Class.uc> (--out … | --patch …)
                                           what was edited in a whole class's source (as
-                                          class writes it), new declarations too (--out)
+                                          class writes it), new declarations too; a class
+                                          the package does not have: added to it
   new <package.u> <Class.uc>…             a new script package with these classes in it
   diff <package> <other package> [filter] what the other version changed, added, took away:
                                           each changed function as a diff of its source
