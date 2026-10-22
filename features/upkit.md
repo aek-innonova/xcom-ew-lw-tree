@@ -1,6 +1,6 @@
 ---
 title: "upkit: an UnrealScript decompiler and recompiler for Enemy Within's packages, as a standalone tool"
-status: in-progress
+status: review
 priority: 2
 dependsOn: []
 ---
@@ -51,7 +51,12 @@ the repository.
 ## Report (2026-10-22)
 
 Written through the night and kept current; the state below is as of the
-last commit before 07:00.
+last commit before 07:00 (finished at 05:05). The second half of the night
+went to the mod-script side, checked against PatchUPK itself (imports,
+locals and every kind of declaration as mod scripts; a bug of PatchUPK's
+that every such script now works around), to closing the last gaps with
+Epic's compiler on the vanilla packages, and to sweeps of edits over
+hundreds of classes, which found two bugs of upkit's (fixed below).
 
 upkit is in `upkit/` (TypeScript, run by Node 24 directly, or as one file:
 `node upkit/build.mjs` writes `upkit/dist/upkit.mjs`). `npx vitest run` in
