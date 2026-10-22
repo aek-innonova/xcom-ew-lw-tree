@@ -1,6 +1,6 @@
 // A change as a PatcherGUI / PatchUPK mod script: the mod format players
-// already install, and the common case (a function rewritten; names and
-// imports it needs added to the package's tables, no objects).
+// already install, and the common case (a function rewritten; the names,
+// imports and objects it needs added to the package's tables).
 //
 // The new script goes into [REPLACEMENT_CODE] as PatchUPK pseudo-code:
 // token bytes in hex, object references as <Path>, names as <Name>. PatchUPK
@@ -102,7 +102,7 @@ class Emitter {
   /**
    * An export table entry (PatchUPK's ADD_EXPORT_ENTRY: 68 bytes, without net
    * objects). PatchUPK puts the object's data at the end of the file (as many
-   * bytes as its size says) and links it as its owner's last child.
+   * bytes as its size says; see modScriptFrom for the link it means to make).
    */
   exportEntry(e: Export, size: number) {
     this.obj(e.classIndex)
