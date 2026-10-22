@@ -184,11 +184,16 @@ script that makes the original into it, every object it adds by
 as `--out` (checked for a member variable and a function, a constant, an
 enum, a struct and a state, and a new class).
 
+A variable the class has can have its modifiers changed (`var int X;` to
+`var config int X;`, `const`, `transient` …; the type, category and array
+size as they were): its flags are written, either way. `config` needs the
+class to have a config file (`config(GameCore)`); a native variable is C++'s.
+
 ### What is not compiled
 
 What the source leaves out stays in the package (nothing is deleted), and a
 declaration the package has, changed in the source (a function's parameters,
-return type or modifiers; a variable's type or modifiers; a struct's members;
+return type or modifiers; a variable's type, category or array size; a struct's members;
 an enum's values; a constant's value; a state's or a class's declaration; a
 replication block), is
 refused with that said: for what the package has, only bodies and defaults

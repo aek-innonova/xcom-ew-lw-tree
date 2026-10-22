@@ -80,9 +80,10 @@ if (pkgName.toLowerCase() !== 'core' && !linker.package('Core'))
   console.error(`upkit: no Core.upk in ${game ?? dirname(file)}: the game's classes are not found (--game <the game's CookedPCConsole>)`)
 
 /** What a package build did, in a line. */
-function report(r: { compiled: string[]; objects: string[]; declared: string[]; added: { names: number; imports: number; exports: number } }): string {
+function report(r: { compiled: string[]; objects: string[]; declared: string[]; modified?: string[]; added: { names: number; imports: number; exports: number } }): string {
   return [
     r.declared.length && `declared ${r.declared.join(', ')}`,
+    r.modified?.length && `modifiers of ${r.modified.join(', ')}`,
     r.compiled.length && `compiled ${r.compiled.join(', ')}`,
     r.objects.length && `defaults of ${r.objects.join(', ')}`,
     `${r.added.names} names, ${r.added.imports} imports, ${r.added.exports} objects added`,
@@ -161,6 +162,8 @@ try {
         : edits
           ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)]
           : []
+      // (Variables whose modifiers changed: their flags, written as declarations are.)
+      const modified = edits?.varFlags.map((x) => x.path) ?? []
       const changes = edits ? edits.changes : isNew ? [] : [{ ref: functionRef(pkg, path), text, path }]
       // One function's source: its declaration as the package has it (only the body compiles).
       if (!isClass && pkg.className(changes[0]!.ref) === 'Function' && declaration(readableSource(linker, pkg, changes[0]!.ref)) !== declaration(text))
@@ -176,14 +179,14 @@ try {
               ...structs.map((x) => x.ref),
             ]
           : []
-      if (!changes.length && !objects.length && !declared.length) {
+      if (!changes.length && !objects.length && !declared.length && !modified.length) {
         console.log(`${path}: nothing edited (the source decompiles from the package as it is)`)
         break
       }
       const what = [...changes.map((c) => c.path), ...objects.map((r) => `${pkg.path(r)} (default properties)`)].join(', ')
       // A class's source: the whole package it makes (once; a mod script with declarations is made from it).
-      const whole = isClass && (out || declared.length) ? classesPackage(linker, pkg, pkgName, [text], patch ? 'keep' : layout) : null
-      if (patch && declared.length) {
+      const whole = isClass && (out || declared.length || modified.length) ? classesPackage(linker, pkg, pkgName, [text], patch ? 'keep' : layout) : null
+      if (patch && (declared.length || modified.length)) {
         // New declarations: the mod script that makes the original into the whole package.
         if (layout !== 'keep') throw new Error('a mod script is made from the keep layout (--layout compact with --out alone)')
         writeFileSync(patch, modScriptFrom({ name: `${path} (upkit)` }, basename(file), pkg, openPackage(whole!.bytes)))

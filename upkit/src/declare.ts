@@ -60,7 +60,7 @@ function innerFlags(fc: FunctionCompiler, outer: bigint, inner: import('./types.
   return (outer & PROPAGATE_TO_INNER) | (fc.needsCtor(inner) ? CPF_NeedCtorLink : 0n) | fc.typeFlags(inner)
 }
 
-const VAR_MODIFIERS: Record<string, bigint> = {
+export const VAR_MODIFIERS: Record<string, bigint> = {
   const: CPF.Const,
   config: CPF.Config,
   globalconfig: CPF.GlobalConfig | CPF.Config,

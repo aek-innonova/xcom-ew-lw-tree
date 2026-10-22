@@ -6,7 +6,7 @@
 import type { Change } from './changes.ts'
 import { readableReplication, readableSource, readableStateCode } from './fidelity.ts'
 import { ClassDecompiler } from './classdecomp.ts'
-import { typeOf, typeText } from './types.ts'
+import { CPF, typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex, lineAt } from './parse.ts'
@@ -18,6 +18,7 @@ import {
   parseState,
   parseStruct,
   parseVar,
+  VAR_MODIFIERS,
   type ConstDecl,
   type EnumDecl,
   type FunctionDecl,
@@ -257,6 +258,8 @@ export interface ClassEdits {
   replication: string | null
   /** Structs the class has whose structdefaultproperties were edited: compiled into the struct. */
   structDefaults: { ref: number; path: string; block: string }[]
+  /** Variables the class has whose modifiers were changed (config, const, transient …): their flags as they are to be. */
+  varFlags: { ref: number; path: string; flags: bigint }[]
 }
 
 export function classEdits(
@@ -267,7 +270,7 @@ export function classEdits(
   /** Paths compiled whatever they decompile to now (just declared: their bodies are stubs). */
   always: Set<string> = new Set(),
 ): ClassEdits {
-  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [] }
+  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [], varFlags: [] }
   // The class's own declaration: what it extends and is within stay as the package has them.
   const own = pkg.find(className)
   const co = own ? linker.object({ pkg, ref: own }) : null
@@ -346,7 +349,19 @@ export function classEdits(
               .map((t) => t.v.toLowerCase())
               .filter((w) => !['private', 'protected', 'public'].includes(w))
               .join(' ')
-          if (norm(line) !== norm(p.text)) throw new Error(`${className}.${n.name}: declared otherwise than the package has it (${line}); a changed declaration is not compiled`)
+          if (norm(line) !== norm(p.text)) {
+            // Only its modifiers (config, const, transient …), the rest as it was: its flags as they say.
+            const was = parseVar(line, className)
+            const flat = (x: string) => x.toLowerCase().replace(/\s+/g, '')
+            const rest = flat(was.type) === flat(v.type) && (was.category ?? '') === (v.category ?? '') && was.names[0]?.dim === n.dim
+            if (!rest || prop.flags & CPF.Native)
+              throw new Error(`${className}.${n.name}: declared otherwise than the package has it (${line}); a changed declaration is not compiled${prop.flags & CPF.Native ? ' (a native variable: C++ has it)' : ''}`)
+            const mask = Object.values(VAR_MODIFIERS).reduce((a, b) => a | b, 0n)
+            const flags = (prop.flags & ~mask) | (v.flags & mask)
+            if (flags & CPF.Config && !(prop.flags & CPF.Config) && co?.kind === 'class' && (!co.configName || co.configName === 'None'))
+              throw new Error(`${className}.${n.name}: a config variable needs the class to have a config file (class ${className} … config(Name);), which it does not`)
+            out.varFlags.push({ ref, path: `${className}.${n.name}`, flags })
+          }
         }
       }
       if (fresh.length) out.vars.push({ ...v, names: fresh })

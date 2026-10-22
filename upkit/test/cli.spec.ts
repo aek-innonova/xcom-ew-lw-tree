@@ -82,8 +82,8 @@ describe.skipIf(!haveCorpus)('what is not compiled is said, not ignored', () => 
       writeFileSync(join(dir, 'c.uc'), cls.replace(/^var int m_iExplosiveNags;/m, 'var float m_iExplosiveNags;'))
       const why = fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))
       expect(why).toContain('a changed type is not compiled')
-      // A variable's modifiers changed, a state's declaration changed: said too.
-      writeFileSync(join(dir, 'c.uc'), cls.replace(/^var int m_iExplosiveNags;/m, 'var config int m_iExplosiveNags;'))
+      // A variable's category changed (its modifiers alone do compile), a state's declaration changed: said too.
+      writeFileSync(join(dir, 'c.uc'), cls.replace(/^var int m_iExplosiveNags;/m, 'var(Upkit) int m_iExplosiveNags;'))
       expect(fails('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'x.txt'))).toContain('declared otherwise than the package has it')
       const cam = run('class', pkg, 'XComHeadquartersCamera')
       writeFileSync(join(dir, 'cam.uc'), cam.replace(/^state EarthViewTransition$/m, 'simulated state EarthViewTransition'))
@@ -180,6 +180,46 @@ describe.skipIf(!haveCorpus)('a native class from the command line', () => {
         err = String((e as { stderr: string }).stderr)
       }
       expect(err).toContain('XGAction_Fire is a native class: its C++ fixes its variables')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe.skipIf(!haveCorpus)("a variable's modifiers changed", () => {
+  it('made config in a config class: its flags, both ways (with PatchUPK, the same package); refused where the class has no config file, or the type changed', async () => {
+    const { openPackage } = await import('../src/package.ts')
+    const { readObject } = await import('../src/objects.ts')
+    const pkg = CORPUS[2]!
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    const fails = (...args: string[]) => {
+      try {
+        execFileSync(process.execPath, [cli, ...args], { encoding: 'utf8', stdio: 'pipe' })
+      } catch (e) {
+        return String((e as { stderr: string }).stderr)
+      }
+      return ''
+    }
+    try {
+      const src = run('class', pkg, 'XGTacticalGameCore')
+      writeFileSync(join(dir, 'gc.uc'), src.replace('\nvar int m_iDifficulty;', '\nvar config int m_iDifficulty;'))
+      expect(run('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc.uc'), '--patch', join(dir, 'gc.txt'))).toContain('modifiers of XGTacticalGameCore.m_iDifficulty')
+      run('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc.uc'), '--out', join(dir, 'gc.upk'))
+      const out = openPackage(new Uint8Array(readFileSync(join(dir, 'gc.upk'))))
+      const prop = readObject(out, out.find('XGTacticalGameCore.m_iDifficulty')) as { flags: bigint }
+      expect(prop.flags & 0x4000n).toBe(0x4000n)
+      expect(run('class', join(dir, 'gc.upk'), 'XGTacticalGameCore', '--game', dirname(pkg))).toContain('\nvar config int m_iDifficulty;')
+      if (process.env.PATCHUPK) {
+        writeFileSync(join(dir, 'xcomgame.upk'), openPackage(new Uint8Array(readFileSync(pkg))).bytes)
+        execFileSync(process.env.PATCHUPK, [join(dir, 'gc.txt'), dir], { encoding: 'utf8' })
+        const b = openPackage(new Uint8Array(readFileSync(join(dir, 'xcomgame.upk'))))
+        for (let i = 1; i <= out.exports.length; i++) if (Buffer.compare(out.data(i), b.data(i))) throw new Error(`${out.path(i)} differs`)
+      }
+      const ships = run('class', CORPUS[3]!, 'UIShipList')
+      writeFileSync(join(dir, 'ui.uc'), ships.replace('\nvar int m_iContinentTransferingTo;', '\nvar config int m_iContinentTransferingTo;'))
+      expect(fails('compile', CORPUS[3]!, 'UIShipList', join(dir, 'ui.uc'), '--out', join(dir, 'ui.upk'))).toContain('a config variable needs the class to have a config file')
+      writeFileSync(join(dir, 'gc2.uc'), src.replace('\nvar int m_iDifficulty;', '\nvar float m_iDifficulty;'))
+      expect(fails('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc2.uc'), '--out', join(dir, 'gc2.upk'))).toContain('a changed type is not compiled')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

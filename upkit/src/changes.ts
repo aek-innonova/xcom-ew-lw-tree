@@ -9,7 +9,8 @@ import { declare, declareClass, declareFields, declareReplication, declareStruct
 import { defaultsBlock, defaultsChanges, structDefaults } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
-import { readStructHead } from './objects.ts'
+import { Reader } from './bytes.ts'
+import { readStructHead, readTags } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
 import { lineAt } from './parse.ts'
 import { modScriptFrom } from './patch.ts'
@@ -110,6 +111,16 @@ export function modScriptWith(
   }
 }
 
+/** A property's data with its flags set (after its index, its tags, its next and its array size). */
+function withFlags(pkg: Package, ref: number, flags: bigint): Uint8Array {
+  const d = pkg.data(ref).slice()
+  const r = new Reader(d)
+  r.i32()
+  readTags(r, pkg)
+  new DataView(d.buffer, d.byteOffset).setBigUint64(r.o + 8, flags, true)
+  return d
+}
+
 /**
  * A compiled function's (or state's) object as it is to be, and what else the
  * package gets for it: its new locals (objects), and the last child before them
@@ -165,7 +176,7 @@ export function classesPackage(
   pkgName: string,
   sources: string[],
   layout: 'keep' | 'compact' = 'keep',
-): { bytes: Uint8Array; compiled: string[]; objects: string[]; declared: string[]; added: { names: number; imports: number; exports: number } } {
+): { bytes: Uint8Array; compiled: string[]; objects: string[]; declared: string[]; modified: string[]; added: { names: number; imports: number; exports: number } } {
   let target = pkg
   let bytes = pkg.bytes
   const step = (b: Uint8Array) => {
@@ -246,6 +257,14 @@ export function classesPackage(
     const data = structDefaults(linker, target, target.find(d.cls), ref, d.block, { shared: sh, allow: 'all' })
     step(writePackage(target, { data: new Map([[ref, data]]), names: sh.names.map((name) => ({ name, flags: 0x7001000000000n })) }))
   }
+  // Variables whose modifiers changed: their flags.
+  const modified: string[] = []
+  for (const c of classes) {
+    const e = classEdits(linker, target, c.name, c.src, newClasses)
+    if (!e.varFlags.length) continue
+    step(writePackage(target, { data: new Map(e.varFlags.map((x) => [x.ref, withFlags(target, x.ref, x.flags)])) }))
+    modified.push(...e.varFlags.map((x) => x.path))
+  }
   const compiled: string[] = []
   const objects: string[] = []
   const added = { names: target.names.length - pkg.names.length, imports: target.imports.length - pkg.imports.length, exports: target.exports.length - pkg.exports.length }
@@ -272,5 +291,5 @@ export function classesPackage(
     }
   }
   if (layout === 'compact') bytes = writePackage(target, { layout: 'compact' })
-  return { bytes, compiled, objects, declared, added }
+  return { bytes, compiled, objects, declared, modified, added }
 }

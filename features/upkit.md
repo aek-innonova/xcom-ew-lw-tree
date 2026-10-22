@@ -77,16 +77,17 @@ syntax for what UnrealScript cannot say, and the files.
   byte for byte). Mistakes are refused with the function and the line (a
   type where another is wanted, a missing cast, too many arguments, an
   unknown name, a parse error); so is a changed declaration of something the
-  package has (a function's parameters, a variable's type or modifiers, a
+  package has (a function's parameters, a variable's type or category, a
   struct's members, a state's or class's declaration, a replication block),
   which is not compiled: what the package has keeps its declarations.
 - Writes the change two ways: as a PatchUPK mod script (`--patch`, the
   common case), adding the names, imports and locals the code needs; or as a
-  whole package (`--out`). Both take new declarations too: member variables,
-  functions, states, structs, enums, constants, delegates, interfaces, a new
-  class with its replication (a mod script with declarations is made from
-  the whole package). `new` builds a new script package, with a start for
-  its .int and .ini.
+  whole package (`--out`). Both take new declarations too (member
+  variables, functions, states, structs, enums, constants, delegates,
+  interfaces, a new class with its replication) and a variable's modifiers
+  changed (made `config`, say, to be set from an ini); a mod script with
+  either is made from the whole package. `new` builds a new script package,
+  with a start for its .int and .ini.
 - `diff`: two versions of a package compared, each changed function as a
   diff of its source (Long War changed 651 of XComStrategyGame's).
 
@@ -158,7 +159,7 @@ such a function. The vanilla packages came from the win VM's install into
   mod script that Long War's PatchUPK.exe applied, and as a whole package;
   the two the same, byte for byte.
 - Lint-clean as the repository lints; the app's own unit tests leave
-  upkit's to upkit (they had been picking them up). 125 tests in `upkit/`
+  upkit's to upkit (they had been picking them up). 126 tests in `upkit/`
   (21 of them need `PATCHUPK`).
 
 ### Not verified, and not done
