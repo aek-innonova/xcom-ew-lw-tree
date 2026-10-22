@@ -415,6 +415,8 @@ export interface ClassDecl {
   clears: number
   /** The interfaces it implements (its own: a subclass does not list its parent's). */
   interfaces: string[]
+  /** native or nativereplication, as declared (a new class cannot be: it needs C++). */
+  native?: string
 }
 
 const CLASS_MODIFIERS: Record<string, number> = {
@@ -447,8 +449,8 @@ export function parseClassHeader(src: string): ClassDecl {
     d.flags |= 0x4
   }
   for (const w of rest.replace(/\([^)]*\)/g, ' ').split(/\s+/).map((x) => x.toLowerCase()).filter(Boolean)) {
-    if (w === 'native' || w === 'nativereplication') throw new DeclareError(`a new ${w} class needs C++`)
-    if (w === 'notplaceable') d.clears |= 0x200
+    if (w === 'native' || w === 'nativereplication') d.native = w
+    else if (w === 'notplaceable') d.clears |= 0x200
     else if (w in CLASS_MODIFIERS) d.flags |= CLASS_MODIFIERS[w]!
   }
   return d
@@ -481,6 +483,7 @@ const NOT_INHERITED = 0x1 | 0x80 | 0x100 | 0x800 | 0x8000000
  */
 export function declareClass(linker: Linker, pkg: Package, d: ClassDecl, sh: Shared = shared()): { bytes: Uint8Array; defaults: string[] } {
   if (pkg.find(d.name)) throw new DeclareError(`${d.name} is in the package already`)
+  if (d.native) throw new DeclareError(`a new ${d.native} class needs C++`)
   // A compiler for this package, to find and import what the class names (any function of it will do).
   let anyRef = 0
   for (let i = 1; i <= pkg.exports.length && !anyRef; i++) if (['Class', 'Function'].includes(pkg.className(i))) anyRef = i

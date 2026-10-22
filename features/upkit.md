@@ -141,6 +141,9 @@ such a function. The vanilla packages came from the win VM's install into
     variable and a function; a constant, an enum, a struct and a state; a new
     class in the package). The app's own implementation agrees on the four
     it can apply (it takes neither imports nor objects).
+  - The declaration edit (a member variable and a function using it) on 15
+    more classes of both packages, and a function alone on five native ones
+    (whose C++ fixes their variables): each the same package as `--out`.
   - On the win VM, the PatchUPK.exe Long War's Mod Manager ships made the
     same packages as `--out` from five of these scripts (imports, locals, a
     member variable and a function, a new class).
@@ -148,7 +151,7 @@ such a function. The vanilla packages came from the win VM's install into
   with spaces) the one-file build decompiles, exports, diffs, writes a mod
   script and a whole package.
 - Lint-clean as the repository lints; the app's own unit tests leave
-  upkit's to upkit (they had been picking them up). 122 tests in `upkit/`
+  upkit's to upkit (they had been picking them up). 123 tests in `upkit/`
   (19 of them need `PATCHUPK`).
 
 ### Not verified, and not done

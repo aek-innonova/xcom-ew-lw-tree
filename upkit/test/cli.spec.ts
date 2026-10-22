@@ -159,3 +159,29 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
       }
     })
 })
+
+describe.skipIf(!haveCorpus)('a native class from the command line', () => {
+  it('a body edited into a whole package; a function added; a variable refused, as its C++ fixes them', () => {
+    const pkg = CORPUS[2]!
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const src = run('class', pkg, 'XGAction_Fire')
+      expect(src).toMatch(/^\s+native$/m)
+      writeFileSync(join(dir, 'a.uc'), src.replace('return bReplicationComplete;', 'return !bReplicationComplete;'))
+      expect(run('compile', pkg, 'XGAction_Fire', join(dir, 'a.uc'), '--out', join(dir, 'a.upk'))).toContain('compiled XGAction_Fire.')
+      const fn = 'function int UpkitTwice(int i)\n{\n    return i * 2;\n}\n\n'
+      writeFileSync(join(dir, 'b.uc'), src.replace(/^defaultproperties/m, `${fn}defaultproperties`))
+      expect(run('compile', pkg, 'XGAction_Fire', join(dir, 'b.uc'), '--patch', join(dir, 'b.txt'))).toContain('declared XGAction_Fire.UpkitTwice')
+      writeFileSync(join(dir, 'c.uc'), src.replace(/^defaultproperties/m, 'var int m_iUpkit;\n\ndefaultproperties'))
+      let err = ''
+      try {
+        execFileSync(process.execPath, [cli, 'compile', pkg, 'XGAction_Fire', join(dir, 'c.uc'), '--out', join(dir, 'c.upk')], { encoding: 'utf8', stdio: 'pipe' })
+      } catch (e) {
+        err = String((e as { stderr: string }).stderr)
+      }
+      expect(err).toContain('XGAction_Fire is a native class: its C++ fixes its variables')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
