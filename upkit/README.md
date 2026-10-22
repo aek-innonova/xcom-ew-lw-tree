@@ -194,14 +194,15 @@ class to have a config file (`config(GameCore)`); a native variable is C++'s.
 upkit says where a config or localized variable's value now comes from. A
 function can be made `exec` (callable from the console), `simulated`,
 `singular` or an `event`, or no longer, its parameters and return type as
-they were.
+they were. An enum can get values added at its end (new item or tech types,
+say): the values it had keep their numbers.
 
 ### What is not compiled
 
 What the source leaves out stays in the package (nothing is deleted), and a
 declaration the package has, changed in the source (a function's parameters,
 return type or other modifiers; a variable's type, category or array size; a struct's members;
-an enum's values; a constant's value; a state's or a class's declaration; a
+an enum's values but for ones added at its end; a constant's value; a state's or a class's declaration; a
 replication block), is
 refused with that said: for what the package has, only bodies and defaults
 compile. Native functions are not compiled (their code is C++).

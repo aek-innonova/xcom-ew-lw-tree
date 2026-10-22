@@ -5,7 +5,7 @@
 import { encodeScript, type Node } from './bytecode.ts'
 import { binaryOperators, FunctionCompiler, shared, type Shared } from './compile.ts'
 import { classEdits } from './classsrc.ts'
-import { declare, declareClass, declareFields, declareReplication, declareStruct, declareSubobjects, parseClassHeader, subobjectsOf } from './declare.ts'
+import { appendEnumValues, declare, declareClass, declareFields, declareReplication, declareStruct, declareSubobjects, parseClassHeader, subobjectsOf } from './declare.ts'
 import { defaultsBlock, defaultsChanges, structDefaults } from './defaults.ts'
 import { withScript } from './edit.ts'
 import type { Linker } from './linker.ts'
@@ -215,6 +215,13 @@ export function classesPackage(
     if (!e.consts.length && !e.enums.length && !e.states.length) continue
     step(declareFields(linker, target, target.find(c.name), e))
     declared.push(...[...e.consts, ...e.enums, ...e.states].map((x) => `${c.name}.${x.name}`))
+  }
+  // Values added to enums the classes have (before the code that names them compiles).
+  for (const c of classes) {
+    for (const a of classEdits(linker, target, c.name, c.src, newClasses).enumAppends) {
+      step(appendEnumValues(linker, target, target.find(a.path), a.values))
+      declared.push(...a.values.map((v) => `${a.path}.${v}`))
+    }
   }
   // Structs, each once the types its members name are there (a struct can use one declared later).
   const structDefaultsToDo: { cls: string; name: string; block: string }[] = []

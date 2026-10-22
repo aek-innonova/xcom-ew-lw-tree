@@ -1009,3 +1009,36 @@ function withRepOffset(pkg: Package, ref: number, offset: number): Uint8Array {
   new DataView(out.buffer, out.byteOffset).setBigUint64(flagsAt, flags | CPF.Net, true)
   return out
 }
+
+/**
+ * An enum the class has, with values added at its end (before its _MAX, which
+ * stays last): the package with it so. The values it had keep their numbers,
+ * so what is compiled against them stays right; code compiled before against
+ * _MAX keeps the old count (as a hand patch that adds values leaves it).
+ */
+export function appendEnumValues(linker: Linker, pkg: Package, enumRef: number, values: string[], sh: Shared = shared()): Uint8Array {
+  const fc = new FunctionCompiler(linker, pkg, pkg.outerOf(enumRef), sh)
+  fc.allow = 'all'
+  const data = pkg.data(enumRef)
+  const r = new Reader(data)
+  r.i32()
+  readTags(r, pkg)
+  r.i32() // next
+  const count = r.i32()
+  const at = r.o
+  const last = count ? pkg.name({ index: new DataView(data.buffer, data.byteOffset).getInt32(at + 8 * (count - 1), true), number: 0 }) : ''
+  const hasMax = last.endsWith('_MAX')
+  const kept = hasMax ? count - 1 : count
+  if (kept + values.length + (hasMax ? 1 : 0) > 256) throw new DeclareError(`${pkg.path(enumRef)}: more than 256 values (a byte holds them)`)
+  const w = new Writer(data.length + 8 * values.length)
+  w.bytes(data.subarray(0, at - 4)).i32(count + values.length)
+  w.bytes(data.subarray(at, at + 8 * kept))
+  for (const v of values) {
+    const n = fc.nameRef(v)
+    w.i32(n.index).i32(n.number)
+  }
+  if (hasMax) w.bytes(data.subarray(at + 8 * kept, at + 8 * count))
+  w.bytes(data.subarray(at + 8 * count))
+  const names = sh.names.map((name) => ({ name, flags: 0x7001000000000n }))
+  return writePackage(pkg, { data: new Map([[enumRef, w.done()]]), names, layout: 'keep' })
+}

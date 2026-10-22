@@ -168,6 +168,7 @@ try {
               ...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)),
               ...edits.functions.map((f) => f.path),
               ...[...edits.consts, ...edits.enums, ...edits.structs, ...edits.states].map((x) => `${path}.${x.name}`),
+              ...edits.enumAppends.flatMap((a) => a.values.map((v) => `${a.path}.${v}`)),
             ]
           : []
       // (Variables whose modifiers changed: their flags, written as declarations are.)

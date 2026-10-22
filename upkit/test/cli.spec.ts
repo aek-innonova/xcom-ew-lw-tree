@@ -141,6 +141,11 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
           .replace('const MELD_TECH_BONUS = 40;', 'const MELD_TECH_BONUS = 40;\nconst UPKIT_STEP = 3;\n\nenum EUpkitMode\n{\n    eUpkit_Off,\n    eUpkit_On\n};\n\nstruct TUpkitPair\n{\n    var int iA;\n};')
           .replace(/^defaultproperties/m, 'state UpkitWaiting\n{\n}\n\ndefaultproperties'),
     ],
+    [
+      "a value added to an enum the class has, used in a function",
+      'XGFacility_Labs',
+      (src) => src.replace('    eResearchProgress_Fast\n};', '    eResearchProgress_Fast,\n    eResearchProgress_Upkit\n};').replace('(1 + m_fLabBonus', '(int(eResearchProgress_Upkit) + m_fLabBonus'),
+    ],
     ['a new class', 'UpkitHelper', () => 'class UpkitHelper extends Object;\n\nvar int m_iCount;\n\nstatic function int Twice(int i)\n{\n    return i * 2;\n}\n\ndefaultproperties\n{\n    m_iCount=3\n}\n'],
   ]
   for (const [name, cls, edit] of cases)
@@ -152,7 +157,7 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
         const src = cls === 'UpkitHelper' ? '' : run('class', pkg, cls)
         writeFileSync(join(dir, 'c.uc'), edit(src))
         expect(run('compile', pkg, cls, join(dir, 'c.uc'), '--patch', join(dir, 'mod.txt'))).toContain('as a PatchUPK mod script: declared')
-        expect(readFileSync(join(dir, 'mod.txt'), 'utf8')).toContain('[ADD_EXPORT_ENTRY]')
+        expect(readFileSync(join(dir, 'mod.txt'), 'utf8')).toMatch(/\[ADD_EXPORT_ENTRY\]|\[BEFORE_HEX\]/)
         run('compile', pkg, cls, join(dir, 'c.uc'), '--out', join(dir, 'out.upk'))
         if (!process.env.PATCHUPK) return
         const target = join(dir, 'xcomstrategygame.upk')

@@ -84,9 +84,10 @@ syntax for what UnrealScript cannot say, and the files.
   common case), adding the names, imports and locals the code needs; or as a
   whole package (`--out`). Both take new declarations too (member
   variables, functions, states, structs, enums, constants, delegates,
-  interfaces, a new class with its replication) and changed modifiers (a
-  variable made `config`, say, to be set from an ini; a function made
-  `exec`); a mod script with any of these is made from the whole package. `new` builds a new script package,
+  interfaces, a new class with its replication), values added to an enum,
+  and changed modifiers (a variable made `config`, say, to be set from an
+  ini; a function made `exec`); a mod script with any of these is made from
+  the whole package. `new` builds a new script package,
   with a start for its .int and .ini.
 - `diff`: two versions of a package compared, each changed function, and
   each class's changed declarations and defaults, as a diff of its source
@@ -163,7 +164,7 @@ source and its bytes part. The vanilla packages came from the win VM's install i
   mod script that Long War's PatchUPK.exe applied, and as a whole package;
   the two the same, byte for byte.
 - Lint-clean as the repository lints; the app's own unit tests leave
-  upkit's to upkit (they had been picking them up). 127 tests in `upkit/`
+  upkit's to upkit (they had been picking them up). 128 tests in `upkit/`
   (21 of them need `PATCHUPK`).
 
 ### Not verified, and not done

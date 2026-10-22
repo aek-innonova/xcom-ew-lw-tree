@@ -288,6 +288,8 @@ export interface ClassEdits {
   varFlags: { ref: number; path: string; flags: bigint }[]
   /** Functions the class has made exec, simulated, singular or an event (or no longer): their flags as they are to be. */
   funcFlags: { ref: number; path: string; flags: number }[]
+  /** Enums the class has with values added at their end: those values. */
+  enumAppends: { ref: number; path: string; values: string[] }[]
 }
 
 export function classEdits(
@@ -298,7 +300,7 @@ export function classEdits(
   /** Paths compiled whatever they decompile to now (just declared: their bodies are stubs). */
   always: Set<string> = new Set(),
 ): ClassEdits {
-  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [], varFlags: [], funcFlags: [] }
+  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [], varFlags: [], funcFlags: [], enumAppends: [] }
   // The class's own declaration: what it extends and is within stay as the package has them.
   const own = pkg.find(className)
   const co = own ? linker.object({ pkg, ref: own }) : null
@@ -327,6 +329,16 @@ export function classEdits(
     // Declarations the class may not have yet: known by name.
     if (p.kind === 'const' || p.kind === 'enum' || p.kind === 'struct' || p.kind === 'state') {
       const has = pkg.find(`${className}.${p.path}`)
+      // An enum the class has, with values added at its end (the rest as they were): those values.
+      if (has && p.kind === 'enum') {
+        const o = linker.object({ pkg, ref: has })
+        const want = parseEnum(p.text).values
+        const was = o?.kind === 'enum' ? o.names.filter((x, i, a) => !(i === a.length - 1 && x.endsWith('_MAX'))) : []
+        if (want.length > was.length && was.every((x, i) => x.toLowerCase() === want[i]!.toLowerCase())) {
+          out.enumAppends.push({ ref: has, path: `${className}.${p.path}`, values: want.slice(was.length) })
+          continue
+        }
+      }
       if (has) {
         // One the class has, declared otherwise: not compiled (it stays as the package has it).
         const differs = declaredOtherwise(linker, pkg, has, p.kind, p.text)
