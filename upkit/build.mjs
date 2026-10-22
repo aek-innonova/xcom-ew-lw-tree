@@ -15,3 +15,7 @@ await build({
     rollupOptions: { output: { entryFileNames: 'upkit.mjs' } },
   },
 })
+
+// What `natives` notes on natives (ours), beside the bundle.
+const { copyFileSync } = await import('node:fs')
+copyFileSync(new URL('./notes/natives.md', import.meta.url), new URL('./dist/natives.md', import.meta.url))

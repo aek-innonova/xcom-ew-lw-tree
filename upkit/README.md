@@ -57,6 +57,8 @@ node upkit.mjs new MyMod.u MyModInfo.uc MyModData.uc --game "<the game>/XComGame
 # declarations and defaults, as a diff of its source
 node upkit.mjs diff vanilla/XComStrategyGame.upk XComStrategyGame.upk XGFacility_Labs
 
+node upkit.mjs natives Core.upk > natives.md   # the native interface, as a reference (below)
+
 node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back byte for byte
 node upkit.mjs roundtrip XComGame.upk --list   # and which functions do not (hand patches, mostly), and where
 ```
@@ -91,8 +93,8 @@ functions, properties, native operators). Measured on the game's own code
 | Package | Functions | Identical | With `__asm` (escapes) |
 |---|---|---|---|
 | Core (vanilla) | 311 | 100% | 0 |
-| Engine (vanilla) | 4,341 | 100% | 2 (10) |
-| XComGame (vanilla) | 11,756 | 100% | 1 (3) |
+| Engine (vanilla) | 4,341 | 100% | 0 |
+| XComGame (vanilla) | 11,756 | 100% | 0 |
 | XComStrategyGame (vanilla) | 5,349 | 100% | 2 (8) |
 | GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% | 0 |
 | XComGame (Long War 1.0) | 11,756 | 100% | 176 (945) |
@@ -109,11 +111,11 @@ packages carry many functions patched by hand, in forms no compiler writes
 (a constant of another width, flags set otherwise, stale skips, another
 function's local, a context nested inside a context's member, code copied
 from another function with its return value). `decompile` says so above
-such a function. The vanilla packages' few are Epic's compiler's own odd
-bytes (two cheats' left-out arguments wrapped in the Outer context) and
-members of classes only C++ defines, whose parents the packages do not
-say. A hand-patched function can be edited like any: what is not touched
-keeps its bytes.
+such a function. The vanilla packages' two are Epic's compiler's own odd
+bytes (two cheats' left-out arguments wrapped in the Outer context). A
+hand-patched function can be edited like any: what is not touched keeps its
+bytes. (Code reading members of classes only C++ defines compiles as plain
+source: their parents, as the bytecode shows them, below.)
 
 ### Edits
 
@@ -212,6 +214,28 @@ constant's value; a state's or a class's declaration; a replication block),
 is refused with that said: for what the package has, bodies, defaults and
 the modifiers and enum values above compile. Native functions are not
 compiled (their code is C++).
+
+## The native interface
+
+`natives` writes what the game's script calls in C++ and is called by, from
+the packages beside the one given (or `--game`), as a reference: per package
+its native classes (no variable can be added to them) and native structs,
+its native functions (declaration, native index, final, static, latent,
+iterator, operator and precedence) and its events (script functions C++
+calls: what a mod overrides to be called); then the classes only C++
+defines, which the packages import and none has (`Engine.NetConnection`,
+`Engine.FracturedStaticMesh` …), with their members as the packages import
+them and their parents as the shipped bytecode shows them (code reading a
+`StaticMesh` member on a `FracturedStaticMesh` says the one descends from
+the other), each with where it was seen. The compiler uses the same: a
+member of such a class is found through its parent, and an object member of
+one has the class the bytecode reads it as.
+
+The reference is generated on the machine that has the game, not shipped.
+`notes/natives.md` is ours: what natives do as far as we know it, in our own
+words, each saying how it is known (Unreal Engine 3's known behaviour,
+observed in the game's code, or inferred from either); `natives` shows each
+under its declaration. It is a start, open to more.
 
 ## How it is checked
 
@@ -351,6 +375,8 @@ writes it in a form the compiler reads back the same:
 | `src/declare.ts` | new declarations: variables, functions, states, structs, enums, constants, delegates, classes, replication |
 | `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
 | `src/diff.ts` | two versions of a package compared, function by function and class by class, as diffs of their source |
+| `src/natives.ts` | the native interface: classes only C++ defines (members, parents from the bytecode); the reference |
+| `notes/natives.md` | our notes on what natives do |
 | `src/fidelity.ts` | whether a function's source says all its bytecode; where not, the `__asm` escapes it needs, found by compiling |
 | `src/cli.ts` | the command line (`build.mjs` bundles it into one file) |
 

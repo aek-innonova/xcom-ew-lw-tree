@@ -104,7 +104,7 @@ decompiled source, byte for byte:
 | XComGame (Long War 1.0) | 98.5% | 11,756 of 11,756 | 176 (945) |
 | XComStrategyGame (Long War 1.0) | 95.4% | 5,349 of 5,349 | 244 (1,652) |
 | LWRebalance.u | 97.6% | 1,484 of 1,484 | 36 (90) |
-| Engine, XComGame, XComStrategyGame (vanilla) | all but 5 | all | 5 (21) |
+| Engine, XComGame, XComStrategyGame (vanilla) | all but 5 | all | 2 (8), after upkit-natives |
 
 States' code: Long War's 262 all (252 before); vanilla's 269 as before.
 Hand-written PatcherGUI mods in the samples: all 16 functions they change
@@ -120,7 +120,7 @@ have three escapes or fewer; a few carry many (`XGItemTree.BuildItems`,
 - An escape written by hand compiles to exactly its node (test); Long War's
   XComStrategyGame round trip and vanilla's are held at every function by
   tests.
-- 132 tests in `upkit/` pass (21 with `PATCHUPK`); lint and types clean.
+- 132 tests in `upkit/` pass (21 with `PATCHUPK`); lint and types clean. (135 with upkit-natives.)
 
 ### Found on the way
 
@@ -134,9 +134,9 @@ have three escapes or fewer; a few carry many (`XGItemTree.BuildItems`,
 
 ### Not done
 
-- The three vanilla functions that read members of C++-only classes come
-  back as escapes; as plain source they wait for upkit-natives (the class
-  parents inferred).
+- The three vanilla functions that read members of C++-only classes came
+  back as escapes; with upkit-natives (the class parents inferred) they are
+  plain source.
 - An escape is verbose where the difference is one byte (`__asm(StructMember,
   X.T.f, X.T, 0, 1, kRequest)` for a flag). A shorter form for the common
   cases (a constant's width, a member's flags) would read better; the

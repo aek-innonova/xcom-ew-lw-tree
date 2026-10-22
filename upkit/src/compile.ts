@@ -5,6 +5,7 @@
 
 import { encodeScript, memSizeOf, naturalSkip, TOKENS, type NameValue, type Node, type Value } from './bytecode.ts'
 import { Linker, type Located } from './linker.ts'
+import { cppMemberClass, cppParent } from './natives.ts'
 import { readTags, type FunctionObj, type PropertyObj, type ScriptObject } from './objects.ts'
 import { isLatin1, Reader, Writer } from './bytes.ts'
 import type { Package } from './package.ts'
@@ -316,6 +317,12 @@ export class FunctionCompiler {
           const imp = at.pkg.imports[i - 1]!
           if (imp.outer === at.ref && at.pkg.objectName(-i).toLowerCase() === want && at.pkg.className(-i).endsWith('Property')) return { pkg: at.pkg, ref: -i }
         }
+      // Its parent, as the shipped bytecode shows it (natives.ts), and that one's members.
+      const parent = cppParent(this.linker, at)
+      if (parent) {
+        const r = this.memberUncached(parent, name, kind)
+        if (r) return r
+      }
       const object = this.objectClass()
       if (object) return this.memberUncached(object, name, kind)
     }
@@ -388,12 +395,12 @@ export class FunctionCompiler {
   private propTy(at: Located): { p: PropertyObj; ty: Ty } {
     const p = this.obj(at) as PropertyObj | null
     if (p) return { p, ty: typeOf(this.linker, at, p) }
-    // Known only as imported (a C++-only class's): its type from its class, what it holds unknown.
+    // Known only as imported (a C++-only class's): its type from its class, what it holds as the bytecode shows (natives.ts).
     const cls = at.pkg.className(at.ref)
     const ty: Ty =
       cls === 'IntProperty' ? { k: 'int' } : cls === 'FloatProperty' ? { k: 'float' } : cls === 'BoolProperty' ? { k: 'bool' }
         : cls === 'NameProperty' ? { k: 'name' } : cls === 'StrProperty' ? { k: 'string' } : cls === 'ByteProperty' ? { k: 'byte', enumOf: null }
-          : cls === 'ObjectProperty' || cls === 'ComponentProperty' ? { k: 'object', cls: null } : cls === 'ArrayProperty' ? { k: 'array', inner: { k: 'unknown' } } : { k: 'unknown' }
+          : cls === 'ObjectProperty' || cls === 'ComponentProperty' ? { k: 'object', cls: cppMemberClass(this.linker, at) } : cls === 'ArrayProperty' ? { k: 'array', inner: { k: 'unknown' } } : { k: 'unknown' }
     return { p: { kind: 'property', type: cls, flags: 0n, arrayDim: 1, refs: [] } as unknown as PropertyObj, ty }
   }
   private fnInfo(at: Located): { fn: FunctionObj; params: { at: Located; p: PropertyObj; ty: Ty }[]; ret: { at: Located; ty: Ty } | null } {

@@ -22,6 +22,9 @@ Commands:
   new <package.u> <Class.uc>…             a new script package with these classes in it
   diff <package> <other package> [filter] what the other version changed, added, took away:
                                           each changed function as a diff of its source
+  natives <package>                       the native interface of the game's packages (beside it,
+                                          or --game): natives, events, native classes, classes
+                                          only C++ defines; with upkit's notes
   roundtrip <package> [--list]            decompile and compile every function; how many
                                           come back byte for byte (--list: which do not, and
                                           where their source and bytes part)
@@ -46,6 +49,7 @@ import { readObject, readStructHead } from './objects.ts'
 import { CPF } from './types.ts'
 import { openPackage, type Package } from './package.ts'
 import { modScriptFrom } from './patch.ts'
+import { nativesReference, parseNotes } from './natives.ts'
 import { emptyPackage } from './writer.ts'
 
 const argv = process.argv.slice(2)
@@ -279,6 +283,12 @@ try {
           console.log(`wrote ${at}: the values its classes' localized or config variables are given (for the game's ${name.endsWith('.int') ? 'Localization/INT' : 'Config'} folder)`)
         }
       }
+      break
+    }
+    case 'natives': {
+      // The native interface, from the game's packages beside this one (or --game): a reference, with our notes.
+      const notesAt = [new URL('../notes/natives.md', import.meta.url), new URL('./natives.md', import.meta.url)].find((u) => existsSync(u))
+      process.stdout.write(nativesReference(linker, notesAt ? parseNotes(readFileSync(notesAt, 'utf8')) : new Map()))
       break
     }
     case 'roundtrip': {
