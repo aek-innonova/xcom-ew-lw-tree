@@ -730,7 +730,8 @@ export class FunctionCompiler {
     const vals: Value[] = []
     const kids: Ty[] = []
     const blanks: number[] = []
-    TOKENS[op]!.args.forEach((kind, k) => {
+    const kinds = TOKENS[op]!.args
+    kinds.forEach((kind, k) => {
       switch (kind) {
         case 'expr': {
           // A context's member: what it names is the object's (Obj.Name, Obj.Fn(…); a class's static or default).
@@ -793,7 +794,8 @@ export class FunctionCompiler {
           return
         }
         case 'end':
-          vals.push(op === 0x49 ? 0x15 : 0x16)
+          // (The usual closing byte, unless one is written.)
+          vals.push(i < ops.length && kinds.indexOf('end') === k ? num(next()) : op === 0x49 ? 0x15 : 0x16)
           return
         default:
           throw new CompileError(`__asm(${token}): not written this way`)
@@ -1453,6 +1455,8 @@ export class FunctionCompiler {
             return
           }
         }
+        // (__ParmSlots(n): read where the slots are written, before the body.)
+        if (s.e.k === 'call' && s.e.fn.k === 'id' && s.e.fn.name.toLowerCase() === '__parmslots') return
         const g = this.gen(s.e)
         // (Written as __asm: emitted as it is.)
         if ((g.node as AsmNode).asm) return this.emit(g.node)
@@ -1647,9 +1651,14 @@ export class FunctionCompiler {
     const parser = new Parser(src, binary)
     const f: FunctionSource = parser.function()
     this.out = []
-    // A slot per optional parameter first: its default, or nothing.
+    // A slot per optional parameter first: its default, or nothing (as many as __ParmSlots(n) says, if it does).
+    const first = f.body?.find((st) => st.k !== 'local')
+    const slotsSaid =
+      first?.k === 'expr' && first.e.k === 'call' && first.e.fn.k === 'id' && first.e.fn.name.toLowerCase() === '__parmslots' && first.e.args[0]?.k === 'int' ? first.e.args[0].v : Infinity
+    let slots = 0
     for (const p of this.params) {
       if (!(p.p.flags & CPF.OptionalParm)) continue
+      if (slots++ >= slotsSaid) break
       const d = f.defaults.get(this.pkg.objectName(p.ref).toLowerCase())
       if (d) {
         // (none as an interface's default: as it is, not cast.)

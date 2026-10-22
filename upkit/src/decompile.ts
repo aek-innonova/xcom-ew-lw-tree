@@ -601,6 +601,10 @@ export class FunctionDecompiler {
           if (e) ops.push(this.asmChild(e))
           break
         }
+        case 'end':
+          // (Its closing byte, where it is not the usual one.)
+          if (v !== (n.op === 0x49 ? 0x15 : 0x16)) ops.push(String(v))
+          break
       }
     })
     return `__asm(${[TOKENS[n.op]!.name, ...ops].join(', ')})`
@@ -819,7 +823,10 @@ export class FunctionDecompiler {
     const S = this.statements
     const cases: number[] = []
     let c = i + 1
+    // (A case written as __asm: the switch not structured, its tokens as they are.)
+    if (this.asm?.has(S[i]!.at)) return null
     while (c < hi && S[c]!.op === 0x0a) {
+      if (this.asm?.has(S[c]!.at)) return null
       cases.push(c)
       const [next] = S[c]!.args[0] as unknown as [number]
       if (next === 0xffff) break
@@ -1076,9 +1083,12 @@ export class FunctionDecompiler {
     // The epilogue the compiler adds: return (with the return value) and the end.
     let n = S.length
     if (n && S[n - 1]!.op === 0x53) n--
-    // (A function with a value: return with ReturnNothing; without: return nothing.)
+    // (A function with a value: return with ReturnNothing of its own return value; without: return nothing.)
     let epilogue = false
-    if (n && S[n - 1]!.op === 0x04 && [0x3a, 0x0b].includes((S[n - 1]!.args[0] as Node).op)) {
+    const last = n ? S[n - 1]! : null
+    const lastValue = last?.op === 0x04 ? (last.args[0] as Node) : null
+    const ownReturn = (ref: number) => ref > 0 && this.pkg.outerOf(ref) === this.ref
+    if (lastValue && (lastValue.op === 0x0b ? !ret : lastValue.op === 0x3a && ownReturn(lastValue.args[0] as number))) {
       n--
       epilogue = true
     }
@@ -1111,6 +1121,8 @@ export class FunctionDecompiler {
     lines.push('{')
     for (const l of locals) lines.push(`    local ${this.typeOf(l)} ${pkg.objectName(l.ref)}${this.dims(l.p)};`)
     if (locals.length) lines.push('')
+    // Fewer slots for optional parameters than they are (a parameter made optional by its flag alone): said.
+    if (k < optional.length) lines.push(`    __ParmSlots(${k});`)
     this.lines(body, 1, lines)
     // A jump to the very end (past the last statement).
     if (this.labelled.has(this.memEnd) || this.gotos.has(this.memEnd)) lines.push(`L${this.memEnd}:`)

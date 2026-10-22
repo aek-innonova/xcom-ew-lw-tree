@@ -186,13 +186,29 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
       return { text, d, compiled: null, error: e as Error & { pos?: number } }
     }
   }
-  // Each node's parent, to write one that will not come out right alone as part of its parent.
+  // Each node's parent, to write one that will not come out right alone as part of its parent;
+  // and its statement, written whole as a last resort (all tokens: always the bytes).
   const parent = new Map<number, Node>()
-  for (const st of original) for (const n of walk(st)) for (const c of walk(n)) if (c !== n && !parent.has(c.at)) parent.set(c.at, n)
+  const statementOf = new Map<number, Node>()
+  for (const st of original)
+    for (const n of walk(st)) {
+      statementOf.set(n.at, st)
+      for (const c of walk(n)) if (c !== n && !parent.has(c.at)) parent.set(c.at, n)
+    }
+  const all = (st: Node | undefined, into: Set<number>) => {
+    let grew = false
+    if (st)
+      for (const n of walk(st))
+        if (!into.has(n.at)) {
+          into.add(n.at)
+          grew = true
+        }
+    return grew
+  }
   const errorLine = (t: ReturnType<typeof attempt>) => (t.error?.pos === undefined ? -1 : lineAt(t.text, t.error.pos) - 1)
   let marks = new Set<number>()
   const debug = process.env.UPKIT_ASM_DEBUG ? (m: string) => console.error(`asm ${pkg.path(ref)}: ${m}`) : null
-  for (let round = 0; round < 80; round++) {
+  for (let round = 0; round < 400; round++) {
     const r = attempt(marks)
     debug?.(`round ${round}, ${marks.size} marked, ${r.compiled ? 'compiled' : `error ${r.error?.message} (line ${errorLine(r) + 1})`}`)
     if (r.compiled) {
@@ -205,7 +221,13 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
           at = partsAt(original[i]!, r.compiled[i]!, offsets)
         }
       // (The same tokens, and more of them compiled: nothing of the original to write otherwise.)
-      debug?.(at ? `parts at ${tokenName(at)} @${at.at}${marks.has(at.at) ? ' (marked)' : ''}` : 'no node parts')
+      if (debug && at) {
+        const shallow = (n: Node) => `${tokenName(n)}(${n.args.map((a) => (a && typeof a === 'object' ? ('op' in (a as object) ? tokenName(a as Node) : JSON.stringify(a)) : String(a))).join(', ')})`
+        const comp = r.compiled.flatMap((st) => [...walk(st)])
+        const orig = original.flatMap((st) => [...walk(st)])
+        const k = orig.indexOf(at)
+        debug(`parts at ${shallow(at)} @${at.at}${marks.has(at.at) ? ' (marked)' : ''}; compiled there: ${comp[k] ? shallow(comp[k]!) : '-'}`)
+      } else debug?.('no node parts')
       if (!at) return null
       if (!marks.has(at.at)) {
         marks.add(at.at)
@@ -223,6 +245,7 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
           marks.add(p.at)
           grew = true
         }
+      if (!grew) grew = all(statementOf.get(at.at), marks)
       if (!grew) return null
       continue
     }
@@ -269,7 +292,12 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
       fixed = true
       break
     }
-    if (!fixed) return null
+    // Else the line's statements whole.
+    if (!fixed) {
+      let grew = false
+      for (const st of stmts) grew = all(statementOf.get(st.at) ?? st, marks) || grew
+      if (!grew) return null
+    }
   }
   return null
 }
