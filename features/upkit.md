@@ -156,7 +156,9 @@ install into `samples/ew/`.
     function (the 30 that have one) and a default changed (a number, a bool
     or a string; the 33 that have one), a new state with a function, and a
     constant, an enum and a struct together (all 40): the same. And a
-    statement after `Begin:` in the states of 21 classes: the same.
+    statement after `Begin:` in the states of 21 classes: the same. Last, a
+    function added to every class of XComStrategyGame (241) and to 200 of
+    XComGame's at random: all the same.
   - On the win VM, the PatchUPK.exe Long War's Mod Manager ships made the
     same packages as `--out` from five of these scripts (imports, locals, a
     member variable and a function, a new class).
