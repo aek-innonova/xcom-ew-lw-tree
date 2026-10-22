@@ -861,6 +861,20 @@ export class FunctionCompiler {
         const g = this.gen(a)
         return this.convert(g, PRIMS[lower], true)
       }
+      // ArrayCount(StaticArray): its size, a constant (the compiler's own).
+      if (lower === 'arraycount' && args.length === 1 && args[0]) {
+        const a = args[0]
+        // A local (new ones too: declared here, not in the package yet) or a member.
+        const local = a.k === 'id' ? this.locals.get(a.name.toLowerCase()) : undefined
+        let dim = local?.p.arrayDim ?? 0
+        if (!local) {
+          const prop = this.propOf(this.gen(a, undefined, true).node)
+          const p = prop && (prop < 0 ? -prop <= this.pkg.imports.length : prop <= this.pkg.exports.length) ? this.obj(this.located(prop)) : null
+          dim = p?.kind === 'property' ? p.arrayDim : 0
+        }
+        if (dim < 2) throw new CompileError('ArrayCount takes a static array (int Arr[4])')
+        return { node: this.literalInt(dim), ty: { k: 'int' } }
+      }
       if ((lower === 'vector' || lower === 'rotator') && args.length === 1 && args[0])
         return this.convert(this.gen(args[0]), this.coreStruct(lower === 'vector' ? 'Vector' : 'Rotator'), true)
       // A class cast.
