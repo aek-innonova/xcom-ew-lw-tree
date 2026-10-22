@@ -84,9 +84,9 @@ syntax for what UnrealScript cannot say, and the files.
   common case), adding the names, imports and locals the code needs; or as a
   whole package (`--out`). Both take new declarations too (member
   variables, functions, states, structs, enums, constants, delegates,
-  interfaces, a new class with its replication) and a variable's modifiers
-  changed (made `config`, say, to be set from an ini); a mod script with
-  either is made from the whole package. `new` builds a new script package,
+  interfaces, a new class with its replication) and changed modifiers (a
+  variable made `config`, say, to be set from an ini; a function made
+  `exec`); a mod script with any of these is made from the whole package. `new` builds a new script package,
   with a start for its .int and .ini.
 - `diff`: two versions of a package compared, each changed function as a
   diff of its source (Long War changed 651 of XComStrategyGame's).

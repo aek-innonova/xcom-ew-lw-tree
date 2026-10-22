@@ -186,8 +186,8 @@ describe.skipIf(!haveCorpus)('a native class from the command line', () => {
   })
 })
 
-describe.skipIf(!haveCorpus)("a variable's modifiers changed", () => {
-  it('made config in a config class: its flags, both ways (with PatchUPK, the same package); refused where the class has no config file, or the type changed', async () => {
+describe.skipIf(!haveCorpus)("modifiers changed", () => {
+  it('made config in a config class, a function made exec: their flags, both ways (with PatchUPK, the same package); refused where the class has no config file, or a type changed', async () => {
     const { openPackage } = await import('../src/package.ts')
     const { readObject } = await import('../src/objects.ts')
     const pkg = CORPUS[2]!
@@ -220,6 +220,13 @@ describe.skipIf(!haveCorpus)("a variable's modifiers changed", () => {
       const ships = run('class', CORPUS[3]!, 'UIShipList')
       writeFileSync(join(dir, 'ui.uc'), ships.replace('\nvar int m_iContinentTransferingTo;', '\nvar config int m_iContinentTransferingTo;'))
       expect(fails('compile', CORPUS[3]!, 'UIShipList', join(dir, 'ui.uc'), '--out', join(dir, 'ui.upk'))).toContain('a config variable needs the class to have a config file')
+      // A function made exec (callable from the console): its flags; a changed return type is not compiled.
+      const labs = run('class', CORPUS[3]!, 'XGFacility_Labs')
+      writeFileSync(join(dir, 'ex.uc'), labs.replace(/^function int GetResearchPerHour\(\)/m, 'exec function int GetResearchPerHour()'))
+      expect(run('compile', CORPUS[3]!, 'XGFacility_Labs', join(dir, 'ex.uc'), '--out', join(dir, 'ex.upk'))).toContain('modifiers of XGFacility_Labs.GetResearchPerHour')
+      expect(run('decompile', join(dir, 'ex.upk'), 'XGFacility_Labs.GetResearchPerHour', '--game', dirname(pkg))).toContain('exec function int GetResearchPerHour()')
+      writeFileSync(join(dir, 'ex2.uc'), labs.replace(/^function int GetResearchPerHour\(\)/m, 'exec function float GetResearchPerHour()'))
+      expect(fails('compile', CORPUS[3]!, 'XGFacility_Labs', join(dir, 'ex2.uc'), '--out', join(dir, 'ex2.upk'))).toContain('its declaration changed')
       writeFileSync(join(dir, 'gc2.uc'), src.replace('\nvar int m_iDifficulty;', '\nvar float m_iDifficulty;'))
       expect(fails('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc2.uc'), '--out', join(dir, 'gc2.upk'))).toContain('a changed type is not compiled')
     } finally {

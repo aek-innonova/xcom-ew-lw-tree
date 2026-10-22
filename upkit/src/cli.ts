@@ -164,7 +164,7 @@ try {
           ? [...edits.vars.flatMap((v) => v.names.map((n) => `${path}.${n.name}`)), ...edits.functions.map((f) => f.path)]
           : []
       // (Variables whose modifiers changed: their flags, written as declarations are.)
-      const modified = edits?.varFlags.map((x) => x.path) ?? []
+      const modified = [...(edits?.varFlags ?? []), ...(edits?.funcFlags ?? [])].map((x) => x.path)
       const changes = edits ? edits.changes : isNew ? [] : [{ ref: functionRef(pkg, path), text, path }]
       // One function's source: its declaration as the package has it (only the body compiles).
       if (!isClass && pkg.className(changes[0]!.ref) === 'Function' && declaration(readableSource(linker, pkg, changes[0]!.ref)) !== declaration(text))

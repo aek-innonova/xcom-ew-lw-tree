@@ -261,9 +261,17 @@ export function classesPackage(
   const modified: string[] = []
   for (const c of classes) {
     const e = classEdits(linker, target, c.name, c.src, newClasses)
-    if (!e.varFlags.length) continue
-    step(writePackage(target, { data: new Map(e.varFlags.map((x) => [x.ref, withFlags(target, x.ref, x.flags)])) }))
-    modified.push(...e.varFlags.map((x) => x.path))
+    if (!e.varFlags.length && !e.funcFlags.length) continue
+    const data = new Map<number, Uint8Array>(e.varFlags.map((x) => [x.ref, withFlags(target, x.ref, x.flags)]))
+    for (const x of e.funcFlags) {
+      // (A function's flags follow its script: native index, precedence, flags.)
+      const d = target.data(x.ref).slice()
+      const h = readStructHead(target, x.ref)
+      new DataView(d.buffer, d.byteOffset).setUint32(h.end + 3, x.flags, true)
+      data.set(x.ref, d)
+    }
+    step(writePackage(target, { data }))
+    modified.push(...e.varFlags.map((x) => x.path), ...e.funcFlags.map((x) => x.path))
   }
   const compiled: string[] = []
   const objects: string[] = []

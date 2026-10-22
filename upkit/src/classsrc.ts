@@ -6,7 +6,7 @@
 import type { Change } from './changes.ts'
 import { readableReplication, readableSource, readableStateCode } from './fidelity.ts'
 import { ClassDecompiler } from './classdecomp.ts'
-import { CPF, typeOf, typeText } from './types.ts'
+import { CPF, FUNC, typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex, lineAt } from './parse.ts'
@@ -236,6 +236,32 @@ export function declaration(text: string): string {
   }
 }
 
+/** The modifiers a function's flags alone say (nothing else of it changes with them). */
+const FLAG_MODIFIERS: Record<string, number> = { exec: FUNC.Exec, simulated: FUNC.Simulated, singular: FUNC.Singular }
+
+/** A function's flags when its declaration changed only in those modifiers (or function/event), else null. */
+function flagsOnly(linker: Linker, pkg: Package, ref: number, was: string, now: string): number | null {
+  let a, b
+  try {
+    a = parseSignature(was, null)
+    b = parseSignature(now, null)
+  } catch {
+    return null
+  }
+  const rest = (d: typeof a) => JSON.stringify([d.returnType?.toLowerCase() ?? null, d.params.map((p) => [p.name.toLowerCase(), p.type.toLowerCase(), p.dim, p.out, p.optional, p.coerce, p.isConst]), d.isConst])
+  if (rest(a) !== rest(b)) return null
+  const mods = (d: typeof a) => [...d.modifiers].map((m) => m.toLowerCase()).filter((m) => !(m in FLAG_MODIFIERS))
+  if (mods(a).sort().join() !== mods(b).sort().join()) return null
+  if (![a.keyword, b.keyword].every((k) => k === 'function' || k === 'event')) return null
+  const f = linker.object({ pkg, ref })
+  if (f?.kind !== 'function') return null
+  const mask = FUNC.Exec | FUNC.Simulated | FUNC.Singular | FUNC.Event
+  let flags = f.flags & ~mask
+  for (const m of b.modifiers) flags |= FLAG_MODIFIERS[m.toLowerCase()] ?? 0
+  if (b.keyword === 'event') flags |= FUNC.Event
+  return flags >>> 0
+}
+
 const same = (a: string, b: string) => {
   const x = lex(a)
   const y = lex(b)
@@ -260,6 +286,8 @@ export interface ClassEdits {
   structDefaults: { ref: number; path: string; block: string }[]
   /** Variables the class has whose modifiers were changed (config, const, transient …): their flags as they are to be. */
   varFlags: { ref: number; path: string; flags: bigint }[]
+  /** Functions the class has made exec, simulated, singular or an event (or no longer): their flags as they are to be. */
+  funcFlags: { ref: number; path: string; flags: number }[]
 }
 
 export function classEdits(
@@ -270,7 +298,7 @@ export function classEdits(
   /** Paths compiled whatever they decompile to now (just declared: their bodies are stubs). */
   always: Set<string> = new Set(),
 ): ClassEdits {
-  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [], varFlags: [] }
+  const out: ClassEdits = { changes: [], vars: [], functions: [], consts: [], enums: [], structs: [], states: [], replication: null, structDefaults: [], varFlags: [], funcFlags: [] }
   // The class's own declaration: what it extends and is within stay as the package has them.
   const own = pkg.find(className)
   const co = own ? linker.object({ pkg, ref: own }) : null
@@ -400,8 +428,12 @@ export function classEdits(
     }
     const edited = always.has(path.toLowerCase()) || !same(original, p.text)
     // Its declaration as the package has it: a body is compiled, a changed declaration is not.
-    if (edited && p.kind === 'function' && !always.has(path.toLowerCase()) && declaration(original) !== declaration(p.text))
-      throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it`)
+    if (edited && p.kind === 'function' && !always.has(path.toLowerCase()) && declaration(original) !== declaration(p.text)) {
+      // Made exec, simulated, singular or an event (or no longer), the rest as it was: its flags.
+      const flags = flagsOnly(linker, pkg, ref, original, p.text)
+      if (flags === null) throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it (exec, simulated, singular and event can change)`)
+      out.funcFlags.push({ ref, path, flags })
+    }
     if (edited) out.changes.push({ ref, text: p.text, path, line: p.at === undefined ? 1 : lineAt(src, p.at) })
   }
   return out

@@ -190,6 +190,10 @@ A variable the class has can have its modifiers changed (`var int X;` to
 `var config int X;`, `const`, `transient` …; the type, category and array
 size as they were): its flags are written, either way. `config` needs the
 class to have a config file (`config(GameCore)`); a native variable is C++'s.
+upkit says where a config or localized variable's value now comes from. A
+function can be made `exec` (callable from the console), `simulated`,
+`singular` or an `event`, or no longer, its parameters and return type as
+they were.
 
 ### What is not compiled
 
