@@ -184,6 +184,16 @@ export function classesPackage(
     target = openPackage(b)
     linker.add(pkgName, target)
   }
+  // What each class's source edits, against the package as it is now (worked out again only once a step changed it).
+  const editsCache = new Map<string, { at: Package; also: Set<string>; e: ReturnType<typeof classEdits> }>()
+  const editsOf = (c: { name: string; src: string }, also: Set<string>) => {
+    const hit = editsCache.get(c.name)
+    if (hit && hit.at === target && hit.also === also) return hit.e
+    const e = classEdits(linker, target, c.name, c.src, also)
+    editsCache.set(c.name, { at: target, also, e })
+    return e
+  }
+
   const classes = sources.map((src) => ({ src, name: parseClassHeader(src).name, head: parseClassHeader(src) }))
   const declared: string[] = []
   const implicit = new Map<string, string[]>()
@@ -211,21 +221,21 @@ export function classesPackage(
   // Then, for all the classes (each step can name what the one before declared):
   // constants, enums and states; structs; delegates; variables and functions.
   for (const c of classes) {
-    const e = classEdits(linker, target, c.name, c.src, newClasses)
+    const e = editsOf(c, newClasses)
     if (!e.consts.length && !e.enums.length && !e.states.length) continue
     step(declareFields(linker, target, target.find(c.name), e))
     declared.push(...[...e.consts, ...e.enums, ...e.states].map((x) => `${c.name}.${x.name}`))
   }
   // Values added to enums the classes have (before the code that names them compiles).
   for (const c of classes) {
-    for (const a of classEdits(linker, target, c.name, c.src, newClasses).enumAppends) {
+    for (const a of editsOf(c, newClasses).enumAppends) {
       step(appendEnumValues(linker, target, target.find(a.path), a.values))
       declared.push(...a.values.map((v) => `${a.path}.${v}`))
     }
   }
   // Structs, each once the types its members name are there (a struct can use one declared later).
   const structDefaultsToDo: { cls: string; name: string; block: string }[] = []
-  let structs = classes.flatMap((c) => classEdits(linker, target, c.name, c.src, newClasses).structs.map((s) => ({ c, s })))
+  let structs = classes.flatMap((c) => editsOf(c, newClasses).structs.map((s) => ({ c, s })))
   while (structs.length) {
     const left: typeof structs = []
     let lastError: unknown = null
@@ -245,14 +255,14 @@ export function classesPackage(
     structs = left
   }
   for (const c of classes) {
-    const e = classEdits(linker, target, c.name, c.src, newClasses)
+    const e = editsOf(c, newClasses)
     const delegates = e.functions.filter((f) => f.keyword === 'delegate')
     if (!delegates.length) continue
     step(declare(linker, target, target.find(c.name), [], delegates))
     declared.push(...delegates.map((f) => f.path))
   }
   for (const c of classes) {
-    const e = classEdits(linker, target, c.name, c.src, newClasses)
+    const e = editsOf(c, newClasses)
     if (!e.vars.length && !e.functions.length) continue
     step(declare(linker, target, target.find(c.name), e.vars, e.functions))
     declared.push(...e.vars.flatMap((v) => v.names.map((n) => `${c.name}.${n.name}`)), ...e.functions.map((f) => f.path))
@@ -267,7 +277,7 @@ export function classesPackage(
   // Variables whose modifiers changed: their flags.
   const modified: string[] = []
   for (const c of classes) {
-    const e = classEdits(linker, target, c.name, c.src, newClasses)
+    const e = editsOf(c, newClasses)
     if (!e.varFlags.length && !e.funcFlags.length) continue
     const data = new Map<number, Uint8Array>(e.varFlags.map((x) => [x.ref, withFlags(target, x.ref, x.flags)]))
     for (const x of e.funcFlags) {
@@ -285,7 +295,7 @@ export function classesPackage(
   const added = { names: target.names.length - pkg.names.length, imports: target.imports.length - pkg.imports.length, exports: target.exports.length - pkg.exports.length }
   const fresh = new Set(declared.map((d) => d.toLowerCase()))
   for (const c of classes) {
-    const e = classEdits(linker, target, c.name, c.src, fresh)
+    const e = editsOf(c, fresh)
     const own = defaultsBlock(c.src)
     const extra = implicit.get(c.name) ?? []
     const block = extra.length || own !== null ? [...extra, own ?? ''].join('\n') : null
