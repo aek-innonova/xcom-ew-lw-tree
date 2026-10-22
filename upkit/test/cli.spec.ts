@@ -287,3 +287,21 @@ describe.skipIf(!haveCorpus)("a hand patch's function edited (its escapes kept)"
     }
   }, 300_000)
 })
+
+describe.skipIf(!existsSync(join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComUIShell_SF.upk')))('a seek-free package (its classes inside a package object)', () => {
+  it('a class named bare: decompiled, edited, compiled as that class (not declared anew)', () => {
+    const pkg = join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComUIShell_SF.upk')
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const src = run('class', pkg, 'UIFinalShell')
+      expect(src).toMatch(/^class UIFinalShell\n/)
+      writeFileSync(join(dir, 's.uc'), src.replace('myValue.S = m_sSinglePlayer;', 'myValue.S = m_sSinglePlayer $ " (upkit)";'))
+      const said = run('compile', pkg, 'UIFinalShell', join(dir, 's.uc'), '--out', join(dir, 's.upk'))
+      expect(said).toContain('compiled XComUIShell.UIFinalShell.SetText; 0 names, 0 imports, 0 objects added')
+      expect(said).not.toContain('declared')
+      expect(run('decompile', join(dir, 's.upk'), 'XComUIShell.UIFinalShell.SetText', '--game', dirname(pkg))).toContain('myValue.S = m_sSinglePlayer $ " (upkit)";')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
+})

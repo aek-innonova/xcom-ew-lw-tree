@@ -36,7 +36,7 @@ whole package laid out anew (default keep: objects stay where they were).`
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { binaryOperators, FunctionCompiler, shared } from './compile.ts'
-import { classesPackage, modScriptWith, packageWith } from './changes.ts'
+import { classesPackage, classPathIn, modScriptWith, packageWith } from './changes.ts'
 import { classEdits, declaration } from './classsrc.ts'
 import { diffPackages } from './diff.ts'
 import { stubs } from './stubs.ts'
@@ -152,12 +152,14 @@ try {
     }
     case 'class': {
       if (!rest[0]) usage()
-      process.stdout.write(decompileClass(linker, pkg, rest[0]))
+      process.stdout.write(decompileClass(linker, pkg, pkg.find(rest[0]) ? rest[0] : classPathIn(pkg, rest[0])))
       break
     }
     case 'compile': {
-      const [path, source] = rest
-      if (!path || !source || (!out && !patch)) usage()
+      const [given, source] = rest
+      if (!given || !source || (!out && !patch)) usage()
+      // (A class named bare where the package has it inside a package object, as a seek-free package does: its path.)
+      const path = pkg.find(given) ? given : classPathIn(pkg, given)
       const text = readFileSync(source, 'utf8')
       // A class: what was edited (or declared anew) in its source. Else one function or state.
       const target = pkg.find(path)

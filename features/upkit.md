@@ -192,11 +192,7 @@ install into `samples/ew/`.
 
 ### Not verified, and not done
 
-- Nothing upkit wrote has been loaded by the game. The win VM has no GPU
-  (Microsoft Basic Display Adapter), so XCOM does not run there, and not
-  headless either (`-nullrhi` exits at once, without a log; both recorded
-  with `am learn`). The checks above are structural and by comparison with
-  what Unreal's compiler and PatchUPK make.
+- (Loaded by the game since: see "In the game" below.)
 - The app's own PatchUPK implementation (`src/model/modpatch.ts`, which its
   game tools install mods with) takes neither `[ADD_IMPORT_ENTRY]` nor
   `[ADD_EXPORT_ENTRY]`, so a mod script that adds imports, locals or
@@ -244,3 +240,43 @@ build (`node upkit/build.mjs`).
    load and run, and that PatchUPK's appended objects do.
 4. A new script package (`new`, a class extending XComMutator) loaded the way
    Long War's mutators are: tells that a package upkit made from nothing loads.
+
+## Report (2026-10-22, in the game)
+
+On wingpu (a machine with a GPU, vanilla Enemy Within from Steam), driven
+from here through `am exec` (the desktop session) with tools for starting
+the game, screenshots and input (learnings #171, #172). The game's files were
+backed up before each test and are as shipped again at the end; the game
+runs windowed there (its own settings, for screenshots).
+
+| What | How | In the game |
+|---|---|---|
+| Changed code in XComGame.upk | `--out`: `UIInterfaceMgr.OnInit` (runs at the main menu) logging a line | loaded, ran: `ScriptLog: upkit was here: UIInterfaceMgr.OnInit ran (compiled by upkit)` |
+| New declarations | `--out`: a member variable and a function in `UIInterfaceMgr`, called twice | ran: `m_iUpkitCount = 2`, then `5` (the variable keeps its value) |
+| The same as a mod script | `--patch`, applied by Long War's PatchUPK.exe to the uncompressed original | loaded, ran: the same two lines |
+| A package from nothing | `new UpkitTest.u` (a class extending Actor), spawned by name from the changed XComGame | loaded, ran: `upkit package loaded: UpkitTest.UpkitHello.PostBeginPlay ran` |
+
+Found and fixed on the way:
+- A class in a seek-free package (inside a package object,
+  `XComUIShell.UIFinalShell`) named bare in its source was taken for a new
+  class and declared again; now found by its path (`class`, `compile`, and
+  a class's source in a whole package), with a test.
+- A package upkit adds objects to now counts them in its net objects: the
+  new package's objects had been logged as having an invalid net index (the
+  game ran on).
+
+Found, not fixed:
+- A seek-free content package (`XComUIShell_SF.upk`, the main menu's
+  screen) changed by even one byte of bytecode crashes the game as it loads
+  it (an array assertion), while the same package written back unchanged
+  (uncompressed) loads: the game checks those packages' contents somehow
+  (not the table of contents, which has no hashes). Script packages
+  (XComGame.upk, where mods live) load changed. Long War changes none of
+  those packages either.
+- PatchUPK does not count the objects it adds in the package's net
+  objects; where a package counts no more than it has, the game logs the
+  added ones as invalid (as above). XComGame.upk counts more than it has, so
+  the mod-script test above ran clean.
+- Not checked in play: a change seen in a campaign (research speed, the
+  first step of the plan above); the code paths are the same ones the menu
+  tests ran.

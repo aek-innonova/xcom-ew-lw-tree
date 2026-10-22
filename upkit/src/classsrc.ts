@@ -370,7 +370,7 @@ export function classEdits(
       // (A declaration upkit does not declare, a delegate's, is fine when the class has it.)
       const last = /(\w+)\s*(?:\[[^\]]*\])?\s*;\s*$/.exec(p.text)?.[1]
       if (last && pkg.find(`${className}.${last}`) && /\bdelegate\s*</i.test(p.text)) continue
-      const v = parseVar(p.text, className)
+      const v = parseVar(p.text, className.split('.').pop()!)
       const fresh = v.names.filter((n) => !pkg.find(`${className}.${n.name}`))
       // One the class has, declared with another type: not compiled (its type stays).
       for (const n of v.names) {
@@ -391,7 +391,7 @@ export function classEdits(
               .join(' ')
           if (norm(line) !== norm(p.text)) {
             // Only its modifiers (config, const, transient …), the rest as it was: its flags as they say.
-            const was = parseVar(line, className)
+            const was = parseVar(line, className.split('.').pop()!)
             const flat = (x: string) => x.toLowerCase().replace(/\s+/g, '')
             const rest = flat(was.type) === flat(v.type) && (was.category ?? '') === (v.category ?? '') && was.names[0]?.dim === n.dim
             if (!rest || prop.flags & CPF.Native)

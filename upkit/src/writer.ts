@@ -66,6 +66,9 @@ export function writePackage(pkg: Package, changes: Changes = {}): Uint8Array {
     // count can be off (Long War added a name without counting it).
     g.names += names.length - pkg.names.length
     g.exports += exports.length - pkg.exports.length
+    // An object added has its own index for its net index (as the game's cooked packages
+    // have it): counted, or the game logs it as invalid ("AddNetObject … max: 0", in the game).
+    if (exports.length > pkg.exports.length) g.netObjects = Math.max(g.netObjects, exports.length)
   }
   // The export table's size depends only on the entries, not on the offsets in them.
   const exportTableSize = (() => {

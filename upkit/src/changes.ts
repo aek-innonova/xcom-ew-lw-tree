@@ -111,6 +111,23 @@ export function modScriptWith(
   }
 }
 
+/**
+ * A class as the package has it: by its name, or by its path where it sits
+ * inside a package object (a seek-free package's classes do: XComUIShell.UIFinalShell).
+ * A name no class of the package has is a new class's.
+ */
+export function classPathIn(pkg: Package, name: string): string {
+  const r = pkg.find(name)
+  if (r && pkg.className(r) === 'Class') return name
+  let found: string | null = null
+  for (let i = 1; i <= pkg.exports.length; i++)
+    if (pkg.className(i) === 'Class' && pkg.objectName(i).toLowerCase() === name.toLowerCase()) {
+      if (found) return name
+      found = pkg.path(i)
+    }
+  return found ?? name
+}
+
 /** A property's data with its flags set (after its index, its tags, its next and its array size). */
 function withFlags(pkg: Package, ref: number, flags: bigint): Uint8Array {
   const d = pkg.data(ref).slice()
@@ -194,7 +211,8 @@ export function classesPackage(
     return e
   }
 
-  const classes = sources.map((src) => ({ src, name: parseClassHeader(src).name, head: parseClassHeader(src) }))
+  // (A class the package has, by its path: in a seek-free package the classes are inside a package object.)
+  const classes = sources.map((src) => ({ src, name: classPathIn(pkg, parseClassHeader(src).name), head: parseClassHeader(src) }))
   const declared: string[] = []
   const implicit = new Map<string, string[]>()
   // The new classes, each after its parent if that is new too.
