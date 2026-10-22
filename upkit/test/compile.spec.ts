@@ -478,8 +478,9 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
     ['shrunk', (s) => s.replace('return int(GetAvailableScientists() * (1 + m_fLabBonus + m_fAdjLabBonus));', 'return GetAvailableScientists();')],
     ['naming a name the package lacks', (s) => s.replace('(1 + m_fLabBonus', "(int(IsInState('UpkitBrandNewState')) + m_fLabBonus")],
   ]
-  // (The app's implementation takes neither ADD_IMPORT_ENTRY nor ADD_EXPORT_ENTRY; PatchUPK does.)
-  const beyond: [string, (s: string) => string][] = [
+  // (The app's implementation takes neither ADD_IMPORT_ENTRY nor ADD_EXPORT_ENTRY; PatchUPK does.
+  // Defaults and state code: PatchUPK, as the app's implementation is checked on them in cli.spec.)
+  const beyond: [string, (s: string) => string, string?][] = [
     ['naming a class the package does not import', (s) => s.replace('(1 + m_fLabBonus', "(int(class'XComGame.XGAIBehavior_Civilian' != none) + 1 + m_fLabBonus")],
     [
       "calling another package's function the package does not import",
@@ -501,22 +502,25 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
           '    local array<int> arrUpkit;\n    local TResearchProject kUpkitProject;\n\n    arrUpkit.AddItem(24);\n    kUpkitProject.iTech = arrUpkit[0];\n    m_iRequestCounter += kUpkitProject.iTech * 10;',
         ),
     ],
+    ['in the defaults, the same size', (s) => s.replace('m_eAmbience=eAmbience_Labs', 'm_eAmbience=eAmbience_Engineering')],
+    ['in the defaults, grown, a name added', (s) => s.replace('m_strProgress="Progress"', 'm_strProgress="Progress so far"').replace('m_nmRoomName=ScienceLab', 'm_nmRoomName=UpkitRoom')],
+    ["in a state's code, a label added", (s) => s.replace('Begin:\n    LoadCombatResults();', 'Begin:\n    LoadCombatResults();\n    Sleep(0.1);\nUpkitAgain:\n    LoadCombatResults();'), 'XGStrategy'],
   ]
-  const edited = async (edit: (s: string) => string) => {
+  const edited = async (edit: (s: string) => string, cls = 'XGFacility_Labs') => {
     const { decompileClass } = await import('../src/classdecomp.ts')
     const { classEdits } = await import('../src/classsrc.ts')
     const { modScriptWith, packageWith } = await import('../src/changes.ts')
+    const { defaultsBlock } = await import('../src/defaults.ts')
     const linker = new Linker([dirname(CORPUS[0]!)])
     const pkg = load(CORPUS[3]!)
     linker.add('XComStrategyGame', pkg)
-    const src = edit(decompileClass(linker, pkg, 'XGFacility_Labs'))
-    const changes = classEdits(linker, pkg, 'XGFacility_Labs', src).changes
-    expect(changes.length).toBe(1)
-    return {
-      pkg,
-      ours: packageWith(linker, pkg, changes, 'keep').bytes,
-      script: modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'x' }).text,
-    }
+    const src = edit(decompileClass(linker, pkg, cls))
+    const changes = classEdits(linker, pkg, cls, src).changes
+    // Its defaults as the command line takes them: compiled, what changed written.
+    const defaults = { classRef: pkg.find(cls), block: defaultsBlock(src), structs: [] }
+    const script = modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'x' }, defaults).text
+    expect(script).toContain('OBJECT=')
+    return { pkg, ours: packageWith(linker, pkg, changes, 'keep', defaults).bytes, script }
   }
   // The same package: the same names, imports and export entries (but where the objects
   // lie), and every object's data. (PatchUPK also moves a shrunk object to the end and
@@ -547,13 +551,13 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
       expectSame(ours, copy.bytes)
     })
   const patchUPK = process.env.PATCHUPK
-  for (const [name, edit] of [...cases, ...beyond])
-    it.skipIf(!patchUPK)(`a function's code ${name} (PatchUPK)`, async () => {
+  for (const [name, edit, cls] of [...cases, ...beyond] as [string, (s: string) => string, string?][])
+    it.skipIf(!patchUPK)(`an edit ${name} (PatchUPK)`, async () => {
       const { execFileSync } = await import('node:child_process')
       const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs')
       const { tmpdir } = await import('node:os')
       const { join } = await import('node:path')
-      const { pkg, ours, script } = await edited(edit)
+      const { pkg, ours, script } = await edited(edit, cls)
       const dir = mkdtempSync(join(tmpdir(), 'lwtree-patchupk-'))
       try {
         // (It opens the package by its name in lower case, as on Windows.)

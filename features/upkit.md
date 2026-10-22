@@ -120,8 +120,10 @@ packages came from the win VM's install into `samples/ew/`.
 - A whole package from upkit holds what PatchUPK makes of the same change:
   the same names, imports, export entries and every object's bytes. Checked
   with PatchUPK itself (built on Linux from wghost's UPKUtils source, run by
-  the tests when `PATCHUPK` names the binary; eight kinds of edit, two adding
-  imports, two adding locals) and with the app's implementation (four, as it
+  the tests when `PATCHUPK` names the binary; eleven kinds of edit: a
+  function's code (the same size, grown, shrunk, a name added, two adding
+  imports, two adding locals), defaults (the same size; grown, a name added),
+  a state's code with a label added) and with the app's implementation (four, as it
   takes neither imports nor objects). Every function of Engine, XComGame,
   XComStrategyGame and LWRebalance.u (22,930), written back as a mod script and
   applied by PatchUPK, comes out byte for byte with the engine's memory size

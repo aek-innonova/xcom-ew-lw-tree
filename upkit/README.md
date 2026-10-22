@@ -213,7 +213,8 @@ script adds no declarations to a class (only a function's new locals).
   same change: for an edited function (the same size, grown, shrunk, naming
   a name the package lacks, naming a class or calling a function the package
   does not import, declaring new locals: an int after the return value, an
-  array and a struct in a function that had no children), the package upkit writes and the original with upkit's
+  array and a struct in a function that had no children; and defaults the
+  same size or grown, a state's code with a label added), the package upkit writes and the original with upkit's
   mod script applied by PatchUPK have the same names, imports and export
   entries, and every object the same bytes. PatchUPK here is the binary built
   from wghost's UPKUtils (the tests run it when `PATCHUPK` names it; it opens
