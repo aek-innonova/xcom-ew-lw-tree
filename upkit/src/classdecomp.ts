@@ -315,6 +315,12 @@ export class ClassDecompiler {
     return { k: 'unknown' }
   }
 
+  /** The class's defaultproperties block, as `class` writes it (empty when it has no default object). */
+  defaultsText(): string {
+    const c = this.object<ClassObj>(this.ref)
+    return this.defaults(c.defaultObject).join('\n')
+  }
+
   private defaults(ref: number): string[] {
     if (!ref || ref < 0) return []
     const pkg = this.pkg

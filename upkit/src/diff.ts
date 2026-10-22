@@ -3,6 +3,7 @@
 // unified diff of its decompiled source. What a mod did to the game, in
 // UnrealScript.
 
+import { ClassDecompiler } from './classdecomp.ts'
 import { readableSource, readableStateCode } from './fidelity.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
@@ -109,6 +110,25 @@ export function diffPackages(la: Linker, a: Package, lb: Linker, b: Package, fil
       r.added.push(path)
       parts.push(unifiedDiff('', readable(source(lb, b, rb)), '/dev/null', `b/${path}`))
     }
+  // Classes' defaults: what the other version's default objects hold otherwise.
+  for (let i = 1; i <= a.exports.length; i++) {
+    if (a.className(i) !== 'Class') continue
+    const name = a.objectName(i)
+    if (filter && !name.toLowerCase().includes(filter.toLowerCase().split('.')[0]!)) continue
+    const j = b.find(name)
+    if (!j || b.className(j) !== 'Class') continue
+    let da = ''
+    let db = ''
+    try {
+      da = new ClassDecompiler(la, a, i, false).defaultsText()
+      db = new ClassDecompiler(lb, b, j, false).defaultsText()
+    } catch {
+      continue
+    }
+    if (da === db) continue
+    r.changed.push(`${name} (defaultproperties)`)
+    parts.push(unifiedDiff(da, db, `a/${name} (defaultproperties)`, `b/${name} (defaultproperties)`))
+  }
   r.text = parts.join('')
   return r
 }

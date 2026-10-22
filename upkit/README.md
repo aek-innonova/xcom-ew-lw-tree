@@ -52,7 +52,8 @@ node upkit.mjs compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --out XCo
 # a new script package of your own classes
 node upkit.mjs new MyMod.u MyModInfo.uc MyModData.uc --game "<the game>/XComGame/CookedPCConsole"
 
-# what another version changed (a mod against the game, say): each function as a diff of its source
+# what another version changed (a mod against the game, say): each function, and each class's
+# defaults, as a diff of its source
 node upkit.mjs diff vanilla/XComStrategyGame.upk XComStrategyGame.upk XGFacility_Labs
 
 node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back byte for byte

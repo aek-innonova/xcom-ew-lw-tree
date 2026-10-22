@@ -54,6 +54,11 @@ describe.skipIf(!haveCorpus || !existsSync(join(dirname(CORPUS[0]!), '../ew/Cook
     expect(out).toContain('--- a/XGFacility_Labs.GetResearchPerHour')
     expect(out).toContain('-    return int(GetAvailableScientists() * m_fLabBonus * m_fAdjLabBonus);')
     expect(out).toContain('+    return int(GetAvailableScientists() * (1 + m_fLabBonus + m_fAdjLabBonus));')
+    // And a class's defaults Long War changed.
+    const defaults = run('diff', vanilla, CORPUS[3]!, 'XGStrategyActorNativeBase')
+    expect(defaults).toContain('--- a/XGStrategyActorNativeBase (defaultproperties)')
+    expect(defaults).toContain('-    LOSE_CONDITION_NUM_DESERTERS=8')
+    expect(defaults).toContain('+    LOSE_CONDITION_NUM_DESERTERS=16')
   })
 })
 
