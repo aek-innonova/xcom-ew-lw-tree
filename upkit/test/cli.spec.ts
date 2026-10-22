@@ -1,13 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { CORPUS, haveCorpus } from './corpus.ts'
+import { openPackage, type Package } from '../src/package.ts'
 
 // The command line as a modder runs it: the common case end to end, in a scratch folder.
 const cli = new URL('../src/cli.ts', import.meta.url).pathname
 const run = (...args: string[]) => execFileSync(process.execPath, [cli, ...args], { encoding: 'utf8' })
+
+/** A mod script applied by `upkit apply` to a copy of the package (in a game folder of its own, under dir): the package it leaves. */
+function applied(pkg: string, mod: string, dir: string): Package {
+  const game = join(dir, 'applied', 'CookedPCConsole')
+  rmSync(join(dir, 'applied'), { recursive: true, force: true })
+  mkdirSync(game, { recursive: true })
+  copyFileSync(pkg, join(game, basename(pkg)))
+  expect(run('apply', mod, '--game', game)).toMatch(/^changed /m)
+  return openPackage(new Uint8Array(readFileSync(join(game, basename(pkg)))))
+}
+
+/** The same package as far as the game reads it: names, imports, exports (but where their data is) and every object's data. */
+function expectSame(a: Package, b: Package) {
+  expect(b.names).toEqual(a.names)
+  expect(b.imports).toEqual(a.imports)
+  const entries = (p: Package) => p.exports.map((e) => ({ ...e, serialOffset: 0 }))
+  expect(entries(b)).toEqual(entries(a))
+  for (let i = 1; i <= a.exports.length; i++) if (Buffer.compare(a.data(i), b.data(i))) throw new Error(`${a.path(i)} differs`)
+}
 
 describe.skipIf(!haveCorpus)('the command line', () => {
   it('class, edit, compile to a mod script and to a package; usage; errors said in a line', () => {
@@ -156,8 +176,7 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
     ['a new class', 'UpkitHelper', () => 'class UpkitHelper extends Object;\n\nvar int m_iCount;\n\nstatic function int Twice(int i)\n{\n    return i * 2;\n}\n\ndefaultproperties\n{\n    m_iCount=3\n}\n'],
   ]
   for (const [name, cls, edit] of cases)
-    it(name, async () => {
-      const { openPackage } = await import('../src/package.ts')
+    it(`${name}`, async () => {
       const pkg = CORPUS[3]!
       const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
       try {
@@ -166,6 +185,8 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
         expect(run('compile', pkg, cls, join(dir, 'c.uc'), '--patch', join(dir, 'mod.txt'))).toContain('as a PatchUPK mod script: declared')
         expect(readFileSync(join(dir, 'mod.txt'), 'utf8')).toMatch(/\[ADD_EXPORT_ENTRY\]|\[BEFORE_HEX\]/)
         run('compile', pkg, cls, join(dir, 'c.uc'), '--out', join(dir, 'out.upk'))
+        // upkit apply (the site's engine) makes the same package of the script.
+        expectSame(openPackage(new Uint8Array(readFileSync(join(dir, 'out.upk')))), applied(pkg, join(dir, 'mod.txt'), dir))
         if (!process.env.PATCHUPK) return
         const target = join(dir, 'xcomstrategygame.upk')
         writeFileSync(target, openPackage(new Uint8Array(readFileSync(pkg))).bytes)
@@ -175,7 +196,7 @@ describe.skipIf(!haveCorpus)('declarations as a mod script, from the command lin
         const b = openPackage(new Uint8Array(readFileSync(target)))
         expect(a.names).toEqual(b.names)
         expect(a.imports).toEqual(b.imports)
-        expect(a.exports.map(({ serialOffset: _, ...e }) => e)).toEqual(b.exports.map(({ serialOffset: _, ...e }) => e))
+        expect(a.exports.map((e) => ({ ...e, serialOffset: 0 }))).toEqual(b.exports.map((e) => ({ ...e, serialOffset: 0 })))
         for (let i = 1; i <= a.exports.length; i++) if (Buffer.compare(a.data(i), b.data(i))) throw new Error(`${a.path(i)} differs`)
       } finally {
         rmSync(dir, { recursive: true, force: true })
@@ -211,7 +232,6 @@ describe.skipIf(!haveCorpus)('a native class from the command line', () => {
 
 describe.skipIf(!haveCorpus)("modifiers changed", () => {
   it('made config in a config class, a function made exec: their flags, both ways (with PatchUPK, the same package); refused where the class has no config file, or a type changed', async () => {
-    const { openPackage } = await import('../src/package.ts')
     const { readObject } = await import('../src/objects.ts')
     const pkg = CORPUS[2]!
     const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
@@ -234,6 +254,7 @@ describe.skipIf(!haveCorpus)("modifiers changed", () => {
       const prop = readObject(out, out.find('XGTacticalGameCore.m_iDifficulty')) as { flags: bigint }
       expect(prop.flags & 0x4000n).toBe(0x4000n)
       expect(run('class', join(dir, 'gc.upk'), 'XGTacticalGameCore', '--game', dirname(pkg))).toContain('\nvar config int m_iDifficulty;')
+      expectSame(out, applied(pkg, join(dir, 'gc.txt'), dir))
       if (process.env.PATCHUPK) {
         writeFileSync(join(dir, 'xcomgame.upk'), openPackage(new Uint8Array(readFileSync(pkg))).bytes)
         execFileSync(process.env.PATCHUPK, [join(dir, 'gc.txt'), dir], { encoding: 'utf8' })
@@ -260,7 +281,6 @@ describe.skipIf(!haveCorpus)("modifiers changed", () => {
 
 describe.skipIf(!haveCorpus)("a hand patch's function edited (its escapes kept)", () => {
   it('a statement added before the escapes: the hand patch kept byte for byte; with PatchUPK, the same package as --out', async () => {
-    const { openPackage } = await import('../src/package.ts')
     const pkg = CORPUS[3]!
     const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
     try {
@@ -275,6 +295,7 @@ describe.skipIf(!haveCorpus)("a hand patch's function edited (its escapes kept)"
       const after = run('decompile', join(dir, 'fc.upk'), 'XGFundingCouncil.OnValidRequestAdded', '--game', dirname(pkg))
       expect(after).toContain('m_iFCRequestsThisMonth += 0;')
       expect(after.match(/__asm\([^\n;]*/g) ?? []).toEqual(escapes)
+      expectSame(openPackage(new Uint8Array(readFileSync(join(dir, 'fc.upk')))), applied(pkg, join(dir, 'fc.txt'), dir))
       if (process.env.PATCHUPK) {
         writeFileSync(join(dir, 'xcomstrategygame.upk'), openPackage(new Uint8Array(readFileSync(pkg))).bytes)
         execFileSync(process.env.PATCHUPK, [join(dir, 'fc.txt'), dir], { encoding: 'utf8' })
@@ -303,6 +324,99 @@ describe.skipIf(!existsSync(join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XCo
       // Written uncompressed, not flagged as stored compressed (the game fails to load it so: in the game, 2026-10-22).
       const out = readFileSync(join(dir, 's.upk'))
       expect(out.readUInt32LE(12 + 4 + out.readInt32LE(12)) & 0x02000000).toBe(0)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
+})
+
+describe.skipIf(!existsSync(join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComGame.upk')) || !existsSync(join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XComUIShell_SF.upk')))('upkit apply and restore: mod scripts on the packages as the game ships them', () => {
+  it('compressed whole (with its size file) and in chunks: applied decompressed, the originals kept beside the folder, checked, again, restored', () => {
+    const ew = join(dirname(CORPUS[0]!), '../ew/CookedPCConsole')
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const game = join(dir, 'XComGame', 'CookedPCConsole')
+      mkdirSync(game, { recursive: true })
+      copyFileSync(join(ew, 'XComGame.upk'), join(game, 'XComGame.upk'))
+      writeFileSync(join(game, 'XComGame.upk.uncompressed_size'), '12518488\n')
+      copyFileSync(join(ew, 'XComUIShell_SF.upk'), join(game, 'XComUIShell_SF.upk'))
+      // Two scripts: a function and a variable added to a class (names, objects), and the menu's label.
+      const uim = run('class', join(ew, 'XComGame.upk'), 'UIInterfaceMgr')
+        .replace('\nvar ', '\nvar int m_iUpkitApplied;\nvar ')
+        .replace('simulated function OnInit()\n{\n    super.OnInit();\n', 'simulated function OnInit()\n{\n    super.OnInit();\n    UpkitApplied();\n')
+        .replace(/\ndefaultproperties/, '\nfunction UpkitApplied()\n{\n    m_iUpkitApplied += 1;\n}\n\ndefaultproperties')
+      writeFileSync(join(dir, 'uim.uc'), uim)
+      run('compile', join(ew, 'XComGame.upk'), 'UIInterfaceMgr', join(dir, 'uim.uc'), '--patch', join(dir, 'adds.txt'))
+      run('compile', join(ew, 'XComGame.upk'), 'UIInterfaceMgr', join(dir, 'uim.uc'), '--out', join(dir, 'adds.upk'))
+      const menu = run('class', join(ew, 'XComUIShell_SF.upk'), 'UIFinalShell').replace('myValue.S = m_sSinglePlayer;', 'myValue.S = m_sSinglePlayer $ " (upkit)";')
+      writeFileSync(join(dir, 'menu.uc'), menu)
+      run('compile', join(ew, 'XComUIShell_SF.upk'), 'UIFinalShell', join(dir, 'menu.uc'), '--patch', join(dir, 'menu.txt'))
+      run('compile', join(ew, 'XComUIShell_SF.upk'), 'UIFinalShell', join(dir, 'menu.uc'), '--out', join(dir, 'menu.upk'))
+      const files = () => readdirSync(game).sort()
+      const asShipped = files()
+
+      // --check: said, nothing written.
+      expect(run('apply', join(dir, 'adds.txt'), join(dir, 'menu.txt'), '--game', game, '--check')).toContain('would change XComGame.upk, XComUIShell_SF.upk')
+      expect(existsSync(join(dir, 'XComGame', 'upkit-backup'))).toBe(false)
+      expect(Buffer.compare(readFileSync(join(game, 'XComGame.upk')), readFileSync(join(ew, 'XComGame.upk')))).toBe(0)
+
+      const said = run('apply', join(dir, 'adds.txt'), join(dir, 'menu.txt'), '--game', game)
+      expect(said).toContain('adds.txt: applies')
+      expect(said).toContain('ADD_EXPORT_ENTRY UIInterfaceMgr.UpkitApplied: changes')
+      // The originals beside the folder, not in it (the game reads every package under CookedPCConsole).
+      expect(readdirSync(join(dir, 'XComGame', 'upkit-backup')).sort()).toEqual(['XComGame.upk', 'XComGame.upk.uncompressed_size', 'XComUIShell_SF.upk'])
+      expect(files()).toEqual(['XComGame.upk', 'XComUIShell_SF.upk'])
+      const game1 = openPackage(new Uint8Array(readFileSync(join(game, 'XComGame.upk'))))
+      expectSame(openPackage(new Uint8Array(readFileSync(join(dir, 'adds.upk')))), game1)
+      // The added objects counted among the net objects; the new function linked into the class.
+      expect(game1.summary.generations.at(-1)!.netObjects).toBeGreaterThanOrEqual(game1.exports.length)
+      expect(run('class', join(game, 'XComGame.upk'), 'UIInterfaceMgr', '--game', ew)).toContain('function UpkitApplied()')
+      // Written uncompressed, not flagged as compressed (chunks taken off).
+      const shell = readFileSync(join(game, 'XComUIShell_SF.upk'))
+      expect(shell.readUInt32LE(12 + 4 + shell.readInt32LE(12)) & 0x02000000).toBe(0)
+      expectSame(openPackage(new Uint8Array(readFileSync(join(dir, 'menu.upk')))), openPackage(new Uint8Array(shell)))
+
+      // Again: installed already, nothing changes.
+      const again = run('apply', join(dir, 'adds.txt'), join(dir, 'menu.txt'), '--game', game)
+      expect(again).toContain('adds.txt: installed already')
+      expect(again).toContain('nothing to change')
+
+      // A script that does not fit: nothing written.
+      writeFileSync(join(dir, 'bad.txt'), 'UPK_FILE=XComGame.upk\nOBJECT=UIInterfaceMgr.NoSuchFunction\nMODDED_HEX=0B\n')
+      const before = readFileSync(join(game, 'XComGame.upk'))
+      const refused = (() => {
+        try {
+          execFileSync(process.execPath, [cli, 'apply', join(dir, 'bad.txt'), '--game', game], { encoding: 'utf8', stdio: 'pipe' })
+          return 'applied'
+        } catch (e) {
+          return String((e as { stdout: string }).stdout)
+        }
+      })()
+      expect(refused).toContain('nothing written')
+      expect(Buffer.compare(readFileSync(join(game, 'XComGame.upk')), before)).toBe(0)
+
+      expect(run('restore', '--game', game)).toContain('restored')
+      expect(files()).toEqual(asShipped)
+      for (const f of ['XComGame.upk', 'XComUIShell_SF.upk']) expect(Buffer.compare(readFileSync(join(game, f)), readFileSync(join(ew, f)))).toBe(0)
+      expect(existsSync(join(dir, 'XComGame', 'upkit-backup'))).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 600_000)
+})
+
+describe.skipIf(!haveCorpus)('a class source with code after its defaultproperties', () => {
+  it('a function written after the block is compiled as one before it would be', () => {
+    const pkg = CORPUS[3]!
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const src = run('class', pkg, 'XGFacility_Labs')
+      const fn = '\nfunction int UpkitAfter(int i)\n{\n    return i + 1;\n}\n'
+      writeFileSync(join(dir, 'before.uc'), src.replace(/\ndefaultproperties/, `${fn}\ndefaultproperties`))
+      writeFileSync(join(dir, 'after.uc'), `${src.trimEnd()}\n${fn}`)
+      expect(run('compile', pkg, 'XGFacility_Labs', join(dir, 'after.uc'), '--patch', join(dir, 'after.txt'))).toContain('declared XGFacility_Labs.UpkitAfter')
+      run('compile', pkg, 'XGFacility_Labs', join(dir, 'before.uc'), '--patch', join(dir, 'before.txt'))
+      expect(readFileSync(join(dir, 'after.txt'), 'utf8')).toBe(readFileSync(join(dir, 'before.txt'), 'utf8'))
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

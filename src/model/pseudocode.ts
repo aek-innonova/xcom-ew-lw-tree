@@ -4,7 +4,7 @@
 // 8 (it takes 4 in the file); a hex byte typed out counts 1 whatever it is,
 // as in PatchUPK. Labels count from the start of each block of code.
 
-import type { Package } from './upk'
+import type { Package } from './upk.ts'
 
 /** Alias name ("Name", or "Full.Object.Name.Name" when defined inside an object) → replacement code. */
 export type Aliases = Map<string, string>

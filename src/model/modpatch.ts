@@ -9,8 +9,8 @@
 // would write, and move a grown function, again), so a mod applied twice
 // changes nothing the second time.
 
-import { assemble, type Aliases } from './pseudocode'
-import type { Package } from './upk'
+import { assemble, type Aliases } from './pseudocode.ts'
+import type { Package } from './upk.ts'
 
 export interface Command {
   name: string
@@ -186,6 +186,8 @@ export interface RunResult {
 export interface RunOptions {
   /** A writable copy of a package by file name, or undefined if the install has none. */
   open: (upk: string) => Package | undefined
+  /** A file the script names (MODDED_FILE, BULK_FILE), beside the script; undefined if there is none. */
+  readFile?: (name: string) => Uint8Array | undefined
   /** Values for the script's options (ALIAS name → value), replacing the script's own literal. */
   values?: Record<string, string>
 }
@@ -202,6 +204,8 @@ export function runScript(text: string, opts: RunOptions): RunResult {
   let pkg: Package | undefined
   let pkgName = ''
   let obj = 0 // current export (1-based), 0 outside object scope
+  let entry = '' // a table entry's scope ("name GetAltWeapon"), '' otherwise
+  const guids = new Map<string, Set<string>>() // GUID: the package GUIDs a script allows, by package
   let behavior = 'KEEP'
   let scopeStart = 0 // absolute offset of the scope
   let rel = 0
@@ -210,10 +214,45 @@ export function runScript(text: string, opts: RunOptions): RunResult {
   let before: { found: boolean; data: Uint8Array; memSize: number } | null = null
 
   const objName = () => (obj ? pkg!.exports[obj - 1]!.fullName : '')
-  const where = () => `${pkgName}${obj ? `: ${objName()}` : ''}`
+  const where = () => `${pkgName}${obj ? `: ${objName()}` : entry ? `: ${entry}` : ''}`
+  let entrySize = 0
   const resetMax = () => {
     if (obj) max = scopeStart + pkg!.exports[obj - 1]!.size - 1
+    else if (entry) max = scopeStart + entrySize - 1
     else if (pkg) max = pkg.bytes.length - 1
+  }
+  const setObject = (ref: number) => {
+    obj = ref
+    entry = ''
+    scopeStart = pkg!.exports[ref - 1]!.offset
+    rel = 0
+    resetMax()
+    before = null
+  }
+  /** A table entry as the scope (NAME_ENTRY, IMPORT_ENTRY, EXPORT_ENTRY): written in place, never resized. */
+  const setEntry = (label: string, start: number, size: number) => {
+    obj = 0
+    entry = label
+    scopeStart = start
+    entrySize = size
+    rel = 0
+    resetMax()
+    before = null
+  }
+  const findExport = (name: string) => {
+    const ref = pkg!.findObject(name, true)
+    if (ref <= 0) throw new StepError(`no object ${name} in ${pkgName}`)
+    return ref
+  }
+  /** A value key's bytes written at the offset, as MODDED_HEX writes them. */
+  const writeValue = (what: string, data: Uint8Array, line: number) => {
+    if (equalAt(scopeStart + rel, data)) {
+      record(what, 'already', line)
+      if (updateRel) rel += data.length
+    } else {
+      writeData(data, false)
+      record(what, 'change', line)
+    }
   }
   const ctx = () => ({ pkg: pkg!, object: objName() || undefined, aliases })
   const code = (src: string) => assemble(src, ctx())
@@ -225,6 +264,14 @@ export function runScript(text: string, opts: RunOptions): RunResult {
     if (offset < 0 || offset + data.length > pkg!.bytes.length) return false
     for (let i = 0; i < data.length; i++) if (pkg!.bytes[offset + i] !== data[i]) return false
     return true
+  }
+
+  /** Grows or shrinks the object at the offset: moved to the end of the file, or in place (INPL). */
+  const resize = (size: number, at: number) => {
+    if (behavior === 'INPL') pkg!.resizeInPlace(obj, size, at)
+    else pkg!.moveResize(obj, size, at)
+    scopeStart = pkg!.exports[obj - 1]!.offset
+    max = scopeStart + pkg!.exports[obj - 1]!.size - 1
   }
 
   /** WriteModdedData: grows or moves the object when allowed, then writes. */
@@ -243,13 +290,16 @@ export function runScript(text: string, opts: RunOptions): RunResult {
         size += scopeStart + rel + data.length - 1 - max
       } else if (behavior === 'MOVE') resize = true
       if (resize) {
-        if (behavior === 'INPL') throw new StepError('INPL resizing is not supported')
-        pkg!.moveResize(obj, size, rel)
+        // INPL needs a size change to do anything; MOVE moves the object even at its size.
+        if (behavior !== 'INPL' || size !== e.size) {
+          if (behavior === 'INPL') pkg!.resizeInPlace(obj, size, rel)
+          else pkg!.moveResize(obj, size, rel)
+        }
         scopeStart = pkg!.exports[obj - 1]!.offset
         max = scopeStart + pkg!.exports[obj - 1]!.size - 1
       }
     } else if (fitScope && scopeSize !== data.length)
-      throw new StepError('the new data does not fit (outside an object)')
+      throw new StepError(`the new data does not fit (${entry || 'outside an object'})`)
     if (scopeStart + rel + data.length - 1 > max)
       throw new StepError('the data runs past the scope')
     resetMax()
@@ -267,9 +317,16 @@ export function runScript(text: string, opts: RunOptions): RunResult {
         case 'MOD_NAME':
         case 'AUTHOR':
         case 'DESCRIPTION':
-        case 'GUID':
         case 'UNINSTALL':
           break
+        case 'GUID': {
+          // Packages the script was made for, by their GUID; declared before the package is opened.
+          const [guid, upk] = splitAt(firstLine(c.value))
+          const key = upk.toLowerCase()
+          if (!guids.has(key)) guids.set(key, new Set())
+          guids.get(key)!.add(guid.toUpperCase())
+          break
+        }
         case 'UPDATE_REL':
           updateRel = firstLine(c.value).toUpperCase() === 'TRUE'
           break
@@ -280,10 +337,14 @@ export function runScript(text: string, opts: RunOptions): RunResult {
             const p = opts.open(pkgName)
             if (!p) throw new StepError(`${pkgName} is not in this install`)
             if (p.compressed) throw new StepError(`${pkgName} is compressed`)
+            const allowed = guids.get(key)
+            if (allowed && !allowed.has(p.guid()))
+              throw new StepError(`${pkgName} is another version than the mod was made for (GUID ${p.guid()})`)
             packages.set(key, p)
           }
           pkg = packages.get(key)
           obj = 0
+          entry = ''
           scopeStart = 0
           rel = 0
           resetMax()
@@ -296,13 +357,40 @@ export function runScript(text: string, opts: RunOptions): RunResult {
           const [name, spec] = splitAt(firstLine(c.value))
           behavior = (spec || 'KEEP').toUpperCase()
           obj = 0
-          const ref = pkg!.findObject(name, true)
-          if (ref <= 0) throw new StepError(`no object ${name} in ${pkgName}`)
-          obj = ref
-          scopeStart = pkg!.exports[ref - 1]!.offset
-          rel = 0
+          setObject(findExport(name))
+          break
+        }
+        case 'OFFSET':
+          // The whole package, at an absolute offset (the first 8 bytes are not written).
+          need()
+          obj = 0
+          entry = ''
+          scopeStart = 0
           resetMax()
+          rel = intValue(c.value)
           before = null
+          break
+        case 'NAME_ENTRY': {
+          need()
+          const name = firstLine(c.value)
+          const i = pkg!.findName(name)
+          if (i < 0) throw new StepError(`no name ${name} in ${pkgName}`)
+          const e = pkg!.nameEntries[i]!
+          setEntry(`name ${name}`, e.offset, e.size)
+          break
+        }
+        case 'IMPORT_ENTRY':
+        case 'EXPORT_ENTRY': {
+          need()
+          const name = firstLine(c.value)
+          if (c.name === 'IMPORT_ENTRY') {
+            const ref = pkg!.findObject(name)
+            if (ref >= 0) throw new StepError(`no import ${name} in ${pkgName}`)
+            setEntry(`import ${name}`, pkg!.imports[-ref - 1]!.entryOffset, 28)
+          } else {
+            const e = pkg!.exports[findExport(name) - 1]!
+            setEntry(`export entry ${name}`, e.entryOffset, e.entrySize)
+          }
           break
         }
         case 'ALIAS': {
@@ -337,6 +425,198 @@ export function runScript(text: string, opts: RunOptions): RunResult {
             writeData(data, false)
             record(c.name, 'change', c.line)
           }
+          break
+        }
+        case 'BYTE':
+        case 'FLOAT':
+        case 'INTEGER':
+        case 'UNSIGNED':
+        case 'NAMEIDX':
+        case 'OBJIDX': {
+          need()
+          const v = firstLine(c.value)
+          const fmt = { BYTE: '%b', FLOAT: '%f', INTEGER: '%i', UNSIGNED: '%u' }[c.name as 'BYTE']
+          let data: Uint8Array
+          if (fmt) data = code(`<${fmt} ${v}>`).bytes
+          else if (c.name === 'NAMEIDX') data = code(`<${v}>`).bytes
+          else {
+            const ref = pkg!.findObject(v)
+            if (!ref) throw new StepError(`no object ${v} in ${pkgName}`)
+            data = new Uint8Array(4)
+            new DataView(data.buffer).setInt32(0, ref, true)
+          }
+          if (c.name === 'NAMEIDX' && data.length !== 8) throw new StepError(`${v} is not a name`)
+          writeValue(c.name, data, c.line)
+          break
+        }
+        case 'INSERT_CODE': {
+          // As PatchUPK does it: the object grows by one byte less than the
+          // code, and the code is written at the offset, over the byte that
+          // was there. (Its readme says "insert"; mods were made against what
+          // it does.) The script's sizes stay as they are.
+          need()
+          if (!obj) throw new StepError('INSERT_CODE outside an object')
+          if (behavior === 'KEEP') throw new StepError('INSERT_CODE needs the object to grow (AUTO, MOVE or INPL)')
+          const data = code(c.value).bytes
+          if (!data.length) break
+          // (One byte grows nothing: it is written where the object is.)
+          if (data.length > 1) resize(pkg!.exports[obj - 1]!.size + data.length - 1, rel)
+          pkg!.write(scopeStart + rel, data)
+          if (updateRel) rel += data.length
+          record(c.name, 'change', c.line)
+          break
+        }
+        case 'REPLACE_HEX':
+        case 'REPLACE_CODE': {
+          // Every place the first is found, from the offset on, replaced by the second.
+          need()
+          const [a, b] = splitAt(c.value)
+          const asm = (src: string) => (c.name === 'REPLACE_HEX' ? { bytes: hexBytes(src), memSize: -1 } : code(src))
+          const from = asm(a)
+          const to = asm(b)
+          if (!from.bytes.length) throw new StepError('nothing to find')
+          let found = 0
+          const end = () => (obj ? scopeStart + pkg!.exports[obj - 1]!.size - 1 : max)
+          for (let at = find(pkg!.bytes, from.bytes, scopeStart + rel, end()); at >= 0; at = find(pkg!.bytes, from.bytes, scopeStart + rel, end())) {
+            found++
+            before = { found: true, data: from.bytes, memSize: from.memSize }
+            const relAt = at - scopeStart
+            rel = relAt
+            max = at + from.bytes.length - 1
+            const sizes = adjustedSizes(to.bytes.length, to.memSize)
+            writeData(to.bytes, true)
+            if (sizes) {
+              const saved = rel
+              rel = sizes.rel
+              writeData(sizes.data, false)
+              rel = saved
+            }
+            // (Relative: the object may have moved.)
+            rel = relAt + to.bytes.length
+          }
+          before = null
+          resetMax()
+          if (found) record(c.name, 'change', c.line, `${found} replaced`)
+          else if (find(pkg!.bytes, to.bytes, scopeStart, end()) >= 0) record(c.name, 'already', c.line)
+          else throw new StepError('the code to replace is not there')
+          break
+        }
+        case 'MODDED_FILE':
+        case 'FUNCTION_FILE': {
+          // A file holding a whole object's data (or a table entry), named after it: Full.Object.Name.Type.
+          need()
+          const [file, spec] = splitAt(firstLine(c.value))
+          const data = opts.readFile?.(file)
+          if (!data) throw new StepError(`the file ${file} is not there`)
+          const base = file.replace(/^.*[\\/]/, '')
+          const dot = base.lastIndexOf('.')
+          const name = base.slice(0, dot)
+          const kind = base.slice(dot + 1)
+          if (kind === 'NameEntry') {
+            const i = pkg!.findName(name)
+            if (i < 0) throw new StepError(`no name ${name} in ${pkgName}`)
+            setEntry(`name ${name}`, pkg!.nameEntries[i]!.offset, pkg!.nameEntries[i]!.size)
+          } else if (kind === 'ImportEntry') {
+            const ref = pkg!.findObject(name)
+            if (ref >= 0) throw new StepError(`no import ${name} in ${pkgName}`)
+            setEntry(`import ${name}`, pkg!.imports[-ref - 1]!.entryOffset, 28)
+          } else if (kind === 'ExportEntry') {
+            const e = pkg!.exports[findExport(name) - 1]!
+            setEntry(`export entry ${name}`, e.entryOffset, e.entrySize)
+          } else {
+            behavior = (spec || 'KEEP').toUpperCase()
+            setObject(findExport(name))
+          }
+          const size = max - scopeStart + 1
+          if (size === data.length && equalAt(scopeStart, data)) record(c.name, 'already', c.line)
+          else {
+            writeData(data, true)
+            record(c.name, 'change', c.line)
+          }
+          break
+        }
+        case 'BULK_DATA':
+        case 'BULK_FILE': {
+          // A bulk data mirror: flags, element count, size on disk, where the data is in the file; then the data.
+          need()
+          let raw: Uint8Array | undefined
+          if (c.name === 'BULK_DATA') raw = hexBytes(c.value)
+          else {
+            const file = firstLine(c.value)
+            raw = opts.readFile?.(file)
+            if (!raw) throw new StepError(`the file ${file} is not there`)
+          }
+          const data = new Uint8Array(16 + raw.length)
+          const v = new DataView(data.buffer)
+          v.setInt32(4, raw.length, true)
+          v.setInt32(8, raw.length, true)
+          v.setInt32(12, scopeStart + rel + 16, true)
+          data.set(raw, 16)
+          // Written as KEEP: in the space the object has.
+          const saved = behavior
+          behavior = 'KEEP'
+          try {
+            writeValue(c.name, data, c.line)
+          } finally {
+            behavior = saved
+          }
+          break
+        }
+        case 'RENAME':
+        case 'NAMELIST_NAME': {
+          need()
+          const [from, to] = splitAt(firstLine(c.value))
+          let i = pkg!.findName(to)
+          if (i >= 0) record(c.name, 'already', c.line)
+          else {
+            i = pkg!.findName(from)
+            if (i < 0) throw new StepError(`no name ${from} in ${pkgName}`)
+            try {
+              pkg!.rename(i, to)
+            } catch (e) {
+              throw new StepError((e as Error).message)
+            }
+            record(c.name, 'change', c.line)
+          }
+          setEntry(`name ${to}`, pkg!.nameEntries[i]!.offset, pkg!.nameEntries[i]!.size)
+          break
+        }
+        case 'EXPAND_FUNCTION': {
+          // To the size given: a function's script padded with nop tokens before its end, its sizes
+          // grown with it; any other object padded with zeros at its end. Moved to the end of the file.
+          need()
+          const [name, sizeText] = splitAt(firstLine(c.value))
+          const ref = findExport(name)
+          const size = intValue(sizeText)
+          const e = pkg!.exports[ref - 1]!
+          if (e.size === size) record(c.name, 'already', c.line)
+          else if (e.size > size) throw new StepError(`${name} is larger than ${size} bytes already`)
+          else {
+            const grow = size - e.size
+            const script = pkg!.scriptOf(ref)
+            if (script) {
+              // Before the script's last token (its end), as many nops as it grows.
+              const at = script.relOffset + script.size - 1
+              pkg!.moveResize(ref, size, at)
+              const moved = pkg!.exports[ref - 1]!
+              pkg!.write(moved.offset + at, new Uint8Array(grow).fill(0x0b))
+              const sizes = new Uint8Array(8)
+              const v = new DataView(sizes.buffer)
+              v.setInt32(0, script.memSize + grow, true)
+              v.setInt32(4, script.size + grow, true)
+              pkg!.write(moved.offset + script.relOffset - 8, sizes)
+            } else pkg!.moveResize(ref, size, e.size)
+            record(c.name, 'change', c.line)
+          }
+          behavior = 'KEEP'
+          setObject(ref)
+          break
+        }
+        case 'EXPAND_UNDO': {
+          need()
+          const ref = findExport(firstLine(c.value))
+          record(c.name, pkg!.undoMove(ref) ? 'change' : 'already', c.line)
+          setObject(ref)
           break
         }
         case 'REPLACEMENT_CODE': {
@@ -411,11 +691,52 @@ export function runScript(text: string, opts: RunOptions): RunResult {
             record(`${c.name} ${name}`, 'already', c.line)
           } else {
             pkg!.addName(entry)
-            if (obj) {
-              scopeStart = pkg!.exports[obj - 1]!.offset
-              resetMax()
-            }
+            rescope()
             record(`${c.name} ${name}`, 'change', c.line)
+          }
+          break
+        }
+        case 'ADD_IMPORT_ENTRY': {
+          // An import: class package, class, outer, name (28 bytes). Already there if one has that
+          // class, outer and name.
+          need()
+          const bytes = assemble(c.value, { pkg: pkg!, aliases }).bytes
+          if (bytes.length !== 28) throw new StepError(`an import entry is 28 bytes, not ${bytes.length}`)
+          const v = new DataView(bytes.buffer)
+          const name = nameAt(pkg!, v, 20)
+          const cls = nameAt(pkg!, v, 8)
+          const outer = v.getInt32(16, true)
+          const fullName = `${outer ? `${pkg!.fullNameOf(outer)}.` : ''}${name}`
+          const there = pkg!.imports.some((x, i) => x.name === name && x.outer === outer && x.className === cls && pkg!.fullNameOf(-(i + 1)) === fullName)
+          if (there) record(`${c.name} ${fullName}`, 'already', c.line)
+          else {
+            pkg!.addImport(bytes)
+            rescope()
+            record(`${c.name} ${fullName}`, 'change', c.line)
+          }
+          break
+        }
+        case 'ADD_EXPORT_ENTRY': {
+          // An export entry (without net objects: 68 bytes); its data and link as Package.addExport
+          // makes them. Already there if one has that class, outer and name.
+          need()
+          const bytes = assemble(c.value, { pkg: pkg!, aliases }).bytes
+          if (bytes.length !== 68) throw new StepError(`an export entry is 68 bytes here, not ${bytes.length}`)
+          const v = new DataView(bytes.buffer)
+          const name = nameAt(pkg!, v, 12)
+          const outer = v.getInt32(8, true)
+          const cls = v.getInt32(0, true)
+          const fullName = `${outer ? `${pkg!.fullNameOf(outer)}.` : ''}${name}`
+          const there = pkg!.exports.some((x) => x.name === name && x.outer === outer && x.classIndex === cls)
+          if (there) record(`${c.name} ${fullName}`, 'already', c.line)
+          else {
+            try {
+              pkg!.addExport(bytes)
+            } catch (e) {
+              throw new StepError((e as Error).message)
+            }
+            rescope()
+            record(`${c.name} ${fullName}`, 'change', c.line)
           }
           break
         }
@@ -426,6 +747,20 @@ export function runScript(text: string, opts: RunOptions): RunResult {
       record(c.name, 'error', c.line, (e as Error).message)
       // A failed step leaves the rest of the script without a sound footing.
       break
+    }
+  }
+
+  /** After the header grew: the scope found again where it now is. */
+  function rescope() {
+    if (obj) {
+      scopeStart = pkg!.exports[obj - 1]!.offset
+      resetMax()
+    } else if (entry) {
+      // A table entry's scope does not follow the table's growth: it is left.
+      entry = ''
+      scopeStart = 0
+      rel = 0
+      resetMax()
     }
   }
 
@@ -479,6 +814,13 @@ function find(hay: Uint8Array, needle: Uint8Array, from: number, last: number): 
     return i
   }
   return -1
+}
+
+/** The name an 8-byte name reference in an entry stands for ("Foo", "Foo_2"). */
+function nameAt(pkg: Package, v: DataView, at: number): string {
+  const n = pkg.names[v.getInt32(at, true)] ?? ''
+  const num = v.getInt32(at + 4, true)
+  return num && n !== 'None' ? `${n}_${num - 1}` : n
 }
 
 /** The name in a raw name-table entry (length, text, flags). */

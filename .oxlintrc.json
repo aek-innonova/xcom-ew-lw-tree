@@ -1,10 +1,25 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["eslint", "typescript", "unicorn", "oxc", "vue", "vitest"],
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "vue",
+    "vitest"
+  ],
   "env": {
     "browser": true
   },
   "categories": {
     "correctness": "error"
+  },
+  "rules": {
+    "vitest/valid-expect": [
+      "error",
+      {
+        "maxArgs": 2
+      }
+    ]
   }
 }

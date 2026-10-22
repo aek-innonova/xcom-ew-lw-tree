@@ -25,10 +25,16 @@ export interface ObjectEdit {
 
 /** The defaultproperties block of a class's source (its body), or null. */
 export function defaultsBlock(src: string): string | null {
+  const span = defaultsSpan(src)
+  return span && src.slice(span.body, span.end - 1)
+}
+
+/** Where the defaultproperties block is in a class's source: from its keyword to after its closing brace, and where its body starts. */
+export function defaultsSpan(src: string): { start: number; body: number; end: number } | null {
   const m = /^\s*defaultproperties\s*\{/im.exec(src)
   if (!m) return null
   let i = m.index + m[0].length
-  const start = i
+  const body = i
   let depth = 1
   for (; i < src.length; i++) {
     const c = src[i]
@@ -37,7 +43,7 @@ export function defaultsBlock(src: string): string | null {
       continue
     }
     if (c === '{') depth++
-    if (c === '}' && --depth === 0) return src.slice(start, i)
+    if (c === '}' && --depth === 0) return { start: m.index, body, end: i + 1 }
   }
   throw new DefaultsError('defaultproperties: no closing }')
 }

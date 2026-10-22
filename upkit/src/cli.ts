@@ -28,6 +28,13 @@ Commands:
   roundtrip <package> [--list]            decompile and compile every function; how many
                                           come back byte for byte (--list: which do not, and
                                           where their source and bytes part)
+  apply <mod.txt>… --game <folder> [--check]
+                                          mod scripts (PatchUPK's, PatcherGUI's) applied to the
+                                          game's packages in that folder, compressed or not:
+                                          each step said; written only if all of them fit, each
+                                          original kept first in upkit-backup beside the folder
+                                          (XComGame/upkit-backup) (--check: only said)
+  restore --game <folder>                 the originals apply kept, put back
 
 Options: --game <folder>  where the game's other packages are (default: the
 package's folder); packages are read compressed or not. --layout compact: a
@@ -42,7 +49,6 @@ import { diffPackages } from './diff.ts'
 import { stubs } from './stubs.ts'
 import { defaultsBlock, defaultsChanges } from './defaults.ts'
 import { decompileClass } from './classdecomp.ts'
-import { FunctionDecompiler } from './decompile.ts'
 import { fidelity, fidelityNote, readableSource, readableStateCode } from './fidelity.ts'
 import { Linker } from './linker.ts'
 import { readObject, readStructHead } from './objects.ts'
@@ -51,6 +57,7 @@ import { openPackage, type Package } from './package.ts'
 import { modScriptFrom } from './patch.ts'
 import { nativesReference, parseNotes } from './natives.ts'
 import { emptyPackage } from './writer.ts'
+import { applyScripts, backupOf, restoreOriginals } from './apply.ts'
 
 const argv = process.argv.slice(2)
 const flag = (name: string): string | undefined => {
@@ -66,7 +73,54 @@ const listing = argv.includes('--list') && !!argv.splice(argv.indexOf('--list'),
 const out = flag('--out')
 const patch = flag('--patch')
 const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
+const checking = argv.includes('--check') && !!argv.splice(argv.indexOf('--check'), 1)
 const [command, file, ...rest] = argv
+
+// apply and restore work on a folder of the game's packages, not on one package.
+if (command === 'apply' || command === 'restore') {
+  if (!game) {
+    console.error(`${command}: --game <folder> names the folder of the game's packages (XComGame/CookedPCConsole)`)
+    process.exit(2)
+  }
+  if (!existsSync(game)) {
+    console.error(`no folder ${game}`)
+    process.exit(1)
+  }
+  if (command === 'restore') {
+    const files = restoreOriginals(game)
+    console.log(files.length ? `restored ${files.join(', ')}` : `nothing to restore (no ${backupOf(game)})`)
+    process.exit(0)
+  }
+  const scripts = [file, ...rest].filter((f): f is string => !!f)
+  if (!scripts.length) usage()
+  for (const f of scripts)
+    if (!existsSync(f)) {
+      console.error(`no file ${f}`)
+      process.exit(1)
+    }
+  try {
+    const r = applyScripts(game, scripts, !checking)
+    const said = { installed: 'installed already', 'not-installed': 'applies', partly: 'partly installed: the rest applies', 'does-not-fit': 'does not fit' } as Record<string, string>
+    for (const s of r.scripts) {
+      console.log(`${basename(s.script)}: ${said[s.status] ?? s.status}`)
+      for (const st of s.steps) {
+        if (st.status === 'already' && s.status === 'installed') continue
+        console.log(`  line ${st.line}: ${st.where} ${st.what}: ${st.status === 'change' ? 'changes' : st.status === 'already' ? 'as it is already' : `does not fit: ${st.note}`}${st.status !== 'error' && st.note ? ` (${st.note})` : ''}`)
+      }
+    }
+    if (!r.ok) {
+      console.log('nothing written')
+      process.exit(1)
+    }
+    if (!r.changed.length) console.log('nothing to change')
+    else if (checking) console.log(`would change ${r.changed.join(', ')}`)
+    else console.log(`changed ${r.changed.join(', ')} (the originals kept in ${backupOf(game)})`)
+    process.exit(0)
+  } catch (e) {
+    console.error((e as Error).message)
+    process.exit(1)
+  }
+}
 
 function usage(): never {
   console.error(USAGE)

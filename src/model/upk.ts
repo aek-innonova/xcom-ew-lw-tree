@@ -8,13 +8,15 @@
 // an import's with its package ("Core.Object.Name"); a name used more than
 // once carries "_N" (N = number − 1).
 
-import { lzoDecompress, unchunk } from './lzo'
+import { lzoDecompress, unchunk } from './lzo.ts'
 
 export interface UpkImport {
   className: string
   name: string
   outer: number
   fullName: string
+  /** Where its entry in the import table is (28 bytes). */
+  entryOffset: number
 }
 export interface UpkExport {
   classIndex: number
@@ -27,8 +29,9 @@ export interface UpkExport {
   /** Where the object's data is in the file, and how long it is. */
   size: number
   offset: number
-  /** Where its entry in the export table is. */
+  /** Where its entry in the export table is, and how long the entry is. */
   entryOffset: number
+  entrySize: number
 }
 export interface UpkName {
   name: string
@@ -56,11 +59,10 @@ export const PATCHUPK_MARK = new Uint8Array([
 
 class Reader {
   o: number
+  private b: Uint8Array
   private v: DataView
-  constructor(
-    private b: Uint8Array,
-    o = 0,
-  ) {
+  constructor(b: Uint8Array, o = 0) {
+    this.b = b
     this.v = new DataView(b.buffer, b.byteOffset, b.byteLength)
     this.o = o
   }
@@ -114,6 +116,9 @@ interface SummaryAt {
   dependsOffset: number
   /** PatcherGUI's "SerialOffset" (UE3's ImportExportGuidsOffset): where object data begins, or 0. */
   serialOffset: number
+  guid: number
+  /** The generations' count; the last generation's net object count is 12 bytes in from its start. */
+  generations: number
 }
 
 /**
@@ -171,7 +176,9 @@ export class Package implements Upk {
       r.o += 16
     }
     this.at = at
-    r.o += 16 // guid
+    at.guid = r.o
+    r.o += 16
+    at.generations = r.o
     const generations = r.i32()
     r.o += 12 * generations
     r.i32() // engine version
@@ -201,6 +208,7 @@ export class Package implements Upk {
       (this.names[i] ?? `?${i}`) + (num && this.names[i] !== 'None' ? `_${num - 1}` : '')
     r.o = io
     for (let i = 0; i < ic; i++) {
+      const entryOffset = r.o
       r.o += 8 // class package
       const cls = r.i32()
       r.i32()
@@ -212,6 +220,7 @@ export class Package implements Upk {
         name: nm(name, num),
         outer,
         fullName: '',
+        entryOffset,
       })
     }
     r.o = eo
@@ -239,6 +248,7 @@ export class Package implements Upk {
         size,
         offset,
         entryOffset,
+        entrySize: r.o - entryOffset,
       })
     }
     this.imports.forEach((e, i) => {
@@ -369,33 +379,184 @@ export class Package implements Upk {
   }
 
   /**
+   * Inserts bytes into the header (the summary and tables) at `insertAt`:
+   * the header size, the given table offsets and every object's data offset
+   * follow, as PatcherGUI's additions do. (It takes a missing SerialOffset as
+   * the header size and writes it back.)
+   */
+  private insertInHeader(insertAt: number, data: Uint8Array, moved: (keyof SummaryAt)[]) {
+    const at = this.at
+    const n = data.length
+    const grown = new Uint8Array(this.bytes.length + n)
+    grown.set(this.bytes.subarray(0, insertAt))
+    grown.set(data, insertAt)
+    grown.set(this.bytes.subarray(insertAt), insertAt + n)
+    const exportOffsets = this.exports.map((e) => e.entryOffset)
+    const serial = at.serialOffset ? this.getI32(at.serialOffset) : 0
+    this.bytes = grown
+    const add = (field: number, by: number) => this.setI32(field, this.getI32(field) + by)
+    add(at.headerSize, n)
+    for (const f of moved) add(at[f], n)
+    if (at.serialOffset) this.setI32(at.serialOffset, (serial || this.headerSize) + n)
+    for (const entryOffset of exportOffsets)
+      add(entryOffset + (entryOffset >= insertAt ? n : 0) + 36, n)
+  }
+
+  /**
    * Adds a name at the end of the name table: everything after it moves down
    * by the entry's size, and the summary and every export's offset follow
    * (as PatcherGUI's ADD_NAME_ENTRY does).
    */
   addName(entry: Uint8Array) {
-    const at = this.at
     const last = this.nameEntries[this.nameEntries.length - 1]
-    const insertAt = last ? last.offset + last.size : this.getI32(at.nameOffset)
-    const n = entry.length
-    const grown = new Uint8Array(this.bytes.length + n)
-    grown.set(this.bytes.subarray(0, insertAt))
-    grown.set(entry, insertAt)
-    grown.set(this.bytes.subarray(insertAt), insertAt + n)
-    const exportOffsets = this.exports.map((e) => e.entryOffset)
-    this.bytes = grown
-    const add = (field: number, by: number) => this.setI32(field, this.getI32(field) + by)
-    const serial = at.serialOffset ? this.getI32(at.serialOffset) : 0
-    add(at.headerSize, n)
-    add(at.nameCount, 1)
-    add(at.importOffset, n)
-    add(at.exportOffset, n)
-    add(at.dependsOffset, n)
-    // PatcherGUI takes a missing SerialOffset as the header size and writes it back.
-    if (at.serialOffset) this.setI32(at.serialOffset, (serial || this.headerSize) + n)
-    for (const entryOffset of exportOffsets)
-      add(entryOffset + (entryOffset >= insertAt ? n : 0) + 36, n)
+    const insertAt = last ? last.offset + last.size : this.getI32(this.at.nameOffset)
+    this.insertInHeader(insertAt, entry, ['importOffset', 'exportOffset', 'dependsOffset'])
+    this.setI32(this.at.nameCount, this.getI32(this.at.nameCount) + 1)
     this.parse()
+  }
+
+  /** Adds an import (its 28-byte entry) at the end of the import table, as ADD_IMPORT_ENTRY does. */
+  addImport(entry: Uint8Array) {
+    if (entry.length !== 28) throw new Error(`an import entry is 28 bytes, not ${entry.length}`)
+    const insertAt = this.getI32(this.at.importOffset) + 28 * this.imports.length
+    this.insertInHeader(insertAt, entry, ['exportOffset', 'dependsOffset'])
+    this.setI32(this.at.importCount, this.getI32(this.at.importCount) + 1)
+    this.parse()
+  }
+
+  /**
+   * Adds an export (its entry, with no net objects: 68 bytes) at the end of
+   * the export table, its data at the end of the file, as ADD_EXPORT_ENTRY
+   * does: as long as the entry's serial size says (at least 16 bytes), its
+   * net index (its own index, as the game's cooked packages have it), None
+   * for its properties, then zeros. Then what PatchUPK means to do and does
+   * not: links it as its owner's last child (when the owner is a class,
+   * state, function or struct) and counts it among the net objects (the game
+   * logs it as invalid otherwise). And what the format has: an empty entry
+   * for it in the depends table. Returns its reference.
+   */
+  addExport(entry: Uint8Array): number {
+    const entryView = new DataView(entry.buffer, entry.byteOffset, entry.byteLength)
+    if (entry.length !== 68 || entryView.getInt32(44, true) !== 0)
+      throw new Error('an export entry is 68 bytes, without net objects')
+    const size = entryView.getInt32(32, true)
+    if (size < 16) throw new Error(`an added object takes at least 16 bytes, not ${size}`)
+    const last = this.exports[this.exports.length - 1]
+    const insertAt = last ? last.entryOffset + last.entrySize : this.getI32(this.at.exportOffset)
+    this.insertInHeader(insertAt, entry, ['dependsOffset'])
+    this.setI32(this.at.exportCount, this.getI32(this.at.exportCount) + 1)
+    const dependsEnd = this.at.serialOffset ? this.getI32(this.at.serialOffset) : this.getI32(this.at.headerSize)
+    this.insertInHeader(dependsEnd, new Uint8Array(4), [])
+    this.parse()
+    const ref = this.exports.length
+    const e = this.exports[ref - 1]!
+    const data = new Uint8Array(size)
+    const dv = new DataView(data.buffer)
+    dv.setInt32(0, ref - 1, true)
+    dv.setInt32(4, this.findName('None'), true)
+    const offset = this.bytes.length
+    const grown = new Uint8Array(offset + size)
+    grown.set(this.bytes)
+    grown.set(data, offset)
+    this.bytes = grown
+    this.setI32(e.entryOffset + 36, offset)
+    const gens = this.getI32(this.at.generations)
+    if (gens > 0) {
+      const net = this.at.generations + 4 + 12 * (gens - 1) + 8
+      this.setI32(net, Math.max(this.getI32(net), this.exports.length))
+    }
+    this.parse()
+    this.linkChild(e.outer, ref)
+    return ref
+  }
+
+  /** Where an object's UField fields begin: after its net index and (empty) properties; a class object has none. */
+  private fieldsAt(ref: number): number {
+    const e = this.exports[ref - 1]!
+    if (e.type === 'Class') return 4
+    if (this.names[this.getI32(e.offset + 4)] !== 'None')
+      throw new Error(`${e.fullName} has properties of its own: its fields cannot be found`)
+    return 12
+  }
+
+  /** Makes `child` its owner's last child: the owner's first, or the next of the one now last. */
+  private linkChild(owner: number, child: number) {
+    if (owner < 1 || !['Class', 'State', 'Function', 'ScriptStruct'].includes(this.exports[owner - 1]!.type)) return
+    const o = this.exports[owner - 1]!
+    const childrenAt = o.offset + this.fieldsAt(owner) + 12
+    let c = this.getI32(childrenAt)
+    if (!c) return this.setI32(childrenAt, child)
+    const seen = new Set<number>()
+    for (;;) {
+      if (seen.has(c) || c < 1 || c > this.exports.length) throw new Error(`${o.fullName}: its children cannot be followed`)
+      seen.add(c)
+      const nextAt = this.exports[c - 1]!.offset + this.fieldsAt(c)
+      const next = this.getI32(nextAt)
+      if (!next) return this.setI32(nextAt, child)
+      c = next
+    }
+  }
+
+  /**
+   * Resizes an export's data where it is (PatchUPK's INPL): grown or shrunk
+   * at `at`, everything after it in the file moved, and the offsets of the
+   * objects after it with it.
+   */
+  resizeInPlace(ref: number, newSize: number, at: number) {
+    const e = this.exports[ref - 1]!
+    const diff = newSize - e.size
+    if (!diff) return
+    const pos = e.offset + Math.max(0, Math.min(at, e.size))
+    const b = this.bytes
+    const out = new Uint8Array(b.length + diff)
+    if (diff > 0) {
+      out.set(b.subarray(0, pos))
+      out.set(b.subarray(pos), pos + diff)
+    } else {
+      out.set(b.subarray(0, pos))
+      out.set(b.subarray(pos - diff), pos)
+    }
+    const after = this.exports.filter((x) => x.offset > e.offset).map((x) => x.entryOffset)
+    this.bytes = out
+    this.setI32(e.entryOffset + 32, newSize)
+    for (const entryOffset of after) this.setI32(entryOffset + 36, this.getI32(entryOffset + 36) + diff)
+    this.parse()
+  }
+
+  /** Whether the export's data was moved by PatcherGUI (or by us): the mark after it, with the old size and offset. */
+  movedFrom(ref: number): { size: number; offset: number } | null {
+    const e = this.exports[ref - 1]!
+    const at = e.offset + e.size
+    if (at + 24 > this.bytes.length) return null
+    for (let i = 0; i < 16; i++) if (this.bytes[at + i] !== PATCHUPK_MARK[i]) return null
+    return { size: this.getI32(at + 16), offset: this.getI32(at + 20) }
+  }
+
+  /** Points the export back at its data before a move (PatchUPK's EXPAND_UNDO); the moved copy stays. */
+  undoMove(ref: number): boolean {
+    const old = this.movedFrom(ref)
+    if (!old) return false
+    const e = this.exports[ref - 1]!
+    this.setI32(e.entryOffset + 32, old.size)
+    this.setI32(e.entryOffset + 36, old.offset)
+    this.parse()
+    return true
+  }
+
+  /** Renames a name in place (the new one as long as the old one). */
+  rename(index: number, name: string) {
+    const entry = this.nameEntries[index]!
+    const n = this.getI32(entry.offset)
+    if (n !== name.length + 1) throw new Error(`${entry.name} can only be renamed to a name of ${n - 1} characters`)
+    for (let i = 0; i < name.length; i++) this.bytes[entry.offset + 4 + i] = name.charCodeAt(i) & 0xff
+    this.parse()
+  }
+
+  /** The package's GUID as PatchUPK writes it: four 32-bit words in hex. */
+  guid(): string {
+    let s = ''
+    for (let i = 0; i < 4; i++) s += (this.getI32(this.at.guid + 4 * i) >>> 0).toString(16).toUpperCase().padStart(8, '0')
+    return s
   }
 }
 

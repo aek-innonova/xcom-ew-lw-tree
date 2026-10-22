@@ -28,7 +28,9 @@ cd "<the game>/XComGame/CookedPCConsole"
 node upkit.mjs class XComStrategyGame.upk XGFacility_Labs > XGFacility_Labs.uc
 # edit any function in XGFacility_Labs.uc (or a default in its defaultproperties), then
 node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
-# labs.txt is a PatchUPK mod script: apply it with PatcherGUI
+# labs.txt is a PatchUPK mod script: apply it (or with PatcherGUI); restore puts the originals back
+node upkit.mjs apply labs.txt --game .
+node upkit.mjs restore --game .
 ```
 
 All of it:
@@ -61,6 +63,9 @@ node upkit.mjs natives Core.upk > natives.md   # the native interface, as a refe
 
 node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back byte for byte
 node upkit.mjs roundtrip XComGame.upk --list   # and which functions do not (hand patches, mostly), and where
+
+# mod scripts (upkit's, PatcherGUI's) applied to the game's packages; --check only says what they would do
+node upkit.mjs apply labs.txt SomeoneElsesMod.txt --game "<the game>/XComGame/CookedPCConsole" --check
 ```
 
 Run it on the packages in the game's `XComGame/CookedPCConsole` folder (other
@@ -81,6 +86,52 @@ Compressed packages are read as they are.
   and a function that grew moves to the end, as PatchUPK moves it;
   `--layout compact` lays every object out anew. Written unchanged, every
   package of the game comes out byte for byte as it was.
+
+## Applying mod scripts
+
+`upkit apply` applies PatchUPK mod scripts (PatcherGUI's `.txt`, and the ones
+`--patch` writes) to the packages in a folder, on any system with Node:
+
+- Every command PatchUPK's readme documents: the scopes (`OFFSET`,
+  `NAME_ENTRY`, `IMPORT_ENTRY`, `EXPORT_ENTRY`, `OBJECT` with `KEEP`,
+  `MOVE`, `AUTO` and `INPL`), the finds and writes (hex, pseudo-code, the
+  value keys, `MODDED_FILE`, `BULK_DATA`), `REPLACEMENT_CODE`,
+  `BEFORE`/`AFTER`, `REPLACE_*`, `INSERT_CODE`, `RENAME`, `EXPAND_FUNCTION`
+  and `EXPAND_UNDO`, `GUID`, `ALIAS`, and the additions
+  (`ADD_NAME_ENTRY`, `ADD_IMPORT_ENTRY`, `ADD_EXPORT_ENTRY`). A file a script
+  names is read beside the script.
+- The packages as the game ships them: one compressed whole (with its
+  `.uncompressed_size`) or in chunks is applied to decompressed, and written
+  so: the size file goes, and the flag saying "stored compressed" is
+  cleared (the game fails to load the package with it).
+- Each step is said: it changes something, it is so already, or it does not
+  fit (and why). Nothing is written unless every step of every script fits; a
+  mod applied already changes nothing.
+- The first time a file changes, it is kept as it was in `upkit-backup`
+  beside the folder (`XComGame/upkit-backup`; not inside `CookedPCConsole`:
+  the game reads every package under it, subfolders too, and stops at a
+  second `XComGame.upk`). `upkit restore --game <folder>` puts them back.
+
+It does what PatchUPK does, byte for byte, wherever a mod could see the
+difference: mods were made and tested against PatchUPK as it is. So
+`INSERT_CODE` writes its first byte over the one at the offset, as PatchUPK
+does (its readme says "insert"). It does otherwise where PatchUPK falls short
+of its own readme and no mod can depend on it:
+
+- an object `ADD_EXPORT_ENTRY` adds is linked to its owner (its last child),
+  which PatchUPK means to do and does not (it writes the link's four bytes at
+  the end of the file instead);
+- it is counted among the package's net objects (the game logs it as invalid
+  otherwise) and has its (empty) entry in the depends table;
+- `REPLACE_HEX` and `REPLACE_CODE` replace every place, where PatchUPK can
+  stop at the second.
+
+No uninstall scripts (`.uninstall.txt`) are written: the originals are kept.
+
+The engine is the one the lwtree site's Tools page uses
+(`src/model/modpatch.ts` in this repository), written from PatchUPK's
+documentation and from its observed behaviour, not from its code (UPKUtils is
+GPL v2).
 
 ## What compiles back
 
@@ -279,10 +330,17 @@ under its declaration. It is a start, open to more.
   variable and a function, a function alone in native ones, a statement, a
   default). PatchUPK here is the binary built from wghost's UPKUtils (the
   tests run it when `PATCHUPK` names it), the PatchUPK.exe Long War's Mod
-  Manager ships (on Windows, for imports, locals and declarations), and the
-  app's own implementation, which takes neither `[ADD_IMPORT_ENTRY]` nor
-  `[ADD_EXPORT_ENTRY]`. (PatchUPK also moves a shrunk object to the end and
-  leaves an undo record after a moved one; the game reads neither.)
+  Manager ships (on Windows, for imports, locals and declarations), and
+  `upkit apply` (always: the same tables and objects as `--out`, for the
+  declarations, the flags and a hand patch's function edited, and for the
+  packages as the game ships them, compressed). (PatchUPK also moves a shrunk
+  object to the end and leaves an undo record after a moved one; the game
+  reads neither.)
+- `upkit apply`'s engine against PatchUPK, command by command
+  (`src/model/__tests__/modpatch.spec.ts` in this repository): every command
+  its readme documents, on LWR's XComStrategyGame.upk, the same bytes as
+  PatchUPK made of the same script; the additions the same tables and
+  objects but for the link, the count and the depends entries above.
 - Mods people wrote by hand (the PatcherGUI scripts in the samples: EXALT
   Reminder, Soldier Gender, Sightlines, Lightning Reflexes, the Mutator
   Enabler), applied and decompiled: all 16 functions they change compile
@@ -293,10 +351,12 @@ under its declaration. It is a start, open to more.
   corpus (and 25 others of the game's, maps among them) is written back byte
   for byte.
 
-None of what upkit writes has been loaded by the game yet: the checks are
-structural, and by comparison with what Unreal's compiler and PatchUPK make.
-Getting the game to load a new package (Long War's mutators are one way) is
-outside upkit.
+In the game (Enemy Within from Steam, on Windows): changed code, new
+variables and functions (written by `--out`; and as a mod script, applied
+by Long War's PatchUPK.exe and by `upkit apply` to the packages as shipped),
+a package made by `new` and loaded by name, and the main menu's own
+seek-free package edited, all load and run. Getting the game to load a new
+package by itself (Long War's mutators are one way) is outside upkit.
 
 ## How it reads
 
@@ -394,5 +454,5 @@ scripts with PatchUPK itself and compare: every function of four packages,
 each kind of edit against `--out`, and a sweep of edits on ten classes of
 every sort. It builds on Linux from
 [wghost/UPKUtils](https://github.com/wghost/UPKUtils) as it is
-(`cmake <src> -DCMAKE_BUILD_TYPE=Release && make PatchUPK`; checked with
-9b2fd07); it opens a package by its name in lower case, as on Windows.
+(`cmake <src> -DCMAKE_BUILD_TYPE=Release && make PatchUPK`, with
+`CXX_FLAGS='-O2 -include cstdint'` for a newer GCC; checked with 9b2fd07); it opens a package by its name in lower case, as on Windows.

@@ -612,7 +612,7 @@ describe.skipIf(!haveCorpus || !process.env.PATCHUPK)('a mod script made from th
     ['defaults', (s) => s.replace('m_strProgress="Progress"', 'm_strProgress="Progress so far"').replace('m_nmRoomName=ScienceLab', 'm_nmRoomName=UpkitRoom')],
   ]
   for (const [name, edit] of declarations)
-    it(name, async () => {
+    it(`${name}`, async () => {
       const { execFileSync } = await import('node:child_process')
       const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs')
       const { tmpdir } = await import('node:os')
@@ -763,7 +763,7 @@ describe.skipIf(!haveCorpus)("upkit's own syntax, read back as written", () => {
     const h = head(out, ref)
     const code = out.data(ref).subarray(h.scriptAt, h.end)
     // A final call (FinalFunction) inside the class context.
-    const { decodeScript, memSizeOf, walk } = await import('../src/bytecode.ts')
+    const { decodeScript, walk } = await import('../src/bytecode.ts')
     const nodes = decodeScript(code, () => false).statements.flatMap((st) => [...walk(st)])
     expect(nodes.some((n) => n.op === 0x12 && (n.args[4] as { op: number }).op === 0x1c)).toBe(true)
     expect([...new FunctionCompiler(back, out, ref).compile(text, binaryOperators(back)).code]).toEqual([...code])

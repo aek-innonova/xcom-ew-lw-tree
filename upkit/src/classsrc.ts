@@ -10,6 +10,7 @@ import { CPF, FUNC, typeOf, typeText } from './types.ts'
 import type { Linker } from './linker.ts'
 import type { Package } from './package.ts'
 import { lex, lineAt } from './parse.ts'
+import { defaultsSpan } from './defaults.ts'
 import {
   parseClassHeader,
   parseConst,
@@ -45,9 +46,10 @@ const MODIFIERS = new Set([
 
 /** The class's functions and states' code, from its source. */
 export function splitClass(src: string): ClassPart[] {
-  // defaultproperties are not code (and hold text the lexer need not read).
-  const dp = /^\s*defaultproperties\b/im.exec(src)
-  const code = dp ? src.slice(0, dp.index) : src
+  // defaultproperties are not code (and hold text the lexer need not read): blanked
+  // (lines kept, for messages), so what comes after the block is read too.
+  const dp = defaultsSpan(src)
+  const code = dp ? src.slice(0, dp.start) + src.slice(dp.start, dp.end).replace(/[^\n]/g, ' ') + src.slice(dp.end) : src
   const toks = lex(code)
   const parts: ClassPart[] = []
   const at = (i: number) => toks[i]!
