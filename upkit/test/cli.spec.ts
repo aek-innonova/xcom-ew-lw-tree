@@ -25,6 +25,8 @@ describe.skipIf(!haveCorpus)('the command line', () => {
       expect(readFileSync(join(dir, 'labs.txt'), 'utf8')).toContain('OBJECT=XGFacility_Labs.GetResearchPerHour:AUTO')
       run('compile', pkg, 'XGFacility_Labs', join(dir, 'Labs.uc'), '--out', join(dir, 'new.upk'), '--game', game)
       expect(run('decompile', join(dir, 'new.upk'), 'XGFacility_Labs.GetResearchPerHour', '--game', game)).toContain('(3 + m_fLabBonus')
+      // Against the original, kept elsewhere (no --game: the first one's folder serves): the one function.
+      expect(run('diff', pkg, join(dir, 'new.upk'), 'XGFacility_Labs').match(/^--- a\//gm)).toEqual(['--- a/'])
       run('export', pkg, join(dir, 'src'))
       expect(existsSync(join(dir, 'src', 'XGFacility_Labs.uc'))).toBe(true)
       // No command: the usage; a bad one: one line, no stack.

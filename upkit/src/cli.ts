@@ -251,7 +251,8 @@ try {
       const [otherFile, filter] = rest
       if (!otherFile) usage()
       const other = openPackage(new Uint8Array(readFileSync(otherFile)))
-      const otherLinker = new Linker([...(game ? [game] : []), dirname(otherFile)])
+      // (Then the first one's folder: a version kept elsewhere still finds the game's packages.)
+      const otherLinker = new Linker([...(game ? [game] : []), dirname(otherFile), dirname(file)])
       otherLinker.add(basename(otherFile).replace(/\.(upk|u)$/i, ''), other)
       const r = diffPackages(linker, pkg, otherLinker, other, filter ?? '')
       process.stdout.write(r.text)
