@@ -2,8 +2,9 @@
 
 An UnrealScript decompiler and recompiler for XCOM: Enemy Within's packages
 (Unreal Engine 3, package version 845): read a function or a whole class as
-UnrealScript, edit a function, and compile it back, into a whole new package
-or as a PatchUPK / PatcherGUI mod script.
+UnrealScript, edit it (its functions and defaults; new variables, functions,
+states, classes), and compile it back, as a PatchUPK / PatcherGUI mod script
+or into a whole new package.
 
 Enemy Within has no SDK. Its mods are bytecode patches, written by hand after
 reading the code in a decompiler that does not compile. upkit closes that
@@ -43,11 +44,11 @@ node upkit.mjs export    XComStrategyGame.upk XComStrategyGame-src/   # every cl
 node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --patch labs.txt
 node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs.GetResearchPerHour labs.uc --out XComStrategyGame.new.upk
 
-# a whole class's source: what was edited is compiled (new variables and functions: --out)
+# a whole class's source: what was edited is compiled (new variables, functions, states too)
 node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --patch labs.txt
 
 # a new class in a package (its source declares it: class UpkitHelper extends XGStrategyActor; …)
-node upkit.mjs compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --out XComStrategyGame.new.upk
+node upkit.mjs compile XComStrategyGame.upk UpkitHelper UpkitHelper.uc --patch helper.txt
 
 # a new script package of your own classes
 node upkit.mjs new MyMod.u MyModInfo.uc MyModData.uc --game "<the game>/XComGame/CookedPCConsole"
@@ -61,7 +62,8 @@ node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back by
 
 Run it on the packages in the game's `XComGame/CookedPCConsole` folder (other
 packages are found beside the one given; `--game <folder>` says where else to
-look). Compressed packages are read as they are.
+look, as a mod's own folder needs: upkit says so when it finds no Core.upk).
+Compressed packages are read as they are.
 
 - `--patch` writes the change as `[REPLACEMENT_CODE]` in PatchUPK
   pseudo-code: object references as `<Path>`, so PatchUPK stores the memory
