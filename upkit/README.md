@@ -113,8 +113,10 @@ What an edited body needs that the package lacks is added:
 - with `--out` (a whole package): new names, new imports (a function or a
   class of another package used for the first time), and new local variables
   (`local float fBonus;`), linked into the function;
-- with `--patch` (a mod script): new names, by `[ADD_NAME_ENTRY]`. A mod
-  script cannot add imports or locals; upkit says so and points to `--out`.
+- with `--patch` (a mod script): new names, by `[ADD_NAME_ENTRY]`, and new
+  imports, by `[ADD_IMPORT_ENTRY]` (each appended to the table, its outer
+  first, before the code that names it). A mod script cannot add locals;
+  upkit says so and points to `--out`.
   A default changed in place is hex at offsets in its object; one that
   changes its size replaces the part that changed, and PatchUPK resizes the
   object.
@@ -201,9 +203,13 @@ script cannot add objects at all.
   Enemy Unknown's that Enemy Within does not ship, so it is not built.)
 - A whole package (`--out`, keep layout) holds what PatchUPK makes of the
   same change: for an edited function (the same size, grown, shrunk, naming
-  a name the package lacks), the package upkit writes and the original with
-  upkit's mod script applied by the app's PatchUPK implementation have the
-  same names, imports and export entries, and every object the same bytes.
+  a name the package lacks, naming a class or calling a function the package
+  does not import), the package upkit writes and the original with upkit's
+  mod script applied by PatchUPK have the same names, imports and export
+  entries, and every object the same bytes. PatchUPK here is the binary built
+  from wghost's UPKUtils (the tests run it when `PATCHUPK` names it; it opens
+  the package by its name in lower case) and the app's implementation, which
+  does not take `[ADD_IMPORT_ENTRY]`.
   (PatchUPK also moves a shrunk object to the end and leaves an undo record
   after a moved one; the game reads neither.)
 - Mods people wrote by hand (the PatcherGUI scripts in the samples: EXALT

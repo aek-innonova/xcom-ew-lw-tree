@@ -180,7 +180,7 @@ try {
         if (declared.length) throw new Error(`new declarations (${declared.join(', ')}) need a whole package (--out): a mod script cannot add objects`)
         const r = modScriptWith(linker, pkg, basename(file), changes, { name: `${path} (upkit)` }, defaults)
         writeFileSync(patch, r.text)
-        console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}`)
+        console.log(`wrote ${patch}: ${what} as a PatchUPK mod script${r.names.length ? `, adding the names ${r.names.join(', ')}` : ''}${r.imports.length ? `, importing ${r.imports.join(', ')}` : ''}`)
       }
       if (out) {
         if (isClass) {

@@ -80,7 +80,8 @@ syntax for what UnrealScript cannot say, and the files.
   package has (a function's parameters, a variable's type or modifiers, a
   struct's members, a state's or class's declaration, a replication block),
   which is not compiled: what the package has keeps its declarations.
-- Writes the change as a PatchUPK mod script (`--patch`; it can add names)
+- Writes the change as a PatchUPK mod script (`--patch`; it can add names
+  and imports)
   or as a whole package (`--out`; also new imports, locals, and new
   declarations: member variables, functions, states, structs, enums,
   constants, delegates, interfaces, classes with their replication; `new`
@@ -117,8 +118,11 @@ packages came from the win VM's install into `samples/ew/`.
   99.7% of its 9,235 objects the same declarations. Twelve more mod packages
   beside it rebuild with 96.5% of their code the same.
 - A whole package from upkit holds what PatchUPK makes of the same change:
-  the same names, imports, export entries and every object's bytes (the app's
-  PatchUPK implementation applying upkit's mod script; four kinds of edit).
+  the same names, imports, export entries and every object's bytes. Checked
+  with PatchUPK itself (built on Linux from wghost's UPKUtils source, run by
+  the tests when `PATCHUPK` names the binary; six kinds of edit, two of them
+  adding imports) and with the app's implementation (four, as it takes no
+  imports).
 - The rebuilt LWRebalance.u imports what the original does, as it does
   (2,828 imports the same, none of another class).
 - On Windows (the VM's Node 24, its vanilla and its LW + LWR installs, paths
@@ -133,9 +137,10 @@ packages came from the win VM's install into `samples/ew/`.
   (Microsoft Basic Display Adapter), so XCOM does not run there (recorded
   with `am learn`). The checks above are structural and by comparison with
   what Unreal's compiler and PatchUPK make.
-- A mod script cannot add imports: the app's PatchUPK implementation does
-  not take `[ADD_IMPORT_ENTRY]`, so there is nothing to check one against;
-  an edit that needs an import says to use `--out`.
+- A mod script cannot add locals (they are objects); an edit that declares
+  one says to use `--out`. The app's own PatchUPK implementation does not
+  take `[ADD_IMPORT_ENTRY]`, so a mod script that adds imports needs
+  PatcherGUI / PatchUPK to apply it.
 - Not compiled: native functions; a changed declaration of something the
   package has (refused, with that said). Replication is compiled for new
   classes only.

@@ -468,8 +468,9 @@ describe.skipIf(!haveCorpus)('mistakes the compiler refuses, said with the line'
 })
 
 describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
-  // The same edit two ways: upkit's whole package (keep layout), and the app's PatchUPK
-  // implementation applying upkit's mod script to the original. PatchUPK's packages load
+  // The same edit two ways: upkit's whole package (keep layout), and PatchUPK applying
+  // upkit's mod script to the original: the app's implementation, and (with PATCHUPK set
+  // to its binary, built from wghost's UPKUtils) PatchUPK itself. PatchUPK's packages load
   // in the game; upkit's are to come out the same, byte for byte.
   const cases: [string, (s: string) => string][] = [
     ['the same size', (s) => s.replace('(1 + m_fLabBonus', '(2 + m_fLabBonus')],
@@ -477,38 +478,76 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
     ['shrunk', (s) => s.replace('return int(GetAvailableScientists() * (1 + m_fLabBonus + m_fAdjLabBonus));', 'return GetAvailableScientists();')],
     ['naming a name the package lacks', (s) => s.replace('(1 + m_fLabBonus', "(int(IsInState('UpkitBrandNewState')) + m_fLabBonus")],
   ]
+  // (The app's implementation does not take ADD_IMPORT_ENTRY; PatchUPK does.)
+  const importing: [string, (s: string) => string][] = [
+    ['naming a class the package does not import', (s) => s.replace('(1 + m_fLabBonus', "(int(class'XComGame.XGAIBehavior_Civilian' != none) + 1 + m_fLabBonus")],
+    [
+      "calling another package's function the package does not import",
+      (s) => s.replace('(1 + m_fLabBonus', "(int(class'XGGameData'.static.IsAlienCharacterType(eChar_Sectoid)) + 1 + m_fLabBonus"),
+    ],
+  ]
+  const edited = async (edit: (s: string) => string) => {
+    const { decompileClass } = await import('../src/classdecomp.ts')
+    const { classEdits } = await import('../src/classsrc.ts')
+    const { modScriptWith, packageWith } = await import('../src/changes.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const src = edit(decompileClass(linker, pkg, 'XGFacility_Labs'))
+    const changes = classEdits(linker, pkg, 'XGFacility_Labs', src).changes
+    expect(changes.length).toBe(1)
+    return {
+      pkg,
+      ours: packageWith(linker, pkg, changes, 'keep').bytes,
+      script: modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'x' }).text,
+    }
+  }
+  // The same package: the same names, imports and export entries (but where the objects
+  // lie), and every object's data. (PatchUPK also moves a shrunk object to the end and
+  // leaves its undo record after a moved one; the game reads neither.)
+  const expectSame = (ours: Uint8Array, theirs: Uint8Array) => {
+    const a = openPackage(ours)
+    const b = openPackage(theirs)
+    expect(a.names.map((n) => n.name)).toEqual(b.names.map((n) => n.name))
+    expect(a.imports).toEqual(b.imports)
+    expect(a.exports.length).toBe(b.exports.length)
+    for (let i = 1; i <= a.exports.length; i++) {
+      const { serialOffset: _x, ...ea } = a.exports[i - 1]!
+      const { serialOffset: _y, ...eb } = b.exports[i - 1]!
+      expect(ea).toEqual(eb)
+      const da = a.data(i)
+      const db = b.data(i)
+      if (da.length !== db.length || da.some((x, k) => x !== db[k])) throw new Error(`${a.path(i)} differs`)
+    }
+  }
   for (const [name, edit] of cases)
-    it(`a function's code ${name}`, async () => {
-      const { decompileClass } = await import('../src/classdecomp.ts')
-      const { classEdits } = await import('../src/classsrc.ts')
-      const { modScriptWith, packageWith } = await import('../src/changes.ts')
+    it(`a function's code ${name} (the app's implementation)`, async () => {
       const { Package: AppPackage } = await import('../../src/model/upk.ts')
       const { runScript } = await import('../../src/model/modpatch.ts')
-      const linker = new Linker([dirname(CORPUS[0]!)])
-      const pkg = load(CORPUS[3]!)
-      linker.add('XComStrategyGame', pkg)
-      const src = edit(decompileClass(linker, pkg, 'XGFacility_Labs'))
-      const changes = classEdits(linker, pkg, 'XGFacility_Labs', src).changes
-      expect(changes.length).toBe(1)
-      const ours = packageWith(linker, pkg, changes, 'keep').bytes
+      const { pkg, ours, script } = await edited(edit)
       const copy = new AppPackage(pkg.bytes.slice())
-      const r = runScript(modScriptWith(linker, pkg, 'XComStrategyGame.upk', changes, { name: 'x' }).text, { open: () => copy })
+      const r = runScript(script, { open: () => copy })
       expect(r.steps.filter((s) => s.status === 'error')).toEqual([])
-      // The same package: the same names, imports and export entries (but where the objects
-      // lie), and every object's data. (PatchUPK also moves a shrunk object to the end and
-      // leaves its undo record after a moved one; the game reads neither.)
-      const a = openPackage(ours)
-      const b = openPackage(copy.bytes)
-      expect(a.names.map((n) => n.name)).toEqual(b.names.map((n) => n.name))
-      expect(a.imports).toEqual(b.imports)
-      expect(a.exports.length).toBe(b.exports.length)
-      for (let i = 1; i <= a.exports.length; i++) {
-        const { serialOffset: _x, ...ea } = a.exports[i - 1]!
-        const { serialOffset: _y, ...eb } = b.exports[i - 1]!
-        expect(ea).toEqual(eb)
-        const da = a.data(i)
-        const db = b.data(i)
-        if (da.length !== db.length || da.some((x, k) => x !== db[k])) throw new Error(`${a.path(i)} differs`)
+      expectSame(ours, copy.bytes)
+    })
+  const patchUPK = process.env.PATCHUPK
+  for (const [name, edit] of [...cases, ...importing])
+    it.skipIf(!patchUPK)(`a function's code ${name} (PatchUPK)`, async () => {
+      const { execFileSync } = await import('node:child_process')
+      const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs')
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { pkg, ours, script } = await edited(edit)
+      const dir = mkdtempSync(join(tmpdir(), 'lwtree-patchupk-'))
+      try {
+        // (It opens the package by its name in lower case, as on Windows.)
+        writeFileSync(join(dir, 'xcomstrategygame.upk'), pkg.bytes)
+        writeFileSync(join(dir, 'mod.txt'), script)
+        const log = execFileSync(patchUPK!, [join(dir, 'mod.txt'), dir], { encoding: 'utf8' })
+        expect(log).not.toMatch(/Execution stopped|Error/)
+        expectSame(ours, new Uint8Array(readFileSync(join(dir, 'xcomstrategygame.upk'))))
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
       }
     })
 })

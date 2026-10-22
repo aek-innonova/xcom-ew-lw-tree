@@ -1,6 +1,6 @@
 // A change as a PatcherGUI / PatchUPK mod script: the mod format players
-// already install, and the common case (a function rewritten, nothing added
-// to the package's tables).
+// already install, and the common case (a function rewritten; names and
+// imports it needs added to the package's tables, no objects).
 //
 // The new script goes into [REPLACEMENT_CODE] as PatchUPK pseudo-code:
 // token bytes in hex, object references as <Path>, names as <Name>. PatchUPK
@@ -9,7 +9,7 @@
 // makes the memory size it stores the engine's.
 
 import { TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
-import type { Package } from './package.ts'
+import type { Import, Package } from './package.ts'
 
 const hex = (n: number, bytes: number) => {
   const out: string[] = []
@@ -21,21 +21,41 @@ class Emitter {
   out: string[] = []
   pkg: Package
   added: string[]
-  constructor(pkg: Package, added: string[] = []) {
+  imports: Import[]
+  constructor(pkg: Package, added: string[] = [], imports: Import[] = []) {
     this.pkg = pkg
     this.added = added
+    this.imports = imports
   }
   obj(ref: number) {
     if (ref === 0) return this.out.push('<NullRef>')
     // PatchUPK reads <Word> without a dot as a name: a top-level object (a
-    // class) is written <Class.Name>, which it reads as the object.
-    const path = this.pkg.path(ref)
+    // package) is written <Class.Name>, which it reads as the object.
+    const path = this.path(ref)
     this.out.push(path.includes('.') ? `<${path}>` : `<Class.${path}>`)
   }
-  name(n: NameValue) {
+  /** An object's path, an import the change adds too (PatchUPK finds it by its path once added). */
+  path(ref: number): string {
+    const extra = -ref - this.pkg.imports.length - 1
+    if (extra < 0) return this.pkg.path(ref)
+    const imp = this.imports[extra]!
+    const name = this.nameText(imp.objectName)
+    return imp.outer ? `${this.path(imp.outer)}.${name}` : name
+  }
+  private nameText(n: NameValue) {
     const extra = n.index - this.pkg.names.length
     const base = extra >= 0 ? this.added[extra]! : this.pkg.names[n.index]!.name
-    this.out.push(`<${n.number ? `${base}_${n.number - 1}` : base}>`)
+    return n.number ? `${base}_${n.number - 1}` : base
+  }
+  name(n: NameValue) {
+    this.out.push(`<${this.nameText(n)}>`)
+  }
+  /** An import table entry (PatchUPK's ADD_IMPORT_ENTRY: 28 bytes, names and the outer as pseudo-code). */
+  importEntry(imp: Import) {
+    this.name(imp.classPackage)
+    this.name(imp.className)
+    this.obj(imp.outer)
+    this.name(imp.objectName)
   }
   expr(n: Node) {
     if (n.native !== undefined) {
@@ -99,14 +119,20 @@ class Emitter {
 }
 
 /** A script as PatchUPK pseudo-code, a statement a line (added: names the change adds, past the table's end). */
-export function pseudoCode(pkg: Package, statements: Node[], added: string[] = []): string {
+export function pseudoCode(pkg: Package, statements: Node[], added: string[] = [], imports: Import[] = []): string {
   return statements
     .map((s) => {
-      const e = new Emitter(pkg, added)
+      const e = new Emitter(pkg, added, imports)
       e.expr(s)
       return e.out.join(' ')
     })
     .join('\n')
+}
+
+/** The paths of the imports a change adds (as the mod script names them). */
+export function addedImportPaths(pkg: Package, names: string[], imports: Import[]): string[] {
+  const e = new Emitter(pkg, names, imports)
+  return imports.map((_, i) => e.path(-(pkg.imports.length + i + 1)))
 }
 
 export interface ModInfo {
@@ -124,6 +150,8 @@ export function modScript(
     ref: number
     statements: Node[]
     names?: string[]
+    /** Imports the code needs that the package lacks (past the table's end, in order). */
+    imports?: Import[]
     /** Bytes to set in the object after its code is replaced (at an offset in it). */
     after?: { at: number; bytes: Uint8Array }
   }[],
@@ -131,6 +159,7 @@ export function modScript(
   objects: { upk: string; pkg: Package; ref: number; data: Uint8Array; names?: string[] }[] = [],
 ): string {
   const added = new Set<string>()
+  const addedImports = new Set<number>()
   const lines = [`MOD_NAME=${info.name}`]
   if (info.author) lines.push(`AUTHOR=${info.author}`)
   if (info.description) lines.push(`DESCRIPTION=${info.description}`)
@@ -144,7 +173,16 @@ export function modScript(
       added.add(n)
       lines.push('', '[ADD_NAME_ENTRY]', nameEntry(n))
     }
-    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.names))
+    // Then imports (ADD_IMPORT_ENTRY appends each to the table, at the reference the code has for it).
+    // PatchUPK skips one whose path the package has: never the case here, as the compiler looked first.
+    for (const [i, imp] of (c.imports ?? []).entries()) {
+      if (addedImports.has(i)) continue
+      addedImports.add(i)
+      const e = new Emitter(c.pkg, c.names, c.imports)
+      e.importEntry(imp)
+      lines.push('', '[ADD_IMPORT_ENTRY]', e.out.join(' '))
+    }
+    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.names, c.imports))
     if (c.after)
       lines.push(
         '',

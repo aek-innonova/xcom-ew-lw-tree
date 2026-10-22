@@ -12,7 +12,7 @@ import type { Linker } from './linker.ts'
 import { readStructHead } from './objects.ts'
 import { openPackage, type Package } from './package.ts'
 import { lineAt } from './parse.ts'
-import { modScript } from './patch.ts'
+import { addedImportPaths, modScript } from './patch.ts'
 import { writePackage } from './writer.ts'
 
 export interface Change {
@@ -99,8 +99,8 @@ export function packageWith(
 }
 
 /**
- * The changes as a PatchUPK mod script. It can add names; a change that needs
- * a new import or local fails with the compiler's word on it (a whole package can).
+ * The changes as a PatchUPK mod script. It can add names and imports; a change
+ * that needs a new object (a local) fails with the compiler's word on it (a whole package can).
  */
 export function modScriptWith(
   linker: Linker,
@@ -109,13 +109,13 @@ export function modScriptWith(
   changes: Change[],
   info: { name: string; author?: string; description?: string },
   defaults?: DefaultsSource,
-): { text: string; compiled: Compiled[]; objects: number[]; names: string[] } {
+): { text: string; compiled: Compiled[]; objects: number[]; names: string[]; imports: string[] } {
   const ops = binaryOperators(linker)
   const sh = shared()
   const compiled: Compiled[] = []
   for (const c of changes) {
     const fc = new FunctionCompiler(linker, pkg, c.ref, sh)
-    fc.allow = 'names'
+    fc.allow = 'imports'
     compiled.push(compileOne(fc, pkg, c, ops))
   }
   const edits = defaults ? defaultsEdits(linker, pkg, defaults, { shared: sh, allow: 'names' }) : []
@@ -127,6 +127,7 @@ export function modScriptWith(
       ref: c.ref,
       statements: c.statements,
       names: sh.names,
+      imports: sh.imports,
       // A state's label table moves with its code: the offset the state keeps of it, set after.
       after:
         c.labelTableOffset === undefined
@@ -135,7 +136,7 @@ export function modScriptWith(
     })),
     edits.map((e) => ({ upk, pkg, ref: e.ref, data: e.data, names: sh.names })),
   )
-  return { text, compiled, objects: edits.map((e) => e.ref), names: sh.names }
+  return { text, compiled, objects: edits.map((e) => e.ref), names: sh.names, imports: addedImportPaths(pkg, sh.names, sh.imports) }
 }
 
 function compileOne(fc: FunctionCompiler, pkg: Package, c: Change, ops: Record<string, number>): Compiled {

@@ -94,7 +94,11 @@ export class FunctionCompiler {
    * there), names (a mod script can add those), or names, imports and new
    * local variables (a whole package).
    */
-  allow: 'none' | 'names' | 'all' = 'none'
+  allow: 'none' | 'names' | 'imports' | 'all' = 'none'
+  /** New imports may be added (a whole package, or a mod script: PatchUPK's ADD_IMPORT_ENTRY); new objects only in a whole package. */
+  private get canImport() {
+    return this.allow === 'all' || this.allow === 'imports'
+  }
   /** Added by the compiled code (see additions()). */
   added = {
     names: [] as string[],
@@ -175,8 +179,8 @@ export class FunctionCompiler {
     const key = `${this.linker.nameOf(at.pkg)}.${at.pkg.path(at.ref)}`.toLowerCase()
     const r = this.imports.get(key)
     if (r !== undefined) return r
-    if (this.allow !== 'all')
-      throw new CompileError(`${at.pkg.path(at.ref)} is not imported by this package (a whole package, --out, can add it)`)
+    if (!this.canImport)
+      throw new CompileError(`${at.pkg.path(at.ref)} is not imported by this package`)
     // Imported here from now on: its outers first (up to its package), then itself.
     const outer = at.pkg.outerOf(at.ref)
     const outerRef = outer ? this.refOf({ pkg: at.pkg, ref: outer }) : this.packageImport(this.linker.nameOf(at.pkg))
@@ -217,7 +221,7 @@ export class FunctionCompiler {
     const key = pkg.path(ref).toLowerCase()
     const r = this.imports.get(key)
     if (r !== undefined) return r
-    if (this.allow !== 'all') throw new CompileError(`${pkg.path(ref)} is not imported by this package (a whole package, --out, can add it)`)
+    if (!this.canImport) throw new CompileError(`${pkg.path(ref)} is not imported by this package`)
     const imp = pkg.imports[-ref - 1]!
     const outer = imp.outer ? this.importOf(pkg, imp.outer) : 0
     const r2 = this.addImport(key, pkg.name(imp.classPackage), pkg.name(imp.className), outer, pkg.name(imp.objectName))
@@ -244,7 +248,7 @@ export class FunctionCompiler {
   coreClass(name: string): number {
     const r = this.imports.get(`core.${name}`.toLowerCase())
     if (r !== undefined) return r
-    if (this.allow !== 'all') throw new CompileError(`Core.${name} is not imported by this package`)
+    if (!this.canImport) throw new CompileError(`Core.${name} is not imported by this package`)
     return this.addImport(`core.${name}`.toLowerCase(), 'Core', 'Class', this.packageImport('Core'), name)
   }
   private obj(at: Located): ScriptObject | null {
@@ -352,7 +356,7 @@ export class FunctionCompiler {
     }
     const ref = types.get(name.toLowerCase())
     // Not here or imported: a whole package can import it from wherever the game has it.
-    if (ref === undefined) return this.allow === 'all' ? this.linker.findType(name) : null
+    if (ref === undefined) return this.canImport ? this.linker.findType(name) : null
     return ref > 0 ? { pkg: this.pkg, ref } : (this.linker.resolve(this.pkg, ref) ?? { pkg: this.pkg, ref })
   }
   /** An enum value by name, from the enums this package has or imports. */
@@ -366,7 +370,7 @@ export class FunctionCompiler {
     const here = this.linker.enumValues(this.pkg).get(name.toLowerCase())
     if (here) return here
     // A whole package: any enum of the game's script packages.
-    if (this.allow !== 'all') return null
+    if (!this.canImport) return null
     for (const n of Linker.SCRIPT_PACKAGES) {
       const pkg = this.linker.package(n)
       const v = pkg && this.linker.enumValues(pkg).get(name.toLowerCase())
@@ -710,10 +714,10 @@ export class FunctionCompiler {
       // class'Pawn': the class by name (a whole package imports it).
       if (cls.toLowerCase() === 'class') {
         const k = this.findClass(path.split('.').pop()!)
-        if (k && (k.pkg === this.pkg || this.allow === 'all')) return this.refOf(k)
+        if (k && (k.pkg === this.pkg || this.canImport)) return this.refOf(k)
         throw e
       }
-      if (this.allow !== 'all' || !path.includes('.')) throw e
+      if (!this.canImport || !path.includes('.')) throw e
       const k = this.findClass(cls)
       if (!k) throw e
       const parts = path.split('.')
@@ -732,7 +736,7 @@ export class FunctionCompiler {
     const i = this.imports.get(path.toLowerCase())
     if (i !== undefined) return i
     // A whole package can import it: Package.Path, found in that package (as it has it, or imports it).
-    if (this.allow === 'all') {
+    if (this.canImport) {
       const dot = path.indexOf('.')
       const other = dot > 0 ? this.linker.package(path.slice(0, dot)) : null
       if (other) {
@@ -1172,7 +1176,7 @@ export class FunctionCompiler {
   private refOfMaybe(at: Located): number {
     if (at.pkg === this.pkg) return at.ref
     // A whole package imports it, as the compiler does; a patch uses it if it is there (else 0, as a cook leaves it).
-    if (this.allow === 'all') return this.refOf(at)
+    if (this.canImport) return this.refOf(at)
     return this.imports.get(`${this.linker.nameOf(at.pkg)}.${at.pkg.path(at.ref)}`.toLowerCase()) ?? 0
   }
 
