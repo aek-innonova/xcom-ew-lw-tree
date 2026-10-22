@@ -58,6 +58,7 @@ node upkit.mjs new MyMod.u MyModInfo.uc MyModData.uc --game "<the game>/XComGame
 node upkit.mjs diff vanilla/XComStrategyGame.upk XComStrategyGame.upk XGFacility_Labs
 
 node upkit.mjs roundtrip XComGame.upk   # how much of a package compiles back byte for byte
+node upkit.mjs roundtrip XComGame.upk --list   # and which functions do not (hand patches, mostly), and where
 ```
 
 Run it on the packages in the game's `XComGame/CookedPCConsole` folder (other

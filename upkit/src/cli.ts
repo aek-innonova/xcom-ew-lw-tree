@@ -22,8 +22,9 @@ Commands:
   new <package.u> <Class.uc>…             a new script package with these classes in it
   diff <package> <other package> [filter] what the other version changed, added, took away:
                                           each changed function as a diff of its source
-  roundtrip <package>                     decompile and compile every function; how many
-                                          come back byte for byte
+  roundtrip <package> [--list]            decompile and compile every function; how many
+                                          come back byte for byte (--list: which do not, and
+                                          where their source and bytes part)
 
 Options: --game <folder>  where the game's other packages are (default: the
 package's folder); packages are read compressed or not. --layout compact: a
@@ -56,6 +57,8 @@ const flag = (name: string): string | undefined => {
   return v
 }
 const game = flag('--game')
+// (A flag without a value.)
+const listing = argv.includes('--list') && !!argv.splice(argv.indexOf('--list'), 1)
 const out = flag('--out')
 const patch = flag('--patch')
 const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
@@ -282,17 +285,26 @@ try {
         if (!h.size) continue
         total++
         const orig = pkg.data(i).subarray(h.scriptAt, h.end)
+        let text = ''
         try {
-          const text = new FunctionDecompiler(linker, pkg, i).decompile()
+          text = new FunctionDecompiler(linker, pkg, i).decompile()
           const c = new FunctionCompiler(linker, pkg, i).compile(text, ops).code
-          if (c.length === orig.length && c.every((b, k) => b === orig[k])) same++
+          if (c.length === orig.length && c.every((b, k) => b === orig[k])) {
+            same++
+            continue
+          }
         } catch {
           // counted as different
+        }
+        // --list: each that does not, and where (the note decompile writes above it).
+        if (listing) {
+          const note = text ? fidelityNote(fidelity(linker, pkg, i, text)) : '// upkit: not decompiled\n'
+          console.log(`${pkg.path(i)}\n  ${note.trim().split('\n').pop()!.replace(/^\/\/ (upkit: )?/, '')}`)
         }
       }
       console.log(
         total
-          ? `${pkgName}: ${same} of ${total} functions compile back byte for byte (${((100 * same) / total).toFixed(1)}%)`
+          ? `${pkgName}: ${same} of ${total} functions compile back byte for byte (${(Math.floor((1000 * same) / total) / 10).toFixed(1)}%)`
           : `${pkgName}: no functions with code`,
       )
       break
