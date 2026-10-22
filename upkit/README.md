@@ -214,11 +214,10 @@ script adds no declarations to a class (only a function's new locals).
   a name the package lacks, naming a class or calling a function the package
   does not import, declaring new locals: an int after the return value, an
   array and a struct in a function that had no children; and defaults the
-  same size or grown, a state's code with a label added), the package upkit writes and the original with upkit's
-  mod script applied by PatchUPK have the same names, imports and export
-  entries, and every object the same bytes. PatchUPK here is the binary built
-  from wghost's UPKUtils (the tests run it when `PATCHUPK` names it; it opens
-  the package by its name in lower case) and the app's implementation, which
+  same size or grown, a state's code with a label added), the package upkit
+  writes and the original with upkit's mod script applied by PatchUPK have
+  the same names, imports and export entries, and every object the same
+  bytes. PatchUPK here is PatchUPK itself and the app's implementation, which
   takes neither `[ADD_IMPORT_ENTRY]` nor `[ADD_EXPORT_ENTRY]`.
   (PatchUPK also moves a shrunk object to the end and leaves an undo record
   after a moved one; the game reads neither.)
@@ -306,3 +305,10 @@ through PatchUPK, every class decompiled and read back unchanged, every
 class's defaults compiled from text, the round trips above, the rebuilt mod
 packages, hand-written UnrealScript (a function, a mod class, an interface,
 replication), the mistakes refused, and the command line end to end.
+
+With `PATCHUPK` set to a PatchUPK binary, the tests also apply upkit's mod
+scripts with PatchUPK itself and compare: every function of four packages,
+and each kind of edit against `--out`. It builds on Linux from
+[wghost/UPKUtils](https://github.com/wghost/UPKUtils) as it is
+(`cmake <src> -DCMAKE_BUILD_TYPE=Release && make PatchUPK`; checked with
+9b2fd07); it opens a package by its name in lower case, as on Windows.

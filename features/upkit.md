@@ -123,8 +123,8 @@ packages came from the win VM's install into `samples/ew/`.
   the tests when `PATCHUPK` names the binary; eleven kinds of edit: a
   function's code (the same size, grown, shrunk, a name added, two adding
   imports, two adding locals), defaults (the same size; grown, a name added),
-  a state's code with a label added) and with the app's implementation (four, as it
-  takes neither imports nor objects). Every function of Engine, XComGame,
+  a state's code with a label added) and with the app's implementation
+  (four, as it takes neither imports nor objects). Every function of Engine, XComGame,
   XComStrategyGame and LWRebalance.u (22,930), written back as a mod script and
   applied by PatchUPK, comes out byte for byte with the engine's memory size
   (which found that PatchUPK cannot read a name with a space in it as
