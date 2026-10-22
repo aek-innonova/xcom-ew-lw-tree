@@ -41,7 +41,8 @@ import { decompileClass } from './classdecomp.ts'
 import { FunctionDecompiler } from './decompile.ts'
 import { fidelity, fidelityNote, readableSource, readableStateCode } from './fidelity.ts'
 import { Linker } from './linker.ts'
-import { readStructHead } from './objects.ts'
+import { readObject, readStructHead } from './objects.ts'
+import { CPF } from './types.ts'
 import { openPackage, type Package } from './package.ts'
 import { modScriptFrom } from './patch.ts'
 import { emptyPackage } from './writer.ts'
@@ -204,6 +205,20 @@ try {
           const r = packageWith(linker, pkg, changes, layout, defaults)
           writeFileSync(out, r.bytes)
           console.log(`wrote ${out} (${layout} layout): ${r.compiled.map((c) => `${pkg.path(c.ref)} → ${c.code.length} bytes`).join('; ')}`)
+        }
+      }
+      // Variables that now read their value from outside the package: where it goes.
+      if (whole) {
+        const after = openPackage(whole.bytes)
+        for (const v of [...whole.modified, ...whole.declared]) {
+          const ref = after.find(v)
+          if (!ref || !after.className(ref).endsWith('Property')) continue
+          const flags = (readObject(after, ref) as { flags: bigint }).flags
+          const [cls, name] = v.split('.') as [string, string]
+          if (flags & CPF.Config) {
+            const config = (readObject(after, after.find(cls)) as { configName: string }).configName
+            console.log(`${v} is config: its value comes from Default${config}.ini, [${pkgName}.${cls}] ${name}=…`)
+          } else if (flags & CPF.Localized) console.log(`${v} is localized: its text comes from ${pkgName}.int, [${cls}] ${name}=…`)
         }
       }
       break

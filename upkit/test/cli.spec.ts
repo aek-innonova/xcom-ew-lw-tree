@@ -203,7 +203,9 @@ describe.skipIf(!haveCorpus)("a variable's modifiers changed", () => {
     try {
       const src = run('class', pkg, 'XGTacticalGameCore')
       writeFileSync(join(dir, 'gc.uc'), src.replace('\nvar int m_iDifficulty;', '\nvar config int m_iDifficulty;'))
-      expect(run('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc.uc'), '--patch', join(dir, 'gc.txt'))).toContain('modifiers of XGTacticalGameCore.m_iDifficulty')
+      const said = run('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc.uc'), '--patch', join(dir, 'gc.txt'))
+      expect(said).toContain('modifiers of XGTacticalGameCore.m_iDifficulty')
+      expect(said).toContain('its value comes from DefaultGameCore.ini, [XComGame.XGTacticalGameCore] m_iDifficulty=')
       run('compile', pkg, 'XGTacticalGameCore', join(dir, 'gc.uc'), '--out', join(dir, 'gc.upk'))
       const out = openPackage(new Uint8Array(readFileSync(join(dir, 'gc.upk'))))
       const prop = readObject(out, out.find('XGTacticalGameCore.m_iDifficulty')) as { flags: bigint }
