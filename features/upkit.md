@@ -79,7 +79,8 @@ syntax for what UnrealScript cannot say, and the files.
   unknown name, a parse error); so is a changed declaration of something the
   package has (a function's parameters, a variable's type or category, a
   struct's members, a state's or class's declaration, a replication block),
-  which is not compiled: what the package has keeps its declarations.
+  which is not compiled: what the package has keeps its declarations (but
+  for the modifiers and enum values below).
 - Writes the change two ways: as a PatchUPK mod script (`--patch`, the
   common case), adding the names, imports and locals the code needs; or as a
   whole package (`--out`). Both take new declarations too (member
@@ -87,8 +88,8 @@ syntax for what UnrealScript cannot say, and the files.
   interfaces, a new class with its replication), values added to an enum,
   and changed modifiers (a variable made `config`, say, to be set from an
   ini; a function made `exec`); a mod script with any of these is made from
-  the whole package. `new` builds a new script package,
-  with a start for its .int and .ini.
+  the whole package. `new` builds a new script package, with a start for its
+  .int and .ini.
 - `diff`: two versions of a package compared, each changed function, and
   each class's changed declarations and defaults, as a diff of its source
   (Long War changed 653 of XComStrategyGame's functions and states, the
@@ -116,8 +117,8 @@ a property cooking dropped). Long War's packages carry hand patches
 (bytecode no source compiles to: flags set otherwise, stale jumps, nested
 contexts, arguments a function no longer takes); `decompile` says so above
 such a function, and `roundtrip --list` names them all, each with where its
-source and its bytes part. The vanilla packages came from the win VM's install into
-`samples/ew/`.
+source and its bytes part. The vanilla packages came from the win VM's
+install into `samples/ew/`.
 
 - Every class's defaultproperties, compiled from the text alone, come back
   byte for byte (all seven corpus packages and vanilla).
@@ -144,8 +145,9 @@ source and its bytes part. The vanilla packages came from the win VM's install i
     return value; where the function had no children); defaults the same
     size and grown; a state's code with a label added; declarations (a member
     variable and a function; a constant, an enum, a struct and a state; a new
-    class in the package). The app's own implementation agrees on the four
-    it can apply (it takes neither imports nor objects).
+    class in the package); a value added to an enum and used; a variable made
+    `config`. The app's own implementation agrees on the four it can apply
+    (it takes neither imports nor objects).
   - Declarations on 60 more classes of both packages (20 picked, 40 at
     random): a member variable and a function using it on the 52 that are
     not native, a function alone on 45 (the native ones among them): each
@@ -183,8 +185,9 @@ source and its bytes part. The vanilla packages came from the win VM's install i
   end of the file: a stream's reading and writing positions apart); upkit's
   scripts write every link themselves.
 - Not compiled: native functions; a changed declaration of something the
-  package has (refused, with that said). Replication is compiled for new
-  classes only.
+  package has, beyond the modifiers above and values added to an enum (a
+  function's parameters, a variable's type, a struct's members: refused,
+  with that said). Replication is compiled for new classes only.
 - Mods people wrote by hand (the samples' PatcherGUI scripts): 7 of the 16
   functions they change compile back byte for byte; the rest is hex no
   compiler writes (a fixed skip of 10, a call short of an argument).
