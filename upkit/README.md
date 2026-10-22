@@ -94,7 +94,7 @@ functions, properties, native operators). Measured on the game's own code
 | GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% |
 
 States' code, the same way: every one of the vanilla packages' 269, LWRebalance's 7, and
-251 of Long War's 262.
+252 of Long War's 262.
 | XComGame (Long War 1.0) | 11,756 | 98.5% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.6% |
