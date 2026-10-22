@@ -165,7 +165,8 @@ such a function. The vanilla packages came from the win VM's install into
 ### Not verified, and not done
 
 - Nothing upkit wrote has been loaded by the game. The win VM has no GPU
-  (Microsoft Basic Display Adapter), so XCOM does not run there (recorded
+  (Microsoft Basic Display Adapter), so XCOM does not run there, and not
+  headless either (`-nullrhi` exits at once, without a log; both recorded
   with `am learn`). The checks above are structural and by comparison with
   what Unreal's compiler and PatchUPK make.
 - The app's own PatchUPK implementation takes neither `[ADD_IMPORT_ENTRY]`
