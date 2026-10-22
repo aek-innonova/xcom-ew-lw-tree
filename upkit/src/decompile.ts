@@ -117,6 +117,8 @@ export class FunctionDecompiler {
   readable = false
   /** Nodes (by their offset in the script) written as __asm(…): where the bytes say what source cannot. */
   asm: Set<number> | null = null
+  /** A state's closing (stop, padding, label table) written in its code as the bytes have it, not left to the compiler. */
+  explicitEnd = false
   /** The statements (or conditions) each line of the last output writes, by line. */
   lineNodes = new Map<number, Node[]>()
   readonly linker: Linker
@@ -601,6 +603,9 @@ export class FunctionDecompiler {
           if (e) ops.push(this.asmChild(e))
           break
         }
+        case 'labels':
+          for (const l of v as Label[]) ops.push(`'${this.nm(l.name)}'`, String(l.offset))
+          break
         case 'end':
           // (Its closing byte, where it is not the usual one.)
           if (v !== (n.op === 0x49 ? 0x15 : 0x16)) ops.push(String(v))
@@ -1003,6 +1008,7 @@ export class FunctionDecompiler {
    * table puts them. The closing stop and the table are the compiler's.
    */
   decompileStateCode(): string {
+    this.lineNodes = new Map()
     const st = this.linker.object({ pkg: this.pkg, ref: this.ref }) as StateObj
     const head = st.head
     if (head.size <= 2) return ''
@@ -1017,14 +1023,21 @@ export class FunctionDecompiler {
       S = S.slice(0, table)
     } else if (S.at(-1)?.op === 0x53) S = S.slice(0, -1)
     let end = table >= 0 ? script.statements[table]!.mem : script.memSize
-    // Nothing before the table aligns it (the compiler's): dropped when it is just that.
-    let pads = 0
-    while (S.at(-1 - pads)?.op === 0x0b) pads++
-    const stop = S.at(-1 - pads)
-    if (table >= 0 && pads && stop?.op === 0x08 && pads < 4 && (stop.mem + 2) % 4 !== 0 && (end + 1) % 4 === 0) S = S.slice(0, -pads)
-    if (S.at(-1)?.op === 0x08) {
-      end = S.at(-1)!.mem
-      S = S.slice(0, -1)
+    if (this.explicitEnd) {
+      // The closing as the bytes have it (upkit's dialect, __NoStateEnd): all but the end, the table as __asm.
+      S = script.statements.slice(0, script.statements.at(-1)?.op === 0x53 ? -1 : undefined)
+      end = script.statements.at(-1)?.op === 0x53 ? script.statements.at(-1)!.mem : script.memSize
+      if (table >= 0) this.asm = new Set([...(this.asm ?? []), S[table]!.at])
+    } else {
+      // Nothing before the table aligns it (the compiler's): dropped when it is just that.
+      let pads = 0
+      while (S.at(-1 - pads)?.op === 0x0b) pads++
+      const stop = S.at(-1 - pads)
+      if (table >= 0 && pads && stop?.op === 0x08 && pads < 4 && (stop.mem + 2) % 4 !== 0 && (end + 1) % 4 === 0) S = S.slice(0, -pads)
+      if (S.at(-1)?.op === 0x08) {
+        end = S.at(-1)!.mem
+        S = S.slice(0, -1)
+      }
     }
     this.statements = S
     this.memEnd = end
@@ -1036,7 +1049,7 @@ export class FunctionDecompiler {
     this.labelled = new Set(this.gotos)
     this.gotos = new Set()
     this.placed = new Set()
-    const lines: string[] = []
+    const lines: string[] = this.explicitEnd ? ['    __NoStateEnd;'] : []
     this.lines(this.block(0, S.length, {}), 1, lines)
     // A label at the very end (the closing stop): Begin: of a state without code.
     const last = this.named.get(this.memEnd) ?? (this.labelled.has(this.memEnd) ? [`L${this.memEnd}`] : [])

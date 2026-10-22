@@ -164,7 +164,7 @@ function partsAt(x: Node, y: Node, offsets = false): Node | null {
 }
 
 /**
- * A function's source with the places its bytes say what UnrealScript cannot
+ * A function's source (or a state's code) with the places its bytes say what UnrealScript cannot
  * written as __asm(…), as few as it takes: compiled, the very bytes. Found by
  * compiling and looking: where the bytes part, that node; where the source
  * does not compile, the least of its statement that, written so, does. Null
@@ -176,12 +176,17 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
   const none = pkg.findName('None')
   const original = decodeScript(orig, (n) => n.index === none).statements
   const ops = binaryOperators(linker)
+  const state = pkg.className(ref) === 'State'
+  // (A state whose closing parts from the compiler's: written in its code.)
+  let explicitEnd = false
   const attempt = (marks: Set<number>) => {
     const d = new FunctionDecompiler(linker, pkg, ref)
     d.asm = marks
-    const text = d.decompile()
+    d.explicitEnd = explicitEnd
+    const text = state ? d.decompileStateCode() : d.decompile()
     try {
-      return { text, d, compiled: new FunctionCompiler(linker, pkg, ref).compileStatements(text, ops), error: null }
+      const fc = new FunctionCompiler(linker, pkg, ref)
+      return { text, d, compiled: state ? fc.compileStateCode(text, ops).statements : fc.compileStatements(text, ops), error: null }
     } catch (e) {
       return { text, d, compiled: null, error: e as Error & { pos?: number } }
     }
@@ -220,6 +225,23 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
           if (!r.compiled[i]) return null
           at = partsAt(original[i]!, r.compiled[i]!, offsets)
         }
+      // A state's closing (its stop, padding, table) parting: written in the code, from then on.
+      if (state && !explicitEnd && at) {
+        const table = original.findIndex((x) => x.op === 0x0c)
+        // (Where the closing starts: the last stop before the table, else the padding before it.)
+        let from = table
+        while (from > 0 && original[from - 1]!.op === 0x0b) from--
+        for (let j = table - 1; j >= 0; j--)
+          if (original[j]!.op === 0x08) {
+            from = j
+            break
+          }
+        const k = original.findIndex((st) => [...walk(st)].includes(at!))
+        if (table >= 0 && k >= from) {
+          explicitEnd = true
+          continue
+        }
+      }
       // (The same tokens, and more of them compiled: nothing of the original to write otherwise.)
       if (debug && at) {
         const shallow = (n: Node) => `${tokenName(n)}(${n.args.map((a) => (a && typeof a === 'object' ? ('op' in (a as object) ? tokenName(a as Node) : JSON.stringify(a)) : String(a))).join(', ')})`
@@ -323,15 +345,30 @@ export function readableStateCode(linker: Linker, pkg: Package, ref: number): st
   const d = new FunctionDecompiler(linker, pkg, ref)
   d.readable = true
   const pretty = d.decompileStateCode()
-  if (pretty === exact) return exact
-  try {
-    const ops = binaryOperators(linker)
-    const a = encodeScript(new FunctionCompiler(linker, pkg, ref).compileStateCode(exact, ops).statements).code
-    const b = encodeScript(new FunctionCompiler(linker, pkg, ref).compileStateCode(pretty, ops).statements).code
-    if (a.length === b.length && a.every((x, i) => x === b[i])) return pretty
-  } catch {
-    // the exact one, then
+  const ops = binaryOperators(linker)
+  const code = (text: string) => encodeScript(new FunctionCompiler(linker, pkg, ref).compileStateCode(text, ops).statements).code
+  let best = exact
+  if (pretty !== exact)
+    try {
+      const a = code(exact)
+      const b = code(pretty)
+      if (a.length === b.length && a.every((x, i) => x === b[i])) best = pretty
+    } catch {
+      // the exact one, then
+    }
+  // Where it does not compile back to the bytes (a hand patch): the bytes kept as __asm.
+  const h = readStructHead(pkg, ref)
+  if (h.size > 2) {
+    const orig = pkg.data(ref).subarray(h.scriptAt, h.end)
+    let same = false
+    try {
+      const c = code(best)
+      same = c.length === orig.length && c.every((x, i) => x === orig[i])
+    } catch {
+      // not compiled: not the same
+    }
+    if (!same) return asmSource(linker, pkg, ref) ?? best
   }
-  return exact
+  return best
 }
 

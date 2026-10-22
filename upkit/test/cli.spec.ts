@@ -257,3 +257,33 @@ describe.skipIf(!haveCorpus)("modifiers changed", () => {
     }
   })
 })
+
+describe.skipIf(!haveCorpus)("a hand patch's function edited (its escapes kept)", () => {
+  it('a statement added before the escapes: the hand patch kept byte for byte; with PatchUPK, the same package as --out', async () => {
+    const { openPackage } = await import('../src/package.ts')
+    const pkg = CORPUS[3]!
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const before = run('decompile', pkg, 'XGFundingCouncil.OnValidRequestAdded')
+      const escapes = before.match(/__asm\([^\n;]*/g) ?? []
+      expect(escapes.length).toBeGreaterThan(0)
+      const src = run('class', pkg, 'XGFundingCouncil')
+      writeFileSync(join(dir, 'fc.uc'), src.replace('    m_iFCRequestsThisMonth++;\n', '    m_iFCRequestsThisMonth++;\n    m_iFCRequestsThisMonth += 0;\n'))
+      expect(run('compile', pkg, 'XGFundingCouncil', join(dir, 'fc.uc'), '--out', join(dir, 'fc.upk'))).toContain('compiled XGFundingCouncil.OnValidRequestAdded')
+      run('compile', pkg, 'XGFundingCouncil', join(dir, 'fc.uc'), '--patch', join(dir, 'fc.txt'))
+      // Read back: the edit, and the same escapes (the hand patch's bytes as they were).
+      const after = run('decompile', join(dir, 'fc.upk'), 'XGFundingCouncil.OnValidRequestAdded', '--game', dirname(pkg))
+      expect(after).toContain('m_iFCRequestsThisMonth += 0;')
+      expect(after.match(/__asm\([^\n;]*/g) ?? []).toEqual(escapes)
+      if (process.env.PATCHUPK) {
+        writeFileSync(join(dir, 'xcomstrategygame.upk'), openPackage(new Uint8Array(readFileSync(pkg))).bytes)
+        execFileSync(process.env.PATCHUPK, [join(dir, 'fc.txt'), dir], { encoding: 'utf8' })
+        const a = openPackage(new Uint8Array(readFileSync(join(dir, 'fc.upk'))))
+        const b = openPackage(new Uint8Array(readFileSync(join(dir, 'xcomstrategygame.upk'))))
+        for (let i = 1; i <= a.exports.length; i++) if (Buffer.compare(a.data(i), b.data(i))) throw new Error(`${a.path(i)} differs`)
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 300_000)
+})

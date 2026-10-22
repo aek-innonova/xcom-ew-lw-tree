@@ -99,6 +99,8 @@ export class FunctionCompiler {
    * local variables (a whole package).
    */
   allow: 'none' | 'names' | 'all' = 'none'
+  /** A state's code that writes its own closing (__NoStateEnd). */
+  private noStateEnd = false
   /** New imports may be added (a whole package, or a mod script: PatchUPK's ADD_IMPORT_ENTRY). */
   private get canImport() {
     return this.allow === 'all'
@@ -793,6 +795,16 @@ export class FunctionCompiler {
           vals.push([nextAt, e] as unknown as Value)
           return
         }
+        case 'labels': {
+          const table: { name: NameValue; offset: number }[] = []
+          while (i < ops.length) {
+            const e = next()
+            if (e?.k !== 'name') throw new CompileError(`__asm(${token}): a label's 'name' wanted`)
+            table.push({ name: this.nameRef(e.v), offset: num(next()) })
+          }
+          vals.push(table as unknown as Value)
+          return
+        }
         case 'end':
           // (The usual closing byte, unless one is written.)
           vals.push(i < ops.length && kinds.indexOf('end') === k ? num(next()) : op === 0x49 ? 0x15 : 0x16)
@@ -1454,6 +1466,10 @@ export class FunctionCompiler {
             this.noEpilogue = true
             return
           }
+          if (raw === '__nostateend') {
+            this.noStateEnd = true
+            return
+          }
         }
         // (__ParmSlots(n): read where the slots are written, before the body.)
         if (s.e.k === 'call' && s.e.fn.k === 'id' && s.e.fn.name.toLowerCase() === '__parmslots') return
@@ -1975,7 +1991,19 @@ export class FunctionCompiler {
   compileStateCode(src: string, binary?: Record<string, number>): { statements: Node[]; labelTableOffset: number } {
     const body = new Parser(src, binary).statements()
     this.out = []
+    this.noStateEnd = false
     this.stmts(body)
+    // (__NoStateEnd: the closing is in the source, stop, padding and table as the bytes have them.)
+    if (this.noStateEnd) {
+      const nodes = this.layout()
+      let at = 0
+      for (const x of nodes) {
+        if (x.op === 0x0c) break
+        at += memSizeOf(x)
+      }
+      nodes.push(N(0x53))
+      return { statements: nodes, labelTableOffset: at + 1 }
+    }
     this.emit(N(0x08))
     const nodes = this.layout()
     let mem = nodes.reduce((n, x) => n + memSizeOf(x), 0)
