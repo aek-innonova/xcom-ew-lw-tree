@@ -183,16 +183,25 @@ such a function. The vanilla packages came from the win VM's install into
 
 ### To check in the game (a machine with a GPU, the game installed)
 
-Smallest risk first; each step undone by restoring the package (keep a copy):
+Smallest risk first; each step undone by restoring the package (keep a copy).
+`G` is the game's `XEW/XComGame/CookedPCConsole`; `upkit.mjs` the one-file
+build (`node upkit/build.mjs`).
 
-1. A mod script: `class XComStrategyGame.upk XGFacility_Labs`, change
-   `GetResearchPerHour` to return a large number, `compile … --patch labs.txt`,
-   apply with PatcherGUI; research should finish within a day.
-2. The same change as a whole package (`--out`), copied over the game's
-   `XComStrategyGame.upk` (on an install whose exe has the hash check off, as
-   Long War's has): the same result, which tells that upkit's packages load.
-3. A new member variable and function in a class (`--out`), used from an
-   edited function: tells that new declarations load and run.
+1. A mod script, the common case:
+
+   ```
+   node upkit.mjs class "$G/XComStrategyGame.upk" XGFacility_Labs > Labs.uc
+   # in Labs.uc, GetResearchPerHour's body: return 1000;
+   node upkit.mjs compile "$G/XComStrategyGame.upk" XGFacility_Labs Labs.uc --patch labs.txt
+   ```
+
+   Apply `labs.txt` with PatcherGUI; research should finish within a day.
+2. The same change as a whole package: `--out XComStrategyGame.upk.new`
+   instead of `--patch`, copied over the game's `XComStrategyGame.upk` (on
+   an install whose exe has the hash check off, as Long War's has): the same
+   result tells that upkit's packages load.
+3. A new member variable and a function in a class, used from an edited
+   function, both ways (`--patch`, and `--out`): tells that new declarations
+   load and run, and that PatchUPK's appended objects do.
 4. A new script package (`new`, a class extending XComMutator) loaded the way
    Long War's mutators are: tells that a package upkit made from nothing loads.
-   
