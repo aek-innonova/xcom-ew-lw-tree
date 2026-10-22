@@ -145,7 +145,9 @@ such a function. The vanilla packages came from the win VM's install into
     random): a member variable and a function using it on the 52 that are
     not native, a function alone on 45 (the native ones among them): each
     the same package as `--out`. A variable for a native class is refused
-    (its C++ fixes them).
+    (its C++ fixes them). On the 40 random ones also a statement added to a
+    function (the 30 that have one) and a default changed (a number, a bool
+    or a string; the 33 that have one): the same.
   - On the win VM, the PatchUPK.exe Long War's Mod Manager ships made the
     same packages as `--out` from five of these scripts (imports, locals, a
     member variable and a function, a new class).
