@@ -188,7 +188,10 @@ install into `samples/ew/`.
 - Not compiled: native functions; a changed declaration of something the
   package has, beyond the modifiers above and values added to an enum (a
   function's parameters, a variable's type, a struct's members: refused,
-  with that said). Replication is compiled for new classes only.
+  with that said). Replication is compiled for new classes only. Members
+  added to a struct the package has would be the next such step (as enum
+  values are); not done, as a struct a native class uses has its size fixed
+  in C++, and checking that across the game's packages wants care.
 - Mods people wrote by hand (the samples' PatcherGUI scripts): 7 of the 16
   functions they change compile back byte for byte; the rest is hex no
   compiler writes (a fixed skip of 10, a call short of an argument).
