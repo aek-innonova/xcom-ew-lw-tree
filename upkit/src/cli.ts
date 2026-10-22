@@ -171,7 +171,7 @@ try {
       const changes = edits ? edits.changes : isNew ? [] : [{ ref: functionRef(pkg, path), text, path }]
       // One function's source: its declaration as the package has it (only the body compiles).
       if (!isClass && pkg.className(changes[0]!.ref) === 'Function' && declaration(readableSource(linker, pkg, changes[0]!.ref)) !== declaration(text))
-        throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it`)
+        throw new Error(`${path}: its declaration changed (modifiers, return type, parameters); only a body is compiled, the declaration stays as the package has it (a whole class's source can make it exec, simulated, singular or an event)`)
       const block = isClass && !isNew ? defaultsBlock(text) : null
       const structs = edits?.structDefaults.map((x) => ({ ref: x.ref, block: x.block })) ?? []
       const defaults = block !== null || structs.length ? { classRef: target, block, structs } : undefined
