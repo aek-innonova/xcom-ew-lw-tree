@@ -133,8 +133,9 @@ packages came from the win VM's install into `samples/ew/`.
   script (a member variable and a function; a constant, an enum, a struct and
   a state; a new class in the package), applied by PatchUPK: the same package
   as `--out`. On the win VM, the
-  PatchUPK.exe that Long War's Mod Manager ships, applying the three mod
-  scripts that add imports and locals, made the same packages as `--out`.
+  PatchUPK.exe that Long War's Mod Manager ships, applying the mod scripts
+  that add imports, locals, a member variable and a function, and a new
+  class, made the same packages as `--out` (five scripts).
 - The rebuilt LWRebalance.u imports what the original does, as it does
   (2,828 imports the same, none of another class).
 - On Windows (the VM's Node 24, its vanilla and its LW + LWR installs, paths
