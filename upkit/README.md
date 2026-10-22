@@ -92,12 +92,12 @@ functions, properties, native operators). Measured on the game's own code
 | XComGame (vanilla) | 11,756 | 99.99% |
 | XComStrategyGame (vanilla) | 5,349 | 99.96% |
 | GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% |
-
-States' code, the same way: every one of the vanilla packages' 269, LWRebalance's 7, and
-252 of Long War's 262.
 | XComGame (Long War 1.0) | 11,756 | 98.5% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.6% |
+
+States' code, the same way: all 269 of the vanilla packages', LWRebalance's
+7, and 252 of Long War's 262.
 
 Long War's packages carry many functions patched by hand, some in forms no
 compiler writes (a constant where a member was, flags set otherwise, stale

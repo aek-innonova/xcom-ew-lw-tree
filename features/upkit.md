@@ -80,13 +80,13 @@ syntax for what UnrealScript cannot say, and the files.
   package has (a function's parameters, a variable's type or modifiers, a
   struct's members, a state's or class's declaration, a replication block),
   which is not compiled: what the package has keeps its declarations.
-- Writes the change as a PatchUPK mod script (`--patch`; it adds the names,
-  imports and new locals the code needs; with new declarations, the script
-  that makes the original into the whole package `--out` writes)
-  or as a whole package (`--out`; also new imports, locals, and new
-  declarations: member variables, functions, states, structs, enums,
-  constants, delegates, interfaces, classes with their replication; `new`
-  builds a new script package, and a start for its .int and .ini).
+- Writes the change two ways: as a PatchUPK mod script (`--patch`, the
+  common case), adding the names, imports and locals the code needs; or as a
+  whole package (`--out`). Both take new declarations too: member variables,
+  functions, states, structs, enums, constants, delegates, interfaces, a new
+  class with its replication (a mod script with declarations is made from
+  the whole package). `new` builds a new script package, with a start for
+  its .int and .ini.
 - `diff`: two versions of a package compared, each changed function as a
   diff of its source (Long War changed 651 of XComStrategyGame's).
 
@@ -101,17 +101,18 @@ Decompiled and compiled back in place, byte for byte:
 | XComGame (vanilla) | 11,756 | 99.99% |
 | XComStrategyGame (vanilla) | 5,349 | 99.96% |
 | GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% |
-
-States' code, the same way: every one of the vanilla packages' 269, LWRebalance's 7, and
-252 of Long War's 262.
 | XComGame (Long War 1.0) | 11,756 | 98.5% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
 | LWRebalance.u | 1,484 | 97.6% |
 
-Long War's packages carry hand patches (bytecode no source compiles to:
-flags set otherwise, stale jumps, nested contexts, arguments a function no
-longer takes); `decompile` says so above such a function. The vanilla
-packages came from the win VM's install into `samples/ew/`.
+States' code, the same way: all 269 of the vanilla packages', LWRebalance's
+7, and 252 of Long War's 262. The 5 vanilla functions left each name what the
+cooked packages lack (a cheat's empty argument, members of C++-only classes,
+a property cooking dropped). Long War's packages carry hand patches
+(bytecode no source compiles to: flags set otherwise, stale jumps, nested
+contexts, arguments a function no longer takes); `decompile` says so above
+such a function. The vanilla packages came from the win VM's install into
+`samples/ew/`.
 
 - Every class's defaultproperties, compiled from the text alone, come back
   byte for byte (all seven corpus packages and vanilla).
@@ -122,31 +123,33 @@ packages came from the win VM's install into `samples/ew/`.
   states token for token as the original Unreal compiler made them, and
   99.7% of its 9,235 objects the same declarations. Twelve more mod packages
   beside it rebuild with 97.1% of their code the same.
-- A whole package from upkit holds what PatchUPK makes of the same change:
-  the same names, imports, export entries and every object's bytes. Checked
-  with PatchUPK itself (built on Linux from wghost's UPKUtils source, run by
-  the tests when `PATCHUPK` names the binary; eleven kinds of edit: a
-  function's code (the same size, grown, shrunk, a name added, two adding
-  imports, two adding locals), defaults (the same size; grown, a name added),
-  a state's code with a label added) and with the app's implementation
-  (four, as it takes neither imports nor objects). Every function of Engine, XComGame,
-  XComStrategyGame and LWRebalance.u (22,930), written back as a mod script and
-  applied by PatchUPK, comes out byte for byte with the engine's memory size
-  (which found that PatchUPK cannot read a name with a space in it as
-  `<Name>`; such a name now goes in as its bytes). Declarations as a mod
-  script (a member variable and a function; a constant, an enum, a struct and
-  a state; a new class in the package), applied by PatchUPK: the same package
-  as `--out`. On the win VM, the
-  PatchUPK.exe that Long War's Mod Manager ships, applying the mod scripts
-  that add imports, locals, a member variable and a function, and a new
-  class, made the same packages as `--out` (five scripts).
 - The rebuilt LWRebalance.u imports what the original does, as it does
   (2,828 imports the same, none of another class).
+- Mod scripts, checked against PatchUPK itself (built on Linux from wghost's
+  UPKUtils source; the tests run it when `PATCHUPK` names the binary):
+  - Every function of Engine, XComGame, XComStrategyGame and LWRebalance.u
+    (22,930), written back as a mod script and applied, comes out byte for
+    byte with the engine's memory size. (This found that PatchUPK cannot
+    read a name with a space in it as `<Name>`; such a name now goes in as
+    its bytes.)
+  - Edits, each applied to the original, make the same package as `--out`
+    (names, imports, export entries, every object's bytes): a function's code
+    the same size, grown, shrunk, naming a name the package lacks, adding
+    imports (a class; another package's function), adding locals (after the
+    return value; where the function had no children); defaults the same
+    size and grown; a state's code with a label added; declarations (a member
+    variable and a function; a constant, an enum, a struct and a state; a new
+    class in the package). The app's own implementation agrees on the four
+    it can apply (it takes neither imports nor objects).
+  - On the win VM, the PatchUPK.exe Long War's Mod Manager ships made the
+    same packages as `--out` from five of these scripts (imports, locals, a
+    member variable and a function, a new class).
 - On Windows (the VM's Node 24, its vanilla and its LW + LWR installs, paths
   with spaces) the one-file build decompiles, exports, diffs, writes a mod
   script and a whole package.
 - Lint-clean as the repository lints; the app's own unit tests leave
-  upkit's to upkit (they had been picking them up).
+  upkit's to upkit (they had been picking them up). 121 tests in `upkit/`
+  (19 of them need `PATCHUPK`).
 
 ### Not verified, and not done
 
