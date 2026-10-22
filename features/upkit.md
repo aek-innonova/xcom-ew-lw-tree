@@ -114,7 +114,8 @@ cooked packages lack (a cheat's empty argument, members of C++-only classes,
 a property cooking dropped). Long War's packages carry hand patches
 (bytecode no source compiles to: flags set otherwise, stale jumps, nested
 contexts, arguments a function no longer takes); `decompile` says so above
-such a function. The vanilla packages came from the win VM's install into
+such a function, and `roundtrip --list` names them all, each with where its
+source and its bytes part. The vanilla packages came from the win VM's install into
 `samples/ew/`.
 
 - Every class's defaultproperties, compiled from the text alone, come back
