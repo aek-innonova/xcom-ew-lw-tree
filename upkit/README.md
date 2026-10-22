@@ -278,6 +278,8 @@ writes it in a form the compiler reads back the same:
   wanted there); `byte(int(5))`: a cast.
 - `-5` is a negative constant; `-(5)` the minus operator on 5.
 - `super(Class.State).Function()`: a parent state's function.
+- `class'Engine'.static.super(Engine).Function()`: a function that is not
+  final, called final through a class (a patch's).
 - `obj.(5)`: a constant read through an object (a patch's).
 - `Object'None'`: an object constant of nothing (content the cook stripped
   leaves one; it is not `none`'s bytes).

@@ -121,7 +121,7 @@ export type Expr =
   | { k: 'call'; fn: Expr; args: (Expr | null)[] }
   | { k: 'member'; obj: Expr; name: string }
   | { k: 'ctxlit'; obj: Expr; e: Expr }
-  | { k: 'static'; obj: Expr; name: string }
+  | { k: 'static'; obj: Expr; name: string; superOf?: string | null }
   | { k: 'defmember'; obj: Expr; name: string }
   | { k: 'default'; name: string }
   | { k: 'super'; cls: string | null; name: string }
@@ -555,7 +555,21 @@ export class Parser {
           continue
         }
         const name = this.id()
-        if (name.toLowerCase() === 'static') e = { k: 'static', obj: e, name: (this.want('.'), this.id()) }
+        if (name.toLowerCase() === 'static') {
+          this.want('.')
+          const fname = this.id()
+          // upkit's dialect: Class.static.super(Parent).Name, a final call of a function that
+          // is not final, through a class (as a hand patch can have it).
+          if (fname.toLowerCase() === 'super') {
+            let cls: string | null = null
+            if (this.eat('(')) {
+              cls = this.id()
+              this.want(')')
+            }
+            this.want('.')
+            e = { k: 'static', obj: e, name: this.id(), superOf: cls }
+          } else e = { k: 'static', obj: e, name: fname }
+        }
         else if (name.toLowerCase() === 'default') e = { k: 'defmember', obj: e, name: (this.want('.'), this.id()) }
         else e = { k: 'member', obj: e, name }
       } else if (this.t.t === 'op' && (this.t.v === '++' || this.t.v === '--')) {

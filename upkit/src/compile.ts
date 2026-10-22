@@ -948,9 +948,11 @@ export class FunctionCompiler {
     if (fn.k === 'static') {
       const o = this.gen(fn.obj)
       const cls = o.ty.k === 'class' ? o.ty.meta : null
-      const f = cls && this.findFunction(fn.name, cls)
+      // (static.super(Parent).Name: that class's function, called final.)
+      const owner = fn.superOf ? this.findType(fn.superOf) : cls
+      const f = owner && this.findFunction(fn.name, owner)
       if (!f) throw new CompileError(`no static ${fn.name}`)
-      const c = this.callNode(f, args)
+      const c = this.callNode(f, args, fn.superOf !== undefined)
       const retProp = this.retPropOf(c.node)
       return { node: N(0x12, o.node, memSizeOf(c.node), retProp, 0, c.node), ty: c.ty }
     }

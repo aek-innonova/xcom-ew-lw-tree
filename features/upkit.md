@@ -148,7 +148,7 @@ such a function. The vanilla packages came from the win VM's install into
   with spaces) the one-file build decompiles, exports, diffs, writes a mod
   script and a whole package.
 - Lint-clean as the repository lints; the app's own unit tests leave
-  upkit's to upkit (they had been picking them up). 121 tests in `upkit/`
+  upkit's to upkit (they had been picking them up). 122 tests in `upkit/`
   (19 of them need `PATCHUPK`).
 
 ### Not verified, and not done

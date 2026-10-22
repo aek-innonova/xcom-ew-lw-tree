@@ -722,3 +722,28 @@ describe.skipIf(!haveCorpus)('what modders write, by the handful', () => {
     expect([...new FunctionCompiler(back, out, ref).compile(text, binaryOperators(back)).code]).toEqual([...out.data(ref).subarray(h.scriptAt, h.end)])
   })
 })
+
+describe.skipIf(!haveCorpus)("upkit's own syntax, read back as written", () => {
+  it('a function that is not final, called final through a class: static.super(Class).Name', async () => {
+    const { packageWith } = await import('../src/changes.ts')
+    const { readableSource } = await import('../src/fidelity.ts')
+    const { readStructHead: head } = await import('../src/objects.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const ref = pkg.find('XGFacility_Labs.GetResearchPerHour')
+    const src = "function int GetResearchPerHour()\n{\n    return int(class'Engine.Engine'.static.super(Engine).IsConsoleAllowed());\n}\n"
+    const out = openPackage(packageWith(linker, pkg, [{ ref, text: src }]).bytes)
+    const back = new Linker([dirname(CORPUS[0]!)])
+    back.add('XComStrategyGame', out)
+    const text = readableSource(back, out, ref)
+    expect(text).toContain("class'Engine'.static.super(Engine).IsConsoleAllowed()")
+    const h = head(out, ref)
+    const code = out.data(ref).subarray(h.scriptAt, h.end)
+    // A final call (FinalFunction) inside the class context.
+    const { decodeScript, walk } = await import('../src/bytecode.ts')
+    const nodes = decodeScript(code, () => false).statements.flatMap((st) => [...walk(st)])
+    expect(nodes.some((n) => n.op === 0x12 && (n.args[4] as { op: number }).op === 0x1c)).toBe(true)
+    expect([...new FunctionCompiler(back, out, ref).compile(text, binaryOperators(back)).code]).toEqual([...code])
+  })
+})
