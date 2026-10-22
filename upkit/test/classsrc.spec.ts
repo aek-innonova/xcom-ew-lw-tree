@@ -27,5 +27,5 @@ describe.skipIf(!haveCorpus)('a class as decompiled is a class unchanged', () =>
         }
       }
       expect(wrong).toEqual([])
-    }, 120_000)
+    }, 600_000)
 })

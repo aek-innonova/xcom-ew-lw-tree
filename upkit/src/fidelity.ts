@@ -75,7 +75,19 @@ export function fidelityNote(f: Fidelity, text = ''): string {
  * reads eMode == eOff), where that compiles to the very bytes the exact source
  * does; else the exact source. (float(I) / 2 without its float would divide ints.)
  */
+const READABLE = new WeakMap<Package, Map<number, string>>()
+/** Worked out once per package read and object (a class's source asks for each part more than once). */
+function once(pkg: Package, ref: number, work: () => string): string {
+  let known = READABLE.get(pkg)
+  if (!known) READABLE.set(pkg, (known = new Map()))
+  let v = known.get(ref)
+  if (v === undefined) known.set(ref, (v = work()))
+  return v
+}
 export function readableSource(linker: Linker, pkg: Package, ref: number): string {
+  return once(pkg, ref, () => readableSource1(linker, pkg, ref))
+}
+function readableSource1(linker: Linker, pkg: Package, ref: number): string {
   const best = readableOrExact(linker, pkg, ref)
   // Where the source does not compile back to the bytes (a hand patch): the bytes kept as __asm.
   if (readStructHead(pkg, ref).size && !fidelity(linker, pkg, ref, best).same) return asmSource(linker, pkg, ref) ?? best
@@ -170,7 +182,15 @@ function partsAt(x: Node, y: Node, offsets = false): Node | null {
  * does not compile, the least of its statement that, written so, does. Null
  * where that does not get there.
  */
+const ASM = new WeakMap<Package, Map<number, string | null>>()
 export function asmSource(linker: Linker, pkg: Package, ref: number): string | null {
+  // (Worked out once per package read: a class's source asks for each of its functions more than once.)
+  let known = ASM.get(pkg)
+  if (!known) ASM.set(pkg, (known = new Map()))
+  if (!known.has(ref)) known.set(ref, findAsmSource(linker, pkg, ref))
+  return known.get(ref)!
+}
+function findAsmSource(linker: Linker, pkg: Package, ref: number): string | null {
   const h = readStructHead(pkg, ref)
   const orig = pkg.data(ref).subarray(h.scriptAt, h.end)
   const none = pkg.findName('None')
@@ -211,6 +231,22 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
     return grew
   }
   const errorLine = (t: ReturnType<typeof attempt>) => (t.error?.pos === undefined ? -1 : lineAt(t.text, t.error.pos) - 1)
+  const exactly = (t: ReturnType<typeof attempt>) => {
+    if (!t.compiled) return false
+    const c = encodeScript(t.compiled).code
+    return c.length === orig.length && c.every((b, i) => b === orig[i])
+  }
+  // Then as few as still give the bytes: each one dropped that is not needed (the last found first).
+  const minimal = (text: string) => {
+    if (process.env.UPKIT_ASM_KEEP) return text
+    for (const at of [...marks].reverse()) {
+      marks.delete(at)
+      const t = attempt(marks)
+      if (exactly(t)) text = t.text
+      else marks.add(at)
+    }
+    return text
+  }
   let marks = new Set<number>()
   const debug = process.env.UPKIT_ASM_DEBUG ? (m: string) => console.error(`asm ${pkg.path(ref)}: ${m}`) : null
   for (let round = 0; round < 400; round++) {
@@ -218,7 +254,7 @@ export function asmSource(linker: Linker, pkg: Package, ref: number): string | n
     debug?.(`round ${round}, ${marks.size} marked, ${r.compiled ? 'compiled' : `error ${r.error?.message} (line ${errorLine(r) + 1})`}`)
     if (r.compiled) {
       const code = encodeScript(r.compiled).code
-      if (code.length === orig.length && code.every((b, i) => b === orig[i])) return r.text
+      if (code.length === orig.length && code.every((b, i) => b === orig[i])) return minimal(r.text)
       let at: Node | null = null
       for (const offsets of [false, true])
         for (let i = 0; i < original.length && !at; i++) {
@@ -341,6 +377,9 @@ export function readableReplication(linker: Linker, pkg: Package, classRef: numb
 
 /** A state's code as best read (as readableSource does for a function: only where it compiles the same). */
 export function readableStateCode(linker: Linker, pkg: Package, ref: number): string {
+  return once(pkg, ref, () => readableStateCode1(linker, pkg, ref))
+}
+function readableStateCode1(linker: Linker, pkg: Package, ref: number): string {
   const exact = new FunctionDecompiler(linker, pkg, ref).decompileStateCode()
   const d = new FunctionDecompiler(linker, pkg, ref)
   d.readable = true

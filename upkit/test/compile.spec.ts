@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { openPackage } from '../src/package.ts'
@@ -724,6 +725,27 @@ describe.skipIf(!haveCorpus)('what modders write, by the handful', () => {
 })
 
 describe.skipIf(!haveCorpus)("upkit's own syntax, read back as written", () => {
+  it('__asm: a node as its token and operands, as the bytes have it (no conversion added, a skip computed for _)', async () => {
+    const { decodeScript, memSizeOf, walk } = await import('../src/bytecode.ts')
+    const linker = new Linker([dirname(CORPUS[0]!)])
+    const pkg = load(CORPUS[3]!)
+    linker.add('XComStrategyGame', pkg)
+    const ref = pkg.find('XGFacility_Labs.GetResearchPerHour')
+    const src =
+      "function int GetResearchPerHour()\n{\n    m_iRequestCounter = __asm(ByteConst, 7);\n    __asm(Let, __asm(InstanceVariable, XGFacility_Labs.m_iRequestCounter), __asm(Context, HQ(), _, None, 0, GetNumFacilities(eFacility_ScienceLab)));\n    return m_iRequestCounter;\n}\n"
+    const code = new FunctionCompiler(linker, pkg, ref).compile(src, binaryOperators(linker)).code
+    const statements = decodeScript(code, () => false).statements
+    // A byte constant where an int is wanted: no cast (the compiler would add one).
+    expect((statements[0]!.args[1] as { op: number }).op).toBe(0x24)
+    // The context's skip as the compiler computes it, its member the object's function.
+    const ctx = statements.flatMap((st) => [...walk(st)]).find((n) => n.op === 0x19)!
+    expect(ctx.args[1]).toBe(memSizeOf(ctx.args[4] as never))
+    expect(pkg.name((ctx.args[4] as { args: never[] }).args[0])).toBe('GetNumFacilities')
+  })
+  it("Long War's XComStrategyGame: every function comes back from its decompiled source", () => {
+    const out = execFileSync(process.execPath, [new URL('../src/cli.ts', import.meta.url).pathname, 'roundtrip', CORPUS[3]!], { encoding: 'utf8' })
+    expect(out).toContain('5349 of 5349')
+  }, 300_000)
   it('a function that is not final, called final through a class: static.super(Class).Name', async () => {
     const { packageWith } = await import('../src/changes.ts')
     const { readableSource } = await import('../src/fidelity.ts')
@@ -741,7 +763,7 @@ describe.skipIf(!haveCorpus)("upkit's own syntax, read back as written", () => {
     const h = head(out, ref)
     const code = out.data(ref).subarray(h.scriptAt, h.end)
     // A final call (FinalFunction) inside the class context.
-    const { decodeScript, walk } = await import('../src/bytecode.ts')
+    const { decodeScript, memSizeOf, walk } = await import('../src/bytecode.ts')
     const nodes = decodeScript(code, () => false).statements.flatMap((st) => [...walk(st)])
     expect(nodes.some((n) => n.op === 0x12 && (n.args[4] as { op: number }).op === 0x1c)).toBe(true)
     expect([...new FunctionCompiler(back, out, ref).compile(text, binaryOperators(back)).code]).toEqual([...code])

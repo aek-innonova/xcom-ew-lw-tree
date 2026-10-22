@@ -88,29 +88,32 @@ against the package's own declarations and the packages it imports (types,
 functions, properties, native operators). Measured on the game's own code
 (decompile every function, compile it, compare the bytes):
 
-| Package | Functions | Identical |
-|---|---|---|
-| Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 99.95% |
-| XComGame (vanilla) | 11,756 | 99.99% |
-| XComStrategyGame (vanilla) | 5,349 | 99.96% |
-| GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% |
-| XComGame (Long War 1.0) | 11,756 | 98.5% |
-| XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
-| LWRebalance.u (LWR 2.06) | 1,484 | 97.6% |
+| Package | Functions | Identical | With `__asm` (escapes) |
+|---|---|---|---|
+| Core (vanilla) | 311 | 100% | 0 |
+| Engine (vanilla) | 4,341 | 100% | 2 (10) |
+| XComGame (vanilla) | 11,756 | 100% | 1 (3) |
+| XComStrategyGame (vanilla) | 5,349 | 100% | 2 (8) |
+| GFxUI, GameFramework, IpDrv, OnlineSubsystemSteamworks (vanilla) | 1,154 | 100% | 0 |
+| XComGame (Long War 1.0) | 11,756 | 100% | 176 (945) |
+| XComStrategyGame (Long War 1.0) | 5,349 | 100% | 244 (1,652) |
+| LWRebalance.u (LWR 2.06) | 1,484 | 100% | 36 (90) |
 
-States' code, the same way: all 269 of the vanilla packages', LWRebalance's
-7, and 252 of Long War's 262.
+States' code, the same way: all of them (269 vanilla, 262 Long War's, 7 of
+LWRebalance's).
 
-Long War's packages carry many functions patched by hand, some in forms no
-compiler writes (a constant where a member was, flags set otherwise, stale
-jumps, arguments a function no longer takes); those are most of the
-difference there. `decompile` says so above such a function, naming where
-its source and its bytes part; the source compiles to what Epic's compiler
-would write. Of the vanilla packages' functions, 5 do not come back, each
-naming what the cooked packages do not have: a cheat's empty argument, a
-member of a C++-only class (whose parent the package does not say), a
-property cooking dropped.
+Most of that is source as Epic's compiler would compile it. Where the bytes
+say what UnrealScript cannot, the decompiler writes those places as
+`__asm(…)` (upkit's own syntax, below), as few as it takes: Long War's
+packages carry many functions patched by hand, in forms no compiler writes
+(a constant of another width, flags set otherwise, stale skips, another
+function's local, a context nested inside a context's member, code copied
+from another function with its return value). `decompile` says so above
+such a function. The vanilla packages' few are Epic's compiler's own odd
+bytes (two cheats' left-out arguments wrapped in the Outer context) and
+members of classes only C++ defines, whose parents the packages do not
+say. A hand-patched function can be edited like any: what is not touched
+keeps its bytes.
 
 ### Edits
 
@@ -258,11 +261,10 @@ compiled (their code is C++).
   leaves an undo record after a moved one; the game reads neither.)
 - Mods people wrote by hand (the PatcherGUI scripts in the samples: EXALT
   Reminder, Soldier Gender, Sightlines, Lightning Reflexes, the Mutator
-  Enabler), applied and decompiled: 7 of the 16 functions they change compile
-  back byte for byte. The rest hold what their authors wrote in hex that no
-  compiler would (a context's skip written as a fixed 10, a call short of an
-  argument it needs, a switch put together by hand); upkit compiles their
-  source to what it means instead.
+  Enabler), applied and decompiled: all 16 functions they change compile
+  back byte for byte, 9 of them with `__asm` for what their authors wrote in
+  hex that no compiler would (a context's skip written as a fixed 10, a call
+  short of an argument it needs, a switch put together by hand).
 - Every class, decompiled, reads back as unchanged; every package of the
   corpus (and 25 others of the game's, maps among them) is written back byte
   for byte.
@@ -310,6 +312,24 @@ writes it in a form the compiler reads back the same:
 - `__NoEpilogue;`: a function without the return the compiler adds at the
   end (a patch that removed it).
 - `__IteratorNext;`, `__IteratorPop;`: iterator steps outside a foreach.
+- `__asm(Token, operands…)`: a node as its token and operands, where the
+  bytes say what source cannot; as an expression or a statement. Operands
+  follow the token: objects by path (`XGFacility_Labs.TResearchProject.iTech`,
+  an import with its package first: `Engine.Actor.Location`; a number where a
+  path does not name it alone), names as `'Name'`, numbers, strings, and
+  children as source (which may hold `__asm` themselves). A skip the
+  compiler computes is `_`, a number only where the bytes hold another; a
+  closing byte that is not the usual one is a last number. A context's member
+  is compiled as the object's (`__asm(Context, kUnit, 12, …, GetName())`).
+  It takes the type its operands say (a variable's, a call's return, a
+  cast's) and no conversion. Natives are `__asm(Native129, …)`; a state's
+  label table `__asm(LabelTable, 'Begin', 0, 'None', 65535)`. It is for what
+  the bytes already hold: the compiler checks no more than the bytes did.
+- `__ParmSlots(n);`: only the first n optional parameters have the slot the
+  compiler opens the script with (a parameter made optional by its flag
+  alone).
+- `__NoStateEnd;`: a state's code that writes its own closing (`stop;`, its
+  padding, its label table), as a hand patch laid it out.
 
 ## How it is built
 
@@ -331,7 +351,7 @@ writes it in a form the compiler reads back the same:
 | `src/declare.ts` | new declarations: variables, functions, states, structs, enums, constants, delegates, classes, replication |
 | `src/defaults.ts` | defaultproperties to the tagged properties of the default object and its components |
 | `src/diff.ts` | two versions of a package compared, function by function and class by class, as diffs of their source |
-| `src/fidelity.ts` | whether a function's source says all its bytecode (the note on hand patches) |
+| `src/fidelity.ts` | whether a function's source says all its bytecode; where not, the `__asm` escapes it needs, found by compiling |
 | `src/cli.ts` | the command line (`build.mjs` bundles it into one file) |
 
 Tests (`npx vitest run` in `upkit/`) run on the game's packages in the
