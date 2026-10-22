@@ -170,9 +170,11 @@ such a function. The vanilla packages came from the win VM's install into
   headless either (`-nullrhi` exits at once, without a log; both recorded
   with `am learn`). The checks above are structural and by comparison with
   what Unreal's compiler and PatchUPK make.
-- The app's own PatchUPK implementation takes neither `[ADD_IMPORT_ENTRY]`
-  nor `[ADD_EXPORT_ENTRY]`, so a mod script that adds imports, locals or
-  declarations needs PatcherGUI / PatchUPK to apply it. PatchUPK's
+- The app's own PatchUPK implementation (`src/model/modpatch.ts`, which its
+  game tools install mods with) takes neither `[ADD_IMPORT_ENTRY]` nor
+  `[ADD_EXPORT_ENTRY]`, so a mod script that adds imports, locals or
+  declarations needs PatcherGUI / PatchUPK to apply it. Teaching the app
+  those two would be a feature of the app's own (not started). PatchUPK's
   `[ADD_EXPORT_ENTRY]` does not link what it adds (it writes the link at the
   end of the file: a stream's reading and writing positions apart); upkit's
   scripts write every link themselves.
