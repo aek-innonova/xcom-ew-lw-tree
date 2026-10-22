@@ -93,7 +93,7 @@ type Stmt =
   | { k: 'continue' }
   | { k: 'goto'; target: number }
   | { k: 'ifgoto'; cond: Node; target: number }
-  | { k: 'label'; mem: number; name?: string }
+  | { k: 'label'; mem: number; names?: string[] }
 
 interface Ctx {
   breakTo?: number
@@ -125,7 +125,7 @@ export class FunctionDecompiler {
   /** While a member is printed: the class of the object it is called on. */
   private objClass: Located | null = null
   /** State code's own labels (Begin:), by memory offset. */
-  private named = new Map<number, string>()
+  private named = new Map<number, string[]>()
   private noneName: number
 
   constructor(linker: Linker, pkg: Package, ref: number) {
@@ -611,7 +611,7 @@ export class FunctionDecompiler {
       const s = S[i]!
       // (A named label once: a loop starting at it would place it again inside.)
       if (this.named.has(s.mem)) {
-        if (!this.placed.has(s.mem)) out.push({ k: 'label', mem: s.mem, name: this.named.get(s.mem) })
+        if (!this.placed.has(s.mem)) out.push({ k: 'label', mem: s.mem, names: this.named.get(s.mem) })
         this.placed.add(s.mem)
       } else if (this.labelled.has(s.mem) && out.at(-1)?.k !== 'label') out.push({ k: 'label', mem: s.mem })
       // A loop that starts here and ends with a jump back (do … until).
@@ -851,7 +851,7 @@ export class FunctionDecompiler {
           out.push(`${pad}if (!(${this.ex(s.cond).text})) goto ${this.target(s.target)};`)
           break
         case 'label':
-          out.push(`${'    '.repeat(Math.max(0, depth - 1))}${s.name ?? `L${s.mem}`}:`)
+          for (const name of s.names ?? [`L${s.mem}`]) out.push(`${'    '.repeat(Math.max(0, depth - 1))}${name}:`)
           break
       }
     }
@@ -905,7 +905,8 @@ export class FunctionDecompiler {
     const table = S.findIndex((x) => x.op === 0x0c)
     this.named = new Map()
     if (table >= 0) {
-      for (const l of S[table]!.args[0] as Label[]) if (l.name.index !== this.noneName) this.named.set(l.offset, this.pkg.name(l.name))
+      // (Every label at an offset, as declared: the table lists them last first.)
+      for (const l of S[table]!.args[0] as Label[]) if (l.name.index !== this.noneName) this.named.set(l.offset, [this.pkg.name(l.name), ...(this.named.get(l.offset) ?? [])])
       S = S.slice(0, table)
     } else if (S.at(-1)?.op === 0x53) S = S.slice(0, -1)
     let end = table >= 0 ? script.statements[table]!.mem : script.memSize
@@ -931,8 +932,8 @@ export class FunctionDecompiler {
     const lines: string[] = []
     this.lines(this.block(0, S.length, {}), 1, lines)
     // A label at the very end (the closing stop): Begin: of a state without code.
-    const last = this.named.get(this.memEnd) ?? (this.labelled.has(this.memEnd) ? `L${this.memEnd}` : null)
-    if (last) lines.push(`${last}:`)
+    const last = this.named.get(this.memEnd) ?? (this.labelled.has(this.memEnd) ? [`L${this.memEnd}`] : [])
+    for (const name of last) lines.push(`${name}:`)
     return unplacedJumps(lines).join('\n') + '\n'
   }
 

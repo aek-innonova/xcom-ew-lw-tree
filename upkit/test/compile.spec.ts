@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { openPackage } from '../src/package.ts'
 import { readStructHead } from '../src/objects.ts'
+import { encodeScript } from '../src/bytecode.ts'
 import { FunctionDecompiler } from '../src/decompile.ts'
 import { binaryOperators, FunctionCompiler } from '../src/compile.ts'
 import { Linker } from '../src/linker.ts'
@@ -381,21 +382,33 @@ describe.skipIf(!existsSync(`${VANILLA}/XComGame.upk`))('vanilla Enemy Within: d
       const ops = binaryOperators(linker)
       let total = 0
       let same = 0
+      let states = 0
+      let statesSame = 0
       for (let i = 1; i <= pkg.exports.length; i++) {
-        if (pkg.className(i) !== 'Function') continue
+        const kind = pkg.className(i)
+        if (kind !== 'Function' && kind !== 'State') continue
         const h = readStructHead(pkg, i)
-        if (!h.size) continue
-        total++
+        if (kind === 'Function' ? !h.size : h.size <= 2) continue
+        if (kind === 'Function') total++
+        else states++
         const orig = pkg.data(i).subarray(h.scriptAt, h.end)
         try {
-          const out = new FunctionCompiler(linker, pkg, i).compile(new FunctionDecompiler(linker, pkg, i).decompile(), ops).code
-          if (out.length === orig.length && out.every((b, k) => b === orig[k])) same++
+          const out =
+            kind === 'Function'
+              ? new FunctionCompiler(linker, pkg, i).compile(new FunctionDecompiler(linker, pkg, i).decompile(), ops).code
+              : encodeScript(new FunctionCompiler(linker, pkg, i).compileStateCode(new FunctionDecompiler(linker, pkg, i).decompileStateCode(), ops).statements).code
+          if (out.length === orig.length && out.every((b, k) => b === orig[k])) {
+            if (kind === 'Function') same++
+            else statesSame++
+          }
         } catch {
           // counted as different
         }
       }
-      console.log(`vanilla ${name}: ${same} of ${total} functions identical (${((100 * same) / total).toFixed(1)}%)`)
-      expect(same / total).toBeGreaterThan(0.99)
+      console.log(`vanilla ${name}: ${same} of ${total} functions identical, ${statesSame} of ${states} states' code`)
+      // (What is left names what the cooked packages lack: two functions at most in each.)
+      expect(total - same).toBeLessThanOrEqual(2)
+      expect(statesSame).toBe(states)
     }, 120_000)
 })
 
