@@ -148,7 +148,8 @@ parse.
 
 ### New declarations
 
-With `--out`, a class's source can declare what the class does not have:
+A class's source can declare what the class does not have (into a whole
+package with `--out`, or as a mod script, below):
 member variables (`var config float m_fBonus;`, arrays, structs, objects,
 delegates), functions and events (in the class or one of its states, with
 parameters, optional and out ones, a return value; or declared without a
@@ -200,12 +201,14 @@ say): the values it had keep their numbers.
 ### What is not compiled
 
 What the source leaves out stays in the package (nothing is deleted), and a
-declaration the package has, changed in the source (a function's parameters,
-return type or other modifiers; a variable's type, category or array size; a struct's members;
-an enum's values but for ones added at its end; a constant's value; a state's or a class's declaration; a
-replication block), is
-refused with that said: for what the package has, only bodies and defaults
-compile. Native functions are not compiled (their code is C++).
+declaration the package has, changed in the source (a function's
+parameters, return type or other modifiers; a variable's type, category or
+array size; a struct's members, which a native class using the struct would
+have fixed in C++; an enum's values but for ones added at its end; a
+constant's value; a state's or a class's declaration; a replication block),
+is refused with that said: for what the package has, bodies, defaults and
+the modifiers and enum values above compile. Native functions are not
+compiled (their code is C++).
 
 ## How it is checked
 
