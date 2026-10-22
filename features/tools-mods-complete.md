@@ -50,7 +50,7 @@ A mod with a `MODDED_FILE` checked and applied from its files.
 
 ## Report (2026-10-22)
 
-Done, on staging only (nothing released).
+Done, committed; not deployed anywhere yet (not to staging, nothing released).
 
 ### What changed
 
