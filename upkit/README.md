@@ -231,18 +231,22 @@ compile. Native functions are not compiled (their code is C++).
   own packages do not share (a class's probe mask, repeated hidden
   categories). (XComModShell.u names `XComUIShell.UIFinalShell`, a class of
   Enemy Unknown's that Enemy Within does not ship, so it is not built.)
-- A whole package (`--out`, keep layout) holds what PatchUPK makes of the
-  same change: for an edited function (the same size, grown, shrunk, naming
-  a name the package lacks, naming a class or calling a function the package
-  does not import, declaring new locals: an int after the return value, an
-  array and a struct in a function that had no children; and defaults the
-  same size or grown, a state's code with a label added), the package upkit
-  writes and the original with upkit's mod script applied by PatchUPK have
-  the same names, imports and export entries, and every object the same
-  bytes. PatchUPK here is PatchUPK itself and the app's implementation, which
-  takes neither `[ADD_IMPORT_ENTRY]` nor `[ADD_EXPORT_ENTRY]`.
-  (PatchUPK also moves a shrunk object to the end and leaves an undo record
-  after a moved one; the game reads neither.)
+- A mod script makes what `--out` makes: applied by PatchUPK to the
+  original, the same names, imports and export entries, and every object the
+  same bytes. Checked for a function's code the same size, grown and shrunk,
+  naming a name the package lacks, naming a class or calling a function the
+  package does not import, declaring locals (after the return value; where
+  the function had no children); defaults the same size and grown; a state's
+  code with a label added; a variable made `config`; declarations (a member
+  variable and a function; a constant, an enum, a struct and a state; a new
+  class); and on 60 more classes of every sort, 40 of them at random (a
+  variable and a function, a function alone in native ones, a statement, a
+  default). PatchUPK here is the binary built from wghost's UPKUtils (the
+  tests run it when `PATCHUPK` names it), the PatchUPK.exe Long War's Mod
+  Manager ships (on Windows, for imports, locals and declarations), and the
+  app's own implementation, which takes neither `[ADD_IMPORT_ENTRY]` nor
+  `[ADD_EXPORT_ENTRY]`. (PatchUPK also moves a shrunk object to the end and
+  leaves an undo record after a moved one; the game reads neither.)
 - Mods people wrote by hand (the PatcherGUI scripts in the samples: EXALT
   Reminder, Soldier Gender, Sightlines, Lightning Reflexes, the Mutator
   Enabler), applied and decompiled: 7 of the 16 functions they change compile
