@@ -560,7 +560,7 @@ describe.skipIf(!haveCorpus)('a whole package as PatchUPK makes it', () => {
         writeFileSync(join(dir, 'xcomstrategygame.upk'), pkg.bytes)
         writeFileSync(join(dir, 'mod.txt'), script)
         const log = execFileSync(patchUPK!, [join(dir, 'mod.txt'), dir], { encoding: 'utf8' })
-        expect(log).not.toMatch(/Execution stopped|Error/)
+        expect(log).not.toMatch(/Execution stopped|^Bad |^Error/m)
         expectSame(ours, new Uint8Array(readFileSync(join(dir, 'xcomstrategygame.upk'))))
       } finally {
         rmSync(dir, { recursive: true, force: true })

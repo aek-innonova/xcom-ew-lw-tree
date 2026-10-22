@@ -8,7 +8,8 @@
 // as eight. Writing references as <…> (not as their four hex bytes) is what
 // makes the memory size it stores the engine's.
 
-import { TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
+import { encodeScript, TOKENS, type Label, type NameValue, type Node, type Value } from './bytecode.ts'
+import { readStructHead } from './objects.ts'
 import type { Export, Import, Package } from './package.ts'
 
 const hex = (n: number, bytes: number) => {
@@ -24,19 +25,44 @@ export interface Added {
   exports?: Export[]
 }
 
+/**
+ * What PatchUPK finds for a <Path> and a <Name> in a package: the first import of that
+ * full name (its package's name first), else the first export; the first name of that
+ * text (both exact, as it compares).
+ */
+const FOUND = new WeakMap<Package, { objects: Map<string, number>; names: Map<string, number> }>()
+function found(pkg: Package) {
+  let f = FOUND.get(pkg)
+  if (!f) {
+    f = { objects: new Map(), names: new Map() }
+    for (let i = 1; i <= pkg.imports.length; i++) if (!f.objects.has(pkg.path(-i))) f.objects.set(pkg.path(-i), -i)
+    for (let i = 1; i <= pkg.exports.length; i++) if (!f.objects.has(pkg.path(i))) f.objects.set(pkg.path(i), i)
+    pkg.names.forEach((n, i) => f!.names.has(n.name) || f!.names.set(n.name, i))
+    FOUND.set(pkg, f)
+  }
+  return f
+}
+
 class Emitter {
   out: string[] = []
   pkg: Package
   added: Required<Added>
+  /** Object references written as their four bytes (PatchUPK would find another object by the path): it then counts their memory as four, not eight. */
+  short = 0
   constructor(pkg: Package, added: Added = {}) {
     this.pkg = pkg
     this.added = { names: added.names ?? [], imports: added.imports ?? [], exports: added.exports ?? [] }
   }
   obj(ref: number) {
     if (ref === 0) return this.out.push('<NullRef>')
+    const path = this.path(ref)
+    const isAdded = ref < 0 ? -ref > this.pkg.imports.length : ref > this.pkg.exports.length
+    if (!isAdded && (/[\s<>]/.test(path) || found(this.pkg).objects.get(path) !== ref)) {
+      this.short++
+      return this.out.push(hex(ref, 4))
+    }
     // PatchUPK reads <Word> without a dot as a name: a top-level object (a
     // package) is written <Class.Name>, which it reads as the object.
-    const path = this.path(ref)
     this.out.push(path.includes('.') ? `<${path}>` : `<Class.${path}>`)
   }
   /** An object's path, one the change adds too (PatchUPK finds it by its path once added). */
@@ -52,8 +78,18 @@ class Emitter {
     const base = extra >= 0 ? this.added.names[extra]! : this.pkg.names[n.index]!.name
     return n.number ? `${base}_${n.number - 1}` : base
   }
+  /**
+   * A name: <Name> where PatchUPK reads it back as this name (Name_N as the name and a
+   * number), else its eight bytes (a name is eight bytes of memory either way): a space
+   * in it, a name that ends in _ and a digit itself, a second entry of the same text.
+   */
   name(n: NameValue) {
-    this.out.push(`<${this.nameText(n)}>`)
+    const extra = n.index - this.pkg.names.length
+    const base = extra >= 0 ? this.added.names[extra]! : this.pkg.names[n.index]!.name
+    const us = base.lastIndexOf('_')
+    const readsBack =
+      !/[\s<>]/.test(base) && base !== '' && !(n.number === 0 && us >= 0 && /\d/.test(base[us + 1] ?? '')) && (extra >= 0 || found(this.pkg).names.get(base) === n.index)
+    this.out.push(readsBack ? `<${this.nameText(n)}>` : `${hex(n.index, 4)} ${hex(n.number, 4)}`)
   }
   /** An import table entry (PatchUPK's ADD_IMPORT_ENTRY: 28 bytes, names and the outer as pseudo-code). */
   importEntry(imp: Import) {
@@ -140,13 +176,19 @@ class Emitter {
 
 /** A script as PatchUPK pseudo-code, a statement a line (added: names the change adds, past the table's end). */
 export function pseudoCode(pkg: Package, statements: Node[], added: Added = {}): string {
-  return statements
+  return pseudoCodeOf(pkg, statements, added).text
+}
+function pseudoCodeOf(pkg: Package, statements: Node[], added: Added = {}): { text: string; short: number } {
+  let short = 0
+  const text = statements
     .map((s) => {
       const e = new Emitter(pkg, added)
       e.expr(s)
+      short += e.short
       return e.out.join(' ')
     })
     .join('\n')
+  return { text, short }
 }
 
 /** The paths of the imports a change adds (as the mod script names them). */
@@ -214,10 +256,14 @@ export function modScript(
       lines.push('', '[ADD_EXPORT_ENTRY]', e.out.join(' '), '', `OBJECT=${path}`, 'REL_OFFSET=0', '[MODDED_HEX]', hexBytes(x.data))
     }
     for (const o of c.objects ?? []) lines.push(...objectEditLines(c.pkg, o.ref, o.data))
-    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', pseudoCode(c.pkg, c.statements, c.added))
-    if (c.after?.length) {
+    const code = pseudoCodeOf(c.pkg, c.statements, c.added)
+    lines.push('', `OBJECT=${c.pkg.path(c.ref)}:AUTO`, '[REPLACEMENT_CODE]', code.text)
+    const after = [...(c.after ?? [])]
+    // References written as bytes: the memory size PatchUPK stored is short by four for each; set to the engine's.
+    if (code.short) after.unshift({ at: readStructHead(c.pkg, c.ref).scriptAt - 8, bytes: u32(encodeScript(c.statements).memSize) })
+    if (after.length) {
       lines.push('', `OBJECT=${c.pkg.path(c.ref)}`)
-      for (const r of c.after) lines.push(`REL_OFFSET=${r.at}`, '[MODDED_HEX]', hexBytes(r.bytes))
+      for (const r of after) lines.push(`REL_OFFSET=${r.at}`, '[MODDED_HEX]', hexBytes(r.bytes))
     }
   }
   for (const o of objects) {
@@ -232,6 +278,7 @@ export function modScript(
   return lines.join('\n') + '\n'
 }
 
+const u32 = (v: number) => new Uint8Array([v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff])
 const hexBytes = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0').toUpperCase()).join(' ')
 
 /** Where two versions of an object's data (the same size) differ: runs of bytes (a few unchanged between them join the run). */

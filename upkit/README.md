@@ -66,6 +66,12 @@ look). Compressed packages are read as they are.
 - `--patch` writes the change as `[REPLACEMENT_CODE]` in PatchUPK
   pseudo-code: object references as `<Path>`, so PatchUPK stores the memory
   size the engine counts. The function grows or shrinks as needed (`:AUTO`).
+  What PatchUPK would not read back as written goes in as its bytes: a name
+  with a space in it (XComGame has one), or ending in `_` and a digit; a path
+  it would find another object by (23 of Engine's functions have one), the
+  memory size then set after. Every function of Engine, XComGame,
+  XComStrategyGame and LWRebalance.u, written back this way and applied by
+  PatchUPK, comes out byte for byte with the engine's memory size.
 - `--out` writes a whole package: by default every object stays where it was
   and a function that grew moves to the end, as PatchUPK moves it;
   `--layout compact` lays every object out anew. Written unchanged, every
