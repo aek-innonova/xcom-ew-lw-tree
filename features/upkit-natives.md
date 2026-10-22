@@ -35,8 +35,17 @@ and not change.
   where it was seen.
 - upkit's compiler uses the same inference, so the C++-only cases compile as
   plain source.
-- What no package says (what a native does) is out of scope beyond a place
-  for notes, if the person wants one.
+- What no package says, what a native does, is written in our own words as
+  far as we know it, in the repository: a notes file keyed by function, each
+  entry saying how it is known (observed, inferred from the bytecode that
+  calls it, from what Unreal Engine 3 is publicly documented to do). The
+  generated reference shows the note beside the declaration. The person,
+  2026-10-22: "is there anything wrong with explaining in words what the do
+  in so far as we know? … do we think general API documentation is a
+  problem?" Not, as far as we can tell: behaviour and signatures are facts
+  about an interface; the line is not to copy Epic's or Firaxis's own text
+  (source comments, their documentation) or ship decompiled C++. The
+  declarations themselves stay generated locally, out of caution.
 
 ## Verification
 
