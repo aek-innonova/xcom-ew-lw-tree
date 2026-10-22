@@ -153,7 +153,10 @@ such a function. The vanilla packages came from the win VM's install into
     member variable and a function, a new class).
 - On Windows (the VM's Node 24, its vanilla and its LW + LWR installs, paths
   with spaces) the one-file build decompiles, exports, diffs, writes a mod
-  script and a whole package.
+  script and a whole package. As built at the end of the night, run there
+  on the LW + LWR install: a member variable and a function declared, as a
+  mod script that Long War's PatchUPK.exe applied, and as a whole package;
+  the two the same, byte for byte.
 - Lint-clean as the repository lints; the app's own unit tests leave
   upkit's to upkit (they had been picking them up). 125 tests in `upkit/`
   (21 of them need `PATCHUPK`).
