@@ -523,6 +523,15 @@ export class Package implements Upk {
     this.parse()
   }
 
+  /** Counts names and exports added in the last generation (as a package upkit writes counts them). */
+  countInGeneration(names: number, exports: number) {
+    const gens = this.getI32(this.at.generations)
+    if (gens < 1) return
+    const g = this.at.generations + 4 + 12 * (gens - 1)
+    this.setI32(g, this.getI32(g) + exports)
+    this.setI32(g + 4, this.getI32(g + 4) + names)
+  }
+
   /** Whether the export's data was moved by PatcherGUI (or by us): the mark after it, with the old size and offset. */
   movedFrom(ref: number): { size: number; offset: number } | null {
     const e = this.exports[ref - 1]!

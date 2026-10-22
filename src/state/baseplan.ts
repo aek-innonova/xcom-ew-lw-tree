@@ -13,7 +13,7 @@
 // have it and the app knows what it is.
 
 import { iniBytes, iniText, mergeIni, setIniValues } from '@/model/inifile'
-import { parseCommands, runScript } from '@/model/modpatch'
+import { runScript, scriptPackages } from '@/model/modpatch'
 import { scriptPackage, type Package } from '@/model/upk'
 import { applySettings } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
@@ -229,9 +229,7 @@ export async function planBase(
 
   // --- Packages: the base's, with every wanted script on them, in order -------------
   const upks = new Set<string>()
-  for (const s of wanted.scripts)
-    for (const c of parseCommands(s.text))
-      if (c.name === 'UPK_FILE') upks.add(lower(c.value.trim().split('\n')[0]!.trim()))
+  for (const s of wanted.scripts) for (const n of scriptPackages(s.text)) upks.add(lower(n))
   const cooked = await files.list('CookedPCConsole')
   const pkgPath = (n: string) =>
     scope.get(`cookedpcconsole/${n}`) ??

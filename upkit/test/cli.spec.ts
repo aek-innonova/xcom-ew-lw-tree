@@ -422,3 +422,26 @@ describe.skipIf(!haveCorpus)('a class source with code after its defaultproperti
     }
   }, 120_000)
 })
+
+describe.skipIf(!haveCorpus)("a script in upkit's mode (UPK_FILE=…:UPKIT1)", () => {
+  it('applied by upkit apply: the package --out writes, its generation counts too', () => {
+    const pkg = CORPUS[3]!
+    const dir = mkdtempSync(join(tmpdir(), 'lwtree-upkit-'))
+    try {
+      const src = run('class', pkg, 'XGFacility_Labs')
+        .replace('var const localized string m_strCostAlloys;', 'var int m_iUpkitBonus;\nvar const localized string m_strCostAlloys;')
+        .replace('function int GetResearchPerHour()', 'function int UpkitBonus(int iBase)\n{\n    return iBase + m_iUpkitBonus;\n}\n\nfunction int GetResearchPerHour()')
+      writeFileSync(join(dir, 'c.uc'), src)
+      run('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--patch', join(dir, 'mod.txt'))
+      run('compile', pkg, 'XGFacility_Labs', join(dir, 'c.uc'), '--out', join(dir, 'out.upk'))
+      const text = readFileSync(join(dir, 'mod.txt'), 'utf8')
+      writeFileSync(join(dir, 'mode.txt'), text.replace(/^UPK_FILE=(.+)$/gm, 'UPK_FILE=$1:UPKIT1'))
+      const out = openPackage(new Uint8Array(readFileSync(join(dir, 'out.upk'))))
+      const mode = applied(pkg, join(dir, 'mode.txt'), dir)
+      expectSame(out, mode)
+      expect(mode.summary.generations).toEqual(out.summary.generations)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
+})

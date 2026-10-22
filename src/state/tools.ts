@@ -19,7 +19,7 @@ import {
   type FoundSetting,
 } from '@/model/gamesettings'
 import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
-import { parseCommands, runScript, type RunResult, type Step } from '@/model/modpatch'
+import { runScript, scriptPackages, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import {
   Package,
@@ -378,13 +378,7 @@ async function currentPackage(name: string): Promise<Package | null> {
   return pkg
 }
 
-const upkNames = (text: string) => [
-  ...new Set(
-    parseCommands(text)
-      .filter((c) => c.name === 'UPK_FILE')
-      .map((c) => c.value.trim().split('\n')[0]!.trim()),
-  ),
-]
+const upkNames = (text: string) => scriptPackages(text)
 
 let checkRun = 0
 /** Runs every script against the install as it is (on copies) and records what it finds. */

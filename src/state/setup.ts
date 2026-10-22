@@ -11,8 +11,7 @@
 // page last wrote (the game was reinstalled, or another tool changed it), the
 // file as it now is becomes the new original.
 
-import { runScript } from '@/model/modpatch'
-import { parseCommands } from '@/model/modpatch'
+import { runScript, scriptPackages } from '@/model/modpatch'
 import { iniBytes, iniText, mergeIni, setIniValues, type IniChange } from '@/model/inifile'
 import { scriptPackage, type Package } from '@/model/upk'
 import { applySettings, type SettingDef } from '@/model/gamesettings'
@@ -172,9 +171,7 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
 
   // --- Packages: originals, then every wanted script on them in order ---------
   const upks = new Set<string>()
-  for (const s of wanted.scripts)
-    for (const c of parseCommands(s.text))
-      if (c.name === 'UPK_FILE') upks.add(lower(c.value.trim().split('\n')[0]!.trim()))
+  for (const s of wanted.scripts) for (const n of scriptPackages(s.text)) upks.add(lower(n))
   for (const p of Object.keys(managed.originals))
     if (/^cookedpcconsole\/[^/]+\.upk$/i.test(p)) upks.add(lower(p.split('/')[1]!))
   // And whatever has a backup, record or not.
