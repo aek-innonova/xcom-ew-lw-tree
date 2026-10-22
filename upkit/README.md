@@ -88,10 +88,10 @@ functions, properties, native operators). Measured on the game's own code
 | Package | Functions | Identical |
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 99.8% |
-| XComGame (vanilla) | 11,756 | 99.97% |
+| Engine (vanilla) | 4,341 | 99.95% |
+| XComGame (vanilla) | 11,756 | 99.99% |
 | XComStrategyGame (vanilla) | 5,349 | 99.96% |
-| XComGame (Long War 1.0) | 11,756 | 98.4% |
+| XComGame (Long War 1.0) | 11,756 | 98.5% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
 | LWRebalance.u (LWR 2.06) | 1,484 | 97.6% |
 
@@ -100,10 +100,10 @@ compiler writes (a constant where a member was, flags set otherwise, stale
 jumps, arguments a function no longer takes); those are most of the
 difference there. `decompile` says so above such a function, naming where
 its source and its bytes part; the source compiles to what Epic's compiler
-would write. Of the vanilla packages' functions, 12 do not come back: cheat
-and debug code calling what the cooked game no longer has (a function or a
-member its C++ dropped), and a few constants Epic's compiler wrote unlike the
-rest (a `default` read as a zero, a jump short by one).
+would write. Of the vanilla packages' functions, 5 do not come back, each
+naming what the cooked packages do not have: a cheat's empty argument, a
+member of a C++-only class (whose parent the package does not say), a
+property cooking dropped.
 
 ### Edits
 

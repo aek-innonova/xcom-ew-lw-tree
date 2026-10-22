@@ -97,10 +97,10 @@ Decompiled and compiled back in place, byte for byte:
 | Package | Functions | Identical |
 |---|---|---|
 | Core (vanilla) | 311 | 100% |
-| Engine (vanilla) | 4,341 | 99.8% |
-| XComGame (vanilla) | 11,756 | 99.97% |
+| Engine (vanilla) | 4,341 | 99.95% |
+| XComGame (vanilla) | 11,756 | 99.99% |
 | XComStrategyGame (vanilla) | 5,349 | 99.96% |
-| XComGame (Long War 1.0) | 11,756 | 98.4% |
+| XComGame (Long War 1.0) | 11,756 | 98.5% |
 | XComStrategyGame (Long War 1.0) | 5,349 | 95.4% |
 | LWRebalance.u | 1,484 | 97.6% |
 

@@ -621,8 +621,9 @@ export class FunctionCompiler {
         const a = this.gen(e.arr, undefined, lvalue)
         const i = this.gen(e.idx, { k: 'int' })
         if (a.ty.k === 'array') {
+          // (An array's bool is not a bit of a field: no BoolVariable around it, in any package.)
           const ty = a.ty.inner
-          return { node: this.boolWrap(N(0x10, i.node, a.node), ty), ty }
+          return { node: N(0x10, i.node, a.node), ty }
         }
         return { node: N(0x1a, i.node, this.unwrapBool(a.node)), ty: a.ty }
       }
@@ -770,7 +771,8 @@ export class FunctionCompiler {
       const base = this.unwrapBool(o.node)
       // Of a call's result (directly or through a context): a copy.
       const isCall = (n: Node): boolean =>
-        n.native !== undefined || [0x1b, 0x1c, 0x42].includes(n.op) || ((n.op === 0x19 || n.op === 0x12) && isCall(n.args[4] as Node))
+        // (A conversion's value too: rotator(v).Yaw, as both in the game's packages are.)
+        n.native !== undefined || [0x1b, 0x1c, 0x42, 0x38].includes(n.op) || ((n.op === 0x19 || n.op === 0x12) && isCall(n.args[4] as Node))
       // (One link per written chain is marked, the innermost: none after a context or an
       // array element whose object already has one.)
       const marked = (n: Node): boolean =>
@@ -784,10 +786,13 @@ export class FunctionCompiler {
     if (!cls) throw new CompileError(`${name} of something that is not an object`)
     const f = this.member(cls, name, 'property')
     if (!f) {
-      // An object's function as a delegate: obj.Func.
-      if (this.member(cls, name, 'function')) {
-        const inner = N(0x43, this.nameRef(name), 0)
-        return { node: N(0x19, o.node, memSizeOf(inner), 0, 7, inner), ty: { k: 'delegate', fn: null } }
+      // An object's function as a delegate: obj.Func (a declared delegate: by its hidden property).
+      const fn = this.member(cls, name, 'function')
+      if (fn) {
+        const hidden = (this.obj(fn) as FunctionObj).flags & FUNC.Delegate ? this.member(cls, `__${name}__Delegate`, 'property') : null
+        const inner = N(0x43, this.nameRef(name), hidden ? this.refOf(hidden) : 0)
+        // (An interface's, through InterfaceContext, as its members are.)
+        return { node: N(0x19, o.ty.k === 'interface' ? N(0x51, o.node) : o.node, memSizeOf(inner), 0, 7, inner), ty: { k: 'delegate', fn: null } }
       }
       throw new CompileError(`no ${name} in ${cls.pkg.objectName(cls.ref)}`)
     }
@@ -1231,7 +1236,10 @@ export class FunctionCompiler {
         // (Eaten only when the value is destroyed: a string, an array, a struct holding them.)
         const retAt = isCall ? this.retAtOf(g.node) : null
         const rp = retAt ? this.obj(retAt) : null
-        const destroyed = rp?.kind === 'property' ? !!(rp.flags & 0x400000n) : k === 'string' || k === 'array'
+        // (The function calling itself: its struct eaten too, as its return value's flags are not
+        // final while its own code compiles. Both such calls in the game's packages are.)
+        const own = !!retAt && retAt.pkg === this.pkg && this.pkg.outerOf(retAt.ref) === this.ref && k === 'struct'
+        const destroyed = own || (rp?.kind === 'property' ? !!(rp.flags & 0x400000n) : k === 'string' || k === 'array')
         if (isCall && retAt && destroyed && (k === 'string' || k === 'struct' || k === 'array') && g.node.op !== 0x0f) {
           const retProp = this.retPropOf(g.node)
           if (retProp) return this.emit(N(0x0e, retProp, g.node))
