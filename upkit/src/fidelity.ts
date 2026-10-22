@@ -22,7 +22,8 @@ export interface Fidelity {
 }
 
 const flat = (n: Node, out: string[]) => {
-  out.push(`${tokenName(n)}(${n.args.filter((a) => typeof a !== 'object').join(',')})`)
+  // (Floats as 32 bits store them.)
+  out.push(`${tokenName(n)}(${n.args.filter((a) => typeof a !== 'object').map((a) => (n.op === 0x1e && typeof a === 'number' ? Math.fround(a) : a)).join(',')})`)
   for (const a of n.args) {
     if (a && typeof a === 'object' && 'op' in (a as object)) flat(a as Node, out)
     else if (Array.isArray(a)) for (const x of a as unknown[]) if (x && typeof x === 'object' && 'op' in (x as object)) flat(x as Node, out)
@@ -38,6 +39,9 @@ export function fidelity(linker: Linker, pkg: Package, ref: number, source: stri
   } catch (e) {
     return { same: false, error: (e as Error).message }
   }
+  // The same bytes: the same (a float made here and one read from 32 bits compare equal so).
+  const code = encodeScript(compiled).code
+  if (code.length === orig.length && code.every((b, i) => b === orig[i])) return { same: true }
   const none = pkg.findName('None')
   const original = decodeScript(orig, (n) => n.index === none).statements
   for (let i = 0; i < Math.max(original.length, compiled.length); i++) {
