@@ -154,8 +154,9 @@ install into `samples/ew/`.
     the same package as `--out`. A variable for a native class is refused
     (its C++ fixes them). On the 40 random ones also a statement added to a
     function (the 30 that have one) and a default changed (a number, a bool
-    or a string; the 33 that have one): the same. And a statement after
-    `Begin:` in the states of 21 classes: the same.
+    or a string; the 33 that have one), a new state with a function, and a
+    constant, an enum and a struct together (all 40): the same. And a
+    statement after `Begin:` in the states of 21 classes: the same.
   - On the win VM, the PatchUPK.exe Long War's Mod Manager ships made the
     same packages as `--out` from five of these scripts (imports, locals, a
     member variable and a function, a new class).
