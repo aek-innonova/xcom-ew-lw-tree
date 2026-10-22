@@ -300,6 +300,9 @@ describe.skipIf(!existsSync(join(dirname(CORPUS[0]!), '../ew/CookedPCConsole/XCo
       expect(said).toContain('compiled XComUIShell.UIFinalShell.SetText; 0 names, 0 imports, 0 objects added')
       expect(said).not.toContain('declared')
       expect(run('decompile', join(dir, 's.upk'), 'XComUIShell.UIFinalShell.SetText', '--game', dirname(pkg))).toContain('myValue.S = m_sSinglePlayer $ " (upkit)";')
+      // Written uncompressed, not flagged as stored compressed (the game fails to load it so: in the game, 2026-10-22).
+      const out = readFileSync(join(dir, 's.upk'))
+      expect(out.readUInt32LE(12 + 4 + out.readInt32LE(12)) & 0x02000000).toBe(0)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

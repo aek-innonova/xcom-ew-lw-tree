@@ -265,14 +265,27 @@ Found and fixed on the way:
   new package's objects had been logged as having an invalid net index (the
   game ran on).
 
+Found and fixed later the same day (a correction to the first reading):
+- A seek-free package (`XComUIShell_SF.upk`, the main menu's screen) written
+  by upkit crashed the game as it loaded it (an array assertion). It was
+  first taken for a check of the package's contents. It is not one: the
+  package exactly as shipped, only uncompressed, crashes the same way. The
+  earlier run that seemed to load it had read a stale log; the game had not
+  started. Vanilla stores these packages in compressed chunks with a flag
+  in the header saying so; upkit took the chunks off but kept the flag, and
+  the game then reads the plain bytes as compressed. Long War's own
+  seek-free packages (UICollection_*_SF, gfxInterception_SF, its changed
+  Flash movies and textures) have the flag off. upkit now clears it when it
+  takes the chunks off (a package compressed whole keeps it inside and loads
+  so, as Long War's XComGame.upk does). In the game, with the flag off: the
+  unchanged package loads, and so does the menu's `SetText` edited to label
+  the first button `SINGLE PLAYER (upkit)`, which the menu shows; upkit's
+  output with the fix is byte for byte that package (test for the flag).
+  Nothing in the exe checks packages' contents as they load: its SHA tables
+  are filled for the startup packages and used for the network, and the
+  message for a failed check is never referenced.
+
 Found, not fixed:
-- A seek-free content package (`XComUIShell_SF.upk`, the main menu's
-  screen) changed by even one byte of bytecode crashes the game as it loads
-  it (an array assertion), while the same package written back unchanged
-  (uncompressed) loads: the game checks those packages' contents somehow
-  (not the table of contents, which has no hashes). Script packages
-  (XComGame.upk, where mods live) load changed. Long War changes none of
-  those packages either.
 - PatchUPK does not count the objects it adds in the package's net
   objects; where a package counts no more than it has, the game logs the
   added ones as invalid (as above). XComGame.upk counts more than it has, so

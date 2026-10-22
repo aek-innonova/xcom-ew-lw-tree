@@ -10,6 +10,8 @@ import { Reader, Writer } from './bytes.ts'
 import { lzoDecompress, unchunk } from './lzo.ts'
 
 export const TAG = 0x9e2a83c1
+/** A package's flag: stored in compressed chunks (the summary lists them). */
+export const PKG_STORE_COMPRESSED = 0x02000000
 
 export interface NameRef {
   index: number
@@ -261,9 +263,14 @@ export function decompress(b: Uint8Array): Uint8Array {
   if (s.compressionFlags !== 2) throw new Error(`compression ${s.compressionFlags} is not LZO`)
   const size = Math.max(...s.chunks.map((c) => c.uOff + c.uSize))
   const out = new Uint8Array(size)
-  // The summary, rewritten as uncompressed: no flags, no chunks.
+  // The summary, rewritten as uncompressed: no compression flags, no chunks,
+  // and not flagged as stored compressed: with that flag on and no chunks the
+  // game reads the package as compressed and fails (an array assertion as it
+  // loads it; seen with XComUIShell_SF.upk). Long War's uncompressed seek-free
+  // packages have it off. (A package compressed whole keeps it inside, and
+  // loads so: Long War's XComGame.upk.)
   const w = new Writer()
-  writeSummary(w, { ...s, compressionFlags: 0, chunks: [] })
+  writeSummary(w, { ...s, packageFlags: s.packageFlags & ~PKG_STORE_COMPRESSED, compressionFlags: 0, chunks: [] })
   const head = w.done()
   out.set(head)
   for (const c of s.chunks) {
