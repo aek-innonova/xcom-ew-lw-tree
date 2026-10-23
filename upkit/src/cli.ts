@@ -37,6 +37,12 @@ Commands:
                                           original kept first in upkit-backup beside the folder
                                           (XComGame/upkit-backup) (--check: only said)
   restore --game <folder>                 the originals apply kept, put back
+  convert <mod.txt> --game <folder> [--out <mod.upkmod>] [--partial] [--with <mod it needs.txt>]…
+                                          a PatchUPK mod as a .upkmod: applied (in memory) to
+                                          the folder's packages, without it; every class it
+                                          changes as source diffs, checked; what is not code
+                                          said (--partial: the code converted all the same;
+                                          --with: mods it needs, applied first, not in it)
 
 Options: --game <folder>  where the game's other packages are (default: the
 package's folder); packages are read compressed or not. --layout compact: a
@@ -61,6 +67,7 @@ import { nativesReference, parseNotes } from './natives.ts'
 import { emptyPackage } from './writer.ts'
 import { applyScripts, backupOf, restoreOriginals } from './apply.ts'
 import { writeUpkmod } from './upkmod.ts'
+import { convertScript } from './convert.ts'
 
 const argv = process.argv.slice(2)
 const flag = (name: string): string | undefined => {
@@ -78,9 +85,36 @@ const patch = flag('--patch')
 const upkmodOut = flag('--upkmod')
 const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
 const checking = argv.includes('--check') && !!argv.splice(argv.indexOf('--check'), 1)
+const partial = argv.includes('--partial') && !!argv.splice(argv.indexOf('--partial'), 1)
+// (Repeatable: convert's prerequisites.)
+const withScripts: string[] = []
+for (let w = flag('--with'); w; w = flag('--with')) withScripts.push(w)
 const [command, file, ...rest] = argv
 
-// apply and restore work on a folder of the game's packages, not on one package.
+// apply, restore and convert work on a folder of the game's packages, not on one package.
+if (command === 'convert') {
+  if (!game || !file) {
+    console.error('convert <mod.txt> --game <folder> [--out <mod.upkmod>]: --game names the folder of the game\'s packages, without the mod')
+    process.exit(2)
+  }
+  try {
+    const r = convertScript(game, file, { partial, with: withScripts })
+    for (const n of r.notes) console.log(`note: ${n}`)
+    for (const c of r.classes) console.log(`converted ${c}`)
+    for (const u of r.unconverted) console.log(`not converted: ${u}`)
+    if (!r.text) {
+      console.log(r.classes.length ? 'nothing written (--partial writes the code all the same)' : 'nothing to convert')
+      process.exit(1)
+    }
+    const to = out ?? file.replace(/\.txt$/i, '') + '.upkmod'
+    writeFileSync(to, r.text)
+    console.log(`wrote ${to}`)
+    process.exit(0)
+  } catch (e) {
+    console.error((e as Error).message)
+    process.exit(1)
+  }
+}
 if (command === 'apply' || command === 'restore') {
   if (!game) {
     console.error(`${command}: --game <folder> names the folder of the game's packages (XComGame/CookedPCConsole)`)

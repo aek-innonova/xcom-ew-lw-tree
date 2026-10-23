@@ -151,9 +151,11 @@ export function parseUpkmod(text: string): Upkmod {
 /** Writes a .upkmod; refuses one in which PatchUPK would find a command. */
 export function formatUpkmod(mod: Omit<Upkmod, 'version'>): string {
   const out = [`upkit mod ${UPKMOD_VERSION}`]
-  if (mod.name) out.push(`name: ${mod.name}`)
-  if (mod.author) out.push(`author: ${mod.author}`)
-  if (mod.description) out.push(`description: ${mod.description}`)
+  // (A header field is one line.)
+  const line = (s: string) => s.replace(/\s*\r?\n\s*/g, ' ').trim()
+  if (mod.name) out.push(`name: ${line(mod.name)}`)
+  if (mod.author) out.push(`author: ${line(mod.author)}`)
+  if (mod.description) out.push(`description: ${line(mod.description)}`)
   const upks = [...new Set(mod.classes.map((c) => c.upk))]
   if (upks.length) out.push(`package: ${upks.join(', ')}`)
   if (mod.tested.length) out.push(`tested: ${mod.tested.join(', ')}`)
@@ -361,61 +363,120 @@ function applyAdd(text: string, h: Hunk): { text: string; status: 'change' | 'al
   return { text: lines.join('\n'), status: 'change' }
 }
 
+/**
+ * One mod's hunks for a class on its source: all found on the text as it is
+ * before them (a mod's hunks may leave it unbalanced between them: one opens
+ * a block another closes), then replaced from the last to the first; then its
+ * additions. The text they leave, and what each did.
+ */
 export function applyHunks(text: string, cls: string, hunks: Hunk[]): { text: string; results: HunkResult[] } {
-  const results: HunkResult[] = []
-  for (const h of hunks) {
-    const where = h.add ? 'add' : h.block.length ? h.block.join(' > ') : 'class'
-    if (h.add) {
-      const r = applyAdd(text, h)
-      text = r.text
-      results.push({ cls, block: where, status: r.status, note: r.note, line: h.line })
-      continue
-    }
-    const toks = tokensOf(text)
-    const { canon, at } = canonOf(toks)
+  const results: HunkResult[] = hunks.map((h) => ({ cls, block: h.add ? 'add' : h.block.length ? h.block.join(' > ') : 'class', status: 'error', line: h.line }))
+  const toks = tokensOf(text)
+  const { canon, at } = canonOf(toks)
+  const edits: { start: number; end: number; replacement: string; k: number }[] = []
+  hunks.forEach((h, k) => {
+    if (h.add) return
+    const res = results[k]!
+    const where = res.block
     const block = findBlock(text, toks, h.block)
     if (block && 'error' in block) {
-      results.push({ cls, block: where, status: 'error', note: block.error, line: h.line })
-      continue
+      res.note = block.error
+      return
     }
     // The block's tokens, as canonical positions.
-    const from = block ? at.findIndex((k) => k >= block.from) : 0
-    const toRaw = block ? at.findIndex((k) => k >= block.to) : -1
+    const from = block ? at.findIndex((x) => x >= block.from) : 0
+    const toRaw = block && block.to >= 0 ? at.findIndex((x) => x >= block.to) : -1
     const to = toRaw < 0 ? canon.length : toRaw
     const before = canonical(h.lines.filter((l) => l.k !== '+').map((l) => l.text).join('\n'))
     const after = canonical(h.lines.filter((l) => l.k !== '-').map((l) => l.text).join('\n'))
     const hits = findAll(canon, before, from, to)
     if (hits.length === 1) {
-      // Replaced: from its first token's line to its last token's line (what is before or
-      // after them on those lines kept), by the hunk's lines.
-      const first = toks[at[hits[0]!]!]!
-      const lastK = at[hits[0]! + before.length - 1]!
-      const nextPos = toks[lastK + 1]?.pos ?? text.length
-      let end = nextPos
-      while (end > 0 && /\s/.test(text[end - 1]!)) end--
-      const lineStart = text.lastIndexOf('\n', first.pos - 1) + 1
-      const prefix = text.slice(lineStart, first.pos)
-      const lineEnd = text.indexOf('\n', end)
-      const suffix = text.slice(end, lineEnd < 0 ? text.length : lineEnd)
-      const added = h.lines.filter((l) => l.k !== '-').map((l) => l.text)
-      // (Whole lines matched: the hunk's lines as they are; else what was around them kept.)
-      const whole = !prefix.trim() && !suffix.trim()
-      const replacement = whole ? added.join('\n') : `${prefix}${added.map((l) => l.trim()).join(' ')}${suffix}`
-      text = text.slice(0, lineStart) + replacement + text.slice(lineEnd < 0 ? text.length : lineEnd)
-      results.push({ cls, block: where, status: 'change', line: h.line })
-      continue
+      // Only its changes are made: each run of lines it takes away (from the first token's line
+      // to the last's) replaced by the lines it adds; lines it only adds go after the context
+      // line before them (or before the one after them). The context only finds the place.
+      const lineStart = (pos: number) => text.lastIndexOf('\n', pos - 1) + 1
+      const lineEnd = (pos: number) => {
+        const e = text.indexOf('\n', pos)
+        return e < 0 ? text.length : e
+      }
+      const tokenEnd = (k: number) => {
+        let e = toks[k + 1]?.pos ?? text.length
+        while (e > 0 && /\s/.test(text[e - 1]!)) e--
+        return e
+      }
+      let c = hits[0]! // canonical position in the text, as the hunk's anchor lines are walked
+      let lastContextEnd = -1 // where the last context line's last token ends
+      for (let n = 0; n < h.lines.length; ) {
+        const l = h.lines[n]!
+        if (l.k === ' ') {
+          const len = canonical(l.text).length
+          if (len) lastContextEnd = tokenEnd(at[c + len - 1]!)
+          c += len
+          n++
+          continue
+        }
+        // A run of changes: what it takes away, and what it adds.
+        let removed = 0
+        const added: string[] = []
+        for (; n < h.lines.length && h.lines[n]!.k !== ' '; n++) {
+          const x = h.lines[n]!
+          if (x.k === '-') removed += canonical(x.text).length
+          else added.push(x.text)
+        }
+        if (removed) {
+          const first = toks[at[c]!]!
+          const end = tokenEnd(at[c + removed - 1]!)
+          const ls = lineStart(first.pos)
+          const le = lineEnd(end)
+          const prefix = text.slice(ls, first.pos)
+          const suffix = text.slice(end, le)
+          const whole = !prefix.trim() && !suffix.trim()
+          const replacement = whole ? added.join('\n') : `${prefix}${added.map((x) => x.trim()).join(' ')}${suffix}`
+          // (Nothing added in place of whole lines: the lines go, their line break too.)
+          if (whole && !added.length) edits.push({ start: ls, end: le < text.length ? le + 1 : le, replacement: '', k })
+          else edits.push({ start: ls, end: le, replacement, k })
+          c += removed
+        } else if (added.length) {
+          // Only added: after the context line before them, or before the one after them.
+          if (lastContextEnd >= 0) {
+            const at0 = lineEnd(lastContextEnd)
+            edits.push({ start: at0, end: at0, replacement: `\n${added.join('\n')}`, k })
+          } else {
+            const next = toks[at[c]!]
+            const ls = next ? lineStart(next.pos) : text.length
+            edits.push({ start: ls, end: ls, replacement: `${added.join('\n')}\n`, k })
+          }
+        }
+      }
+      res.status = 'change'
+      return
     }
     if (hits.length > 1) {
-      results.push({ cls, block: where, status: 'error', note: `its lines are there ${hits.length} times in ${where}: it needs more context`, line: h.line })
-      continue
+      res.note = `its lines are there ${hits.length} times in ${where}: it needs more context`
+      return
     }
     if (findAll(canon, after, from, to).length === 1 && before.join(' ') !== after.join(' ')) {
-      results.push({ cls, block: where, status: 'already', line: h.line })
-      continue
+      res.status = 'already'
+      return
     }
     const shown = h.lines.filter((l) => l.k !== '+').map((l) => l.text.trim()).filter(Boolean)
-    results.push({ cls, block: where, status: 'error', note: `the lines it changes are not there as it expects in ${where} (another version, or another mod, changed them): ${shown.slice(0, 3).join(' / ')}${shown.length > 3 ? ' …' : ''}`, line: h.line })
-  }
+    res.note = `the lines it changes are not there as it expects in ${where} (another version, or another mod, changed them): ${shown.slice(0, 3).join(' / ')}${shown.length > 3 ? ' …' : ''}`
+  })
+  // Two of its hunks on the same lines: neither is applied.
+  edits.sort((a, b) => a.start - b.start || a.end - b.end)
+  for (let n = 1; n < edits.length; n++)
+    if (edits[n]!.start < edits[n - 1]!.end || (edits[n]!.start === edits[n - 1]!.start && edits[n]!.end === edits[n - 1]!.end && edits[n]!.k !== edits[n - 1]!.k))
+      for (const e of [edits[n - 1]!, edits[n]!]) Object.assign(results[e.k]!, { status: 'error', note: 'two of its hunks change the same lines' })
+  // (Its additions are made after the changes: not yet failed.)
+  if (results.some((r, k) => !hunks[k]!.add && r.status === 'error')) return { text, results }
+  for (const e of [...edits].reverse()) text = text.slice(0, e.start) + e.replacement + text.slice(e.end)
+  // Then the additions, on the text the changes leave.
+  hunks.forEach((h, k) => {
+    if (!h.add) return
+    const r = applyAdd(text, h)
+    text = r.text
+    Object.assign(results[k]!, { status: r.status, note: r.note })
+  })
   return { text, results }
 }
 
@@ -490,6 +551,10 @@ function lineOps(a: string[], b: string[]): Op[] {
 
 /** The hunks that make a class's source (as `upkit class` writes it) into the edited one. */
 export function classHunks(before: string, edited: string, context = 3): Hunk[] {
+  // (upkit's own notes in what it decompiles, "// upkit: …", are no part of a change.)
+  const notes = (t: string) => t.replace(/^[ \t]*\/\/ upkit:.*\n/gm, '')
+  before = notes(before)
+  edited = notes(edited)
   const a = before.replace(/\n$/, '').split('\n')
   const b = edited.replace(/\n$/, '').split('\n')
   const ops = lineOps(a, b)
@@ -544,7 +609,7 @@ export function classHunks(before: string, edited: string, context = 3): Hunk[] 
 }
 
 /** A class-level hunk that only adds whole declarations or blocks: as an "add" hunk, without its context. */
-function asAdd(h: Hunk): Hunk | null {
+export function asAdd(h: Hunk): Hunk | null {
   if (h.block.length || h.lines.some((l) => l.k === '-')) return null
   const added = h.lines.filter((l) => l.k === '+').map((l) => l.text)
   while (added.length && !added[0]!.trim()) added.shift()

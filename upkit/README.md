@@ -203,6 +203,33 @@ package: XComStrategyGame.upk
 - Mods apply whole or not at all, as scripts do. Options a player sets (as
   PatcherGUI's ALIAS literals) are not in the format yet.
 
+A PatchUPK mod converts to one:
+
+```sh
+node upkit.mjs convert LightningReflexes.txt --game "<packages without the mod>" --out LightningReflexes.upkmod
+node upkit.mjs convert Sightlines_EW.txt --game … --with XComMutatorEnabler.txt   # a mod it needs, applied first
+```
+
+The script is applied in memory to the folder's packages. Every class it
+changed is decompiled before and after, and the difference written as
+hunks. It is checked by applying the `.upkmod` to the same packages: every
+class must read as the script leaves it. The packages must be without the
+mod (one that reads as installed is refused). What is not code (a Flash
+movie, a texture) is listed and nothing is written, unless `--partial`. A
+script's options are taken as it has them.
+
+A conversion is faithful, so it carries what the script does in the form
+the script does it:
+- a script that replaces whole functions converts to hunks over every line
+  it rewrote, constants it wrote shorter included;
+- an edit in place keeps its padding statements;
+- a hand patch's bytes stay `__asm`.
+Such a mod fits the version it was written for. The sample mods (Lightning
+Reflexes, Soldier Gender, EXALT Reminder, Sightlines, the Mutator Enabler)
+each convert and apply there, and on the other versions refuse where those
+rewrote the same functions. A mod written as small edits from the start
+(`compile --upkmod`) travels further.
+
 `upkit apply` and the lwtree site's Tools page take `.upkmod` files beside
 PatchUPK scripts. The game's script packages (Core, Engine, XComGame …) must
 be in the folder: the classes are decompiled and compiled against them.

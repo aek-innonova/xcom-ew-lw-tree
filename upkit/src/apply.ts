@@ -38,6 +38,8 @@ export interface Applied {
   changed: string[]
   /** Whether everything fits (else nothing is written). */
   ok: boolean
+  /** Every package the scripts opened: its file, as it was (decompressed), as they leave it. */
+  packages: { file: string; plain: Uint8Array; bytes: Uint8Array }[]
 }
 
 /** The file in the folder of that name, in any case (scripts name packages as the game's ini does). */
@@ -51,7 +53,7 @@ function fileIn(folder: string, name: string): string | undefined {
  * step does, and which packages would change. With `write`, and only if all
  * fits, writes them (each original kept first).
  */
-export function applyScripts(folder: string, scripts: string[], write: boolean): Applied {
+export function applyScripts(folder: string, scripts: string[], write: boolean, start?: Map<string, Uint8Array>): Applied {
   const opened = new Map<string, Opened>()
   const open = (name: string) => {
     const key = name.toLowerCase()
@@ -60,12 +62,13 @@ export function applyScripts(folder: string, scripts: string[], write: boolean):
       if (!file) return undefined
       const original = new Uint8Array(readFileSync(join(folder, file)))
       // Compressed (whole, or in chunks): as decompressed, which is how it is written back.
-      const plain = decompress(original)
+      // (Or as given to start from: what scripts applied before left.)
+      const plain = start?.get(file.toLowerCase()) ?? decompress(original)
       opened.set(key, { file, original, plain, pkg: new ScriptPackage(plain.slice()) })
     }
     return opened.get(key)!.pkg
   }
-  const result: Applied = { scripts: [], changed: [], ok: true }
+  const result: Applied = { scripts: [], changed: [], ok: true, packages: [] }
   for (const script of scripts) {
     const dir = dirname(resolve(script))
     const readFile = (name: string) => {
@@ -86,6 +89,7 @@ export function applyScripts(folder: string, scripts: string[], write: boolean):
   for (const o of opened.values()) {
     const b = o.pkg.bytes
     if (b.length !== o.plain.length || b.some((v, i) => v !== o.plain[i])) result.changed.push(o.file)
+    result.packages.push({ file: o.file, plain: o.plain, bytes: b })
   }
   if (write && result.ok) {
     for (const o of opened.values()) {
