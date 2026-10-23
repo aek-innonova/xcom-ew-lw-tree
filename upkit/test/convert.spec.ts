@@ -75,6 +75,22 @@ describe.skipIf(!have)('PatchUPK mods converted to .upkmod', () => {
     expect(text).not.toContain('// upkit:') // (upkit's own notes are no change)
   }, 900_000)
 
+  it('--tidy: without the padding the script added and the constants it only wrote shorter; smaller, still applies', () => {
+    const plain = join(dir, 'lr-plain.upkmod')
+    const tidy = join(dir, 'lr-tidy.upkmod')
+    run('convert', mod('LightningReflexes.txt'), '--game', lw, '--out', plain)
+    const r = run('convert', mod('LightningReflexes.txt'), '--game', lw, '--out', tidy, '--tidy')
+    expect(r.out).toMatch(/note: XGAbility_Targeted, tidied: \d+ padding statements left out, 3 lines kept as the version has them/)
+    const a = readFileSync(plain, 'utf8')
+    const b = readFileSync(tidy, 'utf8')
+    expect(a).toMatch(/^\+\s*;$/m)
+    expect(b).not.toMatch(/^\+\s*;$/m)
+    expect(a).toContain('6.28319')
+    expect(b).not.toContain('6.28319')
+    expect(b.split('\n').length).toBeLessThan(a.split('\n').length * 0.8)
+    expect(run('apply', tidy, '--game', lw, '--check').out).toContain('lr-tidy.upkmod: applies')
+  }, 900_000)
+
   it('refused: on packages that have the mod already', () => {
     const lwInstalled = join(SAMPLES, 'CookedPCConsole')
     const r = run('convert', mod('LightningReflexes.txt'), '--game', lwInstalled, '--out', join(dir, 'x.upkmod'))

@@ -37,12 +37,14 @@ Commands:
                                           original kept first in upkit-backup beside the folder
                                           (XComGame/upkit-backup) (--check: only said)
   restore --game <folder>                 the originals apply kept, put back
-  convert <mod.txt> --game <folder> [--out <mod.upkmod>] [--partial] [--with <mod it needs.txt>]…
+  convert <mod.txt> --game <folder> [--out <mod.upkmod>] [--partial] [--tidy] [--with <mod it needs.txt>]…
                                           a PatchUPK mod as a .upkmod: applied (in memory) to
                                           the folder's packages, without it; every class it
                                           changes as source diffs, checked; what is not code
                                           said (--partial: the code converted all the same;
-                                          --with: mods it needs, applied first, not in it)
+                                          --with: mods it needs, applied first, not in it;
+                                          --tidy: without the script's padding statements and
+                                          constants it rewrote only to another precision)
 
 Options: --game <folder>  where the game's other packages are (default: the
 package's folder); packages are read compressed or not. --layout compact: a
@@ -86,6 +88,7 @@ const upkmodOut = flag('--upkmod')
 const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
 const checking = argv.includes('--check') && !!argv.splice(argv.indexOf('--check'), 1)
 const partial = argv.includes('--partial') && !!argv.splice(argv.indexOf('--partial'), 1)
+const tidy = argv.includes('--tidy') && !!argv.splice(argv.indexOf('--tidy'), 1)
 // (Repeatable: convert's prerequisites.)
 const withScripts: string[] = []
 for (let w = flag('--with'); w; w = flag('--with')) withScripts.push(w)
@@ -98,7 +101,7 @@ if (command === 'convert') {
     process.exit(2)
   }
   try {
-    const r = convertScript(game, file, { partial, with: withScripts })
+    const r = convertScript(game, file, { partial, with: withScripts, tidy })
     for (const n of r.notes) console.log(`note: ${n}`)
     for (const c of r.classes) console.log(`converted ${c}`)
     for (const u of r.unconverted) console.log(`not converted: ${u}`)

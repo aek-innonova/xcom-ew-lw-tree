@@ -127,3 +127,30 @@ diffs"). Committed, not deployed.
 - A tidy option (dropping padding statements, keeping constants as the
   version had them) would make converted mods smaller and travel further,
   at the price of not being byte for byte what the script makes.
+
+## Report (2026-10-23, later): --tidy
+
+The person, on the tidy option, the campaign check and staging: "all three
+sound good to me".
+
+- `upkit convert --tidy`: in the lines the mod adds or changes (the
+  original's own left alone), padding statements (`;` alone, a variable
+  alone) are left out. Where a changed line is the original's but for a float
+  constant's precision (`6.2831855` → `6.28319`), the original's is kept.
+  The conversion says how many of each, and is checked against the tidied
+  source.
+- Measured on Long War 1.0's packages:
+
+  | Mod | Plain | Tidy | On vanilla, changes not fitting (plain → tidy) | On LWR |
+  |---|---|---|---|---|
+  | Lightning Reflexes | 144 lines | 94 (24 padding, 3 constants) | 9 → 7 of 7 | 11 → 9 |
+  | Soldier Gender | 34 | 23 (11 padding) | 1 → 1 | 1 → 1 |
+  | EXALT Reminder | 112 | 112 | 1 of 8 | 3 of 5 |
+  | Sightlines (LW) | 218 | 217 | 2 of 14 | 3 of 4 |
+
+  What still does not fit is where the other version's own code differs in
+  the lines the mod touches. Examples: Long War's `AddNotice` for EXALT
+  Reminder, and a watch on `m_iMovesActionsPerformed` that only Long War has
+  for Sightlines. Tidying does not change that, as it should not.
+- Test: Lightning Reflexes tidied has no padding line and not the shortened
+  constant, is under 80% of the plain one's size, and applies.

@@ -224,7 +224,13 @@ the script does it:
   it rewrote, constants it wrote shorter included;
 - an edit in place keeps its padding statements;
 - a hand patch's bytes stay `__asm`.
-Such a mod fits the version it was written for. The sample mods (Lightning
+Such a mod fits the version it was written for. `--tidy` leaves out the
+padding statements the script added and keeps lines it rewrote only to
+another precision of a constant as the version has them: smaller (Lightning
+Reflexes: 144 lines to 94), checked against the tidied source rather than the
+script's bytes. It fits somewhat more of another version; what still does not
+fit is where that version's own code differs (Long War's own lines in EXALT
+Reminder and Sightlines). The sample mods (Lightning
 Reflexes, Soldier Gender, EXALT Reminder, Sightlines, the Mutator Enabler)
 each convert and apply there, and on the other versions refuse where those
 rewrote the same functions. A mod written as small edits from the start

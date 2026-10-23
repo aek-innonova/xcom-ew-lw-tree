@@ -524,10 +524,10 @@ export function applyUpkmodTo(
 
 // --- Writing a mod from an edited class ----------------------------------------------
 
-type Op = { k: ' ' | '-' | '+'; text: string; i: number }
+export type Op = { k: ' ' | '-' | '+'; text: string; i: number }
 
 /** The edit from one text to another, line by line, lines compared by their canonical tokens. */
-function lineOps(a: string[], b: string[]): Op[] {
+export function lineOps(a: string[], b: string[]): Op[] {
   const ka = a.map((l) => canonical(l).join(' '))
   const kb = b.map((l) => canonical(l).join(' '))
   const n = a.length
