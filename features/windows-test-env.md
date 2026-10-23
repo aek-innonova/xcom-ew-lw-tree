@@ -285,3 +285,33 @@ added when it ends. That covers:
 
 Two runs at once would remove each other's folders, so runs here go one at
 a time.
+
+## Report (2026-10-23): the bench on the mod work of these days
+
+Run before a production release (the person: "yeah go ahead"), on the
+bench as it stands. Its game is plain Enemy Within now, with XComGame.upk
+and XComStrategyGame.upk compressed whole, beside their size files. The
+site's changes of these days (upkit-apply, tools-mods-complete,
+upkit-source-mods, the two notes' fixes) had been tested on Linux only.
+
+- The checkout was brought to main, and the site and the desktop app built
+  on the VM. `npm ci` in `desktop/` had not fetched Electron's binary
+  (`dist/electron.exe` missing, "Process failed to launch!");
+  `node node_modules\electron\install.js` fetched it. Worth knowing for the
+  next run.
+- `real-install.spec.ts` on the real install, with two mods:
+  - the Mutator Enabler (a PatcherGUI script);
+  - Soldier Gender converted to a `.upkmod` (`upkit convert --tidy`).
+- **First run**:
+  - the compressed packages were written decompressed, their size files
+    removed and kept;
+  - the `.upkmod` read installed;
+  - the originals came back byte for byte.
+  - But the Enabler read "partly installed (10 of 11 changes)" after its
+    own apply. An engine bug: its AFTER_CODE ends with its BEFORE_CODE's
+    call, so the original is still found once it is applied. Applying it
+    twice put the code in twice, which PatchUPK does too. Fixed (7d7a27f):
+    a BEFORE found inside its own AFTER already there is installed. Test.
+- **Second run**: both mods installed, the originals byte for byte, and no
+  false hand edit (the setting set through the INI line); seen on the page.
+  `e2e-desktop/real-install.spec.ts` passed on Windows.
