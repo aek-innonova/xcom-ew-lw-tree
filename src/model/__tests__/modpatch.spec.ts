@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseCommands, runScript } from '../modpatch'
-import { Package } from '../upk'
+import { Package, scriptPackage } from '../upk'
 
 const root = resolve(import.meta.dirname, '../../..')
 const lwr = resolve(root, 'samples/lwr/LW Rebalance v2.06.00/CookedPCConsole')
@@ -292,5 +292,25 @@ describe.skipIf(!existsSync(lwr))('every command PatchUPK’s readme documents, 
     const entries = (p: Package) => p.exports.map((e) => [e.fullName, e.type, e.size])
     expect(theirs ? entries(new Package(theirs)) : entries(pkg)).toEqual(entries(pkg))
     expect(theirs ? theirs.length : pkg.bytes.length - 4 * 3 + 4).toBe(pkg.bytes.length - 4 * 3 + 4)
+  })
+})
+
+// A script whose modded code keeps what it replaces (the Mutator Enabler's AFTER_CODE ends with
+// its BEFORE_CODE's call): once applied, it reads installed, not as something to apply again
+// (the Windows bench, 2026-10-23: "partly installed (10 of 11 changes)").
+const ewCooked = resolve(root, 'samples/ew/CookedPCConsole')
+const enabler = resolve(root, 'samples/additional_mods/mod.files/Sightlines-1.4/XComMutatorEnabler.txt')
+describe.skipIf(!existsSync(ewCooked) || !existsSync(enabler))('a BEFORE found inside its own AFTER', () => {
+  it('the Mutator Enabler on plain Enemy Within: applied once, then installed', () => {
+    const open = (name: string) => {
+      const f = readdirSync(ewCooked).find((x) => x.toLowerCase() === name.toLowerCase())
+      return f ? scriptPackage(new Uint8Array(readFileSync(resolve(ewCooked, f)))).pkg : undefined
+    }
+    const text = readFileSync(enabler, 'latin1')
+    const first = runScript(text, { open })
+    expect(first.status).toBe('not-installed')
+    const again = runScript(text, { open: (n) => first.packages.get(n.toLowerCase())?.clone() })
+    expect(again.steps.filter((x) => x.status !== 'already')).toEqual([])
+    expect(again.status).toBe('installed')
   })
 })

@@ -697,6 +697,25 @@ export function runScript(text: string, opts: RunOptions): RunResult {
             record(c.name, 'already', c.line)
             break
           }
+          // The original found, but as part of the modded code already there (the modded code
+          // keeps what it replaces: the Mutator Enabler's AFTER_CODE ends with its BEFORE_CODE's
+          // call): there already. (PatchUPK would put the modded code in again.)
+          {
+            const at = scopeStart + rel
+            const objStart = obj ? scopeStart : 0
+            const objEnd = obj ? scopeStart + pkg!.exports[obj - 1]!.size : pkg!.bytes.length
+            for (let k = 0; k + before.data.length <= bytes.length; k++) {
+              if (!before.data.every((b, j) => bytes[k + j] === b)) continue
+              const start = at - k
+              if (start >= objStart && start + bytes.length <= objEnd && equalAt(start, bytes)) {
+                before = null
+                resetMax()
+                record(c.name, 'already', c.line)
+                break
+              }
+            }
+            if (!before) break
+          }
           const sizes = adjustedSizes(bytes.length, memSize)
           writeData(bytes, true)
           if (sizes) {
