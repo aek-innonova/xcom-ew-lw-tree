@@ -15,10 +15,12 @@ Commands:
   compile <package> <Class.Function> <file.uc> (--out <new package> | --patch <mod.txt>)
                                           an edited function (or a state's code) back into
                                           the package: a whole new package, or a mod script
-  compile <package> <Class> <Class.uc> (--out … | --patch …)
+  compile <package> <Class> <Class.uc> (--out … | --patch … | --upkmod <mod.upkmod>)
                                           what was edited in a whole class's source (as
                                           class writes it), new declarations too; a class
-                                          the package does not have: added to it
+                                          the package does not have: added to it. --upkmod:
+                                          as source diffs, a mod that fits wherever its
+                                          lines are found (upkit apply, the lwtree app)
   new <package.u> <Class.uc>…             a new script package with these classes in it
   diff <package> <other package> [filter] what the other version changed, added, took away:
                                           each changed function as a diff of its source
@@ -28,8 +30,8 @@ Commands:
   roundtrip <package> [--list]            decompile and compile every function; how many
                                           come back byte for byte (--list: which do not, and
                                           where their source and bytes part)
-  apply <mod.txt>… --game <folder> [--check]
-                                          mod scripts (PatchUPK's, PatcherGUI's) applied to the
+  apply <mod.txt|mod.upkmod>… --game <folder> [--check]
+                                          mods (PatchUPK's scripts, upkit's .upkmod) applied to the
                                           game's packages in that folder, compressed or not:
                                           each step said; written only if all of them fit, each
                                           original kept first in upkit-backup beside the folder
@@ -58,6 +60,7 @@ import { modScriptFrom } from './patch.ts'
 import { nativesReference, parseNotes } from './natives.ts'
 import { emptyPackage } from './writer.ts'
 import { applyScripts, backupOf, restoreOriginals } from './apply.ts'
+import { writeUpkmod } from './upkmod.ts'
 
 const argv = process.argv.slice(2)
 const flag = (name: string): string | undefined => {
@@ -72,6 +75,7 @@ const game = flag('--game')
 const listing = argv.includes('--list') && !!argv.splice(argv.indexOf('--list'), 1)
 const out = flag('--out')
 const patch = flag('--patch')
+const upkmodOut = flag('--upkmod')
 const layout = (flag('--layout') ?? 'keep') as 'keep' | 'compact'
 const checking = argv.includes('--check') && !!argv.splice(argv.indexOf('--check'), 1)
 const [command, file, ...rest] = argv
@@ -211,7 +215,7 @@ try {
     }
     case 'compile': {
       const [given, source] = rest
-      if (!given || !source || (!out && !patch)) usage()
+      if (!given || !source || (!out && !patch && !upkmodOut)) usage()
       // (A class named bare where the package has it inside a package object, as a seek-free package does: its path.)
       const path = pkg.find(given) ? given : classPathIn(pkg, given)
       const text = readFileSync(source, 'utf8')
@@ -251,6 +255,15 @@ try {
       if (!changes.length && !objects.length && !declared.length && !modified.length) {
         console.log(`${path}: nothing edited (the source decompiles from the package as it is)`)
         break
+      }
+      if (upkmodOut) {
+        // A mod as source diffs: the class's source against what upkit class writes.
+        if (!isClass) throw new Error(`a .upkmod is made from a class's source (upkit class ${pkgName}.upk <Class>), not from one function's`)
+        const r = writeUpkmod(linker, pkg, basename(file), [{ cls: given, text }], { name: `${given} (upkit)` })
+        writeFileSync(upkmodOut, r.text)
+        const n = r.mod.classes.reduce((k, c) => k + c.hunks.length, 0)
+        console.log(`wrote ${upkmodOut}: ${n} change${n === 1 ? '' : 's'} to ${given} as source diffs (a .upkmod: upkit apply and the lwtree app read it; PatcherGUI refuses it)`)
+        if (!out && !patch) break
       }
       const what = [...changes.map((c) => c.path), ...objects.map((r) => `${pkg.path(r)} (default properties)`)].join(', ')
       // A class's source: the whole package it makes (once; a mod script with declarations is made from it).

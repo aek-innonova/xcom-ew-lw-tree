@@ -23,9 +23,16 @@ export class Linker {
   private objects = new WeakMap<Package, Map<number, ScriptObject | null>>()
   private natives?: Map<number, Located & { fn: FunctionObj }>
 
-  /** Folders to look in for packages (the game's CookedPCConsole first). */
-  constructor(dirs: string[]) {
+  private load?: (name: string) => Uint8Array | undefined
+
+  /**
+   * Folders to look in for packages (the game's CookedPCConsole first); and,
+   * where there are no folders to read (the site, in the browser), a function
+   * that gives a package's bytes by its name.
+   */
+  constructor(dirs: string[], load?: (name: string) => Uint8Array | undefined) {
     this.dirs = dirs
+    this.load = load
   }
 
   /** Adds a package already read (named by its file name without the extension). */
@@ -44,6 +51,10 @@ export class Linker {
           const p = join(d, name + ext)
           if (!pkg && existsSync(p)) pkg = openPackage(new Uint8Array(readFileSync(p)))
         }
+      if (!pkg && this.load) {
+        const bytes = this.load(name)
+        if (bytes) pkg = openPackage(bytes)
+      }
       this.byName.set(key, pkg)
       this.given.set(key, name)
     }

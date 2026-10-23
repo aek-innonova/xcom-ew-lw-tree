@@ -15,6 +15,7 @@ import { dirname, join, resolve } from 'node:path'
 import { runScript, type Step } from '../../src/model/modpatch.ts'
 import { Package as ScriptPackage } from '../../src/model/upk.ts'
 import { decompress } from './package.ts'
+import { upkmodRunner } from './upkmodrun.ts'
 
 export const BACKUP = 'upkit-backup'
 
@@ -25,6 +26,8 @@ interface Opened {
   /** The file's name as it is in the folder. */
   file: string
   original: Uint8Array
+  /** The original as it is worked on (decompressed): a package is changed when it is no longer this. */
+  plain: Uint8Array
   pkg: ScriptPackage
 }
 
@@ -57,7 +60,8 @@ export function applyScripts(folder: string, scripts: string[], write: boolean):
       if (!file) return undefined
       const original = new Uint8Array(readFileSync(join(folder, file)))
       // Compressed (whole, or in chunks): as decompressed, which is how it is written back.
-      opened.set(key, { file, original, pkg: new ScriptPackage(decompress(original).slice()) })
+      const plain = decompress(original)
+      opened.set(key, { file, original, plain, pkg: new ScriptPackage(plain.slice()) })
     }
     return opened.get(key)!.pkg
   }
@@ -68,13 +72,20 @@ export function applyScripts(folder: string, scripts: string[], write: boolean):
       const f = join(dir, name)
       return existsSync(f) ? new Uint8Array(readFileSync(f)) : undefined
     }
-    const r = runScript(readFileSync(script, 'latin1'), { open, readFile })
+    // A .upkmod: compiled by upkit, the game's other packages read from the folder as they are now.
+    const upkmod = upkmodRunner((file) => open(file)?.bytes)
+    const r = runScript(readFileSync(script, 'latin1'), { open, readFile, upkmod })
+    // (A .upkmod leaves new package objects; a PatcherGUI script changes the ones it was given.)
+    for (const [name, pkg] of r.packages) {
+      const o = opened.get(name.toLowerCase())
+      if (o && r.status !== 'does-not-fit') o.pkg = pkg
+    }
     result.scripts.push({ script, steps: r.steps, status: r.status })
     if (r.status === 'does-not-fit') result.ok = false
   }
   for (const o of opened.values()) {
     const b = o.pkg.bytes
-    if (b.length !== o.original.length || b.some((v, i) => v !== o.original[i])) result.changed.push(o.file)
+    if (b.length !== o.plain.length || b.some((v, i) => v !== o.plain[i])) result.changed.push(o.file)
   }
   if (write && result.ok) {
     for (const o of opened.values()) {

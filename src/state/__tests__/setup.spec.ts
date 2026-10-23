@@ -337,3 +337,52 @@ describe.skipIf(!existsSync(ewGame))('a mod on a package the game ships compress
     expect(plan.problems[0]).toMatch(/^Data file mod does not fit this install .*XGUnit\.RecordKill\.Function is not there/)
   })
 })
+
+// Mods as source diffs (features/upkit-source-mods.md): a .upkmod, compiled by upkit when planned.
+const lwCooked = resolve(root, 'samples/CookedPCConsole')
+describe.skipIf(!existsSync(resolve(lwCooked, 'XComStrategyGame.upk')))('a .upkmod in a setup', () => {
+  const SCRIPT = ['Core', 'Engine', 'GameFramework', 'GFxUI', 'IpDrv', 'OnlineSubsystemSteamworks', 'XComGame', 'XComStrategyGame']
+  const start = () =>
+    memoryFiles(
+      Object.fromEntries(
+        SCRIPT.filter((n) => existsSync(resolve(lwCooked, `${n}.upk`))).map((n) => [`CookedPCConsole/${n}.upk`, read(resolve(lwCooked, `${n}.upk`))]),
+      ),
+    )
+  const mod = async (edit: (src: string) => string, name: string) => {
+    const { Linker } = await import('../../../upkit/src/linker.ts')
+    const { openPackage } = await import('../../../upkit/src/package.ts')
+    const { decompileClass } = await import('../../../upkit/src/classdecomp.ts')
+    const { writeUpkmod } = await import('../../../upkit/src/upkmod.ts')
+    const pkg = openPackage(read(resolve(lwCooked, 'XComStrategyGame.upk')))
+    const linker = new Linker([lwCooked])
+    linker.add('XComStrategyGame', pkg)
+    const src = decompileClass(linker, pkg, 'XGFacility_Labs')
+    return { label: name, text: writeUpkmod(linker, pkg, 'XComStrategyGame.upk', [{ cls: 'XGFacility_Labs', text: edit(src) }], { name }).text, values: {} }
+  }
+  const line = "m_fLabBonus = class'XComGame.XGTacticalGameCore'.default.LAB_BONUS * float("
+
+  it('planned and written; planned again, nothing to do; a mod on the same line after it: a conflict, naming it', async () => {
+    const a = await mod((s) => s.replace(line, `m_fLabBonus = 2.0 * class'XComGame.XGTacticalGameCore'.default.LAB_BONUS * float(`), 'Double labs')
+    const c = await mod((s) => s.replace(line, `m_fLabBonus = 5.0 * class'XComGame.XGTacticalGameCore'.default.LAB_BONUS * float(`), 'Five labs')
+    expect(a.text.split('\n')[0]).toBe('upkit mod 1')
+    const g = start()
+    const plan = await planSetup(g, { scripts: [a], files: [], settings: [] }, emptyManaged())
+    expect(plan.problems).toEqual([])
+    expect(plan.changes.map((x) => [x.path, x.why])).toEqual([['CookedPCConsole/XComStrategyGame.upk', ['Double labs']]])
+    await applyPlan(g, plan)
+    // The function as the mod says.
+    const { Linker } = await import('../../../upkit/src/linker.ts')
+    const { openPackage } = await import('../../../upkit/src/package.ts')
+    const { readableSource } = await import('../../../upkit/src/fidelity.ts')
+    const written = openPackage(g.map.get('CookedPCConsole/XComStrategyGame.upk')!)
+    const linker = new Linker([lwCooked])
+    linker.add('XComStrategyGame', written)
+    expect(readableSource(linker, written, written.find('XGFacility_Labs.UpdateLabBonus'))).toContain('m_fLabBonus = 2.0 * class')
+    const managed = await loadManaged(g)
+    expect((await planSetup(g, { scripts: [a], files: [], settings: [] }, managed)).changes).toEqual([])
+    // Both wanted, the second on the first one's line.
+    const both = await planSetup(g, { scripts: [a, c], files: [], settings: [] }, managed)
+    expect(both.problems).toHaveLength(1)
+    expect(both.problems[0]).toMatch(/^Five labs does not fit this install \(XComStrategyGame\.upk: XGFacility_Labs function UpdateLabBonus\(\): the lines it changes are not there as it expects .*: it changes what Double labs changed before it; it is left out\.$/)
+  }, 600_000)
+})

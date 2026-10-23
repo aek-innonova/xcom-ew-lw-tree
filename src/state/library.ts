@@ -198,7 +198,8 @@ export function modsIn(files: LibraryFile[]): LibraryMod[] {
     const parts = f.path.slice(MODS.length + 1).split('/')
     const id = parts[0]!
     const folder = parts.length > 1
-    if (!folder && !/\.txt$/i.test(id)) continue
+    // (A mod on its own: a PatcherGUI script, or a .upkmod.)
+    if (!folder && !/\.(txt|upkmod)$/i.test(id)) continue
     const m = mods.get(id) ?? { id, folder, files: [] }
     m.files.push({ ...f, rel: folder ? parts.slice(1).join('/') : id })
     mods.set(id, m)

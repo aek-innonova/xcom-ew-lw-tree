@@ -7,6 +7,8 @@
 // Assembling the patch code itself (the [REPLACEMENT_CODE] etc. sections)
 // is phase 2 of features/game-tools.md.
 
+import { isUpkmod } from './modpatch.ts'
+
 export type LiteralKind = 'b' | 'i' | 'f' | 'u' | 's' | 't'
 
 export interface ModOption {
@@ -45,6 +47,7 @@ function leadingComment(text: string): string {
 }
 
 export function parseModScript(text: string, fileName = ''): ModScript {
+  if (isUpkmod(text)) return upkmodScript(text)
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const meta: Record<string, string> = {}
   const targets: ModTarget[] = []
@@ -142,4 +145,38 @@ export function optionProblem(kind: LiteralKind, value: string): string {
   if (kind === 'u') return /^(0x[\da-f]+|\d+)$/i.test(v) ? '' : 'a whole number'
   if (kind === 'f') return /^-?\d+(\.\d+)?$/.test(v) ? '' : 'a number'
   return ''
+}
+
+/**
+ * A .upkmod as the mod's card reads it (features/upkit-source-mods.md): its
+ * header's name, author and description, and what its hunks change (the
+ * classes, and the functions and states they name) as targets. A new class
+ * is package-wide: the install does not have it.
+ */
+function upkmodScript(text: string): ModScript {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const meta: Record<string, string> = {}
+  const targets: ModTarget[] = []
+  let current: { upk: string; cls: string; isNew: boolean } | undefined
+  const add = (object: string) => {
+    if (!current) return
+    const t = targets.find((x) => x.upk === current!.upk && x.object === object)
+    if (!t) targets.push({ upk: current.upk, object, auto: true, sections: ['upkit mod'] })
+  }
+  for (const line of lines) {
+    const m = /^(name|author|description):\s*(.*)$/.exec(line)
+    if (m && !current) meta[m[1]!] = m[2]!.trim()
+    const c = /^--- (\S+) (\S+)( \(new\))?/.exec(line)
+    if (c) {
+      current = { upk: c[1]!, cls: c[2]!, isNew: !!c[3] }
+      add(current.isNew ? '' : current.cls)
+    }
+    const h = /^@@ (.*) @@/.exec(line)
+    if (h && current && !current.isNew) {
+      // The innermost block's name: "function int Foo()" → Foo, in "state S" → S.Foo.
+      const names = h[1]!.split(' > ').map((b) => /(\w+)\s*\(/.exec(b)?.[1] ?? /\bstate\s+(\w+)/i.exec(b)?.[1]).filter(Boolean)
+      if (names.length && !/^(class|add)$/.test(h[1]!.trim())) add(`${current.cls}.${names.join('.')}`)
+    }
+  }
+  return { name: meta.name ?? '', author: meta.author ?? '', description: meta.description ?? '', targets, options: [] }
 }

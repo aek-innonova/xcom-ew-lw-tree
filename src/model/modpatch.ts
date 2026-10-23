@@ -122,8 +122,15 @@ const sectionOf = (line: string) => {
   return m && SECTIONS.has(m[2]!) ? { end: !!m[1], name: m[2]! } : undefined
 }
 
-/** The packages a script works on, by their names, each once. */
+/**
+ * A mod of upkit's own (features/upkit-source-mods.md): source diffs, its
+ * first line "upkit mod <version>". PatchUPK finds nothing in it to do.
+ */
+export const isUpkmod = (text: string) => /^upkit mod \d+\s*$/.test(text.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0]!.trim())
+
+/** The packages a script works on, by their names, each once (a .upkmod's: from its class lines). */
 export function scriptPackages(text: string): string[] {
+  if (isUpkmod(text)) return [...new Set([...text.matchAll(/^--- (\S+) \S+/gm)].map((m) => m[1]!))]
   return [...new Set(parseCommands(text).filter((c) => c.name === 'UPK_FILE').map((c) => firstLine(c.value)))]
 }
 
@@ -193,6 +200,11 @@ export interface RunOptions {
   open: (upk: string) => Package | undefined
   /** A file the script names (MODDED_FILE, BULK_FILE), beside the script; undefined if there is none. */
   readFile?: (name: string) => Uint8Array | undefined
+  /**
+   * What runs a .upkmod (upkit's compiler: upkit/src/upkmodrun.ts), given by the
+   * caller where it can load it; without it a .upkmod does not fit.
+   */
+  upkmod?: (text: string, opts: RunOptions) => RunResult
   /** Values for the script's options (ALIAS name → value), replacing the script's own literal. */
   values?: Record<string, string>
 }
@@ -201,6 +213,14 @@ class StepError extends Error {}
 
 /** Carries out a script on copies of its packages; see RunResult. */
 export function runScript(text: string, opts: RunOptions): RunResult {
+  if (isUpkmod(text)) {
+    if (opts.upkmod) return opts.upkmod(text, opts)
+    return {
+      steps: [{ where: '', what: 'upkit mod', status: 'error', note: 'a .upkmod is compiled by upkit, which this check was not given', line: 1 }],
+      packages: new Map(),
+      status: 'does-not-fit',
+    }
+  }
   const commands = parseCommands(text)
   const packages = new Map<string, Package>()
   const steps: Step[] = []

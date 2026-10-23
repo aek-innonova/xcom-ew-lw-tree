@@ -9,7 +9,7 @@
 // Skipped unless an install is pointed at by env, so it runs only on the bench:
 //   LWTREE_REAL_GAME   = the folder holding XEW (…/common/XCom-Enemy-Unknown)
 // At least one of:
-//   LWTREE_REAL_MODS   = a folder of PatcherGUI .txt mod scripts to apply
+//   LWTREE_REAL_MODS   = a folder of mods to apply: PatcherGUI .txt scripts, .upkmod files
 //   LWTREE_REAL_MODFOLDER = a mod folder to add whole, with "Put its files…" on
 // Optional:
 //   LWTREE_REAL_KIND   = 'lw' (default), 'lwr' or 'ew', the version to expect
@@ -73,7 +73,7 @@ test.describe('real Long War install', () => {
 
     const scripts = MODS
       ? readdirSync(MODS)
-          .filter((f) => f.toLowerCase().endsWith('.txt'))
+          .filter((f) => /\.(txt|upkmod)$/i.test(f))
           .map((f) => join(MODS, f))
       : []
 
@@ -98,7 +98,7 @@ test.describe('real Long War install', () => {
       expect(page.locator('.status', { hasText: 'checking' })).toHaveCount(0, { timeout: 60_000 })
 
     if (scripts.length) {
-      await page.locator('input[type="file"][accept=".txt"]').setInputFiles(scripts)
+      await page.locator('input[type="file"][accept*=".txt"]').setInputFiles(scripts)
       await expect(page.locator('article.mod')).toHaveCount(scripts.length)
       await settled()
       for (const s of scripts) await page.getByLabel(`Install ${basename(s)}`).check()
@@ -150,7 +150,10 @@ test.describe('real Long War install', () => {
       console.log(`STATUS ${name}: ${status[name]}`)
     }
     // LWTREE_REAL_SHOT: the page as it reads now, to look at.
-    if (process.env.LWTREE_REAL_SHOT) await page.screenshot({ path: process.env.LWTREE_REAL_SHOT, fullPage: true })
+    if (process.env.LWTREE_REAL_SHOT) {
+      await page.locator('article.mod').first().scrollIntoViewIfNeeded()
+      await page.screenshot({ path: process.env.LWTREE_REAL_SHOT })
+    }
 
     // Put the originals back: the version alone, from the setup menu.
     const alone = page.locator('option', { hasText: 'alone, without mods or settings' })
@@ -211,7 +214,7 @@ test.describe('real Long War install', () => {
     await p1.reload()
     await p1.getByRole('button', { name: 'Tools' }).click()
     await expect(p1.locator('.facts')).toContainText('XEW')
-    await p1.locator('input[type="file"][accept=".txt"]').setInputFiles(scripts)
+    await p1.locator('input[type="file"][accept*=".txt"]').setInputFiles(scripts)
     await expect(p1.locator('article.mod')).toHaveCount(scripts.length)
     await expect(p1.locator('.status', { hasText: 'checking' })).toHaveCount(0, { timeout: 60_000 })
     for (const s of scripts) await p1.getByLabel(`Install ${basename(s)}`).check()

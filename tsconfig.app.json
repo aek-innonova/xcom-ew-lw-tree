@@ -8,7 +8,11 @@
 
     // Path mapping for cleaner imports.
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // upkit's compiler, which the Tools page loads for .upkmod mods, imports
+      // these for reading folders, which it never does in the browser.
+      "node:fs": ["./src/shims/node-fs.ts"],
+      "node:path": ["./src/shims/node-path.ts"]
     },
 
     // `vue-tsc --build` produces a .tsbuildinfo file for incremental type-checking.

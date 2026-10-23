@@ -48,7 +48,7 @@ async function onPick(e: Event) {
   const n = await addModFiles([...(input.files ?? [])])
   added.value =
     n === 0
-      ? 'Nothing added: a mod is a PatcherGUI script (a .txt with UPK_FILE lines) or a folder of mod files.'
+      ? 'Nothing added: a mod is a PatcherGUI script (a .txt with UPK_FILE lines), a .upkmod, or a folder of mod files.'
       : null
   input.value = ''
 }
@@ -316,8 +316,9 @@ const iniNote = computed(() =>
       <h3 id="mods-h">Mods</h3>
       <p v-if="tools.library" class="muted small">
         Mods live in the library folder, <code>{{ tools.library }}</code
-        >: each folder in its <code>Mods</code> is one mod, and so is a PatcherGUI script on its own
-        there. They are copied in by hand or added here; the choices, each version its own, are kept
+        >: each folder in its <code>Mods</code> is one mod, and so is a PatcherGUI script, or a
+        <code>.upkmod</code> (a mod as changes to the game's code, compiled when it goes in), on its
+        own there. They are copied in by hand or added here; the choices, each version its own, are kept
         beside them in <code>settings.json</code>. A ticked script goes into the game, with its
         options, when the setup is applied.
       </p>
@@ -328,7 +329,7 @@ const iniNote = computed(() =>
         <button type="button" @click="scriptInput?.click()">Add mod scripts</button>
         <button type="button" @click="folderInput?.click()">Add a mod folder</button>
         <button type="button" @click="openLibrary">Open the folder</button>
-        <input ref="scriptInput" type="file" multiple accept=".txt" hidden @change="onPick" />
+        <input ref="scriptInput" type="file" multiple accept=".txt,.upkmod" hidden @change="onPick" />
         <input
           ref="folderInput"
           type="file"

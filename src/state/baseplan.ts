@@ -13,10 +13,11 @@
 // have it and the app knows what it is.
 
 import { iniBytes, iniText, mergeIni, setIniValues } from '@/model/inifile'
-import { runScript, scriptPackages } from '@/model/modpatch'
+import { isUpkmod, runScript, scriptPackages } from '@/model/modpatch'
 import { scriptPackage, type Package } from '@/model/upk'
 import { applySettings } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
+import { upkmodRunnerFor } from './upkmod'
 import {
   BACKUP,
   GAME_INI,
@@ -248,17 +249,31 @@ export async function planBase(
   }
   const results = new Map<string, Package>()
   const scriptWhy = new Map<string, string[]>()
+  // .upkmod mods: compiled by upkit, with the base's script packages.
+  const upkmod = await upkmodRunnerFor(
+    wanted.scripts.map((s) => s.text),
+    async (file) => {
+      const b = await baseOf(pkgPath(lower(file)), true)
+      return 'bytes' in b ? (b.bytes ?? null) : null
+    },
+  )
   for (const s of wanted.scripts) {
     const r = runScript(s.text, {
       open: (n) => (results.get(lower(n)) ?? pkgs.get(lower(n))?.pkg)?.clone(),
       values: s.values,
       readFile: scriptFiles(s),
+      upkmod,
     })
     const err = r.steps.find((x) => x.status === 'error')
     if (err) {
-      problems.push(
-        `${s.label} does not fit ${base.name} (${err.where}: ${err.note}); it is left out.`,
-      )
+      // A .upkmod that fits the base but not after the mods before it: it conflicts with them.
+      let conflict = ''
+      if (upkmod && isUpkmod(s.text)) {
+        const alone = runScript(s.text, { open: (n) => pkgs.get(lower(n))?.pkg.clone(), readFile: scriptFiles(s), upkmod })
+        const before = scriptWhy.get(lower(err.where.split(':')[0]!.trim())) ?? []
+        if (alone.status !== 'does-not-fit' && before.length) conflict = `: it changes what ${before.join(', ')} changed before it`
+      }
+      problems.push(`${s.label} does not fit ${base.name} (${err.where}: ${err.note})${conflict}; it is left out.`)
       continue
     }
     for (const [n, pkg] of r.packages) {

@@ -11,11 +11,12 @@
 // page last wrote (the game was reinstalled, or another tool changed it), the
 // file as it now is becomes the new original.
 
-import { runScript, scriptPackages } from '@/model/modpatch'
+import { isUpkmod, runScript, scriptPackages } from '@/model/modpatch'
 import { iniBytes, iniText, mergeIni, setIniValues, type IniChange } from '@/model/inifile'
 import { scriptPackage, type Package } from '@/model/upk'
 import { applySettings, type SettingDef } from '@/model/gamesettings'
 import { hashOf, sha256, type CopySource, type GameFiles } from './gamefiles'
+import { upkmodRunnerFor } from './upkmod'
 
 export const BACKUP = 'lwtree-backup'
 export const GAME_INI = 'Config/DefaultGameCore.ini'
@@ -198,26 +199,46 @@ export async function planSetup(files: GameFiles, wanted: Wanted, managed: Manag
     bases.set(name, { path, base: o.base, current: o.current, fresh: o.fresh, ...scriptPackage(o.base) })
   }
   const results = new Map<string, Package>()
+  const cooked = await files.list('CookedPCConsole')
+  // .upkmod mods: compiled by upkit, with the game's script packages as they are originally.
+  const upkmod = await upkmodRunnerFor(
+    wanted.scripts.map((s) => s.text),
+    async (file) => {
+      const name = cooked.find((f) => lower(f) === lower(file))
+      return name ? (await original(files, `CookedPCConsole/${name}`, managed)).base : null
+    },
+  )
+  // Who changed each package so far (a .upkmod that fits the original but not after them: a conflict).
+  const changedBy = new Map<string, string[]>()
   for (const s of wanted.scripts) {
     const r = runScript(s.text, {
       open: (n) => (results.get(lower(n)) ?? bases.get(lower(n))?.pkg)?.clone(),
       values: s.values,
       readFile: scriptFiles(s),
+      upkmod,
     })
     const err = r.steps.find((x) => x.status === 'error')
     if (err) {
-      problems.push(
-        `${s.label} does not fit this install (${err.where}: ${err.note}); it is left out.`,
-      )
+      problems.push(`${s.label} does not fit this install (${err.where}: ${err.note})${conflictWith(s, err.where)}; it is left out.`)
       continue
     }
     for (const [n, pkg] of r.packages) {
       results.set(n, pkg)
-      if (r.steps.some((x) => x.status === 'change' && x.where.toLowerCase().startsWith(n)))
+      if (r.steps.some((x) => x.status === 'change' && x.where.toLowerCase().startsWith(n))) {
         reason(bases.get(n)!.path, s.label)
+        changedBy.set(n, [...(changedBy.get(n) ?? []), s.label])
+      }
     }
   }
-  const cooked = await files.list('CookedPCConsole')
+  /** For a .upkmod that fits the packages as they were before the mods ahead of it: which of them it conflicts with. */
+  function conflictWith(s: WantedScript, where: string): string {
+    if (!upkmod || !isUpkmod(s.text)) return ''
+    const alone = runScript(s.text, { open: (n) => bases.get(lower(n))?.pkg.clone(), readFile: scriptFiles(s), upkmod })
+    if (alone.status === 'does-not-fit') return ''
+    const n = lower(where.split(':')[0]!.trim())
+    const before = changedBy.get(n) ?? [...changedBy.values()].flat()
+    return before.length ? `: it changes what ${before.join(', ')} changed before it` : ''
+  }
   for (const [n, b] of bases) {
     // Unchanged by the scripts (a compressed one only read): its original as it is.
     const changed = results.get(n)?.bytes

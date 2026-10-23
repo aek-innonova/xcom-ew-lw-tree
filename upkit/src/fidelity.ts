@@ -13,6 +13,10 @@ import { readStructHead } from './objects.ts'
 import type { Package } from './package.ts'
 import { lineAt } from './parse.ts'
 
+/** An environment variable, where there is an environment (not in the browser). */
+const envOf = (name: string): string | undefined =>
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name]
+
 export interface Fidelity {
   same: boolean
   /** Where they part: the statement (0-based, in the script) and the token there in each. */
@@ -238,7 +242,7 @@ function findAsmSource(linker: Linker, pkg: Package, ref: number): string | null
   }
   // Then as few as still give the bytes: each one dropped that is not needed (the last found first).
   const minimal = (text: string) => {
-    if (process.env.UPKIT_ASM_KEEP) return text
+    if (envOf('UPKIT_ASM_KEEP')) return text
     for (const at of [...marks].reverse()) {
       marks.delete(at)
       const t = attempt(marks)
@@ -248,7 +252,7 @@ function findAsmSource(linker: Linker, pkg: Package, ref: number): string | null
     return text
   }
   let marks = new Set<number>()
-  const debug = process.env.UPKIT_ASM_DEBUG ? (m: string) => console.error(`asm ${pkg.path(ref)}: ${m}`) : null
+  const debug = envOf('UPKIT_ASM_DEBUG') ? (m: string) => console.error(`asm ${pkg.path(ref)}: ${m}`) : null
   for (let round = 0; round < 400; round++) {
     const r = attempt(marks)
     debug?.(`round ${round}, ${marks.size} marked, ${r.compiled ? 'compiled' : `error ${r.error?.message} (line ${errorLine(r) + 1})`}`)

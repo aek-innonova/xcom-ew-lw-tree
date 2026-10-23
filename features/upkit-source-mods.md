@@ -1,6 +1,6 @@
 ---
 title: "Mods as source diffs: a file type of our own (.upkmod), applied to the decompiled source and compiled against the player's own packages"
-status: planned
+status: review
 priority: 3
 dependsOn: [upkit-apply, tools-mods-complete]
 ---
@@ -182,3 +182,109 @@ it can be found wherever the function is and whatever lines come before it.)
   are missing, saying where.
 - The golden copy: the corpus decompiles to the same tokens as recorded.
 - In the game: a `.upkmod` applied by the site or `upkit apply` runs.
+
+## Report (2026-10-23)
+
+Built: upkit's side (`upkit/src/upkmod.ts`, `upkmodrun.ts`; README: "Mods as
+source diffs (.upkmod)"), the site's (Tools page, both planners, the check),
+and in the game. Committed, not deployed.
+
+### What changed
+
+- **The format**: a first line `upkit mod 1`; header fields `name`,
+  `author`, `description`, `package`, `tested`; then per class
+  `--- <package> <Class>` (or `(new)`) and hunks `@@ <block> @@`. The block
+  is a function's or state's first line, nested with ` > `, or `class`, or
+  `add` for anchorless additions.
+- **Anchors on canonical code**: tokens from upkit's lexer.
+  - Spacing, line breaks and comments do not count.
+  - Identifiers and names compare without case.
+  - Qualifiers are dropped: a name's package and outers, `self.`. This is a
+    syntactic stand-in for the spec's "names resolved": two classes of one
+    name in different packages would compare equal, which the game's
+    packages do not have.
+  - Numbers compare by value.
+  - A hunk is found once within its block, or does not fit.
+- **Additions** (variables, constants, functions, states) are `add` hunks,
+  placed where upkit prints what it compiles. They are not anchored, so they
+  port between versions.
+- **Writing** (`upkit compile … --upkmod`) works from the round trip: edit
+  compiled, result decompiled, diffed against the original. So a mod's added
+  lines are what the package shows once applied, and it reads as installed.
+  It is checked by applying it: it must make byte for byte the package
+  `--out` makes. More context is added when a hunk is not found once.
+- **Applying**: classes decompiled from the package as the run has it, hunks
+  applied in order, edited classes compiled once (keep layout). Mods apply
+  whole or not at all.
+- **The engine** (`runScript`) recognises a `.upkmod` by its first line and
+  hands it to the runner its caller gives:
+  - `upkit apply` gives upkit's, reading the game's other packages from the
+    folder;
+  - the site loads upkit's compiler only when a wanted mod is a `.upkmod`
+    (a chunk of its own, 178 kB, 56 kB gzipped), with the game's script
+    packages read first.
+- **The site**:
+  - `.upkmod` files are listed as mods (the library, the picker) with a card
+    naming the classes and functions they change;
+  - they are checked, applied and taken out like scripts;
+  - a `.upkmod` that fits the original but not after the mods before it says
+    which of them it conflicts with ("it changes what Double labs changed
+    before it").
+  - For the browser: a Vite plugin points upkit's `node:fs`/`node:path`
+    imports at stand-ins (the Linker reads no folders there), the same for
+    the app's type check; the Linker takes a function giving packages by
+    name; upkit's two `process.env` reads are guarded.
+- **Also**: `upkit apply` no longer counts a package as changed because it
+  was only opened (decompressed) for the compiler, and it takes the new
+  packages a `.upkmod` leaves. The site's test config gets an ES2023 lib.
+
+### Verified
+
+- upkit (`test/upkmod.spec.ts`):
+  - **format**: read and written; refused: another first line, version 2, a
+    PatchUPK command in it, a hunk without anchor;
+  - **canonical anchors**: spacing, case, qualifiers, `self.`, comments and
+    numbers match; another number does not;
+  - **round trip**: a mod with a new variable, a new function and a changed
+    line makes the very package `--out` makes, and applied again reads as
+    installed;
+  - **combining**: two mods in one function combine; a third on the first
+    one's line does not fit;
+  - **two versions**: one mod written on Long War 1.0 applies to LWR 2.06
+    (`AddScientists`, which LWR left as it was), and refuses where LWR
+    rewrote the lines (`GetResearchPerHour`);
+  - **classes**: a new class is added, then reads as there already; the main
+    menu's seek-free class is edited;
+  - **command line**: `compile --upkmod`, `apply` (installed the second
+    time), `restore` byte for byte; PatchUPK, given the `.upkmod`, says
+    `Bad/unknown mod file format!` and writes nothing (live with `PATCHUPK`).
+- **The golden copy** (`test/golden.spec.ts`): every class of Long War's
+  and vanilla's XComStrategyGame.upk decompiles to the canonical tokens
+  recorded. One SHA-256 per class is committed, nothing of the game's.
+- **The site** (`setup.spec.ts`): a `.upkmod` planned and written on an
+  in-memory Long War install, then nothing to do; a second mod on the same
+  line reported as conflicting with the first, by name.
+- **The desktop app**, on a stand-in Long War folder: a `.upkmod` added
+  through the picker reads "installed" once applied (its card seen), and the
+  originals are restored byte for byte (`real-install.spec.ts`, which now
+  also takes `.upkmod` files).
+- **In the game (wingpu)**: a `.upkmod` adding a variable and a function to
+  `UIInterfaceMgr` and calling it from `OnInit`, applied by `upkit apply` to
+  the shipped compressed XComGame.upk:
+  `ScriptLog: upkit .upkmod: a mod as source diffs ran (1)`. Restored,
+  hashes checked.
+- Lint, types, both builds; 258 site tests, the desktop suite (13 passed);
+  upkit's suite with PatchUPK live.
+
+### Not done (the open questions, decided for now)
+
+- **Neighbouring changes**: a hunk carries up to three context lines. Two
+  mods whose changed lines are within that distance conflict, which is
+  stricter than git's merge. `add` hunks never conflict on place.
+- **A mod that fits only in part** is refused whole.
+- **`tested:`** is read and kept, but neither the site nor `upkit apply`
+  says yet when the install is another version; that needs version names
+  both understand.
+- **Options a player sets** (as ALIAS literals) are not in the format.
+- **Matching on meaning** (the compiled statement trees) is not built. The
+  format leaves room for it: a block or hunk header could say so.

@@ -19,7 +19,7 @@ import {
   type FoundSetting,
 } from '@/model/gamesettings'
 import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
-import { runScript, scriptPackages, type RunResult, type Step } from '@/model/modpatch'
+import { isUpkmod, runScript, scriptPackages, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import {
   Package,
@@ -33,6 +33,7 @@ import {
 } from '@/model/upk'
 import { planBase, type BaseLayer, type BaseSetup } from './baseplan'
 import { loadGameImages } from './gameimages'
+import { upkmodRunnerFor } from './upkmod'
 import { desktop, desktopFiles, type BaseFound, type BaseManifest } from './desktop'
 import type { GameFiles } from './gamefiles'
 import { stored } from './idb'
@@ -393,6 +394,13 @@ export async function checkMods(): Promise<void> {
       status: 'checking',
       steps: tools.checks[checkKey(m, f)]?.steps ?? [],
     }
+  // .upkmod mods: compiled by upkit, with the install's script packages.
+  const texts = await Promise.all(scripts.map(({ f }) => f.data.text()))
+  const upkmod = await upkmodRunnerFor(texts, async (file) => {
+    const real = tools.install?.cooked.find((c) => lower(c) === lower(file))
+    return real && files ? files.read(`CookedPCConsole/${real}`) : null
+  })
+  if (run !== checkRun) return
   for (const { m, f } of scripts) {
     const text = await f.data.text()
     for (const n of upkNames(text)) await currentPackage(n)
@@ -400,10 +408,10 @@ export async function checkMods(): Promise<void> {
     const open = (n: string) => current.get(lower(n))?.clone()
     const values = m.values[f.path] ?? {}
     const readFile = scriptFiles({ files: await filesBeside(m, f) })
-    const r = runScript(text, { open, values, readFile })
+    const r = runScript(text, { open, values, readFile, upkmod })
     let status: CheckStatus = r.status
     if (status !== 'installed' && Object.keys(values).length) {
-      if (runScript(text, { open, readFile }).status === 'installed') status = 'other-values'
+      if (runScript(text, { open, readFile, upkmod }).status === 'installed') status = 'other-values'
     }
     tools.checks[checkKey(m, f)] = { status, steps: markRaw(r.steps) }
     // A mod first seen in the game counts as wanted there, in the setup of
@@ -426,6 +434,8 @@ export function fileKind(path: string, text?: string): ModFileKind {
   if (/\.(u|upk)$/.test(name)) return 'package'
   if (name.endsWith('.ini')) return 'config'
   if (name.endsWith('.txt') && text !== undefined && /^\s*UPK_FILE\s*=/m.test(text)) return 'script'
+  // A mod of upkit's own: source diffs (features/upkit-source-mods.md).
+  if (name.endsWith('.upkmod') && text !== undefined && isUpkmod(text)) return 'script'
   if (/\.(txt|md|pdf|html?)$/.test(name)) return 'doc'
   return 'other'
 }
@@ -504,7 +514,7 @@ async function loadMods(): Promise<void> {
     let readme: string | undefined
     for (const f of g.files) {
       const name = f.rel.split('/').pop()!
-      const textual = /\.(txt|md|ini)$/i.test(name)
+      const textual = /\.(txt|md|ini|upkmod)$/i.test(name)
       // Docs and other files are listed, not read.
       const bytes = textual || /\.(u|upk)$/i.test(name) ? await lib.read(f.path) : null
       const text = textual && bytes ? new TextDecoder().decode(bytes) : undefined

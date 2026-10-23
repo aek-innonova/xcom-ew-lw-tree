@@ -134,6 +134,79 @@ The engine is the one the lwtree site's Tools page uses
 documentation and from its observed behaviour, not from its code (UPKUtils is
 GPL v2).
 
+## Mods as source diffs (.upkmod)
+
+A `.upkmod` is a mod of upkit's own: changes to a class's UnrealScript, as
+unified diffs of the source `upkit class` writes, compiled against the
+player's own packages when the mod goes in.
+
+```sh
+node upkit.mjs class XComStrategyGame.upk XGFacility_Labs > XGFacility_Labs.uc
+# edit it, then
+node upkit.mjs compile XComStrategyGame.upk XGFacility_Labs XGFacility_Labs.uc --upkmod labs.upkmod
+node upkit.mjs apply labs.upkmod --game "<the game>/XComGame/CookedPCConsole"
+```
+
+```
+upkit mod 1
+name: Oppenheimer at 40
+package: XComStrategyGame.upk
+
+--- XComStrategyGame.upk XGFacility_Labs
+@@ add @@
++var int m_iUpkitSeen;
+@@ function AddScientists(int iNumScientists) @@
+         m_bGivenScientists = true;
+     }
+     STAT_AddStat(eRecap_ScientistsCollected, iNumScientists);
+-    if (m_iNumScientists >= 80)
++    if (m_iNumScientists >= 40)
+     {
+         Achieve(AT_Oppenheimer);
+     }
+```
+
+- **Where a change goes.** Each hunk names the block it is in (a function,
+  a state, nested as `state S > function F()`, `defaultproperties`, or
+  `class`) by its first line, and is found in that block by its anchor: its
+  context lines and the lines it takes away, there exactly once. No line
+  numbers, no object indices.
+- **Canonical anchors.** Anchors compare on the code, not its characters:
+  - spacing, line breaks and comments do not count;
+  - identifiers and names compare without case (UnrealScript ignores case);
+  - a qualifier naming the same object is dropped (`class'XComGame.XGUnit'`
+    is `class'XGUnit'`, `self.m_iX` is `m_iX`);
+  - numbers compare by value.
+  So a mod still finds its lines when a later upkit prints code differently.
+- **Additions** (new variables, constants, functions, states) are `add`
+  hunks, anchored on nothing: variables after the class's own, the rest before
+  its defaults, where upkit prints what it compiles. A new class is
+  `--- <package> <Class> (new)` with its whole source.
+- **Written from the round trip**: `--upkmod` compiles the edit, decompiles
+  the result and diffs that against the original. So a mod adds what the
+  package shows once it is in (a new variable where upkit prints it), reads
+  as installed there, and is checked to make exactly the package `--out`
+  makes.
+- **Several mods**, in order: each applied to the source the ones before it
+  left, then compiled. Two that change different lines of one function
+  combine. One that changes what another changed does not fit, and says so;
+  the lwtree app names the mod it conflicts with.
+- **Other versions**: a mod fits every version whose code still has its
+  anchor lines. A mod written on Long War 1.0 that changes `AddScientists`
+  applies to LWR 2.06 as well; one that changes `GetResearchPerHour`, which
+  LWR rewrote, does not, and says where.
+- **Never misread by PatchUPK.** Nothing in the format is a line PatchUPK
+  acts on, and upkit checks that when it writes one and when it reads one.
+  Given a `.upkmod`, PatchUPK (and so PatcherGUI) says
+  `Bad/unknown mod file format!` and writes nothing. A file without the first
+  line `upkit mod <version>` is a PatchUPK script, as it always was.
+- Mods apply whole or not at all, as scripts do. Options a player sets (as
+  PatcherGUI's ALIAS literals) are not in the format yet.
+
+`upkit apply` and the lwtree site's Tools page take `.upkmod` files beside
+PatchUPK scripts. The game's script packages (Core, Engine, XComGame …) must
+be in the folder: the classes are decompiled and compiled against them.
+
 ## What compiles back
 
 A function's body and its parameters' defaults, a state's code (its labels,

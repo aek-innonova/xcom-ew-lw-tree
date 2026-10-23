@@ -64,7 +64,7 @@ test('mods live in the library folder: added there, found there, choices beside 
   // Added in the app: the script goes into Mods as it is.
   const file = join(work, 'Faster.txt')
   writeFileSync(file, script('Faster Things'))
-  await page.locator('input[type="file"][accept=".txt"]').setInputFiles(file)
+  await page.locator('input[type="file"][accept*=".txt"]').setInputFiles(file)
   await expect(page.getByRole('article', { name: 'Faster Things' })).toBeVisible()
   expect(readFileSync(join(library, 'Mods', 'Faster.txt'), 'utf8')).toBe(script('Faster Things'))
 
