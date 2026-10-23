@@ -154,3 +154,23 @@ sound good to me".
   for Sightlines. Tidying does not change that, as it should not.
 - Test: Lightning Reflexes tidied has no padding line and not the shortened
   constant, is under 80% of the plain one's size, and applies.
+
+## Report (2026-10-23, later): in a campaign
+
+On wingpu, with Steam Cloud switched off there for good (the person: "maybe
+we just turn off cloud sync on wingpu permanently"), so a test campaign's
+saves reach nobody's account.
+
+- Soldier Gender, converted on vanilla's packages (its option as the script
+  has it: 100% female), applied by `upkit apply` to the shipped
+  XComGame.upk.
+- A new campaign (Normal, no tutorial): base confirmed, first mission
+  launched. Its autosave read with the app's own save reader
+  (`src/save/parse.ts`, TSoldier.kAppearance.iGender): **12 soldiers, 12
+  female**. Without the mod each is a coin flip: all twelve by chance is 1 in
+  4,096. The Skyranger and the mission showed women too.
+- The game's autosave at the launch overwrote one of the person's saves
+  (save1741, an old autosave slot). The whole SaveData folder had been
+  copied first: save1741 and profile.bin were put back, and every save
+  checked against the copy by hash (none differs, none added). The game's
+  files were restored (hash checked). Learning #176.
