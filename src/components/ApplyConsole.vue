@@ -55,6 +55,16 @@ const replaces = computed(() => {
 })
 
 const panel = ref<HTMLElement | null>(null)
+/** The list that scrolls; the buttons below it are part of the frame, always in sight. */
+const list = ref<HTMLElement | null>(null)
+// While files are written, the newest line in sight.
+watch(
+  () => [tools.log.length, lines.value.length, written.value],
+  async () => {
+    await nextTick()
+    if (list.value && (tools.busy || written.value)) list.value.scrollTop = list.value.scrollHeight
+  },
+)
 // Keyboard focus to the console when there is something to do or read.
 watch(
   () => [tools.plan, written.value],
@@ -81,53 +91,56 @@ function close() {
     aria-live="polite"
     tabindex="-1"
   >
-    <p v-for="(l, i) in lines" :key="i" class="step">
-      <span class="prompt">›</span> {{ l.replace(/…$/, '')
-      }}<span v-if="i < lines.length - 1 || !tools.busy" class="ok"> ✓</span
-      ><span v-else class="dots">…</span>
-    </p>
-    <p v-if="tools.error" class="error"><span class="prompt">!</span> {{ tools.error }}</p>
-
-    <template v-if="tools.plan && !tools.busy">
-      <p v-if="!tools.plan.changes.length" class="result ok">
-        ✓ Nothing to change: the game already has this setup<template v-if="tools.plan.base">
-          on {{ tools.plan.base }}</template
-        >.
+    <div ref="list" class="list">
+      <p v-for="(l, i) in lines" :key="i" class="step">
+        <span class="prompt">›</span> {{ l.replace(/…$/, '')
+        }}<span v-if="i < lines.length - 1 || !tools.busy" class="ok"> ✓</span
+        ><span v-else class="dots">…</span>
       </p>
-      <template v-else>
-        <p v-if="replaces" class="result switch">
-          This replaces {{ replaces.from }} in the game with {{ replaces.to }}, under its own setup.
+      <p v-if="tools.error" class="error"><span class="prompt">!</span> {{ tools.error }}</p>
+
+      <template v-if="tools.plan && !tools.busy">
+        <p v-if="!tools.plan.changes.length" class="result ok">
+          ✓ Nothing to change: the game already has this setup<template v-if="tools.plan.base">
+            on {{ tools.plan.base }}</template
+          >.
         </p>
-        <p class="result">
-          These files will change<template v-if="tools.plan.base">
-            for {{ tools.plan.base }} under this setup</template
-          >:
-        </p>
-        <ul class="changes">
-          <li v-for="c in tools.plan.changes" :key="c.path">
-            <code>{{ shown(c.path) }}</code> {{ ACTION_TEXT[c.action] }}
-            <span class="muted">: {{ c.why.join(', ') }}</span>
-            <span v-if="c.backup" class="muted"> (original kept first)</span>
-            <span v-if="c.keep?.length" class="muted">{{ keptText(c) }}</span>
-          </li>
+        <template v-else>
+          <p v-if="replaces" class="result switch">
+            This replaces {{ replaces.from }} in the game with {{ replaces.to }}, under its own
+            setup.
+          </p>
+          <p class="result">
+            These files will change<template v-if="tools.plan.base">
+              for {{ tools.plan.base }} under this setup</template
+            >:
+          </p>
+          <ul class="changes">
+            <li v-for="c in tools.plan.changes" :key="c.path">
+              <code>{{ shown(c.path) }}</code> {{ ACTION_TEXT[c.action] }}
+              <span class="muted">: {{ c.why.join(', ') }}</span>
+              <span v-if="c.backup" class="muted"> (original kept first)</span>
+              <span v-if="c.keep?.length" class="muted">{{ keptText(c) }}</span>
+            </li>
+          </ul>
+        </template>
+        <ul v-if="tools.plan.problems.length" class="problems">
+          <li v-for="p in tools.plan.problems" :key="p" class="error">{{ p }}</li>
         </ul>
+        <p v-if="tools.plan.changes.length" class="muted small before">
+          The game must be closed while these are written. Each file's original is kept in
+          <code>XComGame\{{ BACKUP }}</code> before it is first replaced, a file the app does not
+          recognise too, so the game can always go back.
+        </p>
       </template>
-      <ul v-if="tools.plan.problems.length" class="problems">
-        <li v-for="p in tools.plan.problems" :key="p" class="error">{{ p }}</li>
-      </ul>
-      <p v-if="tools.plan.changes.length" class="muted small before">
-        The game must be closed while these are written. Each file's original is kept in
-        <code>XComGame\{{ BACKUP }}</code> before it is first replaced, a file the app does not
-        recognise too, so the game can always go back.
-      </p>
-    </template>
 
-    <template v-if="written">
-      <p v-for="l in tools.log" :key="l" class="step written">
-        <span class="prompt">›</span> {{ l }}
-      </p>
-      <p class="result ok">✓ Done. The game is ready to start.</p>
-    </template>
+      <template v-if="written">
+        <p v-for="l in tools.log" :key="l" class="step written">
+          <span class="prompt">›</span> {{ l }}
+        </p>
+        <p class="result ok">✓ Done. The game is ready to start.</p>
+      </template>
+    </div>
 
     <p class="actions">
       <button
@@ -150,7 +163,10 @@ function close() {
   margin: 8px 0 2px;
   padding: 8px 12px;
   max-height: 46vh;
-  overflow-y: auto;
+  /* The list scrolls; the buttons stay at the bottom of the frame. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #050c13;
   border: 1px solid var(--node-border);
   border-radius: 4px;
@@ -159,6 +175,17 @@ function close() {
 }
 .console p {
   margin: 2px 0;
+}
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.console > .actions {
+  flex: none;
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--node-border);
 }
 .step {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;

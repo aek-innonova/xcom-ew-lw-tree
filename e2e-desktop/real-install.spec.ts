@@ -14,6 +14,7 @@
 // Optional:
 //   LWTREE_REAL_KIND   = 'lw' (default), 'lwr' or 'ew', the version to expect
 //   LWTREE_REAL_SHOT   = a .png to save the page to once the setup is in
+//   LWTREE_REAL_SHOT_DONE = a .png to save the page to as the write leaves it (its console)
 //   LWTREE_REAL_UNFIT  = comma-separated script file names expected not to fit
 import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -120,6 +121,9 @@ test.describe('real Long War install', () => {
       await soldiers.press('Enter')
     }
 
+    // (Edits by hand the game had before: the app's own writes must not add to them.)
+    const handBefore = await page.getByRole('region', { name: 'Edits by hand' }).count()
+
     // Apply.
     await page.getByRole('button', { name: 'Apply the setup…' }).click()
     const plan = page.getByRole('region', { name: 'What will change' })
@@ -129,10 +133,15 @@ test.describe('real Long War install', () => {
     // "Done" shows only once applyPlan has written every file; waiting on the
     // log text alone would match the first write and race the rest.
     await expect(plan.getByText('✓ Done.')).toBeVisible({ timeout: 60_000 })
+    // LWTREE_REAL_SHOT_DONE: the page with the console as the write leaves it, to look at.
+    if (process.env.LWTREE_REAL_SHOT_DONE) await page.screenshot({ path: process.env.LWTREE_REAL_SHOT_DONE })
     const logText = (await plan.textContent()) ?? ''
     await plan.getByRole('button', { name: 'Close' }).click()
     console.log('--- plan ---\n' + planText.trim())
     console.log('--- log ---\n' + logText.trim())
+
+    // What the app wrote is not an edit by hand (the INI line set above).
+    if (!handBefore) await expect(page.getByRole('region', { name: 'Edits by hand' })).toHaveCount(0)
 
     // Read each script's final status after applying (collect now, assert after
     // the restore, so an unexpected status can never leave the game modified).

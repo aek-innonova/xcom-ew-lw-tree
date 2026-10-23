@@ -18,7 +18,7 @@ import {
   settingsChanged,
   type FoundSetting,
 } from '@/model/gamesettings'
-import { iniEntries, iniText, type IniChange, type IniEntry } from '@/model/inifile'
+import { iniEntries, iniText, setIniValues, type IniChange, type IniEntry } from '@/model/inifile'
 import { isUpkmod, runScript, scriptPackages, type RunResult, type Step } from '@/model/modpatch'
 import { parseModScript, type ModScript } from '@/model/patchupk'
 import {
@@ -873,16 +873,20 @@ export function gameKind(): GameKind {
 async function loadGameSettings(current: string | null): Promise<void> {
   tools.gameValues = { ...setupOf().game }
   const own = await ownIni(current)
+  // The version's own file with the player's own lines set in it, as the setup writes them
+  // ("any line of DefaultGameCore.ini"): a value they set there is the one a setting shows,
+  // and the app's own write is no edit by hand.
+  const ownText = own && tools.settings.length ? setIniValues(own.text, tools.settings).text : own?.text
   const names = await itemNames()
-  tools.gameSettings = markRaw(own ? findSettings(own.text, names) : [])
+  tools.gameSettings = markRaw(ownText ? findSettings(ownText, names) : [])
   tools.gameSettingsFrom = own?.from ?? ''
   pruneSplitHalves(gameKind())
   // Hand edits: where the file differs from the version's own, other than by
   // the player's settings already. Only for the version in the game: another
   // version's own file differs from the game's everywhere they differ.
   tools.handEdits = markRaw(
-    own && current !== null && own.text !== current && gameKind() === tools.install?.kind
-      ? settingsChanged(own.text, current, names).filter(
+    ownText && current !== null && ownText !== current && gameKind() === tools.install?.kind
+      ? settingsChanged(ownText, current, names).filter(
           (c) => tools.gameValues[c.def.id] !== c.now,
         )
       : [],
