@@ -90,8 +90,7 @@ export function parseModScript(text: string, fileName = ''): ModScript {
     const value = kv[2]!.replace(/\s*\/\/.*$/, '').trim()
     const trailing = /\/\/\s?(.*)$/.exec(kv[2]!)?.[1]?.trim() ?? ''
     if (key === 'UPK_FILE') {
-      // (Without upkit's mode mark, ":UPKIT1": features/upkit-mode.md.)
-      upk = value.replace(/\s*:\s*UPKIT\d+\s*$/i, '')
+      upk = value
       current = undefined
     } else if (key === 'OBJECT') {
       const [object, mode] = value.split(':').map((s) => s.trim())

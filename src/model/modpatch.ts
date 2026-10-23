@@ -122,40 +122,9 @@ const sectionOf = (line: string) => {
   return m && SECTIONS.has(m[2]!) ? { end: !!m[1], name: m[2]! } : undefined
 }
 
-/**
- * The mode a script asks for on its package lines (features/upkit-mode.md):
- * `UPK_FILE=XComGame.upk:UPKIT1`. PatchUPK skips keys it does not know but
- * stops at a package line like that before writing anything (it looks for a
- * file of that name), so a script in the mode can never be read with
- * PatchUPK's meaning. 0: none (PatchUPK's meaning).
- */
-export const MODE_VERSION = 1
-const MODE_MARK = /^(.*?)\s*:\s*UPKIT(\d+)\s*$/i
-
-/** A package line's name, without the mode's mark; and the mode it marks (0 if none). */
-export function packageLine(value: string): { name: string; mode: number } {
-  const line = firstLine(value)
-  const m = MODE_MARK.exec(line)
-  return m ? { name: m[1]!.trim(), mode: Number(m[2]) } : { name: line, mode: 0 }
-}
-
-/** The packages a script works on, by their names (without the mode's mark), each once. */
+/** The packages a script works on, by their names, each once. */
 export function scriptPackages(text: string): string[] {
-  return [
-    ...new Set(parseCommands(text).filter((c) => c.name === 'UPK_FILE').map((c) => packageLine(c.value).name)),
-  ]
-}
-
-/** Lines that look like a key or a section the format does not have (for the mode, where they are errors). */
-function unknownCommands(text: string): { line: number; text: string }[] {
-  const out: { line: number; text: string }[] = []
-  stripComments(text).forEach((line, i) => {
-    const key = /^\s*([A-Z][A-Z_]*)\s*=/.exec(line)
-    const section = /^\s*\[\/?([A-Z][A-Z_]*)\]\s*$/.exec(line)
-    if ((key && !KEYS.has(key[1]!)) || (section && !SECTIONS.has(section[1]!)))
-      out.push({ line: i + 1, text: line.trim() })
-  })
-  return out
+  return [...new Set(parseCommands(text).filter((c) => c.name === 'UPK_FILE').map((c) => firstLine(c.value)))]
 }
 
 /** A script as PatchUPK sees it: keys (value to the next key or section) and sections. */
@@ -236,24 +205,6 @@ export function runScript(text: string, opts: RunOptions): RunResult {
   const packages = new Map<string, Package>()
   const steps: Step[] = []
   const aliases: Aliases = new Map()
-
-  // The mode, from the package lines: all of them marked alike, or none.
-  const lines = commands.filter((c) => c.name === 'UPK_FILE')
-  const modes = new Set(lines.map((c) => packageLine(c.value).mode))
-  const mode = Math.max(0, ...modes)
-  const refuse = (line: number, note: string): RunResult => ({
-    steps: [{ where: '', what: 'UPK_FILE', status: 'error', note, line }],
-    packages,
-    status: 'does-not-fit',
-  })
-  if (modes.size > 1)
-    return refuse(lines.find((c) => packageLine(c.value).mode !== mode)!.line, `some package lines ask for upkit's mode ${mode} and some do not: a patcher would apply part of it with another meaning`)
-  if (mode > MODE_VERSION)
-    return refuse(lines[0]!.line, `made for upkit's mode ${mode}; this patcher knows mode ${MODE_VERSION}`)
-  if (mode) {
-    const unknown = unknownCommands(text)
-    if (unknown.length) return refuse(unknown[0]!.line, `${unknown[0]!.text}: not a command of the format`)
-  }
 
   let pkg: Package | undefined
   let pkgName = ''
@@ -385,7 +336,7 @@ export function runScript(text: string, opts: RunOptions): RunResult {
           updateRel = firstLine(c.value).toUpperCase() === 'TRUE'
           break
         case 'UPK_FILE': {
-          pkgName = packageLine(c.value).name
+          pkgName = firstLine(c.value)
           const key = pkgName.toLowerCase()
           if (!packages.has(key)) {
             const p = opts.open(pkgName)
@@ -508,28 +459,11 @@ export function runScript(text: string, opts: RunOptions): RunResult {
           // code, and the code is written at the offset, over the byte that
           // was there. (Its readme says "insert"; mods were made against what
           // it does.) The script's sizes stay as they are.
-          // In upkit's mode: inserted, and a script's sizes grow with it.
           need()
           if (!obj) throw new StepError('INSERT_CODE outside an object')
           if (behavior === 'KEEP') throw new StepError('INSERT_CODE needs the object to grow (AUTO, MOVE or INPL)')
-          const { bytes: data, memSize } = code(c.value)
+          const data = code(c.value).bytes
           if (!data.length) break
-          if (mode) {
-            const script = pkg!.scriptOf(obj)
-            const inScript = !!script && rel >= script.relOffset && rel <= script.relOffset + script.size
-            resize(pkg!.exports[obj - 1]!.size + data.length, rel)
-            pkg!.write(scopeStart + rel, data)
-            if (inScript) {
-              const sizes = new Uint8Array(8)
-              const v = new DataView(sizes.buffer)
-              v.setInt32(0, script.memSize + memSize, true)
-              v.setInt32(4, script.size + data.length, true)
-              pkg!.write(scopeStart + script.relOffset - 8, sizes)
-            }
-            if (updateRel) rel += data.length
-            record(c.name, 'change', c.line)
-            break
-          }
           // (One byte grows nothing: it is written where the object is.)
           if (data.length > 1) resize(pkg!.exports[obj - 1]!.size + data.length - 1, rel)
           pkg!.write(scopeStart + rel, data)
@@ -762,7 +696,6 @@ export function runScript(text: string, opts: RunOptions): RunResult {
             record(`${c.name} ${name}`, 'already', c.line)
           } else {
             pkg!.addName(entry)
-            if (mode) pkg!.countInGeneration(1, 0)
             rescope()
             record(`${c.name} ${name}`, 'change', c.line)
           }
@@ -807,7 +740,6 @@ export function runScript(text: string, opts: RunOptions): RunResult {
             } catch (e) {
               throw new StepError((e as Error).message)
             }
-            if (mode) pkg!.countInGeneration(0, 1)
             rescope()
             record(`${c.name} ${fullName}`, 'change', c.line)
           }

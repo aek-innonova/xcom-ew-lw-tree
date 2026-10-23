@@ -112,3 +112,23 @@ a mod script, compiled against the player's own packages when applied. Such
 a mod fits more than one version, combines with others in one function, and
 says what does not fit in source terms. It is the first thing worth doing
 that only our patcher can do.
+
+## Report (2026-10-23): retired
+
+The person, 2026-10-23, asked whether our mode could have "an entirely
+distinct syntax … that patchupk would just treat as one big noop … so there
+is no overlap of potential for confusion", and agreed to the design that
+followed ("yeah i think that makes a lot of sense"). It is now
+`upkit-source-mods`: a file type of our own (`.upkmod`, first line
+`upkit mod <version>`) that PatchUPK refuses as a whole
+(`Bad/unknown mod file format!`, tried).
+
+So the `:UPKIT1` marker is removed: from the engine, the site's readers of
+package names, the tests and upkit's README. Nobody had used it. The
+engine reads scripts as before this feature, keeping only `scriptPackages`,
+the one list of a script's packages the site now uses. What the mode
+changed (an insert that inserts, unknown commands as errors, additions
+counted in the generation) is carried in upkit-source-mods' requirements,
+for wherever that format edits at that level. A script with the marker is
+now read as PatchUPK reads it: a package by that name, which no install
+has, so it does not fit.

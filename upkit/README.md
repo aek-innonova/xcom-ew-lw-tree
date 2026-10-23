@@ -128,30 +128,6 @@ of its own readme and no mod can depend on it:
 
 No uninstall scripts (`.uninstall.txt`) are written: the originals are kept.
 
-### upkit's mode
-
-A script can ask to be read without PatchUPK's faults, on its package lines:
-
-```
-UPK_FILE=XComGame.upk:UPKIT1
-```
-
-PatchUPK (and so PatcherGUI) stops at such a line before writing anything:
-it looks for a file of that name. A key on a line of its own would not do,
-since PatchUPK skips keys it does not know and would apply the rest with its
-own meaning. So would a patcher of ours that knows an older mode (the number
-is the mode's version). Every package line of the script carries the mark;
-a script marked in part is refused. In mode 1:
-
-- `INSERT_CODE` inserts (nothing written over), and inside a function's or
-  state's script, the script's serial and memory sizes grow with it;
-- a key or section the format does not have is an error (PatchUPK skips it:
-  a misspelt key does nothing there);
-- names and exports added are counted in the package's generation, as
-  `--out` counts them.
-
-The rest means what it means without the mode. `upkit apply` and the lwtree
-site's Tools page both read it.
 
 The engine is the one the lwtree site's Tools page uses
 (`src/model/modpatch.ts` in this repository), written from PatchUPK's

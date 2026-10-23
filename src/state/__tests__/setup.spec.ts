@@ -337,16 +337,3 @@ describe.skipIf(!existsSync(ewGame))('a mod on a package the game ships compress
     expect(plan.problems[0]).toMatch(/^Data file mod does not fit this install .*XGUnit\.RecordKill\.Function is not there/)
   })
 })
-
-describe.skipIf(!existsSync(lwr) || !existsSync(mods))('a script in upkit’s mode (UPK_FILE=…:UPKIT1)', () => {
-  it('planned on the package it names, as the same script without the mode', async () => {
-    const files = () => memoryFiles({ 'CookedPCConsole/XComGame.upk': read(`${lwr}/CookedPCConsole/XComGame.upk`) })
-    const text = readFileSync(`${mods}/Mods/LightningReflexes.txt`, 'latin1')
-    const marked = text.replace(/^(\s*UPK_FILE\s*=\s*\S+?)\s*$/gm, '$1:UPKIT1')
-    expect(marked).not.toBe(text)
-    const plan = await planSetup(files(), { scripts: [{ label: 'Lightning (mode)', text: marked, values: {} }], files: [], settings: [] }, emptyManaged())
-    expect(plan.problems).toEqual([])
-    expect(plan.changes.map((c) => c.path)).toEqual(['CookedPCConsole/XComGame.upk'])
-    expect(sha(plan.changes[0]!.data!)).toBe(LIGHTNING_PATCHUPK)
-  })
-})

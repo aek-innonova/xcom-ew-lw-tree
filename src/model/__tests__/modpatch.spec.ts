@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseCommands, runScript, scriptPackages } from '../modpatch'
+import { parseCommands, runScript } from '../modpatch'
 import { Package } from '../upk'
 
 const root = resolve(import.meta.dirname, '../../..')
@@ -292,62 +292,5 @@ describe.skipIf(!existsSync(lwr))('every command PatchUPK’s readme documents, 
     const entries = (p: Package) => p.exports.map((e) => [e.fullName, e.type, e.size])
     expect(theirs ? entries(new Package(theirs)) : entries(pkg)).toEqual(entries(pkg))
     expect(theirs ? theirs.length : pkg.bytes.length - 4 * 3 + 4).toBe(pkg.bytes.length - 4 * 3 + 4)
-  })
-})
-
-// upkit's mode (features/upkit-mode.md): asked for on the package line, read without PatchUPK's faults.
-describe.skipIf(!existsSync(lwr))('upkit’s mode: UPK_FILE=…:UPKIT1', () => {
-  const marked = (body: string) => `UPK_FILE=XComStrategyGame.upk:UPKIT1\n${body}\n`
-
-  it('PatchUPK stops at the marked package line before writing anything', () => {
-    const script = marked(`${GET_ALT}\nREL_OFFSET=0x30\nBYTE=0x0B`)
-    const original = readFileSync(resolve(lwr, 'XComStrategyGame.upk'))
-    const theirs = patchUPK(script, {})
-    expect(sha(theirs ?? original)).toBe(sha(original))
-    // Ours reads the name without the mark, and applies it.
-    expect(scriptPackages(script)).toEqual(['XComStrategyGame.upk'])
-    expect(runScript(script, { open: opener(lwr) }).status).toBe('not-installed')
-  })
-
-  it('INSERT_CODE inserts, and the script’s serial and memory sizes grow with it', () => {
-    const before = opener(lwr)('XComStrategyGame.upk')!
-    const ref = before.findObject('XGStrategyAI.GetAltWeapon', true)
-    const was = before.exportData(ref).slice()
-    const s0 = before.scriptOf(ref)!
-    const r = runScript(marked(`${GET_ALT}:AUTO\nREL_OFFSET=62\n[INSERT_CODE]\n0B <XGStrategyAI.GetAltWeapon> 0B`), { open: opener(lwr) })
-    expect(r.steps.filter((x) => x.status === 'error')).toEqual([])
-    const pkg = r.packages.get('xcomstrategygame.upk')!
-    const now = pkg.exportData(ref)
-    expect(now.length).toBe(was.length + 6)
-    // (The script's sizes, before its code, differ: below.)
-    expect([...now.subarray(0, s0.relOffset - 8), ...now.subarray(s0.relOffset, 62)]).toEqual([...was.subarray(0, s0.relOffset - 8), ...was.subarray(s0.relOffset, 62)])
-    expect([...now.subarray(62, 68)]).toEqual([0x0b, ...new Uint8Array(new Int32Array([ref]).buffer), 0x0b])
-    expect([...now.subarray(68)]).toEqual([...was.subarray(62)])
-    const s1 = pkg.scriptOf(ref)!
-    expect([s1.size, s1.memSize]).toEqual([s0.size + 6, s0.memSize + 10])
-  })
-
-  it('names and exports added are counted in the generation', () => {
-    const gen = (b: Uint8Array) => {
-      const v = new DataView(b.buffer, b.byteOffset)
-      const g = 12 + 4 + v.getInt32(12, true) + 4 + 4 * 7 + 16 + 16
-      const at = g + 4 + 12 * (v.getInt32(g, true) - 1)
-      return [v.getInt32(at, true), v.getInt32(at + 4, true)]
-    }
-    const add = '[ADD_NAME_ENTRY]\n<%i 10> <%t "UpkitMode"> <%u 0x00000000> <%u 0x00070010>'
-    const plain = runScript(`UPK_FILE=XComStrategyGame.upk\n${add}\n`, { open: opener(lwr) })
-    const mode = runScript(marked(add), { open: opener(lwr) })
-    const [e0, n0] = gen(plain.packages.get('xcomstrategygame.upk')!.bytes)
-    expect(gen(mode.packages.get('xcomstrategygame.upk')!.bytes)).toEqual([e0, n0! + 1])
-  })
-
-  it('refused: a key the format does not have, a script marked in part, a newer mode', () => {
-    const note = (text: string) => runScript(text, { open: opener(lwr) }).steps.find((x) => x.status === 'error')?.note
-    expect(note(marked(`${GET_ALT}\nREL_OFSET=0x30\nBYTE=0x0B`))).toBe('REL_OFSET=0x30: not a command of the format')
-    expect(note(marked(`${GET_ALT}\n[MODDED_HEXX]\n0B`))).toBe('[MODDED_HEXX]: not a command of the format')
-    // (Without the mode, as PatchUPK: skipped.)
-    expect(note(`UPK_FILE=XComStrategyGame.upk\n${GET_ALT}\nREL_OFSET=0x30\n`)).toBeUndefined()
-    expect(note(`UPK_FILE=XComStrategyGame.upk\n${GET_ALT}\nUPK_FILE=XComStrategyGame.upk:UPKIT1\n`)).toMatch(/^some package lines ask for upkit's mode 1 and some do not/)
-    expect(note('UPK_FILE=XComStrategyGame.upk:UPKIT2\n')).toBe("made for upkit's mode 2; this patcher knows mode 1")
   })
 })
